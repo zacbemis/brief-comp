@@ -1,0 +1,47 @@
+Vec // dynamic
+String // dynamic
+
+let mut x = Vec(int, [1, 2, 3])
+let mut y = String("Hi")
+
+enum Result<T, E> {
+  ok(T)
+  err(E)
+}
+
+Result<int, str> divide(int x, int y) {
+  if y == 0 {
+    err("Cannot divide by zero")
+  } else {
+    ok(x / y)
+  }
+}
+
+enum Option<T> {
+  some(T)
+  none
+}
+
+Option<int> find(int[] arr, int target) {
+  for i : 0..len(arr) {
+    if arr[i] == target {
+      some(i);;
+    }
+  }
+  none
+}
+
+module User
+
+struct User {
+  str name
+  int age
+}
+
+pub Result<User, str> createUser(str name, int age) {
+  if age < 0 {
+    err("Age cannot be negative")
+  } else {
+    ok(User(name, age))
+  }
+}
