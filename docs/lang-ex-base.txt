@@ -1,0 +1,109 @@
+// comment
+/* comment */
+
+bool x
+int x
+uint x
+shrt x
+ushrt x
+lng x
+ulng x
+flt x
+dub x
+chr x
+str x
+int[5]
+unit // default type
+
+let // binding cannot change
+var // binding can change
+mut // value can change
+shr // object is shared
+
+let pair = (1, 2) // tuple
+
+struct Animal {
+  int id
+  str species
+}
+
+enum Color {
+  Red
+  Green
+  Blue
+}
+
+x + y
+x - y
+x * y
+x / y
+
+x++
+y--
+x += y
+x -= y
+x *= y
+x /= y
+
+int add(int x, int y) {
+  x + y
+}
+
+add(x, y) => x + y // lambda
+
+struct User {
+  str name
+  int age
+}
+
+User take(User user) {
+  user
+}
+
+let user = User("Alice", 20)
+let newUser = take(user)
+user.name // error: user has been moved and cannot be accessed
+let shr user = User("Bob", 30)
+let newUser = take(user) // user is moved to newUser variable but can still be accessed from the original user variable
+// shared values alias unique values are moved
+
+struct Dog {
+  mut str name
+}
+
+speak(Dog dog) => "woof " + dog.name
+rename(mut Dog dog, string newName) => dog.name = newName
+// the original variable in the struct and the intialized variable must be mutable for the rename function to work
+
+EXAMPLE:
+let Milo = Dog(Milo)
+speak(Milo)
+rename(Milo, "Spark") // error: Milo is not mutable
+
+let mut Spark = Dog(Spark)
+rename(Spark, "Milo") // success
+
+enum Shape {
+  circle(flt radius)
+  rectangle(flt width, flt height)
+}
+
+flt area(Shape shape) {
+  match shape {
+    circle(r) => 3.14 * r * r
+    rectangle(w, h) => w * h
+  }
+}
+
+struct Box<T> {
+    T val
+}
+
+T unbox(Box<T> box) {
+    box.val
+}
+
+let intBox = Box(42)
+unbox(intBox) // returns 42
+
+
