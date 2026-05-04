@@ -6,24 +6,130 @@ const char *token_type_name(TokenType type) {
     return "TOK_EOF";
   case TOK_ERR:
     return "TOK_ERR";
-  case TOK_NEW_LN:
-    return "TOK_NEW_LN";
-  case TOK_LET:
-    return "TOK_LET";
-  case TOK_VAR:
-    return "TOK_VAR";
-  case TOK_SHR:
-    return "TOK_SHR";
-  case TOK_SEMI:
-    return "TOK_SEMI";
+  case TOK_NEWLINE:
+    return "TOK_NEWLINE";
   case TOK_IDENT:
     return "TOK_IDENT";
   case TOK_INT_LIT:
     return "TOK_INT_LIT";
+  case TOK_FLOAT_LIT:
+    return "TOK_FLOAT_LIT";
+  case TOK_STR_LIT:
+    return "TOK_STR_LIT";
+  case TOK_CHAR_LIT:
+    return "TOK_CHAR_LIT";
+  case TOK_BOOL_LIT:
+    return "TOK_BOOL_LIT";
+  case TOK_LET:
+    return "TOK_LET";
+  case TOK_VAR:
+    return "TOK_VAR";
+  case TOK_MUT:
+    return "TOK_MUT";
+  case TOK_SHR:
+    return "TOK_SHR";
+  case TOK_UNIT:
+    return "TOK_UNIT";
+  case TOK_BOOL:
+    return "TOK_BOOL";
+  case TOK_INT:
+    return "TOK_INT";
+  case TOK_UINT:
+    return "TOK_UINT";
+  case TOK_SHRT:
+    return "TOK_SHRT";
+  case TOK_USHRT:
+    return "TOK_USHRT";
+  case TOK_LNG:
+    return "TOK_LNG";
+  case TOK_ULNG:
+    return "TOK_ULNG";
+  case TOK_FLT:
+    return "TOK_FLT";
+  case TOK_DUB:
+    return "TOK_DUB";
+  case TOK_CHR:
+    return "TOK_CHR";
+  case TOK_STR:
+    return "TOK_STR";
+  case TOK_STRUCT:
+    return "TOK_STRUCT";
+  case TOK_ENUM:
+    return "TOK_ENUM";
   case TOK_EQUAL:
     return "TOK_EQUAL";
   case TOK_PLUS:
     return "TOK_PLUS";
+  case TOK_MINUS:
+    return "TOK_MINUS";
+  case TOK_STAR:
+    return "TOK_STAR";
+  case TOK_SLASH:
+    return "TOK_SLASH";
+  case TOK_PERCENT:
+    return "TOK_PERCENT";
+  case TOK_PLUS_PLUS:
+    return "TOK_PLUS_PLUS";
+  case TOK_MINUS_MINUS:
+    return "TOK_MINUS_MINUS";
+  case TOK_STAR_STAR:
+    return "TOK_STAR_STAR";
+  case TOK_PLUS_EQUAL:
+    return "TOK_PLUS_EQUAL";
+  case TOK_MINUS_EQUAL:
+    return "TOK_MINUS_EQUAL";
+  case TOK_STAR_EQUAL:
+    return "TOK_STAR_EQUAL";
+  case TOK_SLASH_EQUAL:
+    return "TOK_SLASH_EQUAL";
+  case TOK_PERCENT_EQUAL:
+    return "TOK_PERCENT_EQUAL";
+  case TOK_EQUAL_EQUAL:
+    return "TOK_EQUAL_EQUAL";
+  case TOK_BANG_EQUAL:
+    return "TOK_BANG_EQUAL";
+  case TOK_LESS_THAN:
+    return "TOK_LESS_THAN";
+  case TOK_LESS_THAN_EQUAL:
+    return "TOK_LESS_THAN_EQUAL";
+  case TOK_GREATER_THAN:
+    return "TOK_GREATER_THAN";
+  case TOK_GREATER_THAN_EQUAL:
+    return "TOK_GREATER_THAN_EQUAL";
+  case TOK_BANG:
+    return "TOK_BANG";
+  case TOK_AND_AND:
+    return "TOK_AND_AND";
+  case TOK_OR_OR:
+    return "TOK_OR_OR";
+  case TOK_TILDE:
+    return "TOK_TILDE";
+  case TOK_AND:
+    return "TOK_AND";
+  case TOK_OR:
+    return "TOK_OR";
+  case TOK_XOR:
+    return "TOK_XOR";
+  case TOK_LSHIFT:
+    return "TOK_LSHIFT";
+  case TOK_RSHIFT:
+    return "TOK_RSHIFT";
+  case TOK_FAT_ARROW:
+    return "TOK_FAT_ARROW";
+  case TOK_ARROW:
+    return "TOK_ARROW";
+  case TOK_RETURN:
+    return "TOK_RETURN";
+  case TOK_SEMI:
+    return "TOK_SEMI";
+  case TOK_COLON:
+    return "TOK_COLON";
+  case TOK_COMMA:
+    return "TOK_COMMA";
+  case TOK_PERIOD:
+    return "TOK_PERIOD";
+  case TOK_DOT_DOT:
+    return "TOK_DOT_DOT";
   case TOK_LPAREN:
     return "TOK_LPAREN";
   case TOK_RPAREN:
@@ -32,8 +138,10 @@ const char *token_type_name(TokenType type) {
     return "TOK_LBRACE";
   case TOK_RBRACE:
     return "TOK_RBRACE";
-  case TOK_COMMA:
-    return "TOK_COMMA";
+  case TOK_LBRACKET:
+    return "TOK_LBRACKET";
+  case TOK_RBRACKET:
+    return "TOK_RBRACKET";
   default:
     return "TOK_UNKNOWN";
   }
