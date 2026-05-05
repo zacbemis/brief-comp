@@ -108,7 +108,7 @@ int main(void) {
   TEST("type and definition keywords are distinguished from identifiers") {
     Lexer lx;
     lexer_init(&lx, "unit bool int uint shrt ushrt lng ulng flt dub chr str "
-                    "struct enum intx structed");
+                    "struct enum module pub intx structed moduleish public");
     expect(&lx, TOK_UNIT, "unit");
     expect(&lx, TOK_BOOL, "bool");
     expect(&lx, TOK_INT, "int");
@@ -123,8 +123,26 @@ int main(void) {
     expect(&lx, TOK_STR, "str");
     expect(&lx, TOK_STRUCT, "struct");
     expect(&lx, TOK_ENUM, "enum");
+    expect(&lx, TOK_MODULE, "module");
+    expect(&lx, TOK_PUB, "pub");
     expect(&lx, TOK_IDENT, "intx");
     expect(&lx, TOK_IDENT, "structed");
+    expect(&lx, TOK_IDENT, "moduleish");
+    expect(&lx, TOK_IDENT, "public");
+    expect(&lx, TOK_EOF, NULL);
+  }
+
+  TEST("control flow keywords are distinguished from identifiers") {
+    Lexer lx;
+    lexer_init(&lx, "if else for match iffy elsewhere format matched");
+    expect(&lx, TOK_IF, "if");
+    expect(&lx, TOK_ELSE, "else");
+    expect(&lx, TOK_FOR, "for");
+    expect(&lx, TOK_MATCH, "match");
+    expect(&lx, TOK_IDENT, "iffy");
+    expect(&lx, TOK_IDENT, "elsewhere");
+    expect(&lx, TOK_IDENT, "format");
+    expect(&lx, TOK_IDENT, "matched");
     expect(&lx, TOK_EOF, NULL);
   }
 
@@ -251,6 +269,91 @@ int main(void) {
     lexer_init(&lx, "@");
     Token t = lexer_next_token(&lx);
     ASSERT_EQ_INT(TOK_ERR, t.type);
+  }
+
+  TEST("if/else expression from docs") {
+    Lexer lx;
+    lexer_init(&lx, "if y == 0 { err } else { ok }");
+    expect(&lx, TOK_IF, "if");
+    expect(&lx, TOK_IDENT, "y");
+    expect(&lx, TOK_EQUAL_EQUAL, "==");
+    expect(&lx, TOK_INT_LIT, "0");
+    expect(&lx, TOK_LBRACE, "{");
+    expect(&lx, TOK_IDENT, "err");
+    expect(&lx, TOK_RBRACE, "}");
+    expect(&lx, TOK_ELSE, "else");
+    expect(&lx, TOK_LBRACE, "{");
+    expect(&lx, TOK_IDENT, "ok");
+    expect(&lx, TOK_RBRACE, "}");
+    expect(&lx, TOK_EOF, NULL);
+  }
+
+  TEST("for-range expression from docs") {
+    Lexer lx;
+    lexer_init(&lx, "for i : 0..len(arr) { }");
+    expect(&lx, TOK_FOR, "for");
+    expect(&lx, TOK_IDENT, "i");
+    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_INT_LIT, "0");
+    expect(&lx, TOK_DOT_DOT, "..");
+    expect(&lx, TOK_IDENT, "len");
+    expect(&lx, TOK_LPAREN, "(");
+    expect(&lx, TOK_IDENT, "arr");
+    expect(&lx, TOK_RPAREN, ")");
+    expect(&lx, TOK_LBRACE, "{");
+    expect(&lx, TOK_RBRACE, "}");
+    expect(&lx, TOK_EOF, NULL);
+  }
+
+  TEST("match expression with arms from docs") {
+    Lexer lx;
+    lexer_init(&lx, "match shape { circle(r) => 3.14 * r * r }");
+    expect(&lx, TOK_MATCH, "match");
+    expect(&lx, TOK_IDENT, "shape");
+    expect(&lx, TOK_LBRACE, "{");
+    expect(&lx, TOK_IDENT, "circle");
+    expect(&lx, TOK_LPAREN, "(");
+    expect(&lx, TOK_IDENT, "r");
+    expect(&lx, TOK_RPAREN, ")");
+    expect(&lx, TOK_FAT_ARROW, "=>");
+    expect(&lx, TOK_FLOAT_LIT, "3.14");
+    expect(&lx, TOK_STAR, "*");
+    expect(&lx, TOK_IDENT, "r");
+    expect(&lx, TOK_STAR, "*");
+    expect(&lx, TOK_IDENT, "r");
+    expect(&lx, TOK_RBRACE, "}");
+    expect(&lx, TOK_EOF, NULL);
+  }
+
+  TEST("module declaration and pub function from docs") {
+    Lexer lx;
+    lexer_init(&lx, "module User\npub Result<User, str> createUser");
+    expect(&lx, TOK_MODULE, "module");
+    expect(&lx, TOK_IDENT, "User");
+    expect(&lx, TOK_NEWLINE, "\n");
+    expect(&lx, TOK_PUB, "pub");
+    expect(&lx, TOK_IDENT, "Result");
+    expect(&lx, TOK_LESS_THAN, "<");
+    expect(&lx, TOK_IDENT, "User");
+    expect(&lx, TOK_COMMA, ",");
+    expect(&lx, TOK_STR, "str");
+    expect(&lx, TOK_GREATER_THAN, ">");
+    expect(&lx, TOK_IDENT, "createUser");
+    expect(&lx, TOK_EOF, NULL);
+  }
+
+  TEST("double semicolon is a single SEMI_SEMI token") {
+    Lexer lx;
+    lexer_init(&lx, "some(i);; ; ;;;");
+    expect(&lx, TOK_IDENT, "some");
+    expect(&lx, TOK_LPAREN, "(");
+    expect(&lx, TOK_IDENT, "i");
+    expect(&lx, TOK_RPAREN, ")");
+    expect(&lx, TOK_SEMI_SEMI, ";;");
+    expect(&lx, TOK_SEMI, ";");
+    expect(&lx, TOK_SEMI_SEMI, ";;");
+    expect(&lx, TOK_SEMI, ";");
+    expect(&lx, TOK_EOF, NULL);
   }
 
   TEST("function call with args tokenizes correctly") {

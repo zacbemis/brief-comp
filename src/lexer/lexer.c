@@ -95,12 +95,16 @@ static int is_digit(char c) { return c >= '0' && c <= '9'; }
 
 static TokenType identifier_type(Lexer *lexer) {
   size_t len = (size_t)(lexer->current - lexer->start);
+  if (len == 2 && memcmp(lexer->start, "if", 2) == 0)
+    return TOK_IF;
   if (len == 3 && memcmp(lexer->start, "chr", 3) == 0)
     return TOK_CHR;
   if (len == 3 && memcmp(lexer->start, "dub", 3) == 0)
     return TOK_DUB;
   if (len == 3 && memcmp(lexer->start, "flt", 3) == 0)
     return TOK_FLT;
+  if (len == 3 && memcmp(lexer->start, "for", 3) == 0)
+    return TOK_FOR;
   if (len == 3 && memcmp(lexer->start, "int", 3) == 0)
     return TOK_INT;
   if (len == 3 && memcmp(lexer->start, "let", 3) == 0)
@@ -109,20 +113,24 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_LNG;
   if (len == 3 && memcmp(lexer->start, "mut", 3) == 0)
     return TOK_MUT;
+  if (len == 3 && memcmp(lexer->start, "pub", 3) == 0)
+    return TOK_PUB;
   if (len == 3 && memcmp(lexer->start, "ret", 3) == 0)
     return TOK_RETURN;
-  if (len == 3 && memcmp(lexer->start, "var", 3) == 0)
-    return TOK_VAR;
+  if (len == 3 && memcmp(lexer->start, "shr", 3) == 0)
+    return TOK_SHR;
   if (len == 3 && memcmp(lexer->start, "str", 3) == 0)
     return TOK_STR;
+  if (len == 3 && memcmp(lexer->start, "var", 3) == 0)
+    return TOK_VAR;
   if (len == 4 && memcmp(lexer->start, "bool", 4) == 0)
     return TOK_BOOL;
+  if (len == 4 && memcmp(lexer->start, "else", 4) == 0)
+    return TOK_ELSE;
   if (len == 4 && memcmp(lexer->start, "enum", 4) == 0)
     return TOK_ENUM;
   if (len == 4 && memcmp(lexer->start, "shrt", 4) == 0)
     return TOK_SHRT;
-  if (len == 3 && memcmp(lexer->start, "shr", 3) == 0)
-    return TOK_SHR;
   if (len == 4 && memcmp(lexer->start, "true", 4) == 0)
     return TOK_BOOL_LIT;
   if (len == 4 && memcmp(lexer->start, "uint", 4) == 0)
@@ -133,8 +141,12 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_UNIT;
   if (len == 5 && memcmp(lexer->start, "false", 5) == 0)
     return TOK_BOOL_LIT;
+  if (len == 5 && memcmp(lexer->start, "match", 5) == 0)
+    return TOK_MATCH;
   if (len == 5 && memcmp(lexer->start, "ushrt", 5) == 0)
     return TOK_USHRT;
+  if (len == 6 && memcmp(lexer->start, "module", 6) == 0)
+    return TOK_MODULE;
   if (len == 6 && memcmp(lexer->start, "struct", 6) == 0)
     return TOK_STRUCT;
   return TOK_IDENT;
@@ -215,6 +227,8 @@ Token lexer_next_token(Lexer *lexer) {
   case '\'':
     return character(lexer);
   case ';':
+    if (match(lexer, ';'))
+      return make_token(lexer, TOK_SEMI_SEMI);
     return make_token(lexer, TOK_SEMI);
   case ':':
     return make_token(lexer, TOK_COLON);

@@ -40,8 +40,15 @@ typedef enum {
   // Keywords Definitions
   TOK_STRUCT, // struct
   TOK_ENUM,   // enum
+  TOK_MODULE, // module
+  TOK_PUB,    // pub
 
   // Keywords Control Flow
+  TOK_IF,    // if
+  TOK_ELSE,  // else
+  TOK_FOR,   // for
+  TOK_MATCH, // match
+
   // Arithmetic
   TOK_EQUAL,   // =
   TOK_PLUS,    // +
@@ -83,17 +90,18 @@ typedef enum {
   TOK_ARROW,     // ->
   TOK_RETURN,    // ret
 
-  TOK_SEMI,     // ;
-  TOK_COLON,    // :
-  TOK_COMMA,    // ,
-  TOK_PERIOD,   // .
-  TOK_DOT_DOT,  // ..
-  TOK_LPAREN,   // (
-  TOK_RPAREN,   // )
-  TOK_LBRACE,   // {
-  TOK_RBRACE,   // }
-  TOK_LBRACKET, // [
-  TOK_RBRACKET, // ]
+  TOK_SEMI,      // ;
+  TOK_SEMI_SEMI, // ;;
+  TOK_COLON,     // :
+  TOK_COMMA,     // ,
+  TOK_PERIOD,    // .
+  TOK_DOT_DOT,   // ..
+  TOK_LPAREN,    // (
+  TOK_RPAREN,    // )
+  TOK_LBRACE,    // {
+  TOK_RBRACE,    // }
+  TOK_LBRACKET,  // [
+  TOK_RBRACKET,  // ]
 } TokenType;
 
 typedef struct {

@@ -56,6 +56,18 @@ const char *token_type_name(TokenType type) {
     return "TOK_STRUCT";
   case TOK_ENUM:
     return "TOK_ENUM";
+  case TOK_MODULE:
+    return "TOK_MODULE";
+  case TOK_PUB:
+    return "TOK_PUB";
+  case TOK_IF:
+    return "TOK_IF";
+  case TOK_ELSE:
+    return "TOK_ELSE";
+  case TOK_FOR:
+    return "TOK_FOR";
+  case TOK_MATCH:
+    return "TOK_MATCH";
   case TOK_EQUAL:
     return "TOK_EQUAL";
   case TOK_PLUS:
@@ -122,6 +134,8 @@ const char *token_type_name(TokenType type) {
     return "TOK_RETURN";
   case TOK_SEMI:
     return "TOK_SEMI";
+  case TOK_SEMI_SEMI:
+    return "TOK_SEMI_SEMI";
   case TOK_COLON:
     return "TOK_COLON";
   case TOK_COMMA:
