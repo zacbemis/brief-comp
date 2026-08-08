@@ -42,11 +42,13 @@ typedef enum {
   TOK_ENUM,   // enum
   TOK_MODULE, // module
   TOK_PUB,    // pub
+  TOK_PRIV,   // priv
 
   // Keywords Control Flow
   TOK_IF,    // if
   TOK_ELSE,  // else
   TOK_FOR,   // for
+  TOK_WHILE, // while
   TOK_MATCH, // match
 
   // Arithmetic
@@ -88,7 +90,6 @@ typedef enum {
 
   TOK_FAT_ARROW, // =>
   TOK_ARROW,     // ->
-  TOK_RETURN,    // ret
 
   TOK_SEMI,      // ;
   TOK_SEMI_SEMI, // ;;

@@ -1,5 +1,4 @@
 #include "lexer/lexer.h"
-#include <ctype.h>
 #include <string.h>
 
 void lexer_init(Lexer *lexer, const char *source) {
@@ -115,8 +114,6 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_MUT;
   if (len == 3 && memcmp(lexer->start, "pub", 3) == 0)
     return TOK_PUB;
-  if (len == 3 && memcmp(lexer->start, "ret", 3) == 0)
-    return TOK_RETURN;
   if (len == 3 && memcmp(lexer->start, "shr", 3) == 0)
     return TOK_SHR;
   if (len == 3 && memcmp(lexer->start, "str", 3) == 0)
@@ -129,6 +126,8 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_ELSE;
   if (len == 4 && memcmp(lexer->start, "enum", 4) == 0)
     return TOK_ENUM;
+  if (len == 4 && memcmp(lexer->start, "priv", 4) == 0)
+    return TOK_PRIV;
   if (len == 4 && memcmp(lexer->start, "shrt", 4) == 0)
     return TOK_SHRT;
   if (len == 4 && memcmp(lexer->start, "true", 4) == 0)
@@ -143,6 +142,8 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_BOOL_LIT;
   if (len == 5 && memcmp(lexer->start, "match", 5) == 0)
     return TOK_MATCH;
+  if (len == 5 && memcmp(lexer->start, "while", 5) == 0)
+    return TOK_WHILE;
   if (len == 5 && memcmp(lexer->start, "ushrt", 5) == 0)
     return TOK_USHRT;
   if (len == 6 && memcmp(lexer->start, "module", 6) == 0)

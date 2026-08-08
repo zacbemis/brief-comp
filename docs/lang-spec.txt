@@ -21,21 +21,56 @@ enum Option<T> {
   some(T)
   none
 }
-
+// Using for else
+Option<int> find(int[] arr, int target) {
+  if len(arr) == 0 {
+    none
+  } else {
+    for i : 0..len(arr) {
+      if arr[i] == target {
+        break some(i)
+      }
+    } else none
+  }
+}
+// Pattern matching on args
+Option<int> find(int[] arr, int target) when len(arr) < 0 {
+  none
+}
 Option<int> find(int[] arr, int target) {
   for i : 0..len(arr) {
     if arr[i] == target {
-      some(i);;
+      break some(i)
     }
+  } else none
+}
+// Using match with a library iterator function
+Option<int> find(int[] arr, int target) {
+  match IterFindIndex(arr, let (i) => arr[i] == target) {
+    none -> none
+    some(i) -> some(i)
   }
-  none
+}
+Result<User, str> createUser(str json) {
+    let data = parseJson(json)?
+    let user = userFromData(data)?
+    validateUser(user)?
+    ok(user)
+}
+
+Result<User, str> parseJson(str json) {
+    json
+    |> parseJson?
+    |> userFromData?
+    |> validateUser?
+    |> ok
 }
 
 module User
 
 struct User {
-  str name
-  int age
+  priv mut str name
+  priv mut int age
 }
 
 pub Result<User, str> createUser(str name, int age) {
@@ -44,4 +79,22 @@ pub Result<User, str> createUser(str name, int age) {
   } else {
     ok(User(name, age))
   }
+}
+
+pub Result<User, str> validateUser(User user) {
+  if user.name == "" {
+    err("Name cannot be empty")
+  } elif user.age < 0 {
+    err("Age cannot be negative")
+  } else {
+    ok(user)
+  }
+}
+
+pub getName(User user) {
+  user.name
+}
+
+pub getAge(User user) {
+  user.age
 }

@@ -108,7 +108,8 @@ int main(void) {
   TEST("type and definition keywords are distinguished from identifiers") {
     Lexer lx;
     lexer_init(&lx, "unit bool int uint shrt ushrt lng ulng flt dub chr str "
-                    "struct enum module pub intx structed moduleish public");
+                    "struct enum module pub priv intx structed moduleish "
+                    "public private");
     expect(&lx, TOK_UNIT, "unit");
     expect(&lx, TOK_BOOL, "bool");
     expect(&lx, TOK_INT, "int");
@@ -125,23 +126,27 @@ int main(void) {
     expect(&lx, TOK_ENUM, "enum");
     expect(&lx, TOK_MODULE, "module");
     expect(&lx, TOK_PUB, "pub");
+    expect(&lx, TOK_PRIV, "priv");
     expect(&lx, TOK_IDENT, "intx");
     expect(&lx, TOK_IDENT, "structed");
     expect(&lx, TOK_IDENT, "moduleish");
     expect(&lx, TOK_IDENT, "public");
+    expect(&lx, TOK_IDENT, "private");
     expect(&lx, TOK_EOF, NULL);
   }
 
   TEST("control flow keywords are distinguished from identifiers") {
     Lexer lx;
-    lexer_init(&lx, "if else for match iffy elsewhere format matched");
+    lexer_init(&lx, "if else for while match iffy elsewhere format whiley matched");
     expect(&lx, TOK_IF, "if");
     expect(&lx, TOK_ELSE, "else");
     expect(&lx, TOK_FOR, "for");
+    expect(&lx, TOK_WHILE, "while");
     expect(&lx, TOK_MATCH, "match");
     expect(&lx, TOK_IDENT, "iffy");
     expect(&lx, TOK_IDENT, "elsewhere");
     expect(&lx, TOK_IDENT, "format");
+    expect(&lx, TOK_IDENT, "whiley");
     expect(&lx, TOK_IDENT, "matched");
     expect(&lx, TOK_EOF, NULL);
   }
@@ -177,10 +182,10 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
-  TEST("ret and boolean literals") {
+  TEST("identifiers and boolean literals") {
     Lexer lx;
     lexer_init(&lx, "ret return true false trueish");
-    expect(&lx, TOK_RETURN, "ret");
+    expect(&lx, TOK_IDENT, "ret");
     expect(&lx, TOK_IDENT, "return");
     expect(&lx, TOK_BOOL_LIT, "true");
     expect(&lx, TOK_BOOL_LIT, "false");

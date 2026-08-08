@@ -60,12 +60,16 @@ const char *token_type_name(TokenType type) {
     return "TOK_MODULE";
   case TOK_PUB:
     return "TOK_PUB";
+  case TOK_PRIV:
+    return "TOK_PRIV";
   case TOK_IF:
     return "TOK_IF";
   case TOK_ELSE:
     return "TOK_ELSE";
   case TOK_FOR:
     return "TOK_FOR";
+  case TOK_WHILE:
+    return "TOK_WHILE";
   case TOK_MATCH:
     return "TOK_MATCH";
   case TOK_EQUAL:
@@ -130,8 +134,6 @@ const char *token_type_name(TokenType type) {
     return "TOK_FAT_ARROW";
   case TOK_ARROW:
     return "TOK_ARROW";
-  case TOK_RETURN:
-    return "TOK_RETURN";
   case TOK_SEMI:
     return "TOK_SEMI";
   case TOK_SEMI_SEMI:
