@@ -54,8 +54,8 @@ mod User {
   import std.Json
 
   pub User {
-    &name: str
-    &age: int
+    name: str
+    age: int
     userVer: flt
   }
 
@@ -121,7 +121,7 @@ mod Admin {
   import User
 
   pub Admin {
-    &user: User
+    user: User
     userTier: USER_TIER
   }
 
@@ -147,7 +147,7 @@ mod UserCollection {
   import User
 
   pub UserCollection {
-    &userVec: Vec[User]
+    userVec: Vec[User]
     userVersion: flt
   }
 
