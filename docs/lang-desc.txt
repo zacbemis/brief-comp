@@ -1,0 +1,880 @@
+# Programming Language — Design Overview
+
+> **Status: Experimental language design**
+>
+> This document describes the intended design and philosophy of a new statically typed, compiled programming language. The syntax and semantics are evolving, and examples should be treated as design references rather than proof of an implemented feature.
+
+## 1. Overview
+
+This language aims to combine the **simplicity and expressiveness of modern high-level languages with the performance, predictability, and compile-time safety of systems programming languages**.
+
+Its primary goal is to reduce unnecessary complexity in application development without sacrificing control over data, memory, or program behavior.
+
+The language draws inspiration from Rust, Kotlin, Nim, functional programming, and modern strongly typed languages, but does not attempt to reproduce any one of them.
+
+Key characteristics include:
+
+- Static typing with strong type inference.
+- Concise, expression-oriented syntax.
+- Modules, structs, traits, and composition instead of class inheritance.
+- Automatic reference counting with cycle collection.
+- Lightweight borrowing and explicit mutation permissions.
+- Explicit copying of nontrivial objects.
+- Immutable data through `const`.
+- Typed symbols and exhaustive pattern matching.
+- Pipelines for transforming values and handling results.
+- Compiler-enforced recoverable error handling.
+- Declarative collection operations instead of unnecessary loops.
+- Explicit cleanup of external resources.
+
+The language should make common operations simple while keeping expensive, unsafe, or potentially failing operations visible to programmers.
+
+**Core philosophy: Make the common case concise and the dangerous case explicit.**
+
+---
+
+## 2. Design Principles
+
+### Simplicity over complexity
+
+The language should avoid introducing multiple ways to accomplish the same task without a meaningful semantic benefit.
+
+Complexity should be managed by the compiler whenever it can do so safely and predictably.
+
+For example, programmers should not manually manage reference counts, write repetitive collection loops, or implement dozens of forwarding methods for related types.
+
+### Expressiveness without hidden behavior
+
+APIs should clearly communicate important behavior, including mutation, error conditions, and expensive copying.
+
+However, internal implementation details should remain encapsulated.
+
+The programmer should understand what an operation guarantees without needing to understand how it is implemented.
+
+### Compile-time safety
+
+The compiler should detect as many mistakes as reasonably possible, including:
+
+- Type mismatches.
+- Unhandled recoverable errors.
+- Nonexhaustive pattern matching.
+- Invalid mutable borrowing.
+- Mutation of immutable data.
+- Unauthorized access to private fields.
+- Incorrect trait implementations.
+- Invalid error propagation.
+
+Safety should not require programmers to write excessive boilerplate.
+
+### Composition over inheritance
+
+The language does not use traditional class inheritance.
+
+Instead, functionality is shared through traits, generic programming, and composition.
+
+Types can reuse behavior without becoming subtypes of one another.
+
+### Performance without manual memory management
+
+The language targets native compilation and efficient runtime behavior.
+
+Programmers should not need to manually allocate and release ordinary objects. Memory-management operations are inserted and optimized by the compiler.
+
+Potentially expensive object copies must be explicit.
+
+---
+
+## 3. Basic Syntax and Types
+
+### Primitive types
+
+The language currently proposes the following primitive types:
+
+| Type | Meaning |
+|---|---|
+| `bool` | Boolean |
+| `int` / `uint` | Signed / unsigned integer |
+| `shrt` / `ushrt` | Short signed / unsigned integer |
+| `lng` / `ulng` | Long signed / unsigned integer |
+| `flt` | Floating-point number |
+| `dub` | Double-precision floating-point number |
+| `chr` | Character |
+| `str` | String |
+
+Exact numeric widths, overflow behavior, and string representation are not yet finalized.
+
+### Variable declarations
+
+The language distinguishes binding mutability from data mutability.
+
+| Declaration | Binding | Data |
+|---|---|---|
+| `let` | Immutable | Mutable |
+| `var` | Mutable | Mutable |
+| `const` | Immutable | Immutable |
+
+Examples:
+
+```
+let user = User.new("Bob", 20)!
+var counter = 0
+const MAX_USERS = 100
+```
+
+`let` prevents reassigning the variable, but does not inherently make the referenced object immutable.
+
+`var` allows the binding to be reassigned.
+
+`const` provides immutable data in addition to an immutable binding.
+
+The previous `const var` combination has been removed from the current design.
+
+### Arrays and collections
+
+Proposed syntax includes:
+
+```
+int[5]            // Fixed-size array
+Vec[int]          // Dynamic vector
+Vec[User]         // Vector of User objects
+```
+
+The exact relationship between array shorthand such as `User[]` and generic collections is still under consideration.
+
+---
+
+## 4. Functions
+
+Functions are declared without a `fn` or `function` keyword.
+
+```
+add(x: int, y: int): int {
+  x + y
+}
+```
+
+The last expression is implicitly returned.
+
+Explicit returns use `ret`.
+
+```
+validate(age: int): bool {
+  if age < 18 {
+    ret false
+  }
+
+  true
+}
+```
+
+Anonymous functions use arrow syntax:
+
+```
+let add = (x: int, y: int) => x + y
+```
+
+The language is expression-oriented wherever practical.
+
+Functions can accept objects, borrow mutable objects, return typed symbols, and participate in pipelines.
+
+---
+
+## 5. Structs, Modules, and Encapsulation
+
+Objects are defined using a concise struct-like syntax.
+
+```
+pub User {
+  name: str
+  age: int
+  userVer: flt
+}
+```
+
+Fields are private by default.
+
+The `pub` keyword controls visibility outside the defining module.
+
+Making a type public does not automatically make its fields public.
+
+Modules provide the primary privacy boundary, inspired by Rust.
+
+```
+mod User {
+  pub User {
+    name: str
+    age: int
+  }
+
+  impl User {
+    pub new(name: str, age: int): User {
+      User {
+        name: name
+        age: age
+      }
+    }
+  }
+}
+```
+
+Code outside the module can use the public `User` type and call its public functions, but cannot directly initialize or modify private fields.
+
+### Constructors
+
+Constructors are ordinary associated functions, conventionally named `new`.
+
+They are not required to have special object-oriented inheritance behavior.
+
+```
+pub new(name: str, age: int): Sym<:ok(User), :err(str)> {
+  if age < 18 {
+    ret :err("Age is too low")
+  }
+
+  :ok(User {
+    name: name
+    age: age
+  })
+}
+```
+
+Constructors may validate data and enforce invariants.
+
+Fallible construction is represented explicitly through typed return symbols.
+
+The language favors named functions for operations with meaningful external side effects, such as opening files or establishing network connections.
+
+---
+
+## 6. Traits and Composition
+
+The language does not support traditional class inheritance.
+
+Instead, traits define shared capabilities and reusable default behavior.
+
+Traits may contain both required methods and methods with default implementations.
+
+### Example: shared user behavior
+
+```
+pub trait HasUser {
+  getUser(value: Self): User
+
+  pub getName(value: Self): str {
+    value.getUser().name
+  }
+
+  pub getAge(value: Self): int {
+    value.getUser().age
+  }
+
+  pub getAgeRange(value: Self): Sym<:adult, :senior> {
+    value.getAge() |> {
+      < 100 => :adult
+      >= 100 => :senior
+    }
+  }
+}
+```
+
+`Self` represents the concrete type implementing the trait.
+
+A type implementing `HasUser` only needs to provide the required `getUser()` function to receive the default methods.
+
+```
+impl User: HasUser {
+  getUser(user: User): User {
+    user
+  }
+}
+```
+
+A composed type can reuse the behavior:
+
+```
+pub Admin {
+  user: User
+  tier: int
+}
+
+impl Admin: HasUser {
+  getUser(admin: Admin): User {
+    admin.user
+  }
+}
+```
+
+Now both `User` and `Admin` support:
+
+```
+user.getName()
+admin.getName()
+
+user.getAge()
+admin.getAge()
+```
+
+This avoids repeated method implementations and artificial inheritance hierarchies.
+
+### Overriding default behavior
+
+The `ovr` keyword explicitly replaces a trait's default implementation.
+
+```
+impl Admin: HasUser {
+  getUser(admin: Admin): User {
+    admin.user
+  }
+
+  ovr pub getName(admin: Admin): str {
+    "Admin: " + admin.user.getName()
+  }
+}
+```
+
+Default trait methods calling other trait methods should resolve to the implementing type's applicable implementation, including overrides.
+
+Trait-method conflicts and implementation coherence rules still require further specification.
+
+### Generics
+
+Generic types and trait-constrained implementations are planned as the primary mechanism for reusing algorithms across different types.
+
+Proposed syntax:
+
+```
+pub Collection[T] {
+  items: Vec[T]
+}
+
+impl[T: HasUser] Collection[T] {
+  // Functions available when T implements HasUser
+}
+```
+
+Generics do not imply inheritance or automatically allow unrelated concrete types to be stored interchangeably.
+
+---
+
+## 7. Symbols (`Sym`)
+
+One of the language's central features is its typed symbol system.
+
+`Sym` is a tagged union that can represent multiple possible outcomes.
+
+```
+Sym<:ok(User), :err(str)>
+```
+
+A function returning this type can produce either:
+
+```
+:ok(user)
+:err("Invalid user")
+```
+
+Symbols can also carry no payload.
+
+```
+Sym<:found(User), :missing>
+```
+
+They are not exclusively an error-handling mechanism.
+
+For example:
+
+```
+Sym<:negative, :adult, :senior>
+```
+
+can represent a classification.
+
+### Why symbols exist
+
+The language aims to use one consistent mechanism for:
+
+- Recoverable errors.
+- Optional values.
+- Tagged alternatives.
+- State representation.
+- Pattern matching.
+- Typed operation outcomes.
+
+This reduces the need for separate `Result`, `Option`, exception, and ad hoc status-code systems.
+
+### Error handling
+
+Functions returning recoverable errors must expose them through their types.
+
+The compiler should prevent those errors from being silently discarded.
+
+Three primary mechanisms are available.
+
+**Propagation using `?`:**
+
+```
+let user = User.new("Bob", 20)?
+```
+
+On success, `?` extracts the value.
+
+On failure, it propagates the non-success outcome to the enclosing function. The enclosing function must declare compatible outcomes.
+
+**Explicit panic using `!`:**
+
+```
+let user = User.new("Bob", 20)!
+```
+
+This extracts the successful value or panics on failure.
+
+**Explicit matching:**
+
+```
+User.new("Bob", 20) |> {
+  :ok(user) => print(user.getName())
+  :err(error) => print(error)
+}
+```
+
+The compiler should require acknowledgement of all possible outcomes when exhaustiveness is required.
+
+### Composable error variants
+
+The language is exploring a way to reuse predefined symbol groups in other return types.
+
+For example:
+
+```
+Sym<:ok(User), Json.sym(), :invalidAge(int)>
+```
+
+The intention is to compose error variants without repeatedly listing every possible JSON error.
+
+The exact syntax, flattening rules, and duplicate-symbol behavior remain under design.
+
+---
+
+## 8. Pipelines and Pattern Matching
+
+The pipeline operator is:
+
+```
+|>
+```
+
+**The pipeline evaluates its left expression and passes the resulting value into the expression or block on the right.**
+
+The pipeline itself does not automatically unwrap symbols.
+
+### Value transformations
+
+```
+10 |> {
+  (x) => x * 2
+}
+```
+
+### Pattern matching
+
+```
+age |> {
+  < 18 => "Minor"
+  18..<100 => "Adult"
+  >= 100 => "Senior"
+}
+```
+
+### Symbol matching
+
+```
+users.find(predicate) |> {
+  :ok(user) => :found(user)
+  :none => :missing
+}
+```
+
+Pattern arms can destructure payloads.
+
+```
+:ok(user) => user.getName()
+```
+
+Patterns are evaluated in order, and the first applicable pattern is selected.
+
+### Exhaustiveness
+
+When pattern matching is used to produce a value, every possible outcome should be covered.
+
+The compiler can use the input type and known symbol variants to verify exhaustiveness.
+
+Partial matching may be permitted in statement contexts, but must not become a way to silently discard recoverable errors.
+
+The exact control-flow rules for partial matching and fallthrough are still being defined.
+
+---
+
+## 9. Declarative Collection Operations
+
+The language emphasizes higher-level collection operations instead of requiring programmers to manually write loops for common tasks.
+
+The planned operation family includes:
+
+- `find` — Find a matching element.
+- `filter` — Select elements satisfying a condition.
+- `select` / `map` — Transform elements.
+- `update` — Modify matching elements.
+- `remove` — Remove matching elements.
+- `add` — Add elements to a collection.
+
+Example:
+
+```
+let adults = users.filter((user) => user.getAge() >= 18)
+
+let names = users.map((user) => user.getName())
+
+let bob = users.find((user) => user.getName() == "Bob")
+```
+
+Collection operations should be composable and work naturally with pipelines.
+
+For example:
+
+```
+pub findByName(collection: UserCollection, name: str):
+  Sym<:found(User), :missing> {
+
+  collection.userVec.find(
+    (user) => user.getName() == name
+  ) |> {
+    :ok(user) => :found(user)
+    :none => :missing
+  }
+}
+```
+
+Traditional loops remain available for cases where they are clearer or more appropriate.
+
+The language should not force all control flow into functional abstractions.
+
+Collection behavior must eventually define aliasing, mutation during iteration, ownership of returned elements, and whether operations allocate new collections.
+
+---
+
+## 10. Memory Management
+
+The language uses **Nim-inspired ORC (automatic reference counting with cycle collection)**.
+
+The goal is predictable, efficient memory management without requiring programmers to manually allocate and release ordinary objects.
+
+### Reference semantics
+
+Objects use shared-reference semantics by default.
+
+```
+let user = User.new("Bob", 20)!
+let other = user
+```
+
+Both variables refer to the same underlying object.
+
+This does not duplicate the entire object.
+
+The compiler automatically manages reference counts.
+
+### Copying
+
+Lightweight value types, such as primitives, are copied implicitly.
+
+```
+let a = 10
+let b = a
+```
+
+For larger objects, independent duplication requires an explicit operation.
+
+```
+let copy = user.clone()
+```
+
+`.clone()` is intended to produce an independent copy, rather than merely incrementing a reference count.
+
+The precise shallow/deep-copy behavior for nested references is still being specified. Cloning for immutable snapshots must not leave mutable aliases capable of changing supposedly immutable data.
+
+### Reference counting
+
+The compiler inserts and optimizes reference-count operations.
+
+Programmers do not manually call `retain()` or `release()`.
+
+The compiler may eliminate unnecessary operations through ownership transfer, escape analysis, and lifetime analysis.
+
+### Cycle collection
+
+Ordinary reference counting cannot reclaim unreachable objects that strongly reference one another.
+
+The language addresses this through an automatic cycle collector inspired by Nim ORC.
+
+This allows cyclic object graphs to be reclaimed without requiring programmers to manually break every cycle.
+
+Weak references may also be provided for explicitly non-owning relationships.
+
+### Current concurrency scope
+
+The initial language design targets single-threaded execution.
+
+Multithreaded ARC, synchronization, and cross-thread borrowing rules are intentionally deferred.
+
+---
+
+## 11. Borrowing and Mutation
+
+The language uses lightweight borrowing rules rather than requiring programmers to manage ownership manually.
+
+### Immutable borrow
+
+An ordinary object parameter represents immutable borrowed access.
+
+```
+getAge(user: User): int {
+  user.age
+}
+```
+
+The function can inspect the object but cannot mutate it through that parameter.
+
+### Exclusive mutable borrow
+
+The `&` operator represents an exclusive mutable borrow.
+
+```
+setAge(user: &User, age: int) {
+  user.age = age
+}
+```
+
+The caller does not need to explicitly transfer ownership.
+
+The compiler handles temporary borrowing and ensures incompatible active borrows do not overlap.
+
+### Shared aliases
+
+Multiple references to an object are allowed.
+
+```
+let user = User.new("Bob", 20)!
+let other = user
+```
+
+The presence of multiple references does not, by itself, prohibit mutation.
+
+The restriction concerns conflicting active accesses, especially when a function requires exclusive mutable borrowing.
+
+The precise static/runtime division of borrow checking remains an implementation decision.
+
+### Immutability
+
+`const` represents immutable data, not merely an immutable variable name.
+
+```
+const user = User.new("Bob", 20)!
+```
+
+Mutation through the immutable object or references derived from it must be prohibited.
+
+Creating a `const` binding from an existing mutable object with live mutable aliases must not silently freeze or copy the object.
+
+```
+let user = User.new("Bob", 20)!
+let other = user
+
+const frozen = user  // Compiler error
+```
+
+The programmer must explicitly create a safe independent copy when necessary.
+
+```
+const frozen = user.clone()
+```
+
+The compiler must ensure that immutable objects cannot be mutated through hidden aliases, including aliases to nested data.
+
+The exact implementation of deep immutability and freezing is still an important open design problem.
+
+---
+
+## 12. Resource Management
+
+Memory and external resources are managed separately.
+
+ORC is responsible for ordinary memory reclamation.
+
+Resources such as files, sockets, database connections, and transactions require explicit lifecycle management.
+
+Example:
+
+```
+let file = File.open("data.txt")!
+
+let contents = file.readAll()!
+
+file.close()!
+```
+
+The language should not rely on cycle collection or object destruction to determine when important external resources are closed.
+
+A future scoped-cleanup mechanism, potentially `defer`, may help ensure resources are explicitly closed on every exit path.
+
+Resource cleanup errors must not be silently ignored.
+
+---
+
+## 13. Standard Library and JSON
+
+The standard library is intended to expose typed, composable APIs.
+
+JSON is a representative example.
+
+```
+mod User {
+  import std.Json
+
+  pub User {
+    name: str
+    age: int
+  }
+
+  impl User {
+    pub new(name: str, age: int):
+      Sym<:ok(User), :invalidAge(int)> {
+
+      if age < 18 {
+        ret :invalidAge(age)
+      }
+
+      :ok(User {
+        name: name
+        age: age
+      })
+    }
+
+    pub fromJson(json: Json):
+      Sym<:ok(User), Json.sym(), :invalidAge(int)> {
+
+      let name = json.getStr("name")?
+      let age = json.getInt("age")?
+
+      User.new(name, age)
+    }
+
+    pub toJson(user: User): Json {
+      Json.object({
+        "name": user.name,
+        "age": user.age
+      })
+    }
+  }
+}
+```
+
+This illustrates several core design goals:
+
+- Object fields remain encapsulated.
+- Constructors enforce invariants.
+- JSON parsing errors are typed.
+- Validation errors are propagated explicitly.
+- The compiler checks error compatibility.
+- Functions remain short and readable.
+
+JSON APIs and error-group composition shown here are illustrative and have not yet been finalized as standard-library contracts.
+
+---
+
+## 14. Compiler Responsibilities
+
+The compiler is expected to handle much of the complexity that programmers traditionally manage manually.
+
+Its responsibilities include:
+
+**Type checking**
+- Static type inference and validation.
+- Generic constraint checking.
+- Trait implementation verification.
+- Typed symbol compatibility.
+
+**Control-flow validation**
+- Pattern-match exhaustiveness.
+- Error propagation.
+- Mandatory acknowledgement of recoverable errors.
+- Validation of implicit function returns.
+
+**Memory safety**
+- Automatic reference-count operations.
+- Retain/release optimization.
+- Borrow checking.
+- Prevention of mutation through immutable references.
+- Protection against invalid ownership and lifetime transitions.
+- Integration with cycle collection.
+
+**Encapsulation**
+- Module-based visibility.
+- Private-field access enforcement.
+- Safe object initialization.
+- Trait-method resolution and override checking.
+
+The compiler should provide actionable error messages rather than requiring programmers to understand internal ownership machinery.
+
+---
+
+## 15. Features Still Under Consideration
+
+The following areas are not fully specified and should not be assumed to have final behavior:
+
+1. Exact numeric widths and arithmetic overflow semantics.
+2. Static versus runtime borrow checking for complex aliasing.
+3. Deep `const` immutability and safe freezing of object graphs.
+4. Shallow versus deep cloning rules.
+5. Generic syntax, trait coherence, and conflict resolution.
+6. Full `Sym` composition and error propagation rules.
+7. Partial pattern matching and pipeline fallthrough.
+8. Collection iterator behavior and ownership.
+9. Weak-reference syntax and runtime representation.
+10. Scoped resource cleanup such as `defer`.
+11. Closures, async programming, and concurrency.
+12. Native compilation strategy, ABI, and foreign-function interfaces.
+
+These are design questions rather than commitments to specific implementations.
+
+---
+
+## 16. Guidance for Coding Agents
+
+When implementing or extending this language, follow these principles:
+
+- **Preserve simplicity.** Prefer extending existing abstractions over introducing overlapping syntax.
+- **Avoid inheritance.** Use traits, composition, and generics for behavior reuse.
+- **Keep borrowing lightweight.** Retain `&` for exclusive mutable access and ordinary type parameters for immutable borrowing.
+- **Keep memory management automatic.** Use ORC; do not introduce manual reference-count requirements into ordinary application code.
+- **Never silently clone objects.** Use explicit `.clone()` for independent object duplication.
+- **Preserve `const` guarantees.** Do not allow mutation through shared aliases or returned references.
+- **Enforce recoverable errors.** Do not allow fallible operations to be silently discarded.
+- **Keep `|>` generic.** The pipeline transfers values; pattern matching handles destructuring and branching.
+- **Favor declarative collection operations.** Avoid repetitive loops when an existing iterator clearly expresses the operation.
+- **Maintain module privacy.** Public types may still have private fields and controlled construction.
+- **Keep external resource cleanup explicit.** Do not rely on GC timing to close files or connections.
+- **Do not assume unresolved features are finalized.** When implementing an ambiguous case, identify the required semantic decision rather than inventing an implicit guarantee.
+
+Examples in this README describe the intended language behavior. They are not necessarily executable in the current compiler.
+
+---
+
+## Long-Term Vision
+
+The language aims to occupy a middle ground between traditional systems languages and high-level application languages.
+
+It seeks to offer the control and static guarantees associated with Rust, the convenient abstractions of Kotlin and modern functional languages, and the automatic memory management of Nim's ORC model.
+
+The programmer should focus primarily on **what the program does**, while the compiler handles routine memory management, type checking, borrow validation, and error-safety enforcement.
+
+The ultimate goal is a language that is expressive enough for everyday application development, predictable enough for performance-sensitive software, and simple enough that developers can understand its behavior without mastering a large collection of special rules.
