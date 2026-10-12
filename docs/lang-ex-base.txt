@@ -13,16 +13,14 @@ dub x
 chr x
 str x
 int[5]
-unit // default type
 
-let // binding cannot change
-var // binding can change
-mut // value can change
-shr // object is shared
+let // immutable binding mutable data
+var // mutable binding mutable data
+const // immutable binding immutable data
 
-let pair = (1, 2) // tuple
+& // mutable borrow of data
 
-struct Animal {
+Animal { // object definition
   int id
   str species
 }
@@ -32,6 +30,12 @@ enum Color {
   Green
   Blue
 }
+
+add(x: int, y: int): int {
+  x + y
+}
+
+let add = (x: int, y: int) => x + y
 
 x + y
 x - y
@@ -45,65 +49,185 @@ x -= y
 x *= y
 x /= y
 
-int add(int x, int y) {
-  x + y
-}
+// variables are default private and can be used in the same module
+mod User {
+  import std.Json
 
-add(x, y) => x + y // lambda
+  pub User {
+    &name: str
+    &age: int
+    userVer: flt
+  }
 
-struct User {
-  str name
-  int age
-}
+  pub trait HasUser{
+    getUser(value: Self): User
 
-User take(User user) {
-  user
-}
+    pub getName(value: Self): str {
+      value.getUser().name
+    }
 
-let user = User("Alice", 20)
-let newUser = take(user)
-user.name // error: user has been moved and cannot be accessed
-let shr user = User("Bob", 30)
-let newUser = take(user) // user is moved to newUser variable but can still be accessed from the original user variable
-// shared values alias unique values are moved
+    pub getAge(value: Self): int {
+      value.getUser().age
+    }
 
-struct Dog {
-  mut str name
-}
+    pub getAgeRange(value: Self): Sym<:ofAge, :old> {
+      value.getAge() |> {
+        18..100 => :ofAge
+        >= 100 => :old
+      }
+    }
+  }
 
-speak(Dog dog) => "woof " + dog.name
-rename(mut Dog dog, string newName) => dog.name = newName
-// the original variable in the struct and the intialized variable must be mutable for the rename function to work
+  impl User: HasUser {
+    pub const VERSION = 0.5
+    pub enum USER_TIER {
+      TIER1
+      TIER2
+      TIER3
+    }
 
-EXAMPLE:
-let Milo = Dog(Milo)
-speak(Milo)
-rename(Milo, "Spark") // error: Milo is not mutable
+    getUser(user: User): User {user}
 
-let mut Spark = Dog(Spark)
-rename(Spark, "Milo") // success
+    pub new(name: str, age: int): Sym<:ok(User), :err(str)> {
+      if age < 18 {
+        ret :err("Age is too low")
+      }
 
-enum Shape {
-  circle(flt radius)
-  rectangle(flt width, flt height)
-}
+      :ok(User {
+        name: name
+        age: age
+        userVer: VERSION 
+      })
+    }
+    
+    pub fromJson(json: Json): Sym<:ok(User), Json.sym()> {
+      let name = json.getStr("name")?
+      let age = json.getInt("age")?
 
-flt area(Shape shape) {
-  match shape {
-    circle(r) => 3.14 * r * r
-    rectangle(w, h) => w * h
+      User.new(name, age)
+    }
+
+    pub toJson(user: User): Json {
+      Json.object({
+        "name": user.name,
+        "age": user.age,
+        "Version: user.userVer,
+      })
+    }
   }
 }
 
-struct Box<T> {
-    T val
+mod Admin {
+  import User
+
+  pub Admin {
+    &user: User
+    userTier: USER_TIER
+  }
+
+  impl Admin: HasUser {
+    getUser(admin: Admin): User {admin.user}
+
+    ovr pub getName(admin: Admin): str {
+      Admin.getUser().name
+    }
+
+    pub new(name: str, age: int): Admin {
+      Admin {
+        user: User.new(name, age)?
+        userTier: USER_TIER.TIER1
+      }
+    }
+  }
 }
 
-T unbox(Box<T> box) {
-    box.val
+mod UserCollection {
+  import std.Json
+
+  import User
+
+  pub UserCollection {
+    &userVec: Vec[User]
+    userVersion: flt
+  }
+
+  impl UserCollection {
+    pub new(): userCollection {
+      UserCollection {
+        userVec: Vec[User]()
+        userVersion: User.VERSION
+      }
+    }
+
+    pub add(collection: &UserCollection, user: User) {
+      collection.userVec.add(user)
+    }
+
+    pub fromJson(json: Json): Sym<:ok(UserCollection), Json.sym()>{
+      let users = json.getArray("users")?
+      let collection = UserCollection.new()
+
+      for user in users {
+        let user = User.fromJson(item)?
+        collection.add(user)
+      }
+
+      :ok(collection)
+    }
+
+    pub toJson(collection: UserCollection): Json {
+      Json.object({
+        "users": collection.userVec.map((user) => user.toJson())
+      })
+    }
+
+    pub findByName(collection: UserCollection, name: str): Sym<:found(User), :missing> {
+      collection.userVec.find((user) => user.getName() == name) |> {
+        :ok(user) => :found(user)
+        :none => :missing
+      }
+    }
+
+    pub removeByName(collection: &UserCollection, name: str) Sym<:found(User), :missing> {
+      collection.userVec.remove((user) => user.getName() == name) |> {
+        :ok(user) => :found(user)
+        :none => :missing
+      }
+    }
+
+    pub count(collection: UserCollection): int {
+      collection.userVec.len()
+    }
+
+    pub olderThan(collection: UserCollection, age: int): User[] {
+      collection.userVec.filter((user) => user.getAge() > age)
+    }
+  }
 }
 
-let intBox = Box(42)
-unbox(intBox) // returns 42
+// in another module
+const user = User.new("Bob", 20)? // shorthand for error matching and propigates errors
+// or
+const user = User.new("Bob", 20)! // panic
+// or
+const user = User.new("Bob", 20) |> {
+  :ok(user) => user
+  :err(error) => error
+}
+
+const message = user.getAgeRange() |> {
+  :negative => "Cannot be negative"
+  :ofAge => "Age is in adult range"
+  :old => "Age is above 100"
+}
+
+let user = User.new("Bob", 20)!
+
+// Shares the same User object
+let other = user
+
+// Creates an independent User object
+let copy = user.clone()
+
 
 
