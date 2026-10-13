@@ -1,0 +1,316 @@
+# Error Handling with `Sym`
+
+> **Status: Accepted for now**
+>
+> These rules are the current design and may be refined. Each section states one rule and shows what it does. Function names such as `File.read` and `Json.parse` are illustrative, and function bodies are left out where they do not matter.
+
+The goals are:
+
+- The standard library and user programs use the same error system.
+- Errors accumulate as they pass through functions.
+- The compiler always knows every outcome a function can produce.
+
+---
+
+## 1. `:ok` is the success tag
+
+`?` and `!` look for `:ok`. Every other variant counts as not-success.
+
+```
+parse(text: str): Sym<:ok(Json), :syntax(int)>
+
+load(text: str): Sym<:ok(Json), :syntax(int)> {
+  let json = parse(text)?
+  :ok(json)
+}
+```
+
+If `parse` produces `:ok(json)`, `?` unwraps it. If `parse` produces `:syntax(line)`, `load` returns `:syntax(line)` immediately.
+
+`?` is shorthand for this match:
+
+```
+let json = parse(text) |> {
+  :ok(value) => value
+  other => ret other
+}
+```
+
+`!` unwraps `:ok` the same way and panics on anything else.
+
+```
+let json = parse(text)!
+```
+
+Optional values follow the same rule. `:none` is not `:ok`, so `?` returns it.
+
+```
+greet(users: Vec<User>): Sym<:ok(str), :none> {
+  let user = users.find((user) => user.getName() == "Bob")?
+  :ok("Hello " + user.getName())
+}
+```
+
+`:ok` may carry no payload.
+
+```
+close(file: &File): Sym<:ok, :ioError(str)>
+
+file.close()!
+```
+
+A `Sym` with no `:ok` variant cannot use `?` or `!`.
+
+```
+getAgeRange(user: User): Sym<:adult, :senior>
+
+let range = user.getAgeRange()?   // Compiler error: no :ok variant to unwrap
+```
+
+---
+
+## 2. Errors accumulate
+
+Given these two functions:
+
+```
+readFile(path: str): Sym<:ok(str), :notFound(str), :permissionDenied(str)>
+parse(text: str): Sym<:ok(Json), :syntax(int)>
+```
+
+A function that uses `?` on both must declare the not-ok variants of both.
+
+```
+loadJson(path: str): Sym<:ok(Json), :notFound(str), :permissionDenied(str), :syntax(int)> {
+  let text = readFile(path)?   // may return :notFound or :permissionDenied
+  let json = parse(text)?      // may return :syntax
+  :ok(json)
+}
+```
+
+The pipeline form accumulates the same way.
+
+```
+loadJson(path: str): Sym<:ok(Json), :notFound(str), :permissionDenied(str), :syntax(int)> {
+  path |> readFile()? |> parse()
+}
+```
+
+Leaving a variant out is a compile error.
+
+```
+loadJson(path: str): Sym<:ok(Json), :syntax(int)> {
+  let text = readFile(path)?   // Compiler error: loadJson does not declare
+                               // :notFound(str) or :permissionDenied(str)
+  parse(text)
+}
+```
+
+If inferred return types are adopted, a private function can leave the return type off and the compiler builds the same set.
+
+```
+loadJson(path: str) {
+  path |> readFile()? |> parse()
+}
+
+// inferred: Sym<:ok(Json), :notFound(str), :permissionDenied(str), :syntax(int)>
+```
+
+---
+
+## 3. Named sets
+
+Listing every variant on a `pub` function gets long. A module can name its error set once.
+
+```
+mod File {
+  pub type Error = Sym<:notFound(str), :permissionDenied(str)>
+
+  pub read(path: str): Sym<:ok(str), Error>
+}
+
+mod Json {
+  pub type Error = Sym<:syntax(int), :missingKey(str), :wrongType(str)>
+
+  pub parse(text: str): Sym<:ok(Json), Error>
+}
+```
+
+Inside `Sym<...>`, an entry that starts with `:` is one variant. An entry that is a type name includes every variant of that set.
+
+```
+pub loadUser(path: str): Sym<:ok(User), File.Error, Json.Error, :invalidAge(int)> {
+  let text = File.read(path)?
+  let json = Json.parse(text)?
+  let name = json.getStr("name")?
+  let age = json.getInt("age")?
+
+  User.new(name, age)
+}
+```
+
+That return type is the same as writing:
+
+```
+Sym<:ok(User), :notFound(str), :permissionDenied(str), :syntax(int), :missingKey(str), :wrongType(str), :invalidAge(int)>
+```
+
+This replaces the earlier `Json.sym()` placeholder. It needs one new keyword, `type`.
+
+---
+
+## 4. Collisions
+
+The same tag with the same payload is one variant.
+
+```
+File.read(path: str): Sym<:ok(str), :notFound(str)>
+Http.get(url: str): Sym<:ok(str), :notFound(str)>
+
+fetch(source: str): Sym<:ok(str), :notFound(str)> {
+  let local = File.read(source)?
+  let remote = Http.get(local)?
+  :ok(remote)
+}
+```
+
+`fetch` has a single `:notFound(str)`. The caller cannot tell which call produced it.
+
+The same tag with a different payload is a compile error.
+
+```
+parse(text: str): Sym<:ok(Json), :invalid(int)>
+validate(json: Json): Sym<:ok(User), :invalid(str)>
+
+load(text: str): Sym<:ok(User), :invalid(int), :invalid(str)> {   // Compiler error:
+  let json = parse(text)?                                         // :invalid has two payload types
+  validate(json)
+}
+```
+
+The fix is to rename one where the two meet.
+
+```
+load(text: str): Sym<:ok(User), :syntax(int), :invalid(str)> {
+  let json = parse(text) |> {
+    :ok(json) => json
+    :invalid(line) => ret :syntax(line)
+  }
+
+  validate(json)
+}
+```
+
+---
+
+## 5. Specific tags in the standard library
+
+A generic tag tells the caller nothing and collides as soon as two libraries meet.
+
+```
+open(path: str): Sym<:ok(File), :err(str)>   // avoid
+```
+
+A specific tag says what happened and lets the caller choose a response.
+
+```
+open(path: str): Sym<:ok(File), :notFound(str), :permissionDenied(str)>
+
+File.open("data.txt") |> {
+  :ok(file) => print("Opened")
+  :notFound(path) => print("No file at " + path)
+  :permissionDenied(path) => print("Cannot read " + path)
+}
+```
+
+---
+
+## 6. A `Sym` cannot be discarded
+
+```
+file.close()                // Compiler error: the result is not used
+```
+
+Each of these is accepted.
+
+```
+file.close()!               // panic on failure
+
+file.close()?               // return the failure to the caller
+
+let result = file.close()   // keep it in a variable
+
+file.close() |> {           // handle each outcome
+  :ok => print("Closed")
+  :ioError(message) => print(message)
+}
+```
+
+---
+
+## 7. Handling an error removes it
+
+A catch-all arm receives only the variants that earlier arms did not handle.
+
+```
+loadOrEmpty(path: str): Sym<:ok(Json), :permissionDenied(str), :syntax(int)> {
+  let text = readFile(path) |> {
+    :ok(text) => text
+    :notFound(missing) => "{}"
+    other => ret other
+  }
+
+  parse(text)
+}
+```
+
+`:notFound` is handled inside the function, so it does not appear in the return type. `other` has the type `Sym<:permissionDenied(str)>`.
+
+Without this rule a function that uses a catch-all would have to declare errors it has already dealt with.
+
+---
+
+## 8. A smaller set fits a larger one
+
+`User.new` produces fewer variants than `fromJson` declares. That is allowed.
+
+```
+pub new(name: str, age: int): Sym<:ok(User), :invalidAge(int)>
+
+pub fromJson(json: Json): Sym<:ok(User), Json.Error, :invalidAge(int)> {
+  let name = json.getStr("name")?
+  let age = json.getInt("age")?
+
+  User.new(name, age)
+}
+```
+
+The reverse is a compile error.
+
+```
+make(): Sym<:ok(User)> {
+  User.new("Bob", 20)   // Compiler error: :invalidAge(int) is not declared
+}
+```
+
+For this to cost nothing at runtime, each tag name has one number across the whole program, so a value never needs converting when it moves to a larger set.
+
+---
+
+## Putting it together
+
+`loadUser` from section 3 declares seven outcomes. A caller that matches on it must cover all seven.
+
+```
+loadUser("bob.json") |> {
+  :ok(user) => print(user.getName())
+  :notFound(path) => print("Missing file " + path)
+  :permissionDenied(path) => print("Cannot read " + path)
+  :syntax(line) => print("The file is not valid JSON")
+  :missingKey(key) => print("Missing field " + key)
+  :wrongType(key) => print("Wrong type for field " + key)
+  :invalidAge(age) => print("Age is not allowed")
+}
+```
+
+Removing any arm is a compile error. Adding a new variant to `Json.Error` makes this match a compile error until the new variant is handled.

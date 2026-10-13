@@ -1,6 +1,8 @@
 // comment
 /* comment */
 
+// new lines separate statements
+
 bool x
 int x
 uint x
@@ -21,8 +23,8 @@ const // immutable binding immutable data
 & // mutable borrow of data
 
 Animal { // object definition
-  int id
-  str species
+  id: int
+  species: Species
 }
 
 enum Color {
@@ -100,7 +102,7 @@ mod User {
       })
     }
     
-    pub fromJson(json: Json): Sym<:ok(User), Json.sym()> {
+    pub fromJson(json: Json): Sym<:ok(User), Json.Error> {
       let name = json.getStr("name")?
       let age = json.getInt("age")?
 
@@ -147,14 +149,14 @@ mod UserCollection {
   import User
 
   pub UserCollection {
-    userVec: Vec[User]
+    userVec: Vec<User>
     userVersion: flt
   }
 
   impl UserCollection {
     pub new(): userCollection {
       UserCollection {
-        userVec: Vec[User]()
+        userVec: Vec<User>()
         userVersion: User.VERSION
       }
     }
@@ -163,7 +165,7 @@ mod UserCollection {
       collection.userVec.add(user)
     }
 
-    pub fromJson(json: Json): Sym<:ok(UserCollection), Json.sym()>{
+    pub fromJson(json: Json): Sym<:ok(UserCollection), Json.Error>{
       let users = json.getArray("users")?
       let collection = UserCollection.new()
 
@@ -221,6 +223,16 @@ const message = user.getAgeRange() |> {
   :old => "Age is above 100"
 }
 
+// x.f() only works when f belongs to x
+user.getName()
+// otherwise call it directly or pipe it
+print(user)
+user |> print()
+
+// pipe passes the value as the first argument like elixir
+// ? after a step works the same as on a normal call
+const valid = json |> parse()? |> validate()? // validate(parse(json)?)?
+
 let user = User.new("Bob", 20)!
 
 // Shares the same User object
@@ -228,6 +240,13 @@ let other = user
 
 // Creates an independent User object
 let copy = user.clone()
+
+// const cannot take an existing let or var
+const frozen = user // error: call clone or change the const
+const frozen = user.clone()
+
+// a const can only go to another const or a param without &
+let other = frozen // error
 
 
 

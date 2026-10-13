@@ -86,6 +86,25 @@ Potentially expensive object copies must be explicit.
 
 ## 3. Basic Syntax and Types
 
+### Statements and line breaks
+
+Statements are separated by newlines. There is no statement terminator.
+
+```
+let user = User.new("Bob", 20)!
+let name = user.getName()
+```
+
+Fields in a struct definition and arms in a pattern-matching block are also written one per line.
+
+A statement may span several lines. The examples in this document assume a newline does not end a statement when it appears:
+
+- Inside `( )` or `[ ]`.
+- After a token that cannot end a statement, such as `,`, `:`, `=`, `=>`, `|>`, `.`, or a binary operator.
+- Before a line that begins with `|>` or `.`.
+
+These continuation rules are accepted for now and may be refined.
+
 ### Primitive types
 
 The language currently proposes the following primitive types:
@@ -135,9 +154,11 @@ Proposed syntax includes:
 
 ```
 int[5]            // Fixed-size array
-Vec[int]          // Dynamic vector
-Vec[User]         // Vector of User objects
+Vec<int>          // Dynamic vector
+Vec<User>         // Vector of User objects
 ```
+
+Generic type arguments are written in angle brackets. A new vector is created with `Vec<User>()`.
 
 The exact relationship between array shorthand such as `User[]` and generic collections is still under consideration.
 
@@ -176,6 +197,18 @@ let add = (x: int, y: int) => x + y
 The language is expression-oriented wherever practical.
 
 Functions can accept objects, borrow mutable objects, return typed symbols, and participate in pipelines.
+
+### Call syntax
+
+```
+user.getName()     // getName belongs to User
+print(user)        // print does not belong to User
+user |> print()    // the same call, written as a pipeline
+```
+
+Method-call syntax `x.f()` is only valid when `f` belongs to the type of `x`: it is defined in an `impl` block for that type, or in a trait the type implements, and takes the value as its first parameter.
+
+A function that does not belong to the type must be called directly as `f(x)` or through a pipeline as `x |> f()`.
 
 ---
 
@@ -218,6 +251,22 @@ mod User {
 ```
 
 Code outside the module can use the public `User` type and call its public functions, but cannot directly initialize or modify private fields.
+
+### Struct literals and blocks
+
+`Name { ... }` defines a struct where a declaration is expected and creates a value where an expression is expected.
+
+After `if`, `for`, and `while`, the first `{` always starts the body.
+
+```
+for user in users {
+  print(user.getName())
+}
+```
+
+A struct literal in the condition or iterable must be wrapped in `( )` or appear inside a call's arguments.
+
+The same rule applies to any future keyword that is followed by an expression and then a block.
 
 ### Constructors
 
@@ -343,11 +392,11 @@ Generic types and trait-constrained implementations are planned as the primary m
 Proposed syntax:
 
 ```
-pub Collection[T] {
-  items: Vec[T]
+pub Collection<T> {
+  items: Vec<T>
 }
 
-impl[T: HasUser] Collection[T] {
+impl<T: HasUser> Collection<T> {
   // Functions available when T implements HasUser
 }
 ```
@@ -408,6 +457,8 @@ Functions returning recoverable errors must expose them through their types.
 
 The compiler should prevent those errors from being silently discarded.
 
+The standard library reports errors through the same `Sym` mechanism as user programs. There is no separate error system for library code.
+
 Three primary mechanisms are available.
 
 **Propagation using `?`:**
@@ -441,17 +492,21 @@ The compiler should require acknowledgement of all possible outcomes when exhaus
 
 ### Composable error variants
 
-The language is exploring a way to reuse predefined symbol groups in other return types.
-
-For example:
+A module can name a group of symbols, and other return types can include the whole group.
 
 ```
-Sym<:ok(User), Json.sym(), :invalidAge(int)>
+pub type Error = Sym<:syntax(int), :missingKey(str), :wrongType(str)>
 ```
 
-The intention is to compose error variants without repeatedly listing every possible JSON error.
+```
+Sym<:ok(User), Json.Error, :invalidAge(int)>
+```
 
-The exact syntax, flattening rules, and duplicate-symbol behavior remain under design.
+Inside `Sym<...>`, an entry that starts with `:` is one variant. An entry that is a type name includes every variant of that group.
+
+This composes error variants without repeatedly listing every possible JSON error.
+
+The full rules for the success tag, accumulation, and duplicate symbols are in `lang-errors.txt`. They are accepted for now and may be refined.
 
 ---
 
@@ -463,9 +518,46 @@ The pipeline operator is:
 |>
 ```
 
-**The pipeline evaluates its left expression and passes the resulting value into the expression or block on the right.**
+**The pipeline evaluates its left expression and passes the resulting value into the function call or block on the right.**
+
+The right-hand side takes one of two forms:
+
+- A function call. The value becomes the call's first argument, as in Elixir.
+- A block of pattern arms. The value is matched against the arms.
 
 The pipeline itself does not automatically unwrap symbols.
+
+### Function calls
+
+```
+json |> parse() |> validate()
+```
+
+is equivalent to:
+
+```
+validate(parse(json))
+```
+
+Further arguments follow the piped value: `x |> f(a)` is `f(x, a)`.
+
+A pipeline can call any function, including one that does not belong to the type of the piped value. Method-call syntax cannot.
+
+### Error handling in pipelines
+
+`?` and `!` after a stage apply to the result of that stage's call.
+
+```
+json |> parse()? |> validate()?
+```
+
+is equivalent to:
+
+```
+validate(parse(json)?)?
+```
+
+Outcomes propagate and accumulate exactly as they do for ordinary calls: the enclosing function must declare the non-success outcomes of every stage.
 
 ### Value transformations
 
@@ -480,10 +572,12 @@ The pipeline itself does not automatically unwrap symbols.
 ```
 age |> {
   < 18 => "Minor"
-  18..<100 => "Adult"
+  18..100 => "Adult"
   >= 100 => "Senior"
 }
 ```
+
+A range `a..b` includes `a` and excludes `b`.
 
 ### Symbol matching
 
@@ -644,9 +738,9 @@ getAge(user: User): int {
 
 The function can inspect the object but cannot mutate it through that parameter.
 
-### Exclusive mutable borrow
+### Mutable borrow
 
-The `&` operator represents an exclusive mutable borrow.
+The `&` operator represents a mutable borrow.
 
 ```
 setAge(user: &User, age: int) {
@@ -656,7 +750,9 @@ setAge(user: &User, age: int) {
 
 The caller does not need to explicitly transfer ownership.
 
-The compiler handles temporary borrowing and ensures incompatible active borrows do not overlap.
+`&` is a permission on the name, not a claim of exclusivity. A plain parameter cannot be used to mutate the object. A `&` parameter can.
+
+Other references to the same object may exist while it is borrowed.
 
 ### Shared aliases
 
@@ -669,13 +765,11 @@ let other = user
 
 The presence of multiple references does not, by itself, prohibit mutation.
 
-The restriction concerns conflicting active accesses, especially when a function requires exclusive mutable borrowing.
-
-The precise static/runtime division of borrow checking remains an implementation decision.
+Borrowing does not restrict aliases. Only `const` guarantees that no reference can mutate an object.
 
 ### Immutability
 
-`const` represents immutable data, not merely an immutable variable name.
+`const` represents immutable data, not merely an immutable variable name. Nobody can mutate a `const` object, through any reference.
 
 ```
 const user = User.new("Bob", 20)!
@@ -683,24 +777,36 @@ const user = User.new("Bob", 20)!
 
 Mutation through the immutable object or references derived from it must be prohibited.
 
-Creating a `const` binding from an existing mutable object with live mutable aliases must not silently freeze or copy the object.
+A `const` cannot be initialized from an existing `let` or `var` binding. This is a compile error that tells the programmer to either clone the value or change the `const`.
 
 ```
 let user = User.new("Bob", 20)!
-let other = user
 
 const frozen = user  // Compiler error
 ```
 
-The programmer must explicitly create a safe independent copy when necessary.
+The compiler never silently freezes or copies the object. The programmer must explicitly create an independent copy.
 
 ```
 const frozen = user.clone()
 ```
 
+A `const` value can only be assigned to another `const` binding or passed to a parameter that is not `&`. Assigning it to a `let` or `var` binding, or passing it to a `&` parameter, is a compile error.
+
+```
+const user = User.new("Bob", 20)!
+
+let other = user     // Compiler error
+setAge(user, 21)     // Compiler error: setAge takes &User
+```
+
 The compiler must ensure that immutable objects cannot be mutated through hidden aliases, including aliases to nested data.
 
-The exact implementation of deep immutability and freezing is still an important open design problem.
+Three cases are not yet specified:
+
+- A value returned by a call that is still referenced elsewhere, as in `const dog = kennel.first()`.
+- A mutable object stored inside a `const` value, as in `const kennel = Kennel.new(dog)`.
+- A `const` value passed to a function that stores it in a mutable object.
 
 ---
 
@@ -760,7 +866,7 @@ mod User {
     }
 
     pub fromJson(json: Json):
-      Sym<:ok(User), Json.sym(), :invalidAge(int)> {
+      Sym<:ok(User), Json.Error, :invalidAge(int)> {
 
       let name = json.getStr("name")?
       let age = json.getInt("age")?
@@ -832,17 +938,18 @@ The compiler should provide actionable error messages rather than requiring prog
 The following areas are not fully specified and should not be assumed to have final behavior:
 
 1. Exact numeric widths and arithmetic overflow semantics.
-2. Static versus runtime borrow checking for complex aliasing.
-3. Deep `const` immutability and safe freezing of object graphs.
-4. Shallow versus deep cloning rules.
-5. Generic syntax, trait coherence, and conflict resolution.
-6. Full `Sym` composition and error propagation rules.
-7. Partial pattern matching and pipeline fallthrough.
-8. Collection iterator behavior and ownership.
-9. Weak-reference syntax and runtime representation.
-10. Scoped resource cleanup such as `defer`.
-11. Closures, async programming, and concurrency.
-12. Native compilation strategy, ABI, and foreign-function interfaces.
+2. Enforcing `const` for values returned by calls, nested objects, and stored references.
+3. Shallow versus deep cloning rules.
+4. Trait coherence and conflict resolution.
+5. Partial pattern matching and pipeline fallthrough.
+6. Collection iterator behavior and ownership.
+7. Weak-reference syntax and runtime representation.
+8. Scoped resource cleanup such as `defer`.
+9. Closures, async programming, and concurrency.
+10. Native compilation strategy, ABI, and foreign-function interfaces.
+11. Where return types may be omitted and inferred.
+12. Whether a type can be given an `impl` block outside its defining module.
+13. The module system: how modules map to files, what `import` brings into scope, and how a module and a type with the same name are told apart.
 
 These are design questions rather than commitments to specific implementations.
 
@@ -854,7 +961,7 @@ When implementing or extending this language, follow these principles:
 
 - **Preserve simplicity.** Prefer extending existing abstractions over introducing overlapping syntax.
 - **Avoid inheritance.** Use traits, composition, and generics for behavior reuse.
-- **Keep borrowing lightweight.** Retain `&` for exclusive mutable access and ordinary type parameters for immutable borrowing.
+- **Keep borrowing lightweight.** Retain `&` for mutable access and ordinary type parameters for immutable borrowing.
 - **Keep memory management automatic.** Use ORC; do not introduce manual reference-count requirements into ordinary application code.
 - **Never silently clone objects.** Use explicit `.clone()` for independent object duplication.
 - **Preserve `const` guarantees.** Do not allow mutation through shared aliases or returned references.
