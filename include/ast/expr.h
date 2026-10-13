@@ -10,7 +10,9 @@ typedef enum {
   EXPR_BOOL,
   EXPR_STRING,
   EXPR_CHAR,
+  EXPR_SYMBOL,     // :ok(user)
   EXPR_ARRAY,
+  EXPR_STRUCT_LIT, // User { name: name }
   EXPR_UNARY,
   EXPR_BINARY,
   EXPR_ASSIGN,
@@ -21,10 +23,11 @@ typedef enum {
   EXPR_IF,
   EXPR_FOR,
   EXPR_WHILE,
-  EXPR_MATCH,
-  EXPR_LAMBDA,
-  EXPR_TRY,
-  EXPR_PIPE,
+  EXPR_MATCH,  // { pattern => expr ... }
+  EXPR_LAMBDA, // (x) => expr
+  EXPR_TRY,    // expr?
+  EXPR_PANIC,  // expr!
+  EXPR_PIPE,   // expr |> expr
 } ExprKind;
 
 typedef enum {
@@ -57,7 +60,8 @@ typedef enum {
   BINARY_BIT_XOR,
   BINARY_LSHIFT,
   BINARY_RSHIFT,
-  BINARY_RANGE,
+  BINARY_RANGE,      // ..
+  BINARY_RANGE_LESS, // ..<
 } BinaryOp;
 
 typedef enum {

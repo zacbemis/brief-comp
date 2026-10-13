@@ -5,9 +5,10 @@ typedef struct Type Type;
 
 typedef enum {
   TYPE_NAME,
-  TYPE_APPLY,
-  TYPE_ARRAY,
-  TYPE_UNIT,
+  TYPE_APPLY, // Vec[User]
+  TYPE_ARRAY, // int[5]
+  TYPE_SYM,   // Sym<:ok(User), :err(str)>
+  TYPE_SELF,  // Self
 } TypeKind;
 
 #endif

@@ -24,12 +24,8 @@ const char *token_type_name(TokenType type) {
     return "TOK_LET";
   case TOK_VAR:
     return "TOK_VAR";
-  case TOK_MUT:
-    return "TOK_MUT";
-  case TOK_SHR:
-    return "TOK_SHR";
-  case TOK_UNIT:
-    return "TOK_UNIT";
+  case TOK_CONST:
+    return "TOK_CONST";
   case TOK_BOOL:
     return "TOK_BOOL";
   case TOK_INT:
@@ -52,26 +48,36 @@ const char *token_type_name(TokenType type) {
     return "TOK_CHR";
   case TOK_STR:
     return "TOK_STR";
-  case TOK_STRUCT:
-    return "TOK_STRUCT";
+  case TOK_SYM:
+    return "TOK_SYM";
+  case TOK_SELF:
+    return "TOK_SELF";
   case TOK_ENUM:
     return "TOK_ENUM";
-  case TOK_MODULE:
-    return "TOK_MODULE";
+  case TOK_MOD:
+    return "TOK_MOD";
+  case TOK_IMPORT:
+    return "TOK_IMPORT";
+  case TOK_TRAIT:
+    return "TOK_TRAIT";
+  case TOK_IMPL:
+    return "TOK_IMPL";
   case TOK_PUB:
     return "TOK_PUB";
-  case TOK_PRIV:
-    return "TOK_PRIV";
+  case TOK_OVR:
+    return "TOK_OVR";
   case TOK_IF:
     return "TOK_IF";
   case TOK_ELSE:
     return "TOK_ELSE";
   case TOK_FOR:
     return "TOK_FOR";
+  case TOK_IN:
+    return "TOK_IN";
   case TOK_WHILE:
     return "TOK_WHILE";
-  case TOK_MATCH:
-    return "TOK_MATCH";
+  case TOK_RET:
+    return "TOK_RET";
   case TOK_EQUAL:
     return "TOK_EQUAL";
   case TOK_PLUS:
@@ -114,6 +120,8 @@ const char *token_type_name(TokenType type) {
     return "TOK_GREATER_THAN_EQUAL";
   case TOK_BANG:
     return "TOK_BANG";
+  case TOK_QUESTION:
+    return "TOK_QUESTION";
   case TOK_AND_AND:
     return "TOK_AND_AND";
   case TOK_OR_OR:
@@ -134,6 +142,8 @@ const char *token_type_name(TokenType type) {
     return "TOK_FAT_ARROW";
   case TOK_ARROW:
     return "TOK_ARROW";
+  case TOK_PIPE:
+    return "TOK_PIPE";
   case TOK_SEMI:
     return "TOK_SEMI";
   case TOK_SEMI_SEMI:
@@ -146,6 +156,8 @@ const char *token_type_name(TokenType type) {
     return "TOK_PERIOD";
   case TOK_DOT_DOT:
     return "TOK_DOT_DOT";
+  case TOK_DOT_DOT_LESS:
+    return "TOK_DOT_DOT_LESS";
   case TOK_LPAREN:
     return "TOK_LPAREN";
   case TOK_RPAREN:

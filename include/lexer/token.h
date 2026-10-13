@@ -18,13 +18,11 @@ typedef enum {
   TOK_BOOL_LIT,
 
   // Keywords
-  TOK_LET, // let
-  TOK_VAR, // var
-  TOK_MUT, // mut
-  TOK_SHR, // shr
+  TOK_LET,   // let
+  TOK_VAR,   // var
+  TOK_CONST, // const
 
   // Keywords Types
-  TOK_UNIT,  // unit
   TOK_BOOL,  // bool
   TOK_INT,   // int
   TOK_UINT,  // uint
@@ -36,20 +34,25 @@ typedef enum {
   TOK_DUB,   // dub
   TOK_CHR,   // chr
   TOK_STR,   // str
+  TOK_SYM,   // Sym
+  TOK_SELF,  // Self
 
   // Keywords Definitions
-  TOK_STRUCT, // struct
   TOK_ENUM,   // enum
-  TOK_MODULE, // module
+  TOK_MOD,    // mod
+  TOK_IMPORT, // import
+  TOK_TRAIT,  // trait
+  TOK_IMPL,   // impl
   TOK_PUB,    // pub
-  TOK_PRIV,   // priv
+  TOK_OVR,    // ovr
 
   // Keywords Control Flow
   TOK_IF,    // if
   TOK_ELSE,  // else
   TOK_FOR,   // for
+  TOK_IN,    // in
   TOK_WHILE, // while
-  TOK_MATCH, // match
+  TOK_RET,   // ret
 
   // Arithmetic
   TOK_EQUAL,   // =
@@ -76,13 +79,14 @@ typedef enum {
   TOK_GREATER_THAN,       // >
   TOK_GREATER_THAN_EQUAL, // >=
 
-  TOK_BANG,    // !
-  TOK_AND_AND, // &&
-  TOK_OR_OR,   // ||
+  TOK_BANG,     // ! (logical not, postfix panic)
+  TOK_QUESTION, // ? (postfix error propagation)
+  TOK_AND_AND,  // &&
+  TOK_OR_OR,    // ||
 
   // Bitwise
   TOK_TILDE,  // ~
-  TOK_AND,    // &
+  TOK_AND,    // & (bitwise and, mutable borrow)
   TOK_OR,     // |
   TOK_XOR,    // ^
   TOK_LSHIFT, // <<
@@ -90,19 +94,21 @@ typedef enum {
 
   TOK_FAT_ARROW, // =>
   TOK_ARROW,     // ->
+  TOK_PIPE,      // |>
 
-  TOK_SEMI,      // ;
-  TOK_SEMI_SEMI, // ;;
-  TOK_COLON,     // :
-  TOK_COMMA,     // ,
-  TOK_PERIOD,    // .
-  TOK_DOT_DOT,   // ..
-  TOK_LPAREN,    // (
-  TOK_RPAREN,    // )
-  TOK_LBRACE,    // {
-  TOK_RBRACE,    // }
-  TOK_LBRACKET,  // [
-  TOK_RBRACKET,  // ]
+  TOK_SEMI,         // ;
+  TOK_SEMI_SEMI,    // ;;
+  TOK_COLON,        // : (type annotation, field, symbol prefix as in :ok)
+  TOK_COMMA,        // ,
+  TOK_PERIOD,       // .
+  TOK_DOT_DOT,      // ..
+  TOK_DOT_DOT_LESS, // ..<
+  TOK_LPAREN,       // (
+  TOK_RPAREN,       // )
+  TOK_LBRACE,       // {
+  TOK_RBRACE,       // }
+  TOK_LBRACKET,     // [
+  TOK_RBRACKET,     // ]
 } TokenType;
 
 typedef struct {

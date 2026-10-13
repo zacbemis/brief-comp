@@ -96,6 +96,10 @@ static TokenType identifier_type(Lexer *lexer) {
   size_t len = (size_t)(lexer->current - lexer->start);
   if (len == 2 && memcmp(lexer->start, "if", 2) == 0)
     return TOK_IF;
+  if (len == 2 && memcmp(lexer->start, "in", 2) == 0)
+    return TOK_IN;
+  if (len == 3 && memcmp(lexer->start, "Sym", 3) == 0)
+    return TOK_SYM;
   if (len == 3 && memcmp(lexer->start, "chr", 3) == 0)
     return TOK_CHR;
   if (len == 3 && memcmp(lexer->start, "dub", 3) == 0)
@@ -110,24 +114,28 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_LET;
   if (len == 3 && memcmp(lexer->start, "lng", 3) == 0)
     return TOK_LNG;
-  if (len == 3 && memcmp(lexer->start, "mut", 3) == 0)
-    return TOK_MUT;
+  if (len == 3 && memcmp(lexer->start, "mod", 3) == 0)
+    return TOK_MOD;
+  if (len == 3 && memcmp(lexer->start, "ovr", 3) == 0)
+    return TOK_OVR;
   if (len == 3 && memcmp(lexer->start, "pub", 3) == 0)
     return TOK_PUB;
-  if (len == 3 && memcmp(lexer->start, "shr", 3) == 0)
-    return TOK_SHR;
+  if (len == 3 && memcmp(lexer->start, "ret", 3) == 0)
+    return TOK_RET;
   if (len == 3 && memcmp(lexer->start, "str", 3) == 0)
     return TOK_STR;
   if (len == 3 && memcmp(lexer->start, "var", 3) == 0)
     return TOK_VAR;
+  if (len == 4 && memcmp(lexer->start, "Self", 4) == 0)
+    return TOK_SELF;
   if (len == 4 && memcmp(lexer->start, "bool", 4) == 0)
     return TOK_BOOL;
   if (len == 4 && memcmp(lexer->start, "else", 4) == 0)
     return TOK_ELSE;
   if (len == 4 && memcmp(lexer->start, "enum", 4) == 0)
     return TOK_ENUM;
-  if (len == 4 && memcmp(lexer->start, "priv", 4) == 0)
-    return TOK_PRIV;
+  if (len == 4 && memcmp(lexer->start, "impl", 4) == 0)
+    return TOK_IMPL;
   if (len == 4 && memcmp(lexer->start, "shrt", 4) == 0)
     return TOK_SHRT;
   if (len == 4 && memcmp(lexer->start, "true", 4) == 0)
@@ -136,20 +144,18 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_UINT;
   if (len == 4 && memcmp(lexer->start, "ulng", 4) == 0)
     return TOK_ULNG;
-  if (len == 4 && memcmp(lexer->start, "unit", 4) == 0)
-    return TOK_UNIT;
+  if (len == 5 && memcmp(lexer->start, "const", 5) == 0)
+    return TOK_CONST;
   if (len == 5 && memcmp(lexer->start, "false", 5) == 0)
     return TOK_BOOL_LIT;
-  if (len == 5 && memcmp(lexer->start, "match", 5) == 0)
-    return TOK_MATCH;
-  if (len == 5 && memcmp(lexer->start, "while", 5) == 0)
-    return TOK_WHILE;
+  if (len == 5 && memcmp(lexer->start, "trait", 5) == 0)
+    return TOK_TRAIT;
   if (len == 5 && memcmp(lexer->start, "ushrt", 5) == 0)
     return TOK_USHRT;
-  if (len == 6 && memcmp(lexer->start, "module", 6) == 0)
-    return TOK_MODULE;
-  if (len == 6 && memcmp(lexer->start, "struct", 6) == 0)
-    return TOK_STRUCT;
+  if (len == 5 && memcmp(lexer->start, "while", 5) == 0)
+    return TOK_WHILE;
+  if (len == 6 && memcmp(lexer->start, "import", 6) == 0)
+    return TOK_IMPORT;
   return TOK_IDENT;
 }
 
@@ -236,8 +242,11 @@ Token lexer_next_token(Lexer *lexer) {
   case ',':
     return make_token(lexer, TOK_COMMA);
   case '.':
-    if (match(lexer, '.'))
+    if (match(lexer, '.')) {
+      if (match(lexer, '<'))
+        return make_token(lexer, TOK_DOT_DOT_LESS);
       return make_token(lexer, TOK_DOT_DOT);
+    }
     return make_token(lexer, TOK_PERIOD);
   case '=':
     if (match(lexer, '='))
@@ -277,6 +286,8 @@ Token lexer_next_token(Lexer *lexer) {
     if (match(lexer, '='))
       return make_token(lexer, TOK_BANG_EQUAL);
     return make_token(lexer, TOK_BANG);
+  case '?':
+    return make_token(lexer, TOK_QUESTION);
   case '<':
     if (match(lexer, '<'))
       return make_token(lexer, TOK_LSHIFT);
@@ -296,6 +307,8 @@ Token lexer_next_token(Lexer *lexer) {
   case '|':
     if (match(lexer, '|'))
       return make_token(lexer, TOK_OR_OR);
+    if (match(lexer, '>'))
+      return make_token(lexer, TOK_PIPE);
     return make_token(lexer, TOK_OR);
   case '~':
     return make_token(lexer, TOK_TILDE);

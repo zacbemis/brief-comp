@@ -3,21 +3,22 @@
 
 typedef struct Decl Decl;
 
+// Private to the enclosing module unless marked pub.
 typedef enum {
-  VISIBILITY_DEFAULT,
-  VISIBILITY_PUB,
   VISIBILITY_PRIV,
+  VISIBILITY_PUB,
 } Visibility;
 
+// How a parameter borrows its argument.
 typedef enum {
-  ACCESS_DEFAULT,
-  ACCESS_MUT,
-  ACCESS_SHR,
-} AccessKind;
+  BORROW_IMMUT, // user: User
+  BORROW_MUT,   // user: &User
+} BorrowKind;
 
 typedef enum {
-  BIND_LET,
-  BIND_VAR,
+  BIND_LET,   // immutable binding, mutable data
+  BIND_VAR,   // mutable binding, mutable data
+  BIND_CONST, // immutable binding, immutable data
 } BindingKind;
 
 typedef enum {
@@ -26,6 +27,9 @@ typedef enum {
   DECL_STRUCT,
   DECL_ENUM,
   DECL_MODULE,
+  DECL_TRAIT,
+  DECL_IMPL,
+  DECL_IMPORT,
 } DeclKind;
 
 #endif
