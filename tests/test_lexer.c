@@ -178,26 +178,38 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
-  TEST("generic syntax from docs uses brackets") {
+  TEST("generic syntax from docs uses angle brackets") {
     Lexer lx;
-    lexer_init(&lx, "pub Collection[T] impl[T: HasUser] Vec[User]()");
+    lexer_init(&lx, "pub Collection<T> impl<T: HasUser> Vec<User>()");
     expect(&lx, TOK_PUB, "pub");
     expect(&lx, TOK_IDENT, "Collection");
-    expect(&lx, TOK_LBRACKET, "[");
+    expect(&lx, TOK_LESS_THAN, "<");
     expect(&lx, TOK_IDENT, "T");
-    expect(&lx, TOK_RBRACKET, "]");
+    expect(&lx, TOK_GREATER_THAN, ">");
     expect(&lx, TOK_IMPL, "impl");
-    expect(&lx, TOK_LBRACKET, "[");
+    expect(&lx, TOK_LESS_THAN, "<");
     expect(&lx, TOK_IDENT, "T");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_IDENT, "HasUser");
-    expect(&lx, TOK_RBRACKET, "]");
+    expect(&lx, TOK_GREATER_THAN, ">");
     expect(&lx, TOK_IDENT, "Vec");
-    expect(&lx, TOK_LBRACKET, "[");
+    expect(&lx, TOK_LESS_THAN, "<");
     expect(&lx, TOK_IDENT, "User");
-    expect(&lx, TOK_RBRACKET, "]");
+    expect(&lx, TOK_GREATER_THAN, ">");
     expect(&lx, TOK_LPAREN, "(");
     expect(&lx, TOK_RPAREN, ")");
+    expect(&lx, TOK_EOF, NULL);
+  }
+
+  TEST("nested generics close with a single shift token") {
+    Lexer lx;
+    lexer_init(&lx, "Vec<Vec<int>>");
+    expect(&lx, TOK_IDENT, "Vec");
+    expect(&lx, TOK_LESS_THAN, "<");
+    expect(&lx, TOK_IDENT, "Vec");
+    expect(&lx, TOK_LESS_THAN, "<");
+    expect(&lx, TOK_INT, "int");
+    expect(&lx, TOK_RSHIFT, ">>");
     expect(&lx, TOK_EOF, NULL);
   }
 
