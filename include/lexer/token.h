@@ -96,19 +96,18 @@ typedef enum {
   TOK_ARROW,     // ->
   TOK_PIPE,      // |>
 
-  TOK_SEMI,         // ;
-  TOK_SEMI_SEMI,    // ;;
-  TOK_COLON,        // : (type annotation, field, symbol prefix as in :ok)
-  TOK_COMMA,        // ,
-  TOK_PERIOD,       // .
-  TOK_DOT_DOT,      // ..
-  TOK_DOT_DOT_LESS, // ..<
-  TOK_LPAREN,       // (
-  TOK_RPAREN,       // )
-  TOK_LBRACE,       // {
-  TOK_RBRACE,       // }
-  TOK_LBRACKET,     // [
-  TOK_RBRACKET,     // ]
+  TOK_SEMI,      // ;
+  TOK_SEMI_SEMI, // ;;
+  TOK_COLON,     // : (type annotation, field, symbol prefix as in :ok)
+  TOK_COMMA,     // ,
+  TOK_PERIOD,    // .
+  TOK_DOT_DOT,   // .. (range, end exclusive)
+  TOK_LPAREN,    // (
+  TOK_RPAREN,    // )
+  TOK_LBRACE,    // {
+  TOK_RBRACE,    // }
+  TOK_LBRACKET,  // [
+  TOK_RBRACKET,  // ]
 } TokenType;
 
 typedef struct {

@@ -242,11 +242,8 @@ Token lexer_next_token(Lexer *lexer) {
   case ',':
     return make_token(lexer, TOK_COMMA);
   case '.':
-    if (match(lexer, '.')) {
-      if (match(lexer, '<'))
-        return make_token(lexer, TOK_DOT_DOT_LESS);
+    if (match(lexer, '.'))
       return make_token(lexer, TOK_DOT_DOT);
-    }
     return make_token(lexer, TOK_PERIOD);
   case '=':
     if (match(lexer, '='))

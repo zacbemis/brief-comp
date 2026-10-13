@@ -8,7 +8,7 @@ typedef enum {
   PAT_WILDCARD,
   PAT_LITERAL,
   PAT_SYMBOL,  // :ok(user)
-  PAT_RANGE,   // 18..<100
+  PAT_RANGE,   // 18..100
   PAT_COMPARE, // < 18
 } PatternKind;
 

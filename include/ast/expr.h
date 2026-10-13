@@ -60,8 +60,7 @@ typedef enum {
   BINARY_BIT_XOR,
   BINARY_LSHIFT,
   BINARY_RSHIFT,
-  BINARY_RANGE,      // ..
-  BINARY_RANGE_LESS, // ..<
+  BINARY_RANGE,
 } BinaryOp;
 
 typedef enum {

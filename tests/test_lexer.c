@@ -58,7 +58,7 @@ int main(void) {
   TEST("multi-char operators use the longest match") {
     Lexer lx;
     lexer_init(&lx, "++ -- ** += -= *= /= %= == != <= >= && || << >> => -> "
-                    "|> .. ..<");
+                    "|> ..");
     expect(&lx, TOK_PLUS_PLUS, "++");
     expect(&lx, TOK_MINUS_MINUS, "--");
     expect(&lx, TOK_STAR_STAR, "**");
@@ -79,7 +79,6 @@ int main(void) {
     expect(&lx, TOK_ARROW, "->");
     expect(&lx, TOK_PIPE, "|>");
     expect(&lx, TOK_DOT_DOT, "..");
-    expect(&lx, TOK_DOT_DOT_LESS, "..<");
     expect(&lx, TOK_EOF, NULL);
   }
 
@@ -295,14 +294,11 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
-  TEST("range operators from docs") {
+  TEST("range operator from docs") {
     Lexer lx;
-    lexer_init(&lx, "18..100 18..<100 0..len(arr)");
+    lexer_init(&lx, "18..100 0..len(arr)");
     expect(&lx, TOK_INT_LIT, "18");
     expect(&lx, TOK_DOT_DOT, "..");
-    expect(&lx, TOK_INT_LIT, "100");
-    expect(&lx, TOK_INT_LIT, "18");
-    expect(&lx, TOK_DOT_DOT_LESS, "..<");
     expect(&lx, TOK_INT_LIT, "100");
     expect(&lx, TOK_INT_LIT, "0");
     expect(&lx, TOK_DOT_DOT, "..");
@@ -523,7 +519,7 @@ int main(void) {
 
   TEST("pipeline pattern match from docs") {
     Lexer lx;
-    lexer_init(&lx, "age |> {\n< 18 => \"Minor\"\n18..<100 => "
+    lexer_init(&lx, "age |> {\n< 18 => \"Minor\"\n18..100 => "
                     "\"Adult\"\n>= 100 => \"Senior\"\n}");
     expect(&lx, TOK_IDENT, "age");
     expect(&lx, TOK_PIPE, "|>");
@@ -535,7 +531,7 @@ int main(void) {
     expect(&lx, TOK_STR_LIT, "\"Minor\"");
     expect(&lx, TOK_NEWLINE, "\n");
     expect(&lx, TOK_INT_LIT, "18");
-    expect(&lx, TOK_DOT_DOT_LESS, "..<");
+    expect(&lx, TOK_DOT_DOT, "..");
     expect(&lx, TOK_INT_LIT, "100");
     expect(&lx, TOK_FAT_ARROW, "=>");
     expect(&lx, TOK_STR_LIT, "\"Adult\"");
