@@ -148,6 +148,18 @@ const MAX_USERS = 100
 
 The previous `const var` combination has been removed from the current design.
 
+### Logical operators
+
+Logical operators are the keywords `and` and `or`.
+
+```
+if age >= 18 and age < 100 {
+  ret true
+}
+```
+
+`&&` and `||` are not part of the language.
+
 ### Arrays and collections
 
 Proposed syntax includes:

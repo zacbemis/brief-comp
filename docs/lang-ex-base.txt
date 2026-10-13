@@ -51,6 +51,9 @@ x -= y
 x *= y
 x /= y
 
+x and y
+x or y
+
 // variables are default private and can be used in the same module
 mod User {
   import std.Json

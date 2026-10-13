@@ -122,18 +122,18 @@ const char *token_type_name(TokenType type) {
     return "TOK_BANG";
   case TOK_QUESTION:
     return "TOK_QUESTION";
-  case TOK_AND_AND:
-    return "TOK_AND_AND";
-  case TOK_OR_OR:
-    return "TOK_OR_OR";
-  case TOK_TILDE:
-    return "TOK_TILDE";
   case TOK_AND:
     return "TOK_AND";
   case TOK_OR:
     return "TOK_OR";
-  case TOK_XOR:
-    return "TOK_XOR";
+  case TOK_TILDE:
+    return "TOK_TILDE";
+  case TOK_BIT_AND:
+    return "TOK_BIT_AND";
+  case TOK_BIT_OR:
+    return "TOK_BIT_OR";
+  case TOK_BIT_XOR:
+    return "TOK_BIT_XOR";
   case TOK_LSHIFT:
     return "TOK_LSHIFT";
   case TOK_RSHIFT:

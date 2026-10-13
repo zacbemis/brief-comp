@@ -98,8 +98,12 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_IF;
   if (len == 2 && memcmp(lexer->start, "in", 2) == 0)
     return TOK_IN;
+  if (len == 2 && memcmp(lexer->start, "or", 2) == 0)
+    return TOK_OR;
   if (len == 3 && memcmp(lexer->start, "Sym", 3) == 0)
     return TOK_SYM;
+  if (len == 3 && memcmp(lexer->start, "and", 3) == 0)
+    return TOK_AND;
   if (len == 3 && memcmp(lexer->start, "chr", 3) == 0)
     return TOK_CHR;
   if (len == 3 && memcmp(lexer->start, "dub", 3) == 0)
@@ -298,19 +302,15 @@ Token lexer_next_token(Lexer *lexer) {
       return make_token(lexer, TOK_GREATER_THAN_EQUAL);
     return make_token(lexer, TOK_GREATER_THAN);
   case '&':
-    if (match(lexer, '&'))
-      return make_token(lexer, TOK_AND_AND);
-    return make_token(lexer, TOK_AND);
+    return make_token(lexer, TOK_BIT_AND);
   case '|':
-    if (match(lexer, '|'))
-      return make_token(lexer, TOK_OR_OR);
     if (match(lexer, '>'))
       return make_token(lexer, TOK_PIPE);
-    return make_token(lexer, TOK_OR);
+    return make_token(lexer, TOK_BIT_OR);
   case '~':
     return make_token(lexer, TOK_TILDE);
   case '^':
-    return make_token(lexer, TOK_XOR);
+    return make_token(lexer, TOK_BIT_XOR);
   case '(':
     return make_token(lexer, TOK_LPAREN);
   case ')':

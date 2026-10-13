@@ -57,8 +57,7 @@ int main(void) {
 
   TEST("multi-char operators use the longest match") {
     Lexer lx;
-    lexer_init(&lx, "++ -- ** += -= *= /= %= == != <= >= && || << >> => -> "
-                    "|> ..");
+    lexer_init(&lx, "++ -- ** += -= *= /= %= == != <= >= << >> => -> |> ..");
     expect(&lx, TOK_PLUS_PLUS, "++");
     expect(&lx, TOK_MINUS_MINUS, "--");
     expect(&lx, TOK_STAR_STAR, "**");
@@ -71,8 +70,6 @@ int main(void) {
     expect(&lx, TOK_BANG_EQUAL, "!=");
     expect(&lx, TOK_LESS_THAN_EQUAL, "<=");
     expect(&lx, TOK_GREATER_THAN_EQUAL, ">=");
-    expect(&lx, TOK_AND_AND, "&&");
-    expect(&lx, TOK_OR_OR, "||");
     expect(&lx, TOK_LSHIFT, "<<");
     expect(&lx, TOK_RSHIFT, ">>");
     expect(&lx, TOK_FAT_ARROW, "=>");
@@ -89,9 +86,9 @@ int main(void) {
     expect(&lx, TOK_GREATER_THAN, ">");
     expect(&lx, TOK_BANG, "!");
     expect(&lx, TOK_TILDE, "~");
-    expect(&lx, TOK_AND, "&");
-    expect(&lx, TOK_OR, "|");
-    expect(&lx, TOK_XOR, "^");
+    expect(&lx, TOK_BIT_AND, "&");
+    expect(&lx, TOK_BIT_OR, "|");
+    expect(&lx, TOK_BIT_XOR, "^");
     expect(&lx, TOK_EOF, NULL);
   }
 
@@ -470,7 +467,7 @@ int main(void) {
     expect(&lx, TOK_LPAREN, "(");
     expect(&lx, TOK_IDENT, "user");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_AND, "&");
+    expect(&lx, TOK_BIT_AND, "&");
     expect(&lx, TOK_IDENT, "User");
     expect(&lx, TOK_COMMA, ",");
     expect(&lx, TOK_IDENT, "age");
@@ -504,16 +501,40 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
-  TEST("pipeline is distinct from bitwise and logical or") {
+  TEST("logical operators are the keywords and/or") {
     Lexer lx;
-    lexer_init(&lx, "a | b || c |> d");
+    lexer_init(&lx, "a and b or c android order");
     expect(&lx, TOK_IDENT, "a");
-    expect(&lx, TOK_OR, "|");
+    expect(&lx, TOK_AND, "and");
     expect(&lx, TOK_IDENT, "b");
-    expect(&lx, TOK_OR_OR, "||");
+    expect(&lx, TOK_OR, "or");
     expect(&lx, TOK_IDENT, "c");
+    expect(&lx, TOK_IDENT, "android");
+    expect(&lx, TOK_IDENT, "order");
+    expect(&lx, TOK_EOF, NULL);
+  }
+
+  TEST("&& and || are not operators") {
+    Lexer lx;
+    lexer_init(&lx, "a && b || c");
+    expect(&lx, TOK_IDENT, "a");
+    expect(&lx, TOK_BIT_AND, "&");
+    expect(&lx, TOK_BIT_AND, "&");
+    expect(&lx, TOK_IDENT, "b");
+    expect(&lx, TOK_BIT_OR, "|");
+    expect(&lx, TOK_BIT_OR, "|");
+    expect(&lx, TOK_IDENT, "c");
+    expect(&lx, TOK_EOF, NULL);
+  }
+
+  TEST("pipeline is distinct from bitwise or") {
+    Lexer lx;
+    lexer_init(&lx, "a | b |> c");
+    expect(&lx, TOK_IDENT, "a");
+    expect(&lx, TOK_BIT_OR, "|");
+    expect(&lx, TOK_IDENT, "b");
     expect(&lx, TOK_PIPE, "|>");
-    expect(&lx, TOK_IDENT, "d");
+    expect(&lx, TOK_IDENT, "c");
     expect(&lx, TOK_EOF, NULL);
   }
 

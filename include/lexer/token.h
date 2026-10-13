@@ -81,16 +81,16 @@ typedef enum {
 
   TOK_BANG,     // ! (logical not, postfix panic)
   TOK_QUESTION, // ? (postfix error propagation)
-  TOK_AND_AND,  // &&
-  TOK_OR_OR,    // ||
+  TOK_AND,      // and
+  TOK_OR,       // or
 
   // Bitwise
-  TOK_TILDE,  // ~
-  TOK_AND,    // & (bitwise and, mutable borrow)
-  TOK_OR,     // |
-  TOK_XOR,    // ^
-  TOK_LSHIFT, // <<
-  TOK_RSHIFT, // >>
+  TOK_TILDE,   // ~
+  TOK_BIT_AND, // & (bitwise and, mutable borrow)
+  TOK_BIT_OR,  // |
+  TOK_BIT_XOR, // ^
+  TOK_LSHIFT,  // <<
+  TOK_RSHIFT,  // >>
 
   TOK_FAT_ARROW, // =>
   TOK_ARROW,     // ->
