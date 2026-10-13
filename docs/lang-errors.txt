@@ -106,7 +106,7 @@ loadJson(path: str): Sym<:ok(Json), :syntax(int)> {
 }
 ```
 
-If inferred return types are adopted, a private function can leave the return type off and the compiler builds the same set.
+The return type can also be left out, and the compiler builds the same set.
 
 ```
 loadJson(path: str) {
@@ -116,11 +116,21 @@ loadJson(path: str) {
 // inferred: Sym<:ok(Json), :notFound(str), :permissionDenied(str), :syntax(int)>
 ```
 
+Or the success type can be written and the rest left to the compiler with `_`.
+
+```
+loadJson(path: str): Sym<:ok(Json), _> {
+  path |> readFile()? |> parse()
+}
+```
+
+All three forms are allowed on any function. A written type is always checked against the body.
+
 ---
 
 ## 3. Named sets
 
-Listing every variant on a `pub` function gets long. A module can name its error set once.
+Listing every variant in a written return type gets long. A module can name its error set once.
 
 ```
 // file: File

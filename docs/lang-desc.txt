@@ -210,6 +210,26 @@ The language is expression-oriented wherever practical.
 
 Functions can accept objects, borrow mutable objects, return typed symbols, and participate in pipelines.
 
+### Return types
+
+Parameter types are always written. A return type may be written in full, written in part, or left out. All three forms are allowed on any function, including `pub` functions.
+
+```
+pub loadUser(path: str) {                         // inferred
+pub loadUser(path: str): Sym<:ok(User), _> {      // success type written, other variants inferred
+pub loadUser(path: str): Sym<:ok(User), File.Error, Json.Error, :invalidAge(int)> {
+```
+
+When the return type is left out, the compiler infers it from the body. Leaving it out does not mean the function returns nothing.
+
+Inside `Sym<...>`, `_` stands for whatever other variants the body produces. The variants that are written must match the body.
+
+A written return type is checked against the body. A variant the body produces that the written type does not list is a compile error at the function, not at its callers.
+
+A trait method without a body has nothing to infer from, so its return type must be written in full.
+
+Exhaustive matching, `?`, and `!` behave the same whichever form is used.
+
 ### Call syntax
 
 ```
@@ -868,7 +888,7 @@ setAge(user, 21)     // Compiler error: setAge takes &User
 
 The compiler must ensure that immutable objects cannot be mutated through hidden aliases, including aliases to nested data.
 
-Three cases are not yet specified:
+`const` is enforced at compile time. Three cases are outside what that check can see and are not yet handled:
 
 - A value returned by a call that is still referenced elsewhere, as in `const dog = kennel.first()`.
 - A mutable object stored inside a `const` value, as in `const kennel = Kennel.new(dog)`.
@@ -997,6 +1017,12 @@ Its responsibilities include:
 
 The compiler should provide actionable error messages rather than requiring programmers to understand internal ownership machinery.
 
+### Compilation strategy
+
+The first compiler is written in C and emits C, which an existing C compiler turns into a native binary.
+
+The long-term goal is to bootstrap: most of the compiler will be rewritten in the language itself, reusing the same C output and runtime.
+
 ---
 
 ## 15. Features Still Under Consideration
@@ -1012,8 +1038,8 @@ The following areas are not fully specified and should not be assumed to have fi
 7. Weak-reference syntax and runtime representation.
 8. Scoped resource cleanup such as `defer`.
 9. Closures, async programming, and concurrency.
-10. Native compilation strategy, ABI, and foreign-function interfaces.
-11. Where return types may be omitted and inferred.
+10. ABI and foreign-function interfaces.
+11. Catching a misspelled symbol tag in a function whose return type is inferred.
 12. Whether a type can be given an `impl` block outside its defining module.
 13. Nested modules, for which the `mod` keyword is reserved, and the source file extension.
 
