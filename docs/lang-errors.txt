@@ -123,17 +123,17 @@ loadJson(path: str) {
 Listing every variant on a `pub` function gets long. A module can name its error set once.
 
 ```
-mod File {
-  pub type Error = Sym<:notFound(str), :permissionDenied(str)>
+// file: File
 
-  pub read(path: str): Sym<:ok(str), Error>
-}
+pub type Error = Sym<:notFound(str), :permissionDenied(str)>
 
-mod Json {
-  pub type Error = Sym<:syntax(int), :missingKey(str), :wrongType(str)>
+pub read(path: str): Sym<:ok(str), Error>
 
-  pub parse(text: str): Sym<:ok(Json), Error>
-}
+// file: Json
+
+pub type Error = Sym<:syntax(int), :missingKey(str), :wrongType(str)>
+
+pub parse(text: str): Sym<:ok(Json), Error>
 ```
 
 Inside `Sym<...>`, an entry that starts with `:` is one variant. An entry that is a type name includes every variant of that set.

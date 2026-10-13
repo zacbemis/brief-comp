@@ -54,163 +54,175 @@ x /= y
 x and y
 x or y
 
+// each file is a module named after the file
 // variables are default private and can be used in the same module
-mod User {
-  import std.Json
+// file: User
 
-  pub User {
-    name: str
-    age: int
-    userVer: flt
+import std.Json
+
+pub User {
+  name: str
+  age: int
+  userVer: flt
+}
+
+pub trait HasUser{
+  getUser(value: Self): User
+
+  pub getName(value: Self): str {
+    value.getUser().name
   }
 
-  pub trait HasUser{
-    getUser(value: Self): User
-
-    pub getName(value: Self): str {
-      value.getUser().name
-    }
-
-    pub getAge(value: Self): int {
-      value.getUser().age
-    }
-
-    pub getAgeRange(value: Self): Sym<:ofAge, :old> {
-      value.getAge() |> {
-        18..100 => :ofAge
-        >= 100 => :old
-      }
-    }
+  pub getAge(value: Self): int {
+    value.getUser().age
   }
 
-  impl User: HasUser {
-    pub const VERSION = 0.5
-    pub enum USER_TIER {
-      TIER1
-      TIER2
-      TIER3
-    }
-
-    getUser(user: User): User {user}
-
-    pub new(name: str, age: int): Sym<:ok(User), :err(str)> {
-      if age < 18 {
-        ret :err("Age is too low")
-      }
-
-      :ok(User {
-        name: name
-        age: age
-        userVer: VERSION 
-      })
-    }
-    
-    pub fromJson(json: Json): Sym<:ok(User), Json.Error> {
-      let name = json.getStr("name")?
-      let age = json.getInt("age")?
-
-      User.new(name, age)
-    }
-
-    pub toJson(user: User): Json {
-      Json.object({
-        "name": user.name,
-        "age": user.age,
-        "Version: user.userVer,
-      })
+  pub getAgeRange(value: Self): Sym<:ofAge, :old> {
+    value.getAge() |> {
+      18..100 => :ofAge
+      >= 100 => :old
     }
   }
 }
 
-mod Admin {
-  import User
-
-  pub Admin {
-    user: User
-    userTier: USER_TIER
+impl User: HasUser {
+  pub const VERSION = 0.5
+  pub enum USER_TIER {
+    TIER1
+    TIER2
+    TIER3
   }
 
-  impl Admin: HasUser {
-    getUser(admin: Admin): User {admin.user}
+  getUser(user: User): User {user}
 
-    ovr pub getName(admin: Admin): str {
-      Admin.getUser().name
+  pub new(name: str, age: int): Sym<:ok(User), :err(str)> {
+    if age < 18 {
+      ret :err("Age is too low")
     }
 
-    pub new(name: str, age: int): Admin {
-      Admin {
-        user: User.new(name, age)?
-        userTier: USER_TIER.TIER1
-      }
+    :ok(User {
+      name: name
+      age: age
+      userVer: VERSION 
+    })
+  }
+  
+  pub fromJson(json: Json): Sym<:ok(User), Json.Error> {
+    let name = json.getStr("name")?
+    let age = json.getInt("age")?
+
+    User.new(name, age)
+  }
+
+  pub toJson(user: User): Json {
+    Json.object({
+      "name": user.name,
+      "age": user.age,
+      "Version: user.userVer,
+    })
+  }
+}
+
+// file: Admin
+
+// import only brings in the name User
+// everything else is User.something
+import User
+
+pub Admin {
+  user: User
+  userTier: User.USER_TIER
+}
+
+impl Admin: User.HasUser {
+  getUser(admin: Admin): User {admin.user}
+
+  ovr pub getName(admin: Admin): str {
+    Admin.getUser().name
+  }
+
+  pub new(name: str, age: int): Admin {
+    Admin {
+      user: User.new(name, age)?
+      userTier: User.USER_TIER.TIER1
     }
   }
 }
 
-mod UserCollection {
-  import std.Json
+// file: UserCollection
 
-  import User
+import std.Json
 
-  pub UserCollection {
-    userVec: Vec<User>
-    userVersion: flt
+import User
+
+pub UserCollection {
+  userVec: Vec<User>
+  userVersion: flt
+}
+
+impl UserCollection {
+  pub new(): userCollection {
+    UserCollection {
+      userVec: Vec<User>()
+      userVersion: User.VERSION
+    }
   }
 
-  impl UserCollection {
-    pub new(): userCollection {
-      UserCollection {
-        userVec: Vec<User>()
-        userVersion: User.VERSION
-      }
+  pub add(collection: &UserCollection, user: User) {
+    collection.userVec.add(user)
+  }
+
+  pub fromJson(json: Json): Sym<:ok(UserCollection), Json.Error>{
+    let users = json.getArray("users")?
+    let collection = UserCollection.new()
+
+    for user in users {
+      let user = User.fromJson(item)?
+      collection.add(user)
     }
 
-    pub add(collection: &UserCollection, user: User) {
-      collection.userVec.add(user)
+    :ok(collection)
+  }
+
+  pub toJson(collection: UserCollection): Json {
+    Json.object({
+      "users": collection.userVec.map((user) => user.toJson())
+    })
+  }
+
+  pub findByName(collection: UserCollection, name: str): Sym<:found(User), :missing> {
+    collection.userVec.find((user) => user.getName() == name) |> {
+      :ok(user) => :found(user)
+      :none => :missing
     }
+  }
 
-    pub fromJson(json: Json): Sym<:ok(UserCollection), Json.Error>{
-      let users = json.getArray("users")?
-      let collection = UserCollection.new()
-
-      for user in users {
-        let user = User.fromJson(item)?
-        collection.add(user)
-      }
-
-      :ok(collection)
+  pub removeByName(collection: &UserCollection, name: str) Sym<:found(User), :missing> {
+    collection.userVec.remove((user) => user.getName() == name) |> {
+      :ok(user) => :found(user)
+      :none => :missing
     }
+  }
 
-    pub toJson(collection: UserCollection): Json {
-      Json.object({
-        "users": collection.userVec.map((user) => user.toJson())
-      })
-    }
+  pub count(collection: UserCollection): int {
+    collection.userVec.len()
+  }
 
-    pub findByName(collection: UserCollection, name: str): Sym<:found(User), :missing> {
-      collection.userVec.find((user) => user.getName() == name) |> {
-        :ok(user) => :found(user)
-        :none => :missing
-      }
-    }
-
-    pub removeByName(collection: &UserCollection, name: str) Sym<:found(User), :missing> {
-      collection.userVec.remove((user) => user.getName() == name) |> {
-        :ok(user) => :found(user)
-        :none => :missing
-      }
-    }
-
-    pub count(collection: UserCollection): int {
-      collection.userVec.len()
-    }
-
-    pub olderThan(collection: UserCollection, age: int): User[] {
-      collection.userVec.filter((user) => user.getAge() > age)
-    }
+  pub olderThan(collection: UserCollection, age: int): User[] {
+    collection.userVec.filter((user) => user.getAge() > age)
   }
 }
 
-// in another module
+// files cannot import each other in a cycle
+
+// the top level of a file only has declarations
+// a program starts at main() in the file given to the compiler
+main() {
+  let user = User.new("Bob", 20)!
+  print(user.getName())
+}
+
+// in a function in another file
 const user = User.new("Bob", 20)? // shorthand for error matching and propigates errors
 // or
 const user = User.new("Bob", 20)! // panic

@@ -242,27 +242,81 @@ The `pub` keyword controls visibility outside the defining module.
 
 Making a type public does not automatically make its fields public.
 
-Modules provide the primary privacy boundary, inspired by Rust.
+### Modules
+
+Each source file is one module, named after the file. There is no wrapper block around a module's contents.
+
+A module usually defines one main type that shares the module's name, as in Elixir.
 
 ```
-mod User {
-  pub User {
-    name: str
-    age: int
-  }
+// file: User
 
-  impl User {
-    pub new(name: str, age: int): User {
-      User {
-        name: name
-        age: age
-      }
+pub User {
+  name: str
+  age: int
+}
+
+impl User {
+  pub new(name: str, age: int): User {
+    User {
+      name: name
+      age: age
     }
   }
 }
 ```
 
+`User` in a type position means that type. `User.name` reaches any public item in the module: a top-level function or one from `impl User`, a constant, or another type.
+
+```
+User.new("Bob", 20)   // function
+User.VERSION          // constant
+User.HasUser          // trait
+```
+
+Modules provide the primary privacy boundary, inspired by Rust. A declaration is private to its module unless marked `pub`.
+
 Code outside the module can use the public `User` type and call its public functions, but cannot directly initialize or modify private fields.
+
+### Imports
+
+`import User` makes the name `User` available. Everything else in the module is reached through that name.
+
+```
+// file: Admin
+
+import User
+
+pub Admin {
+  user: User
+  tier: int
+}
+
+impl Admin: User.HasUser {
+  getUser(admin: Admin): User {
+    admin.user
+  }
+}
+```
+
+A dotted path names a module inside folders. `import std.Json` loads the `Json` module from the `std` folder and makes the name `Json` available.
+
+Modules cannot import each other in a cycle. A cycle is a compile error.
+
+### Program entry
+
+The top level of a module contains only declarations: imports, types, traits, `impl` blocks, functions, and constants.
+
+A program starts at the `main()` function of the file given to the compiler.
+
+```
+import User
+
+main() {
+  let user = User.new("Bob", 20)!
+  print(user.getName())
+}
+```
 
 ### Struct literals and blocks
 
@@ -855,43 +909,43 @@ The standard library is intended to expose typed, composable APIs.
 JSON is a representative example.
 
 ```
-mod User {
-  import std.Json
+// file: User
 
-  pub User {
-    name: str
-    age: int
+import std.Json
+
+pub User {
+  name: str
+  age: int
+}
+
+impl User {
+  pub new(name: str, age: int):
+    Sym<:ok(User), :invalidAge(int)> {
+
+    if age < 18 {
+      ret :invalidAge(age)
+    }
+
+    :ok(User {
+      name: name
+      age: age
+    })
   }
 
-  impl User {
-    pub new(name: str, age: int):
-      Sym<:ok(User), :invalidAge(int)> {
+  pub fromJson(json: Json):
+    Sym<:ok(User), Json.Error, :invalidAge(int)> {
 
-      if age < 18 {
-        ret :invalidAge(age)
-      }
+    let name = json.getStr("name")?
+    let age = json.getInt("age")?
 
-      :ok(User {
-        name: name
-        age: age
-      })
-    }
+    User.new(name, age)
+  }
 
-    pub fromJson(json: Json):
-      Sym<:ok(User), Json.Error, :invalidAge(int)> {
-
-      let name = json.getStr("name")?
-      let age = json.getInt("age")?
-
-      User.new(name, age)
-    }
-
-    pub toJson(user: User): Json {
-      Json.object({
-        "name": user.name,
-        "age": user.age
-      })
-    }
+  pub toJson(user: User): Json {
+    Json.object({
+      "name": user.name,
+      "age": user.age
+    })
   }
 }
 ```
@@ -961,7 +1015,7 @@ The following areas are not fully specified and should not be assumed to have fi
 10. Native compilation strategy, ABI, and foreign-function interfaces.
 11. Where return types may be omitted and inferred.
 12. Whether a type can be given an `impl` block outside its defining module.
-13. The module system: how modules map to files, what `import` brings into scope, and how a module and a type with the same name are told apart.
+13. Nested modules, for which the `mod` keyword is reserved, and the source file extension.
 
 These are design questions rather than commitments to specific implementations.
 
