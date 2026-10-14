@@ -1,0 +1,60 @@
+# Standard Library
+
+> Part of the language design. `lang-desc.txt` has the overview and the list of documents.
+
+## Standard Library and JSON
+
+The standard library is intended to expose typed, composable APIs. Collection operations are in `lang-collections.txt`.
+
+JSON is a representative example.
+
+```
+// file: User.brf
+
+pub User {
+  name: str
+  age: int
+}
+
+impl User {
+  pub new(name: str, age: int):
+    Sym<:ok(User), :invalidAge(int)> {
+
+    if age < 18 {
+      ret :invalidAge(age)
+    }
+
+    :ok(User {
+      name: name
+      age: age
+    })
+  }
+
+  pub fromJson(json: Json):
+    Sym<:ok(User), Json.Error, :invalidAge(int)> {
+
+    let name = json.getStr("name")?
+    let age = json.getInt("age")?
+
+    User.new(name, age)?
+  }
+
+  pub toJson(user: User): Json {
+    Json.object({
+      "name": user.name,
+      "age": user.age
+    })
+  }
+}
+```
+
+This illustrates several core design goals:
+
+- Object fields remain encapsulated.
+- Constructors enforce invariants.
+- JSON parsing errors are typed.
+- Validation errors are propagated explicitly.
+- The compiler checks error compatibility.
+- Functions remain short and readable.
+
+JSON APIs and error-group composition shown here are illustrative and have not yet been finalized as standard-library contracts.

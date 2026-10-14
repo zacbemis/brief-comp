@@ -20,6 +20,23 @@ let // immutable binding mutable data
 var // mutable binding mutable data
 const // immutable binding immutable data
 
+// the type after the name is optional
+let count: lng = 0
+var ratio: flt = 0.5
+
+// a number takes the type its context expects
+// otherwise a whole number is an int and a decimal is a dub
+let small = 10 // int
+let half = 0.5 // dub
+
+// no implicit conversions between number types
+let total: lng = small // error
+let total = lng(small) // converters are named after the type
+let label = small |> str()
+let parsed = int("42")? // a conversion that can fail returns a symbol
+
+// integer overflow panics
+
 & // mutable borrow of data
 
 Animal { // object definition
@@ -27,11 +44,8 @@ Animal { // object definition
   species: Species
 }
 
-enum Color {
-  Red
-  Green
-  Blue
-}
+// there is no enum: a named symbol set does the same job
+type Color = Sym<:red, :green, :blue>
 
 add(x: int, y: int): int {
   x + y
@@ -54,17 +68,51 @@ x /= y
 x and y
 x or y
 
-// each file is a module named after the file
-// variables are default private and can be used in the same module
-// file: User
+// precedence: arithmetic, then .., then |>, then comparisons, then and, then or
+count |> double() > 10 // (count |> double()) > 10
+a < b < c // error: comparisons do not chain
 
-import std.Json
+if x < y {
+  print("less")
+} else if x == y {
+  print("equal")
+} else {
+  print("more")
+}
+
+while x < 10 {
+  x += 1
+}
+
+for i in 0..10 { // 0 through 9
+  if i == 3 {
+    continue // next iteration
+  }
+
+  if i == 8 {
+    break // leave the loop
+  }
+}
+
+// () is the empty type
+// with () written the last value is dropped
+// with no return type the last value is returned
+log(message: str): () {
+  print(message)
+}
+
+// each file is a module named after the file, with the extension .brf
+// variables are default private and can be used in the same module
+// modules are found by name, so no import is needed
+// file: User.brf
 
 pub User {
   name: str
   age: int
   userVer: flt
 }
+
+pub type Tier = Sym<:tier1, :tier2, :tier3>
 
 pub trait HasUser{
   getUser(value: Self): User
@@ -86,12 +134,7 @@ pub trait HasUser{
 }
 
 impl User: HasUser {
-  pub const VERSION = 0.5
-  pub enum USER_TIER {
-    TIER1
-    TIER2
-    TIER3
-  }
+  pub const VERSION: flt = 0.5
 
   getUser(user: User): User {user}
 
@@ -107,11 +150,11 @@ impl User: HasUser {
     })
   }
   
-  pub fromJson(json: Json): Sym<:ok(User), Json.Error> {
+  pub fromJson(json: Json): Sym<:ok(User), Json.Error, :err(str)> {
     let name = json.getStr("name")?
     let age = json.getInt("age")?
 
-    User.new(name, age)
+    User.new(name, age)? // a call that can fail is handled, even on the last line
   }
 
   pub toJson(user: User): Json {
@@ -123,15 +166,14 @@ impl User: HasUser {
   }
 }
 
-// file: Admin
+// file: Admin.brf
 
-// import only brings in the name User
-// everything else is User.something
-import User
+// User.brf is in the same folder, so User needs no import
+// only the name User comes in; everything else is User.something
 
 pub Admin {
   user: User
-  userTier: User.USER_TIER
+  userTier: User.Tier
 }
 
 impl Admin: User.HasUser {
@@ -141,19 +183,13 @@ impl Admin: User.HasUser {
     Admin.getUser().name
   }
 
-  pub new(name: str, age: int): Admin {
-    Admin {
-      user: User.new(name, age)?
-      userTier: User.USER_TIER.TIER1
-    }
+  // ending with a plain value returns :ok of it
+  pub new(name: str, age: int): Sym<:ok(Admin), :err(str)> {
+    Admin { user: User.new(name, age)?, userTier: :tier1 }
   }
 }
 
-// file: UserCollection
-
-import std.Json
-
-import User
+// file: UserCollection.brf
 
 pub UserCollection {
   userVec: Vec<User>
@@ -168,7 +204,7 @@ impl UserCollection {
     }
   }
 
-  pub add(collection: &UserCollection, user: User) {
+  pub add(collection: &UserCollection, user: User): () {
     collection.userVec.add(user)
   }
 
@@ -186,7 +222,7 @@ impl UserCollection {
 
   pub toJson(collection: UserCollection): Json {
     Json.object({
-      "users": collection.userVec.map((user) => user.toJson())
+      "users": collection.userVec |> select((user) => user.toJson())
     })
   }
 
@@ -197,11 +233,9 @@ impl UserCollection {
     }
   }
 
-  pub removeByName(collection: &UserCollection, name: str) Sym<:found(User), :missing> {
-    collection.userVec.remove((user) => user.getName() == name) |> {
-      :ok(user) => :found(user)
-      :none => :missing
-    }
+  // remove takes out every match and returns them
+  pub removeByName(collection: &UserCollection, name: str): Vec<User> {
+    collection.userVec |> remove((user) => user.getName() == name)
   }
 
   pub count(collection: UserCollection): int {
@@ -209,11 +243,11 @@ impl UserCollection {
   }
 
   pub olderThan(collection: UserCollection, age: int): User[] {
-    collection.userVec.filter((user) => user.getAge() > age)
+    collection.userVec |> where((user) => user.getAge() > age)
   }
 }
 
-// files cannot import each other in a cycle
+// files cannot use each other in a cycle
 
 // the top level of a file only has declarations
 // a program starts at main() in the file given to the compiler

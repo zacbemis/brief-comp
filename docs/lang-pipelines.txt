@@ -1,0 +1,191 @@
+# Pipelines and Pattern Matching
+
+> Part of the language design. `lang-desc.txt` has the overview and the list of documents.
+
+The pipeline operator is:
+
+```
+|>
+```
+
+**The pipeline evaluates its left expression and passes the resulting value into the function call or block on the right.**
+
+The right-hand side takes one of two forms:
+
+- A function call. The value becomes the call's first argument, as in Elixir.
+- A block of pattern arms. The value is matched against the arms.
+
+The pipeline itself does not automatically unwrap symbols.
+
+## Function calls
+
+```
+json |> parse() |> validate()
+```
+
+is equivalent to:
+
+```
+validate(parse(json))
+```
+
+Further arguments follow the piped value: `x |> f(a)` is `f(x, a)`.
+
+```
+users |> olderThan(30) |> count()     // count(olderThan(users, 30))
+```
+
+A long pipeline is written one stage per line.
+
+```
+let names = users
+  |> olderThan(30)
+  |> sortByName()
+  |> take(10)
+```
+
+A pipeline can call any function, including one that does not belong to the type of the piped value. Method-call syntax cannot.
+
+## Finding the function
+
+In `x |> f()`, the name `f` is looked up in two places, in order:
+
+1. The functions that belong to the type of `x`: those in an `impl` block for that type, or in a trait the type implements. This is the same set `x.f()` can call.
+2. The names in scope in the current module.
+
+```
+users |> where((user) => user.getAge() >= 18)   // where belongs to Vec<User>
+users |> summary()                              // a function in this module
+users |> Report.summary()                       // a function in another module
+```
+
+If a function that belongs to the type and a function in scope have the same name, the one that belongs to the type is used. A qualified name such as `Report.summary` always means that function.
+
+## Error handling in pipelines
+
+`?` and `!` after a stage apply to the result of that stage's call.
+
+```
+json |> parse()? |> validate()?
+```
+
+is equivalent to:
+
+```
+validate(parse(json)?)?
+```
+
+Outcomes propagate and accumulate exactly as they do for ordinary calls: the return type of the enclosing function includes the non-success outcomes of every stage.
+
+```
+loadUser(path: str) {
+  path
+    |> File.read()?
+    |> Json.parse()?
+    |> User.fromJson()?
+}
+
+// inferred: Sym<:ok(User), File.Error, Json.Error, :invalidAge(int)>
+```
+
+A stage can end the pipeline with a match block.
+
+```
+let name = path
+  |> File.read()?
+  |> Json.parse()
+  |> {
+    :ok(json) => json.getStr("name")!
+    other => "unknown"
+  }
+```
+
+## Precedence
+
+`|>` binds looser than arithmetic and ranges, and tighter than comparisons, `and`, and `or`.
+
+```
+x + 1 |> double()              // (x + 1) |> double()
+0..10 |> sum()                 // (0..10) |> sum()
+count |> double() > 10         // (count |> double()) > 10
+a |> f() and b |> g()          // (a |> f()) and (b |> g())
+```
+
+Matching on a comparison needs parentheses.
+
+```
+(age >= 18) |> {
+  true => "Adult"
+  false => "Minor"
+}
+```
+
+`lang-syntax.txt` has the full precedence list.
+
+## Value transformations
+
+```
+10 |> {
+  (x) => x * 2
+}
+```
+
+## Pattern matching
+
+```
+age |> {
+  < 18 => "Minor"
+  18..100 => "Adult"
+  >= 100 => "Senior"
+}
+```
+
+A range `a..b` includes `a` and excludes `b`.
+
+## Symbol matching
+
+```
+users.find(predicate) |> {
+  :ok(user) => :found(user)
+  :none => :missing
+}
+```
+
+Pattern arms can destructure payloads.
+
+```
+:ok(user) => user.getName()
+```
+
+Patterns are evaluated in order, and the first applicable pattern is selected.
+
+## Exhaustiveness
+
+Every match block must cover every possible value, whether or not its result is used. A match that misses a case is a compile error.
+
+For symbols, every variant of the input type must have an arm, or a catch-all arm must follow.
+
+For numbers, the arms' ranges and comparisons must together cover every value of the type.
+
+```
+age |> {
+  < 18 => "Minor"
+  18..100 => "Adult"
+  >= 100 => "Senior"
+}
+// allowed: every int is covered
+
+age |> {
+  18..100 => "Adult"
+  >= 100 => "Senior"
+}
+// Compiler error: values below 18 are not covered
+
+age |> {
+  18..100 => "Adult"
+  _ => "Other"
+}
+// allowed: _ covers everything else
+```
+
+Arms are tried in order and the first that matches is used. There is no fallthrough from one arm to the next.

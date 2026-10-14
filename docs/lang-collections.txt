@@ -1,0 +1,405 @@
+# Collections
+
+> Part of the language design. `lang-desc.txt` has the overview and the list of documents.
+
+Collections are queried and changed through ordinary functions. There is no query syntax.
+
+The function names follow relational databases, so a reader who knows SQL knows what each one does. Each function takes the collection as its first argument, so it works with `|>`, with `.`, with `Sym` matching, and with the rest of the language.
+
+```
+let names = users
+  |> where((user) => user.getAge() >= 18)
+  |> orderBy((user) => user.getName())
+  |> select((user) => user.getName())
+  |> limit(10)
+```
+
+The same query written with `.`:
+
+```
+let names = users
+  .where((user) => user.getAge() >= 18)
+  .orderBy((user) => user.getName())
+  .select((user) => user.getName())
+  .limit(10)
+```
+
+Traditional loops remain available for cases where they are clearer or more appropriate. The language should not force all control flow into functional abstractions.
+
+## Operations
+
+`items` is the collection. Every function below can be called as `items |> name(...)`, `items.name(...)`, or `name(items, ...)`.
+
+### Querying
+
+| Function | SQL | Result |
+|---|---|---|
+| `where(items, keep)` | `WHERE` | The elements for which `keep` returns `true`. |
+| `select(items, pick)` | `SELECT` | The result of `pick` for each element. |
+| `orderBy(items, key)` | `ORDER BY` | The elements sorted by `key`, smallest first. See "Ordering". |
+| `distinct(items)` | `DISTINCT` | The elements with duplicates removed. The first of each is kept. |
+| `limit(items, n)` | `LIMIT` | The first `n` elements. |
+| `offset(items, n)` | `OFFSET` | Every element after the first `n`. |
+| `groupBy(items, key)` | `GROUP BY` | One row `(key, items)` per distinct key, in order of first appearance. |
+| `join(items, other, match, build)` | `JOIN` | The result of `build` for every pair for which `match` returns `true`. |
+| `find(items, test)` | | `:ok(element)` for the first element that passes `test`, or `:none`. |
+| `first(items)` | | `:ok(element)` for the first element, or `:none` when empty. |
+| `reverse(items)` | | The elements in the opposite order. |
+| `selectMany(items, pick)` | | The collections `pick` returns, joined into one. |
+| `toMap(items, key)` | | A `Map` from each key to the elements with that key. |
+
+### Aggregating
+
+| Function | SQL | Result |
+|---|---|---|
+| `count(items)` | `COUNT` | The number of elements, as an `int`. `0` when empty. |
+| `sum(items, value)` | `SUM` | The total of `value` over every element, in `value`'s type. `0` when empty. Overflow panics. |
+| `avg(items, value)` | `AVG` | `:ok` with the average of `value` as a `dub`, or `:none` when empty. |
+| `min(items, value)` | `MIN` | `:ok` with the element whose `value` is smallest, or `:none` when empty. |
+| `max(items, value)` | `MAX` | `:ok` with the element whose `value` is largest, or `:none` when empty. |
+| `isEmpty(items)` | | `true` if there are no elements. |
+| `contains(items, item)` | `IN` | `true` if an element is `==` to `item`. |
+| `any(items, test)` | `EXISTS` | `true` if at least one element passes `test`. |
+| `all(items, test)` | | `true` if every element passes `test`. `true` when empty. |
+| `fold(items, start, combine)` | | A custom aggregate built by `combine`, starting from `start`. |
+
+### Changing
+
+| Function | SQL | Result |
+|---|---|---|
+| `add(items, item)` | `INSERT` | Adds `item` at the end. |
+| `update(items, test, change)` | `UPDATE ... WHERE` | Applies `change` to every element that passes `test`. |
+| `remove(items, test)` | `DELETE ... WHERE` | Removes every element that passes `test` and returns them as a `Vec`. |
+
+Changing functions take the collection as `&`, so they can only be called through a binding that may mutate it.
+
+```
+const frozen = Vec<User>()
+frozen |> add(user)          // Compiler error: frozen is const
+```
+
+## Examples
+
+A page of results:
+
+```
+let page = users
+  |> orderBy((user) => user.getName())
+  |> offset(40)
+  |> limit(20)
+```
+
+A total:
+
+```
+let revenue = orders
+  |> where((order) => order.isPaid())
+  |> sum((order) => order.amount)
+```
+
+A test in a condition:
+
+```
+if users |> any((user) => user.getAge() < 18) {
+  print("Some users are minors")
+}
+```
+
+The first match, handled with a match block:
+
+```
+pub findByName(collection: UserCollection, name: str): Sym<:found(User), :missing> {
+  collection.userVec
+    |> find((user) => user.getName() == name)
+    |> {
+      :ok(user) => :found(user)
+      :none => :missing
+    }
+}
+```
+
+Removing and keeping what was removed:
+
+```
+pub removeByName(collection: &UserCollection, name: str): Vec<User> {
+  collection.userVec |> remove((user) => user.getName() == name)
+}
+```
+
+Grouping:
+
+```
+let tiers = users
+  |> groupBy((user) => user.getTier())
+  |> select((group) => (tier: group.key, total: group.items |> count()))
+```
+
+Joining:
+
+```
+let rows = users |> join(
+  orders,
+  (user, order) => user.id == order.userId,
+  (user, order) => (name: user.getName(), total: order.amount)
+)
+```
+
+The oldest user:
+
+```
+users |> max((user) => user.getAge()) |> {
+  :ok(user) => print(user.getName())
+  :none => print("No users")
+}
+```
+
+Changing every match in place:
+
+```
+users |> update(
+  (user) => user.getAge() >= 65,
+  (user) => user.setTier(3)
+)
+```
+
+Combining with `?`:
+
+```
+pub ageOf(users: Vec<User>, name: str) {
+  let user = users |> find((user) => user.getName() == name)?
+  :ok(user.getAge())
+}
+
+// inferred: Sym<:ok(int), :none>
+```
+
+## Finding the function in a pipeline
+
+`users |> where(...)` needs no `Vec.` prefix, because `where` belongs to the type of `users`. `lang-pipelines.txt` has the full lookup rule.
+
+## Lambdas that can fail
+
+Inside a lambda, `?` leaves the lambda. A collection function whose lambda can fail can itself fail, and returns the lambda's error variants like any other call.
+
+```
+loadAll(items: Vec<Json>) {
+  let users = items |> select((json) => User.fromJson(json)?)?
+  :ok(users)
+}
+
+// select returns Sym<:ok(Vec<User>), Json.Error, :invalidAge(int)>
+// loadAll is inferred as Sym<:ok(Vec<User>), Json.Error, :invalidAge(int)>
+```
+
+The first element that fails stops the operation, and its error is returned. Later elements are not processed. For `update`, changes made to earlier elements remain.
+
+The same function is used whether or not its lambda can fail. When the lambda cannot fail, the result has only `:ok` and can be used directly (`lang-errors.txt`, section 9).
+
+```
+let names = users |> select((user) => user.getName())   // used directly as Vec<str>
+```
+
+A lambda that ends with a call that can fail must handle it, like any function (`lang-errors.txt`, section 10).
+
+```
+items |> select((json) => User.fromJson(json))     // Compiler error: the errors are not handled
+```
+
+To keep going past elements that fail, handle the error inside the lambda with a match block. Producing a blank record for each failure keeps one output per input, and every arm gives a `User`, so the lambda cannot fail and `select` returns a plain `Vec<User>`.
+
+```
+let users = items |> select((json) => User.fromJson(json) |> {
+  :ok(user) => user
+  Json.Error => User.blank()
+  :invalidAge(age) => User.blank()
+})
+```
+
+- Each failure is still named, so forgetting one is a compile error.
+- `User.blank()` is an ordinary constructor written in the `User` module, which decides what a blank user contains.
+- Blank records are real elements. `count`, `sum`, and `avg` include them. To remove them, the type needs a way to recognise one, such as `user.isBlank()`, followed by `|> where((user) => !user.isBlank())`.
+- Positions are kept: the fifth input produces the fifth output.
+
+To leave failed elements out of the result entirely, write a `for` loop and match each result. Each kind of failure must again be named.
+
+```
+let users = Vec<User>()
+
+for json in items {
+  User.fromJson(json) |> {
+    :ok(user) => users |> add(user)
+    Json.Error => ()                 // skip items that are not valid JSON users
+    :invalidAge(age) => ()           // skip users with an invalid age
+  }
+}
+```
+
+## Evaluation
+
+Each function runs as soon as it is called and returns a new collection. Elements are shared, not copied.
+
+```
+let adults = users |> where((user) => user.getAge() >= 18)
+
+// adults is a new Vec
+// each User in it is the same object as the one in users
+```
+
+A chain of steps builds one intermediate collection per step. The compiler may combine steps into a single pass when that does not change the result.
+
+## Ordering
+
+`orderBy` is stable: elements with equal keys keep their original order.
+
+A key can be a number, `chr`, `bool`, `str`, a symbol without a payload, or a named tuple of these. `str` keys compare bytes, so every capital letter comes before every lowercase letter: `"Zoe"` sorts before `"adam"`. Symbols sort in the order their tags are listed in their type, so with `type Tier = Sym<:bronze, :silver, :gold>`, `:bronze` comes first.
+
+`desc(key)` sorts a key largest first.
+
+```
+users |> orderBy((user) => user.getAge())          // youngest first
+users |> orderBy((user) => desc(user.getAge()))    // oldest first
+```
+
+A named tuple key sorts by several keys. The first field decides, and each later field is only compared when all earlier fields are equal. Each field can have its own direction.
+
+```
+users |> orderBy((user) => (last: user.lastName, first: user.firstName))
+
+users |> orderBy((user) => (tier: desc(user.getTier()), name: user.getName()))
+// highest tier first, then alphabetical within each tier
+```
+
+## Aggregates
+
+`min` and `max` return the element, not the value. When several elements share the smallest or largest value, the first of them is returned.
+
+```
+let oldest = users |> max((user) => user.getAge())   // Sym<:ok(User), :none>
+let highestAge = oldest!.getAge()
+```
+
+`avg` always returns a `dub`. `sum` returns the type of the value it adds, and integer overflow panics as it does everywhere.
+
+## Groups and maps
+
+`groupBy` returns a `Vec` of named tuples, as SQL returns rows. Groups are in the order their keys first appear.
+
+```
+let groups = users |> groupBy((user) => user.getTier())
+// Vec<(key: Tier, items: Vec<User>)>
+```
+
+`toMap` builds a `Map` for looking keys up. `lang-types.txt` describes maps.
+
+```
+let byTier = users |> toMap((user) => user.getTier())   // Map<Tier, Vec<User>>
+
+byTier |> get(:gold) |> {
+  :ok(golds) => print(golds |> count())
+  :none => print("No gold users")
+}
+```
+
+## `const` collections
+
+A call that receives a `const` argument returns a `const` result (`lang-memory.txt`). A query on a `const` collection therefore produces a `const` collection.
+
+```
+const users = loadUsers()!
+
+let adults = users |> where((user) => user.getAge() >= 18)     // Compiler error: the result is const
+const adults = users |> where((user) => user.getAge() >= 18)   // allowed
+let total = users |> count()                                    // allowed: an int is copied
+```
+
+## Changing a collection while walking it
+
+Adding, removing, or reordering elements of a collection while a `for` loop walks it is not allowed. Changing the fields of its elements is allowed.
+
+When the loop body changes the collection through the same name or path, it is a compile error.
+
+```
+for user in users {
+  users |> remove((other) => other.isBanned())   // Compiler error: users is being walked
+}
+```
+
+Otherwise the cursor checks the length at each step and panics if it has changed.
+
+```
+let other = users
+
+for user in users {
+  other |> add(user)                             // panics: the collection changed during the loop
+}
+```
+
+## One trait for every collection
+
+The operations are the default methods of a single trait. A type that provides the trait's one required function receives every operation.
+
+`Vec<T>` and ranges implement the trait.
+
+The required function returns a cursor. A cursor hands out one element per call to `next`, and `:none` when there are no more.
+
+```
+next(cursor: &Cursor<T>): Sym<:ok(T), :none>
+```
+
+A `for` loop is compiled into calls to `next`.
+
+```
+for user in users {
+  print(user.getName())
+}
+
+// is compiled as
+
+let cursor = users.cursor()
+while true {
+  cursor.next() |> {
+    :ok(user) => print(user.getName())
+    :none => break
+  }
+}
+```
+
+Because the loop body is not a lambda, `break`, `continue`, and `ret` inside it behave as in any loop.
+
+A `yield` form for writing cursors more easily may be added later.
+
+```
+pub trait Query<T> {
+  cursor(items: Self): Cursor<T>        // required: start walking the elements
+
+  pub where(items: Self, keep: Fn<(T): bool>): Vec<T> {
+    ...
+  }
+
+  pub count(items: Self): int {
+    ...
+  }
+}
+```
+
+A user-defined collection gets the operations by implementing the trait.
+
+```
+impl UserCollection: Query<User> {
+  // only the required function is written here
+}
+
+collection |> where((user) => user.getAge() >= 18)
+```
+
+A database table type could later implement the same trait, turning each step into part of a database query. Code written against the trait would not change. This needs the compiler to be able to inspect a lambda as data and is not planned for the first versions.
+
+## Names
+
+The names follow SQL where SQL has one: `where`, `select`, `orderBy`, `groupBy`, `join`, `distinct`, `limit`, `offset`, `count`, `sum`, `avg`, `min`, `max`. Where it does not, they follow the common choice of other languages: `find`, `fold`, `first`.
+
+`select` is the only name for transforming elements. There is no `map` alias.
+
+Each lambda is written in full. There is no shorter form such as `.getName()` or `it`.
+
+`zip`, `concat`, and `partition` may be added later.

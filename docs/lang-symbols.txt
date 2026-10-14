@@ -1,0 +1,124 @@
+# Symbols (`Sym`)
+
+> Part of the language design. `lang-desc.txt` has the overview and the list of documents.
+
+One of the language's central features is its typed symbol system.
+
+`Sym` is a tagged union that can represent multiple possible outcomes.
+
+```
+Sym<:ok(User), :err(str)>
+```
+
+A function returning this type can produce either:
+
+```
+:ok(user)
+:err("Invalid user")
+```
+
+Symbols can also carry no payload.
+
+```
+Sym<:found(User), :missing>
+```
+
+They are not exclusively an error-handling mechanism.
+
+For example:
+
+```
+Sym<:negative, :adult, :senior>
+```
+
+can represent a classification.
+
+There is no `enum`. A named set of symbols does the same job.
+
+```
+pub type Tier = Sym<:bronze, :silver, :gold>
+
+pub Account {
+  tier: Tier
+}
+
+let account = Account { tier: :gold }
+
+account.tier |> {
+  :bronze => print("Bronze")
+  :silver => print("Silver")
+  :gold => print("Gold")
+}
+```
+
+Tags without a payload sort in the order they are listed in their type, so `:bronze` comes before `:gold`.
+
+## Why symbols exist
+
+The language aims to use one consistent mechanism for:
+
+- Recoverable errors.
+- Optional values.
+- Tagged alternatives.
+- State representation.
+- Pattern matching.
+- Typed operation outcomes.
+
+This reduces the need for separate `Result`, `Option`, exception, and ad hoc status-code systems.
+
+## Error handling
+
+Functions returning recoverable errors must expose them through their types.
+
+The compiler should prevent those errors from being silently discarded.
+
+The standard library reports errors through the same `Sym` mechanism as user programs. There is no separate error system for library code.
+
+Three primary mechanisms are available.
+
+**Propagation using `?`:**
+
+```
+let user = User.new("Bob", 20)?
+```
+
+On success, `?` extracts the value.
+
+On failure, it propagates the non-success outcome to the enclosing function. The enclosing function must declare compatible outcomes.
+
+**Explicit panic using `!`:**
+
+```
+let user = User.new("Bob", 20)!
+```
+
+This extracts the successful value or panics on failure.
+
+**Explicit matching:**
+
+```
+User.new("Bob", 20) |> {
+  :ok(user) => print(user.getName())
+  :err(error) => print(error)
+}
+```
+
+The compiler should require acknowledgement of all possible outcomes when exhaustiveness is required.
+
+## Composable error variants
+
+A module can name a group of symbols, and other return types can include the whole group.
+
+```
+pub type Error = Sym<:syntax(int), :missingKey(str), :wrongType(str)>
+```
+
+```
+Sym<:ok(User), Json.Error, :invalidAge(int)>
+```
+
+Inside `Sym<...>`, an entry that starts with `:` is one variant. An entry that is a type name includes every variant of that group.
+
+This composes error variants without repeatedly listing every possible JSON error.
+
+The full rules for the success tag, accumulation, and duplicate symbols are in `lang-errors.txt`. They are accepted for now and may be refined.

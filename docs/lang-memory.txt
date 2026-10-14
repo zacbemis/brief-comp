@@ -1,0 +1,236 @@
+# Memory, Borrowing, and Resources
+
+> Part of the language design. `lang-desc.txt` has the overview and the list of documents.
+
+## Memory Management
+
+The language uses **Nim-inspired ORC (automatic reference counting with cycle collection)**.
+
+The goal is predictable, efficient memory management without requiring programmers to manually allocate and release ordinary objects.
+
+### Reference semantics
+
+Objects use shared-reference semantics by default.
+
+```
+let user = User.new("Bob", 20)!
+let other = user
+```
+
+Both variables refer to the same underlying object.
+
+This does not duplicate the entire object.
+
+The compiler automatically manages reference counts.
+
+### Copying
+
+Lightweight value types, such as primitives, are copied implicitly.
+
+```
+let a = 10
+let b = a
+```
+
+For larger objects, independent duplication requires an explicit operation.
+
+```
+let copy = user.clone()
+```
+
+`.clone()` is intended to produce an independent copy, rather than merely incrementing a reference count.
+
+The precise shallow/deep-copy behavior for nested references is still being specified. Cloning for immutable snapshots must not leave mutable aliases capable of changing supposedly immutable data.
+
+### Reference counting
+
+The compiler inserts and optimizes reference-count operations.
+
+Programmers do not manually call `retain()` or `release()`.
+
+The compiler may eliminate unnecessary operations through ownership transfer, escape analysis, and lifetime analysis.
+
+Passing an object to a plain parameter is a borrow. When the compiler can prove the caller's reference stays alive for the whole call, no count is changed.
+
+```
+getAge(user: User): int {
+  user.age
+}
+
+let user = User.new("Bob", 20)!
+let age = getAge(user)   // no count change: user outlives the call
+```
+
+The count goes up when a function stores the object somewhere that outlives the call.
+
+```
+pub add(collection: &UserCollection, user: User) {
+  collection.userVec.add(user)   // the vector now holds its own reference
+}
+```
+
+### Cycle collection
+
+Ordinary reference counting cannot reclaim unreachable objects that strongly reference one another.
+
+The language addresses this through an automatic cycle collector inspired by Nim ORC.
+
+This allows cyclic object graphs to be reclaimed without requiring programmers to manually break every cycle.
+
+Weak references may also be provided for explicitly non-owning relationships.
+
+The compiler works out from the type definitions which types can be part of a cycle. A type can only be part of a cycle if a value of that type can reach another value of the same type.
+
+```
+pub User {
+  name: str
+  age: int
+}
+
+// A User holds no reference that leads back to a User.
+// It can never be part of a cycle and the collector never looks at it.
+```
+
+```
+pub Node {
+  value: int
+  next: Sym<:ok(Node), :none>
+}
+
+// A Node can reach another Node, so two nodes can point at each other.
+// The collector checks Node objects.
+```
+
+A `str` holds no references and can never be part of a cycle.
+
+### Order of implementation
+
+The first compiler implements reference counting without the cycle collector. Until the collector exists, objects that form a cycle are not freed. Objects that do not form a cycle are freed as soon as their last reference goes away.
+
+### Current concurrency scope
+
+The initial language design targets single-threaded execution.
+
+Multithreaded ARC, synchronization, and cross-thread borrowing rules are intentionally deferred.
+
+## Borrowing and Mutation
+
+The language uses lightweight borrowing rules rather than requiring programmers to manage ownership manually.
+
+### Immutable borrow
+
+An ordinary object parameter represents immutable borrowed access.
+
+```
+getAge(user: User): int {
+  user.age
+}
+```
+
+The function can inspect the object but cannot mutate it through that parameter.
+
+### Mutable borrow
+
+The `&` operator represents a mutable borrow.
+
+```
+setAge(user: &User, age: int) {
+  user.age = age
+}
+```
+
+The caller does not need to explicitly transfer ownership.
+
+`&` is a permission on the name, not a claim of exclusivity. A plain parameter cannot be used to mutate the object. A `&` parameter can.
+
+Other references to the same object may exist while it is borrowed.
+
+### Shared aliases
+
+Multiple references to an object are allowed.
+
+```
+let user = User.new("Bob", 20)!
+let other = user
+```
+
+The presence of multiple references does not, by itself, prohibit mutation.
+
+Borrowing does not restrict aliases. Only `const` guarantees that no reference can mutate an object.
+
+### Immutability
+
+`const` represents immutable data, not merely an immutable variable name. Nobody can mutate a `const` object, through any reference.
+
+```
+const user = User.new("Bob", 20)!
+```
+
+Mutation through the immutable object or references derived from it must be prohibited.
+
+A `const` cannot be initialized from an existing `let` or `var` binding. This is a compile error that tells the programmer to either clone the value or change the `const`.
+
+```
+let user = User.new("Bob", 20)!
+
+const frozen = user  // Compiler error
+```
+
+The compiler never silently freezes or copies the object. The programmer must explicitly create an independent copy.
+
+```
+const frozen = user.clone()
+```
+
+A `const` value can only be assigned to another `const` binding or passed to a parameter that is not `&`. Assigning it to a `let` or `var` binding, or passing it to a `&` parameter, is a compile error.
+
+```
+const user = User.new("Bob", 20)!
+
+let other = user     // Compiler error
+setAge(user, 21)     // Compiler error: setAge takes &User
+```
+
+The compiler must ensure that immutable objects cannot be mutated through hidden aliases, including aliases to nested data.
+
+A call that receives a `const` argument returns a `const` result. The result may contain objects from the argument, so letting it go into a `let` or `var` would allow them to be changed.
+
+```
+const users = loadUsers()!
+
+let first = users |> first()          // Compiler error: the result is const
+const first = users |> first()        // allowed
+let total = users |> count()          // allowed: an int is copied
+```
+
+This is sometimes stricter than needed, for example when the call builds entirely new objects.
+
+`const` is enforced at compile time. Three cases are outside what that check can see and are not yet handled:
+
+- A value returned by a call that is still referenced elsewhere, as in `const dog = kennel.first()`.
+- A mutable object stored inside a `const` value, as in `const kennel = Kennel.new(dog)`.
+- A `const` value passed to a function that stores it in a mutable object.
+
+## Resource Management
+
+Memory and external resources are managed separately.
+
+ORC is responsible for ordinary memory reclamation.
+
+Resources such as files, sockets, database connections, and transactions require explicit lifecycle management.
+
+Example:
+
+```
+let file = File.open("data.txt")!
+
+let contents = file.readAll()!
+
+file.close()!
+```
+
+The language should not rely on cycle collection or object destruction to determine when important external resources are closed.
+
+A future scoped-cleanup mechanism, potentially `defer`, may help ensure resources are explicitly closed on every exit path.
+
+Resource cleanup errors must not be silently ignored.

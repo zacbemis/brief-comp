@@ -1,0 +1,307 @@
+# Types
+
+> Part of the language design. `lang-desc.txt` has the overview and the list of documents.
+
+## Primitive types
+
+| Type | Size | Meaning |
+|---|---|---|
+| `bool` | | `true` or `false` |
+| `shrt` / `ushrt` | 16 bits | Short signed / unsigned integer |
+| `int` / `uint` | 32 bits | Signed / unsigned integer |
+| `lng` / `ulng` | 64 bits | Long signed / unsigned integer |
+| `flt` | 32 bits | Floating-point number |
+| `dub` | 64 bits | Double-precision floating-point number |
+| `chr` | 8 bits | One byte of text |
+| `str` | | Immutable text |
+| `()` | | The empty type |
+
+The sizes are the same on every platform.
+
+## Numbers
+
+### Literals
+
+A number literal takes the type its context expects.
+
+```
+let count: lng = 10        // 10 is a lng
+let ratio: flt = 0.5       // 0.5 is a flt
+
+setAge(user: &User, age: shrt) {
+  user.age = age
+}
+
+setAge(user, 20)           // 20 is a shrt
+
+let total = count + 1      // 1 is a lng, because count is a lng
+```
+
+When nothing in the context fixes the type, a whole number is an `int` and a number with a decimal point is a `dub`.
+
+```
+let count = 10             // int
+let ratio = 0.5            // dub
+```
+
+A constant that is meant to be a `flt` therefore needs the annotation.
+
+```
+const VERSION = 0.5        // dub
+const VERSION: flt = 0.5   // flt
+```
+
+### Conversions
+
+There are no implicit conversions between numeric types, including from a smaller type to a larger one.
+
+```
+let small: int = 10
+let big: lng = small       // Compiler error: int is not lng
+
+let sum = small + big      // Compiler error: int + lng
+
+let half: flt = 0.5
+let whole: dub = half      // Compiler error: flt is not dub
+```
+
+A conversion is a call to a function named after the target type. It can be written as a call or as a pipeline stage.
+
+```
+let big = lng(small)              // int to lng
+let total = small |> lng()        // the same, as a pipeline
+let label = str(count)            // a number to text
+let label = count |> str()
+let precise = dub(ratio)          // flt to dub
+```
+
+A conversion that cannot lose information always succeeds. A conversion that can fail returns a symbol, which must be handled like any other call that can fail.
+
+```
+let age = int(text)?              // Sym<:ok(int), :invalid(str)>: text may not be a number
+let small = int(big)?             // Sym<:ok(int), :overflow>: big may not fit in an int
+
+print(str(count))                 // always succeeds
+```
+
+Converting a value of your own type, as in `str(user)`, will need a way for the type to say how it converts. That is planned as a trait.
+
+### Overflow
+
+Integer arithmetic that goes outside the range of its type panics. This applies to every integer type and to every build of a program. There is no mode that turns the check off.
+
+```
+var count: shrt = 32767
+count += 1                 // panics: shrt overflow
+
+var index: uint = 0
+index -= 1                 // panics: uint overflow
+```
+
+Overflow is never silent and never wraps around.
+
+Code that wants to handle overflow itself, or wants arithmetic that wraps on purpose (as hash functions do), calls a library function instead of using the operator.
+
+```
+checkedAdd(a, b)           // Sym<:ok(int), :overflow>
+wrappingMul(a, b)          // wraps around instead of panicking
+
+checkedAdd(count, 1) |> {
+  :ok(next) => next
+  :overflow => ret :tooMany
+}
+```
+
+The names of these functions are not final.
+
+### Division
+
+Integer division truncates toward zero, and the remainder has the sign of the left operand. This matches C.
+
+```
+7 / 2        // 3
+-7 / 2       // -3
+-7 % 2       // -1
+```
+
+### Division by zero
+
+Integer division or remainder by zero panics.
+
+```
+let ratio = total / count  // panics when count is 0
+```
+
+## Strings and characters
+
+A `str` is immutable. An operation that appears to change a string produces a new one.
+
+```
+let name = "Bob"
+let greeting = "Hello " + name   // a new string; name is still "Bob"
+```
+
+Assigning a string shares it. Because a string can never change, sharing cannot be observed, and a `str` behaves like a value.
+
+```
+let name = "Bob"
+let other = name                 // shares the same text, no copy
+```
+
+A string stores its text as UTF-8 bytes together with its length. Its length is counted in bytes.
+
+String and character literals accept these escapes:
+
+| Escape | Meaning |
+|---|---|
+| `\n` | Newline |
+| `\t` | Tab |
+| `\\` | Backslash |
+| `\"` | Double quote |
+| `\'` | Single quote |
+| `\0` | Zero byte |
+
+Any other character after a backslash is a compile error.
+
+A `chr` is one byte. A character outside ASCII takes more than one `chr`.
+
+```
+let letter: chr = 'a'
+
+"abc"     // 3 bytes
+"é"       // 2 bytes
+```
+
+### Representation
+
+- The length is stored with the text, so reading it does not scan the string.
+- A zero byte follows the text so a string can be handed to C code without copying.
+- Strings are reference counted like other objects.
+- A string literal is stored in the program itself and is never counted or freed.
+
+## The empty type
+
+`()` is the type of a function that returns nothing useful. It has exactly one value, also written `()`. It is the named tuple with no fields.
+
+```
+pub add(collection: &UserCollection, user: User): () {
+  collection.userVec.add(user)
+}
+```
+
+`lang-functions.txt` describes how `()` interacts with return types and unused values.
+
+## Named tuples
+
+A named tuple groups values under names without declaring a type first.
+
+```
+let row = (name: "Bob", age: 20)
+row.name                   // "Bob"
+row.age                    // 20
+```
+
+Its type is written the same way, with types in place of values.
+
+```
+divide(a: int, b: int): (quotient: int, remainder: int) {
+  (quotient: a / b, remainder: a % b)
+}
+
+let result = divide(7, 2)
+result.quotient            // 3
+```
+
+Two named tuples with the same field names and types, in the same order, have the same type, wherever they were written. Structs are different: two structs with identical fields are still different types.
+
+Tuple fields are always public, because no module owns a tuple type.
+
+Tuples are compared field by field, in the order the fields are written: the first field decides, and each later field is only compared when all earlier ones are equal.
+
+```
+(last: "Jones", first: "Bob") < (last: "Smith", first: "Al")   // true: Jones < Smith
+(last: "Jones", first: "Amy") < (last: "Jones", first: "Bob")  // true: last is equal, Amy < Bob
+```
+
+The parser tells `(name: "Bob")`, a tuple, from `(name: str) => ...`, a lambda, by whether `=>` follows the closing `)`.
+
+## Function types
+
+The type of a function is written `Fn<(parameter types): return type>`. `lang-functions.txt` describes function types and lambdas.
+
+```
+Fn<(User): bool>
+Fn<(int, int): int>
+Fn<(): ()>
+```
+
+## Equality
+
+`==` compares contents. Two objects are equal when their fields are equal, compared with `==` in turn.
+
+```
+let a = User.new("Bob", 20)!
+let b = User.new("Bob", 20)!
+let c = a
+
+a == b            // true: equal contents
+a == c            // true
+same(a, b)        // false: different objects
+same(a, c)        // true: the same object
+```
+
+The compiler generates `==` for every struct and named tuple. `same` compares identity, and its name is not final.
+
+A type that can be part of a reference cycle (`lang-memory.txt`) has no generated `==`, because comparing its contents could follow the cycle forever.
+
+```
+pub Node {
+  value: int
+  next: Sym<:ok(Node), :none>
+}
+
+nodeA == nodeB    // Compiler error: Node can be part of a cycle
+same(nodeA, nodeB)   // allowed
+```
+
+A way for a type to provide its own equality, for example comparing users only by `id`, may be added later through a trait.
+
+## Maps
+
+`Map<K, V>` stores values under keys.
+
+```
+let ages = Map<str, int>()
+ages |> set("Bob", 20)
+
+ages |> get("Bob") |> {
+  :ok(age) => print(age)
+  :none => print("No Bob")
+}
+```
+
+- A lookup returns `Sym<:ok(V), :none>`.
+- Walking a map visits entries in the order their keys were first added, so a program behaves the same on every run.
+- A key can be a number, `str`, `chr`, `bool`, a symbol without a payload, or a struct or named tuple made only of these. The compiler generates the hash for each key type.
+- There is no map literal syntax yet.
+
+## Arrays and collections
+
+Proposed syntax includes:
+
+```
+int[5]            // Fixed-size array
+Vec<int>          // Dynamic vector
+Vec<User>         // Vector of User objects
+```
+
+Generic type arguments are written in angle brackets. A new vector is created with `Vec<User>()`.
+
+```
+let users = Vec<User>()
+let grid = Vec<Vec<int>>()
+```
+
+`lang-syntax.txt` describes how the parser tells `Vec<User>()` apart from a comparison.
+
+The exact relationship between array shorthand such as `User[]` and generic collections is still under consideration.

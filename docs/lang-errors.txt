@@ -27,6 +27,14 @@ load(text: str): Sym<:ok(Json), :syntax(int)> {
 
 If `parse` produces `:ok(json)`, `?` unwraps it. If `parse` produces `:syntax(line)`, `load` returns `:syntax(line)` immediately.
 
+Ending a function with a plain value returns `:ok` of that value, so `load` can also be written:
+
+```
+load(text: str): Sym<:ok(Json), :syntax(int)> {
+  parse(text)?          // the same as ending with :ok(json)
+}
+```
+
 `?` is shorthand for this match:
 
 ```
@@ -41,6 +49,8 @@ let json = parse(text) |> {
 ```
 let json = parse(text)!
 ```
+
+A panic prints a message to standard error naming the file and line where it happened, then ends the program with a non-zero exit status. Integer overflow and division by zero panic in the same way.
 
 Optional values follow the same rule. `:none` is not `:ok`, so `?` returns it.
 
@@ -92,7 +102,7 @@ The pipeline form accumulates the same way.
 
 ```
 loadJson(path: str): Sym<:ok(Json), :notFound(str), :permissionDenied(str), :syntax(int)> {
-  path |> readFile()? |> parse()
+  path |> readFile()? |> parse()?
 }
 ```
 
@@ -102,7 +112,7 @@ Leaving a variant out is a compile error.
 loadJson(path: str): Sym<:ok(Json), :syntax(int)> {
   let text = readFile(path)?   // Compiler error: loadJson does not declare
                                // :notFound(str) or :permissionDenied(str)
-  parse(text)
+  parse(text)?
 }
 ```
 
@@ -110,7 +120,7 @@ The return type can also be left out, and the compiler builds the same set.
 
 ```
 loadJson(path: str) {
-  path |> readFile()? |> parse()
+  path |> readFile()? |> parse()?
 }
 
 // inferred: Sym<:ok(Json), :notFound(str), :permissionDenied(str), :syntax(int)>
@@ -120,7 +130,7 @@ Or the success type can be written and the rest left to the compiler with `_`.
 
 ```
 loadJson(path: str): Sym<:ok(Json), _> {
-  path |> readFile()? |> parse()
+  path |> readFile()? |> parse()?
 }
 ```
 
@@ -133,13 +143,13 @@ All three forms are allowed on any function. A written type is always checked ag
 Listing every variant in a written return type gets long. A module can name its error set once.
 
 ```
-// file: File
+// file: File.brf
 
 pub type Error = Sym<:notFound(str), :permissionDenied(str)>
 
 pub read(path: str): Sym<:ok(str), Error>
 
-// file: Json
+// file: Json.brf
 
 pub type Error = Sym<:syntax(int), :missingKey(str), :wrongType(str)>
 
@@ -155,7 +165,7 @@ pub loadUser(path: str): Sym<:ok(User), File.Error, Json.Error, :invalidAge(int)
   let name = json.getStr("name")?
   let age = json.getInt("age")?
 
-  User.new(name, age)
+  User.new(name, age)?
 }
 ```
 
@@ -194,7 +204,7 @@ validate(json: Json): Sym<:ok(User), :invalid(str)>
 
 load(text: str): Sym<:ok(User), :invalid(int), :invalid(str)> {   // Compiler error:
   let json = parse(text)?                                         // :invalid has two payload types
-  validate(json)
+  validate(json)?
 }
 ```
 
@@ -207,7 +217,7 @@ load(text: str): Sym<:ok(User), :syntax(int), :invalid(str)> {
     :invalid(line) => ret :syntax(line)
   }
 
-  validate(json)
+  validate(json)?
 }
 ```
 
@@ -235,10 +245,12 @@ File.open("data.txt") |> {
 
 ---
 
-## 6. A `Sym` cannot be discarded
+## 6. A `Sym` that can fail cannot be discarded
+
+A call whose result has a variant other than `:ok` must be handled where it is made.
 
 ```
-file.close()                // Compiler error: the result is not used
+file.close()                // Compiler error: the result is not handled
 ```
 
 Each of these is accepted.
@@ -248,12 +260,22 @@ file.close()!               // panic on failure
 
 file.close()?               // return the failure to the caller
 
-let result = file.close()   // keep it in a variable
-
 file.close() |> {           // handle each outcome
   :ok => print("Closed")
   :ioError(message) => print(message)
 }
+```
+
+Storing the result in a variable, passing it to another function, or returning it unchanged does not count as handling it. Section 10 describes this rule in full.
+
+```
+let result = file.close()   // Compiler error: the result is not handled
+```
+
+A result that can only be `:ok` cannot fail, and may be ignored.
+
+```
+print("Hello")              // allowed: print returns Sym<:ok>
 ```
 
 ---
@@ -270,7 +292,7 @@ loadOrEmpty(path: str): Sym<:ok(Json), :permissionDenied(str), :syntax(int)> {
     other => ret other
   }
 
-  parse(text)
+  parse(text)?
 }
 ```
 
@@ -291,7 +313,7 @@ pub fromJson(json: Json): Sym<:ok(User), Json.Error, :invalidAge(int)> {
   let name = json.getStr("name")?
   let age = json.getInt("age")?
 
-  User.new(name, age)
+  User.new(name, age)?
 }
 ```
 
@@ -299,11 +321,95 @@ The reverse is a compile error.
 
 ```
 make(): Sym<:ok(User)> {
-  User.new("Bob", 20)   // Compiler error: :invalidAge(int) is not declared
+  User.new("Bob", 20)?  // Compiler error: :invalidAge(int) is not declared
 }
 ```
 
 For this to cost nothing at runtime, each tag name has one number across the whole program, so a value never needs converting when it moves to a larger set.
+
+---
+
+## 9. Every function returns a symbol
+
+Every function returns a `Sym`. A function that cannot fail returns a `Sym` whose only variant is `:ok`.
+
+```
+double(x: int): int {
+  x * 2
+}
+
+// double returns Sym<:ok(int)>
+// a written return type of int is short for Sym<:ok(int)>
+// a function that returns nothing returns Sym<:ok>, written ()
+```
+
+Ending a function with a plain value `x` returns `:ok(x)`.
+
+`x` and `:ok(x)` are still different things: `x` is a value, and `:ok(x)` is a symbol carrying it. Because a result with only `:ok` cannot fail, the compiler lets it be used directly as its value, without `?` or `!`.
+
+```
+let y = double(3) + 1       // allowed: double cannot fail
+
+double(3) |> {              // also allowed: it is still a symbol
+  :ok(value) => print(value |> str())
+}
+```
+
+The compiler stores such a result as the plain value, so this costs nothing at runtime.
+
+A collection function returns `Sym<:ok(Vec<U>), E>`, where `E` is the error variants of the lambda it was given. When the lambda cannot fail, `E` is empty, so the result can be used directly as a `Vec<U>`.
+
+```
+users |> select((user) => user.getName())          // can be used as Vec<str>
+items |> select((json) => User.fromJson(json)?)    // Sym<:ok(Vec<User>), Json.Error, :invalidAge(int)>
+```
+
+---
+
+## 10. A call that can fail is handled where it is made
+
+A call whose result has a variant other than `:ok` must be handled at the call, with `?`, `!`, or a match block. This applies in every position, including the last line of a function and the body of a lambda.
+
+```
+loadJson(path: str) {
+  path |> readFile()? |> parse()     // Compiler error: the errors from parse are not handled
+}
+
+loadJson(path: str) {
+  path |> readFile()? |> parse()?    // allowed: returns :ok(json), or parse's error
+}
+```
+
+```
+items |> select((json) => User.fromJson(json))     // Compiler error: not handled
+items |> select((json) => User.fromJson(json)?)    // allowed
+```
+
+As a result, every point where a function can fail is visible in its body: each `?`, and each `ret` of an error symbol.
+
+A `Sym` that has no `:ok` variant, such as `Sym<:adult, :senior>`, is ordinary data. It can be stored, passed, and returned freely.
+
+```
+describe(user: User) {
+  user.getAgeRange()        // allowed: returns :adult or :senior
+}
+```
+
+---
+
+## 11. Named sets as patterns
+
+A named set can be used as a pattern in a match block. It matches any variant in the set.
+
+```
+User.fromJson(json) |> {
+  :ok(user) => print(user.getName())
+  Json.Error => print("The JSON was not valid")    // :syntax, :missingKey, or :wrongType
+  :invalidAge(age) => print("Age is not allowed")
+}
+```
+
+Exhaustiveness still applies. Leaving out `:invalidAge(age)` above is a compile error.
 
 ---
 

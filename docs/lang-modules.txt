@@ -1,0 +1,249 @@
+# Structs, Modules, and Encapsulation
+
+> Part of the language design. `lang-desc.txt` has the overview and the list of documents.
+
+Objects are defined using a concise struct-like syntax.
+
+```
+pub User {
+  name: str
+  age: int
+  userVer: flt
+}
+```
+
+Fields are private by default.
+
+The `pub` keyword controls visibility outside the defining module.
+
+Making a type public does not automatically make its fields public.
+
+## Struct literals
+
+A struct literal sets each field by name. Fields are separated by a comma or a newline.
+
+```
+let user = User { name: "Bob", age: 20, userVer: 0.5 }
+
+let user = User {
+  name: "Bob"
+  age: 20
+  userVer: 0.5
+}
+```
+
+## Modules
+
+Each source file is one module, named after the file. There is no wrapper block around a module's contents.
+
+A module usually defines one main type that shares the module's name, as in Elixir.
+
+```
+// file: User.brf
+
+pub User {
+  name: str
+  age: int
+}
+
+impl User {
+  pub new(name: str, age: int): User {
+    User {
+      name: name
+      age: age
+    }
+  }
+}
+```
+
+`User` in a type position means that type. `User.name` reaches any public item in the module: a top-level function or one from `impl User`, a constant, or another type.
+
+```
+User.new("Bob", 20)   // function
+User.VERSION          // constant
+User.HasUser          // trait
+```
+
+Modules provide the primary privacy boundary, inspired by Rust. A declaration is private to its module unless marked `pub`.
+
+Code outside the module can use the public `User` type and call its public functions, but cannot directly initialize or modify private fields.
+
+```
+// file: Report
+
+describe(user: User): str {
+  user.name                 // Compiler error: name is private to User
+}
+
+describe(user: User): str {
+  user.getName()            // allowed: getName is pub
+}
+
+makeGuest(): User {
+  User {                    // Compiler error: the fields of User are private
+    name: "Guest"
+    age: 0
+  }
+}
+
+makeGuest(): User {
+  User.new("Guest", 0)      // allowed: new is pub
+}
+```
+
+## Source files
+
+Each module is one source file with the extension `.brf`. The module `User` is the file `User.brf`.
+
+## Finding modules
+
+A module is used by writing its name. No `import` is needed.
+
+```
+// file: Admin.brf
+
+pub Admin {
+  user: User                 // the module User, from User.brf in the same folder
+  tier: int
+}
+
+impl Admin: User.HasUser {
+  getUser(admin: Admin): User {
+    admin.user
+  }
+}
+
+load(text: str) {
+  Json.parse(text)?          // the standard library module Json
+}
+```
+
+When a name is not defined in the current file, the compiler looks for a module with that name:
+
+1. A file with that name in the same folder.
+2. A module of that name in the standard library.
+
+A module in another folder is reached by its path. Each folder in the path is written before the module name, separated by `.`.
+
+```
+models.User.new("Bob", 20)         // the module User in the models folder
+std.net.Http.get(url)              // the module Http in the standard library's net folder
+```
+
+A name that matches both a module in the project and a module in the standard library is a compile error, until an `import` says which one is meant. Without this rule, adding a file such as `Json.brf` would silently change the meaning of every `Json` in the project.
+
+```
+// the project has its own Json.brf
+
+Json.parse(text)                   // Compiler error: Json could be the project's or the standard library's
+```
+
+A misspelled module name is reported as such.
+
+```
+Usr.new("Bob", 20)                 // Compiler error: no module named Usr
+```
+
+## Imports
+
+`import` is optional. It makes a module available under its last name, so a long path does not need to be repeated, and it settles which module a name means.
+
+```
+import models.User
+
+User.new("Bob", 20)                // the same as models.User.new("Bob", 20)
+```
+
+```
+import std.Json
+
+Json.parse(text)                   // the standard library's Json, even though the project has its own
+```
+
+Using a module brings in only its name. Everything else in it is reached through that name.
+
+```
+impl Admin: HasUser {              // Compiler error: HasUser is not in scope
+}
+
+impl Admin: User.HasUser {         // allowed
+}
+```
+
+Modules cannot depend on each other in a cycle. The compiler finds the dependencies from the names each file uses, with or without `import`, and a cycle is a compile error.
+
+```
+// file: User.brf
+makeAdmin(user: User) {
+  Admin.new(user)                  // User uses Admin
+}
+
+// file: Admin.brf
+pub Admin {
+  user: User                       // Compiler error: Admin and User use each other
+}
+```
+
+Because there may be no `import` lines, the compiler can print the list of modules each file depends on.
+
+## Program entry
+
+The top level of a module contains only declarations: imports, named types, structs, traits, `impl` blocks, functions, and constants.
+
+```
+// file: Main.brf
+
+print("Hello")               // Compiler error: a statement at the top level
+
+main() {
+  print("Hello")             // allowed
+}
+```
+
+A program starts at the `main()` function of the file given to the compiler.
+
+`main()` may return errors without handling them. If it does, the program prints the error symbol and its payload to standard error and exits with status 1.
+
+```
+main() {
+  let text = File.read("data.txt")?
+  print(text)
+}
+
+// when the file is missing, prints:
+// error: :notFound("data.txt")
+```
+
+When `main()` returns `:ok`, the program exits with status 0.
+
+```
+main() {
+  let user = User.new("Bob", 20)!
+  print(user.getName())
+}
+```
+
+## Constructors
+
+Constructors are ordinary associated functions, conventionally named `new`.
+
+They are not required to have special object-oriented inheritance behavior.
+
+```
+pub new(name: str, age: int): Sym<:ok(User), :err(str)> {
+  if age < 18 {
+    ret :err("Age is too low")
+  }
+
+  :ok(User {
+    name: name
+    age: age
+  })
+}
+```
+
+Constructors may validate data and enforce invariants.
+
+Fallible construction is represented explicitly through typed return symbols.
+
+The language favors named functions for operations with meaningful external side effects, such as opening files or establishing network connections.

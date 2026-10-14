@@ -1,0 +1,412 @@
+# Syntax
+
+> Part of the language design. `lang-desc.txt` has the overview and the list of documents.
+
+## Comments
+
+```
+// a comment to the end of the line
+
+/* a comment that
+   can span lines */
+```
+
+## Statements and line breaks
+
+Statements are separated by newlines. There is no statement terminator.
+
+```
+let user = User.new("Bob", 20)!
+let name = user.getName()
+```
+
+Fields in a struct definition and arms in a pattern-matching block are also written one per line.
+
+A statement may span several lines. The examples in this document assume a newline does not end a statement when it appears:
+
+- Inside `( )` or `[ ]`.
+- After a token that cannot end a statement, such as `,`, `:`, `=`, `=>`, `|>`, `.`, or a binary operator.
+- Before a line that begins with `|>` or `.`.
+
+```
+let total = price +
+  tax +
+  shipping
+
+let valid = json
+  |> parse()?
+  |> validate()?
+
+let name = users
+  .find((user) => user.getAge() > 30)!
+  .getName()
+
+let user = User.new(
+  "Bob",
+  20
+)!
+```
+
+These continuation rules are accepted for now and may be refined.
+
+## Variable declarations
+
+The language distinguishes binding mutability from data mutability.
+
+| Declaration | Binding | Data |
+|---|---|---|
+| `let` | Immutable | Mutable |
+| `var` | Mutable | Mutable |
+| `const` | Immutable | Immutable |
+
+Examples:
+
+```
+let user = User.new("Bob", 20)!
+var counter = 0
+const MAX_USERS = 100
+```
+
+`let` prevents reassigning the variable, but does not inherently make the referenced object immutable.
+
+`var` allows the binding to be reassigned.
+
+`const` provides immutable data in addition to an immutable binding.
+
+```
+let user = User.new("Bob", 20)!
+user = User.new("Ann", 30)!   // Compiler error: user is a let binding
+
+var counter = 0
+counter = counter + 1         // allowed
+```
+
+The previous `const var` combination has been removed from the current design.
+
+### Type annotations
+
+A binding can state its type after the name, in the same `name: type` form used for fields and parameters. The annotation is optional.
+
+```
+let count: lng = 0
+var ratio: flt = 0.5
+const MAX_USERS: int = 100
+let users: Vec<User> = Vec<User>()
+```
+
+Without an annotation the type comes from the value.
+
+```
+let count = 0                     // int
+let name = "Bob"                  // str
+let user = User.new("Bob", 20)!   // User
+```
+
+An annotation that does not match the value is a compile error.
+
+```
+let count: int = "Bob"       // Compiler error: str is not int
+```
+
+## Operators
+
+Arithmetic:
+
+```
+x + y
+x - y
+x * y
+x / y
+x % y     // remainder
+x ** y    // power
+```
+
+Increment, decrement, and compound assignment:
+
+```
+x++
+y--
+x += y
+x -= y
+x *= y
+x /= y
+x %= y
+```
+
+Comparison:
+
+```
+x == y
+x != y
+x < y
+x <= y
+x > y
+x >= y
+```
+
+Bitwise:
+
+```
+x & y     // and
+x | y     // or
+x ^ y     // exclusive or
+~x        // not
+x << y    // shift left
+x >> y    // shift right
+```
+
+### Logical operators
+
+Logical operators are the keywords `and` and `or`. Logical not is a prefix `!`.
+
+```
+if age >= 18 and age < 100 {
+  ret true
+}
+
+if !user.isActive() or user.isBanned() {
+  ret false
+}
+```
+
+`&&` and `||` are not part of the language.
+
+## Operator precedence
+
+Operators earlier in this list bind tighter than operators after them.
+
+1. Postfix: `f()` `x.y` `x[i]` `?` `!` `++` `--`
+2. Power: `**`
+3. Prefix: `-x` `!x` `~x`
+4. `*` `/` `%`
+5. `+` `-`
+6. `<<` `>>`
+7. `&`
+8. `^`
+9. `|`
+10. Range: `..`
+11. Pipeline: `|>`
+12. Comparison: `==` `!=` `<` `<=` `>` `>=`
+13. `and`
+14. `or`
+15. Assignment: `=` `+=` `-=` `*=` `/=` `%=`
+
+Operators on the same level group left to right. `**` groups right to left. `..` and the comparison operators do not chain.
+
+### Arithmetic
+
+```
+a + b * c        // a + (b * c)
+a - b - c        // (a - b) - c
+2 ** 3 ** 2      // 2 ** (3 ** 2)
+-2 ** 2          // -(2 ** 2)
+!user.isActive() // !(user.isActive())
+```
+
+### Bitwise operators and comparisons
+
+Bitwise operators bind tighter than comparisons, so a mask test needs no parentheses.
+
+```
+flags & MASK == 0     // (flags & MASK) == 0
+a | b ^ c & d         // a | (b ^ (c & d))
+```
+
+### Comparisons do not chain
+
+```
+a < b < c             // Compiler error
+a < b and b < c       // write this instead
+```
+
+### Ranges
+
+`..` binds looser than arithmetic and tighter than `|>` and comparisons.
+
+```
+0..count + 1          // 0..(count + 1)
+0..10 |> sum()        // (0..10) |> sum()
+```
+
+### Pipelines
+
+`|>` binds tighter than comparisons and logical operators, so a pipeline can be compared or combined directly.
+
+```
+count |> double() > 10         // (count |> double()) > 10
+a |> f() and b |> g()          // (a |> f()) and (b |> g())
+x + 1 |> double()              // (x + 1) |> double()
+```
+
+Two cases need parentheses.
+
+Matching on a comparison:
+
+```
+age >= 18 |> {                 // read as age >= (18 |> { ... })
+  true => "Adult"
+  false => "Minor"
+}
+
+(age >= 18) |> {               // write this instead
+  true => "Adult"
+  false => "Minor"
+}
+```
+
+Arithmetic on the result of a pipeline:
+
+```
+x |> double() + 1              // read as x |> (double() + 1): Compiler error
+(x |> double()) + 1            // write this instead
+```
+
+### Logical operators and assignment
+
+```
+a or b and c                   // a or (b and c)
+let ok = age >= 18 and hasId   // let ok = ((age >= 18) and hasId)
+```
+
+## Control flow
+
+### `if`
+
+```
+if age < 18 {
+  print("Minor")
+} else if age < 100 {
+  print("Adult")
+} else {
+  print("Senior")
+}
+```
+
+`if` produces a value, so it can be assigned. Each branch's last expression is that branch's value.
+
+```
+let label = if age < 18 {
+  "Minor"
+} else {
+  "Adult"
+}
+
+let label = if age < 18 { "Minor" } else { "Adult" }
+```
+
+An `if` without an `else` produces nothing (`()`), so its result cannot be assigned.
+
+```
+let label = if age < 18 { "Minor" }   // Compiler error: there is no value when age >= 18
+```
+
+A match block produces a value in the same way (`lang-pipelines.txt`).
+
+### `while`
+
+```
+var count = 0
+
+while count < 10 {
+  count += 1
+}
+```
+
+### `for`
+
+`for` walks a range or a collection.
+
+```
+for i in 0..10 {
+  print(i)          // 0 through 9
+}
+
+for user in users {
+  print(user.getName())
+}
+```
+
+A range `a..b` includes `a` and excludes `b`.
+
+### `break` and `continue`
+
+`break` leaves the nearest enclosing loop. `continue` skips to its next iteration.
+
+```
+for user in users {
+  if user.getAge() < 18 {
+    continue        // skip minors
+  }
+
+  if user.getName() == "Bob" {
+    print("Found Bob")
+    break           // stop looking
+  }
+}
+```
+
+Both are only allowed inside a loop.
+
+```
+main() {
+  break             // Compiler error: not inside a loop
+}
+```
+
+In nested loops they apply to the innermost one. There are no loop labels.
+
+```
+for row in rows {
+  for cell in row {
+    if cell == 0 {
+      break         // leaves the inner loop only
+    }
+  }
+}
+```
+
+## Struct literals and blocks
+
+`Name { ... }` defines a struct where a declaration is expected and creates a value where an expression is expected.
+
+After `if`, `for`, and `while`, the first `{` always starts the body.
+
+```
+for user in users {
+  print(user.getName())
+}
+```
+
+A struct literal in the condition or iterable must be wrapped in `( )` or appear inside a call's arguments.
+
+```
+if Guest { name: name }.isAllowed() {     // Compiler error: the first { starts the body
+}
+
+if (Guest { name: name }).isAllowed() {   // allowed: wrapped in ( )
+}
+
+if isAllowed(Guest { name: name }) {      // allowed: inside call arguments
+}
+```
+
+The same rule applies to any future keyword that is followed by an expression and then a block.
+
+## Generic calls in expressions
+
+`Vec<User>()` uses the same `<` and `>` as a comparison. The parser decides as follows: after a name and `<`, it tries to read type arguments. If they close with `>` and the next token is `(`, the expression is a generic call. Otherwise `<` is a comparison.
+
+```
+let users = Vec<User>()         // generic call
+let grid = Vec<Vec<int>>()      // generic call
+let smaller = a < b             // comparison
+let inside = a < b and b > c    // two comparisons
+```
+
+One form is read as a generic call even though it could be meant as two comparisons.
+
+```
+check(a < b, c > (d))           // read as the generic call a<b, c>(d)
+check(a < b, c > d)             // two comparisons: no ( after >
+check((a < b), (c > (d)))       // two comparisons
+```

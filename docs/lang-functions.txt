@@ -1,0 +1,321 @@
+# Functions
+
+> Part of the language design. `lang-desc.txt` has the overview and the list of documents.
+
+Functions are declared without a `fn` or `function` keyword.
+
+```
+add(x: int, y: int): int {
+  x + y
+}
+```
+
+The last expression is implicitly returned.
+
+Explicit returns use `ret`.
+
+```
+validate(age: int): bool {
+  if age < 18 {
+    ret false
+  }
+
+  true
+}
+```
+
+Anonymous functions use arrow syntax:
+
+```
+let add = (x: int, y: int) => x + y
+```
+
+### Function types
+
+The type of a function is written `Fn<(parameter types): return type>`, the same form as a declaration with the name removed.
+
+```
+let isSmall: Fn<(int): bool> = (x) => x < 10
+
+pub where(items: Self, keep: Fn<(T): bool>): Vec<T>
+
+pub Button {
+  label: str
+  onClick: Fn<(): ()>
+}
+
+add: Fn<(int, int): int>
+parse: Fn<(str): Sym<:ok(Json), Json.Error>>
+makeAdder: Fn<(int): Fn<(int): int>>     // returns a function
+checks: Vec<Fn<(User): bool>>
+```
+
+Parameter names may be written inside the type to document what each parameter is. They are optional and do not change the type.
+
+```
+transfer: Fn<(from: Account, to: Account, amount: int): ()>
+transfer: Fn<(Account, Account, int): ()>     // the same type
+```
+
+### Lambda parameter types
+
+A lambda's parameter types may be left out when the lambda is written where a function type is expected. The types come from that function type. Otherwise they must be written.
+
+```
+users |> where((user) => user.getAge() >= 18)                   // user is a User, from where
+
+let isAdult: Fn<(User): bool> = (user) => user.getAge() >= 18   // from the annotation
+
+let isAdult = (user) => user.getAge() >= 18                     // Compiler error: the type of user is unknown
+let isAdult = (user: User) => user.getAge() >= 18               // allowed
+```
+
+A lambda's return type is always inferred from its body.
+
+### Captured variables
+
+A lambda can use names from the function around it. It may capture parameters, `let` and `const` bindings, and loop variables. Capturing a `var` is a compile error.
+
+```
+pub findByName(collection: UserCollection, name: str) {
+  collection.userVec |> find((user) => user.getName() == name)   // name is a parameter: allowed
+}
+
+let limit = 18
+users |> where((user) => user.getAge() >= limit)                 // let: allowed
+
+for tier in tiers {
+  users |> where((user) => user.getTier() == tier)               // loop variable: allowed
+}
+
+var count = 0
+let show = () => print(count)                                    // Compiler error: count is a var
+```
+
+Because a captured name can never be reassigned, the lambda always sees the same value as the code around it.
+
+Running totals use `sum` or `fold`, or a `for` loop, whose body is not a lambda and may change a `var`.
+
+```
+var total = 0
+for user in users {
+  total += user.getAge()                                         // allowed
+}
+```
+
+A captured name keeps its permissions: a captured `&` parameter can still be mutated through, and a captured `const` stays `const`.
+
+An object that stores a lambda which captures that same object forms a reference cycle. Until the cycle collector exists, such objects are not freed.
+
+### `?` inside a lambda
+
+`?` inside a lambda leaves the lambda, not the function around it. `lang-collections.txt` describes how collection functions handle a lambda that can fail.
+
+The language is expression-oriented wherever practical.
+
+Functions can accept objects, borrow mutable objects, return typed symbols, and participate in pipelines.
+
+## Return types
+
+Parameter types are always written. A return type may be written in full, written in part, or left out. All three forms are allowed on any function, including `pub` functions.
+
+```
+pub loadUser(path: str) {                         // inferred
+pub loadUser(path: str): Sym<:ok(User), _> {      // success type written, other variants inferred
+pub loadUser(path: str): Sym<:ok(User), File.Error, Json.Error, :invalidAge(int)> {
+```
+
+When the return type is left out, the compiler infers it from the body. Leaving it out does not mean the function returns nothing.
+
+Inside `Sym<...>`, `_` stands for whatever other variants the body produces. The variants that are written must match the body.
+
+A written return type is checked against the body. A variant the body produces that the written type does not list is a compile error at the function, not at its callers.
+
+A trait method without a body has nothing to infer from, so its return type must be written in full.
+
+Exhaustive matching, `?`, and `!` behave the same whichever form is used.
+
+### Inferred
+
+The compiler reads every value the body can produce and builds the return type from them.
+
+```
+double(x: int) {
+  x * 2
+}
+
+// inferred: int
+```
+
+```
+describe(age: int) {
+  if age < 18 {
+    ret :minor
+  }
+
+  :adult
+}
+
+// inferred: Sym<:minor, :adult>
+```
+
+```
+loadUser(path: str) {
+  let text = File.read(path)?
+  let json = Json.parse(text)?
+
+  User.fromJson(json)?
+}
+
+// inferred: Sym<:ok(User), File.Error, Json.Error, :invalidAge(int)>
+```
+
+### Written in part
+
+The success type is fixed and the compiler fills in the rest.
+
+```
+loadUser(path: str): Sym<:ok(User), _> {
+  let text = File.read(path)?
+  let json = Json.parse(text)?
+
+  User.fromJson(json)?
+}
+```
+
+The written part is still checked.
+
+```
+loadUser(path: str): Sym<:ok(Admin), _> {
+  let text = File.read(path)?
+  let json = Json.parse(text)?
+
+  User.fromJson(json)?  // Compiler error: the body produces :ok(User), not :ok(Admin)
+}
+```
+
+### Written in full
+
+```
+double(x: int): str {
+  x * 2                 // Compiler error: the body produces int, not str
+}
+```
+
+```
+describe(age: int): Sym<:adult> {
+  if age < 18 {
+    ret :minor          // Compiler error: :minor is not declared
+  }
+
+  :adult
+}
+```
+
+### Trait methods
+
+```
+pub trait HasUser {
+  getUser(value: Self): User   // no body, so the return type is required
+
+  pub getName(value: Self) {   // has a body, so the return type can be inferred
+    value.getUser().name
+  }
+}
+```
+
+## Functions that return nothing
+
+A function that returns nothing useful has the return type `()`.
+
+When the return type is left out, `()` is inferred if the body ends in a statement or in a call that itself returns `()`.
+
+```
+setAge(user: &User, age: int) {
+  user.age = age
+}
+
+// inferred: ()
+```
+
+```
+logName(user: User) {
+  print(user.getName())
+}
+
+// inferred: (), because print returns ()
+```
+
+When the return type is left out and the body ends in an expression with a value, that value is returned.
+
+```
+pub add(collection: &UserCollection, user: User) {
+  collection.userVec.add(user)
+}
+
+// returns whatever userVec.add returns
+```
+
+Writing `()` as the return type drops the value of the last expression.
+
+```
+pub add(collection: &UserCollection, user: User): () {
+  collection.userVec.add(user)
+}
+
+// returns nothing
+```
+
+A `Sym` is never dropped this way.
+
+```
+closeLog(file: &File): () {
+  file.close()          // Compiler error: the result is not used
+}
+
+closeLog(file: &File): () {
+  file.close()!         // allowed
+}
+```
+
+## Unused values
+
+A call whose result is not a `Sym` may be written as a statement, and its result is ignored.
+
+```
+users.len()             // allowed: the int is ignored
+```
+
+A call whose result is a `Sym` must be used. `lang-errors.txt` lists the accepted ways.
+
+```
+file.close()            // Compiler error: the result is not used
+```
+
+## Call syntax
+
+```
+user.getName()     // getName belongs to User
+print(user)        // print does not belong to User
+user |> print()    // the same call, written as a pipeline
+```
+
+Method-call syntax `x.f()` is only valid when `f` belongs to the type of `x`: it is defined in an `impl` block for that type, or in a trait the type implements, and takes the value as its first parameter.
+
+A function that does not belong to the type must be called directly as `f(x)` or through a pipeline as `x |> f()`.
+
+```
+// file: Report.brf
+
+pub summary(user: User): str {
+  "User: " + user.getName()
+}
+```
+
+`summary` takes a `User` first but is not defined in `impl User` or in a trait `User` implements.
+
+```
+user.summary()            // Compiler error: summary does not belong to User
+Report.summary(user)      // allowed
+user |> Report.summary()  // allowed
+```
