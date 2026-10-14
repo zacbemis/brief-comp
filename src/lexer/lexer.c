@@ -94,6 +94,8 @@ static int is_digit(char c) { return c >= '0' && c <= '9'; }
 
 static TokenType identifier_type(Lexer *lexer) {
   size_t len = (size_t)(lexer->current - lexer->start);
+  if (len == 2 && memcmp(lexer->start, "Fn", 2) == 0)
+    return TOK_FN;
   if (len == 2 && memcmp(lexer->start, "if", 2) == 0)
     return TOK_IF;
   if (len == 2 && memcmp(lexer->start, "in", 2) == 0)
@@ -136,18 +138,20 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_BOOL;
   if (len == 4 && memcmp(lexer->start, "else", 4) == 0)
     return TOK_ELSE;
-  if (len == 4 && memcmp(lexer->start, "enum", 4) == 0)
-    return TOK_ENUM;
   if (len == 4 && memcmp(lexer->start, "impl", 4) == 0)
     return TOK_IMPL;
   if (len == 4 && memcmp(lexer->start, "shrt", 4) == 0)
     return TOK_SHRT;
   if (len == 4 && memcmp(lexer->start, "true", 4) == 0)
     return TOK_BOOL_LIT;
+  if (len == 4 && memcmp(lexer->start, "type", 4) == 0)
+    return TOK_TYPE;
   if (len == 4 && memcmp(lexer->start, "uint", 4) == 0)
     return TOK_UINT;
   if (len == 4 && memcmp(lexer->start, "ulng", 4) == 0)
     return TOK_ULNG;
+  if (len == 5 && memcmp(lexer->start, "break", 5) == 0)
+    return TOK_BREAK;
   if (len == 5 && memcmp(lexer->start, "const", 5) == 0)
     return TOK_CONST;
   if (len == 5 && memcmp(lexer->start, "false", 5) == 0)
@@ -160,6 +164,8 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_WHILE;
   if (len == 6 && memcmp(lexer->start, "import", 6) == 0)
     return TOK_IMPORT;
+  if (len == 8 && memcmp(lexer->start, "continue", 8) == 0)
+    return TOK_CONTINUE;
   return TOK_IDENT;
 }
 

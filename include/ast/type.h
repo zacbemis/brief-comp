@@ -8,7 +8,10 @@ typedef enum {
   TYPE_APPLY, // Vec<User>
   TYPE_ARRAY, // int[5]
   TYPE_SYM,   // Sym<:ok(User), :err(str)>
+  TYPE_FN,    // Fn<(User): bool>
+  TYPE_TUPLE, // (name: str, age: int)
   TYPE_SELF,  // Self
+  TYPE_UNIT,  // ()
 } TypeKind;
 
 #endif

@@ -50,10 +50,12 @@ const char *token_type_name(TokenType type) {
     return "TOK_STR";
   case TOK_SYM:
     return "TOK_SYM";
+  case TOK_FN:
+    return "TOK_FN";
   case TOK_SELF:
     return "TOK_SELF";
-  case TOK_ENUM:
-    return "TOK_ENUM";
+  case TOK_TYPE:
+    return "TOK_TYPE";
   case TOK_MOD:
     return "TOK_MOD";
   case TOK_IMPORT:
@@ -76,6 +78,10 @@ const char *token_type_name(TokenType type) {
     return "TOK_IN";
   case TOK_WHILE:
     return "TOK_WHILE";
+  case TOK_BREAK:
+    return "TOK_BREAK";
+  case TOK_CONTINUE:
+    return "TOK_CONTINUE";
   case TOK_RET:
     return "TOK_RET";
   case TOK_EQUAL:

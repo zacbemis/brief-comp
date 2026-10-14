@@ -25,7 +25,7 @@ typedef enum {
   DECL_BINDING,
   DECL_FN,
   DECL_STRUCT,
-  DECL_ENUM,
+  DECL_TYPE, // type Error = Sym<...>
   DECL_MODULE,
   DECL_TRAIT,
   DECL_IMPL,

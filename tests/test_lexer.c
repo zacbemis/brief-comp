@@ -107,8 +107,9 @@ int main(void) {
   TEST("type and definition keywords are distinguished from identifiers") {
     Lexer lx;
     lexer_init(&lx, "bool int uint shrt ushrt lng ulng flt dub chr str "
-                    "Sym Self enum mod import trait impl pub ovr intx sym "
-                    "self modern imports traits implicit public override");
+                    "Sym Self type mod import trait impl pub ovr types enum "
+                    "intx sym self modern imports traits implicit public "
+                    "override");
     expect(&lx, TOK_BOOL, "bool");
     expect(&lx, TOK_INT, "int");
     expect(&lx, TOK_UINT, "uint");
@@ -122,13 +123,15 @@ int main(void) {
     expect(&lx, TOK_STR, "str");
     expect(&lx, TOK_SYM, "Sym");
     expect(&lx, TOK_SELF, "Self");
-    expect(&lx, TOK_ENUM, "enum");
+    expect(&lx, TOK_TYPE, "type");
     expect(&lx, TOK_MOD, "mod");
     expect(&lx, TOK_IMPORT, "import");
     expect(&lx, TOK_TRAIT, "trait");
     expect(&lx, TOK_IMPL, "impl");
     expect(&lx, TOK_PUB, "pub");
     expect(&lx, TOK_OVR, "ovr");
+    expect(&lx, TOK_IDENT, "types");
+    expect(&lx, TOK_IDENT, "enum");
     expect(&lx, TOK_IDENT, "intx");
     expect(&lx, TOK_IDENT, "sym");
     expect(&lx, TOK_IDENT, "self");
@@ -143,20 +146,67 @@ int main(void) {
 
   TEST("control flow keywords are distinguished from identifiers") {
     Lexer lx;
-    lexer_init(&lx, "if else for in while ret iffy elsewhere format inner "
-                    "whiley retry");
+    lexer_init(&lx, "if else for in while break continue ret iffy elsewhere "
+                    "format inner whiley breaks continued retry");
     expect(&lx, TOK_IF, "if");
     expect(&lx, TOK_ELSE, "else");
     expect(&lx, TOK_FOR, "for");
     expect(&lx, TOK_IN, "in");
     expect(&lx, TOK_WHILE, "while");
+    expect(&lx, TOK_BREAK, "break");
+    expect(&lx, TOK_CONTINUE, "continue");
     expect(&lx, TOK_RET, "ret");
     expect(&lx, TOK_IDENT, "iffy");
     expect(&lx, TOK_IDENT, "elsewhere");
     expect(&lx, TOK_IDENT, "format");
     expect(&lx, TOK_IDENT, "inner");
     expect(&lx, TOK_IDENT, "whiley");
+    expect(&lx, TOK_IDENT, "breaks");
+    expect(&lx, TOK_IDENT, "continued");
     expect(&lx, TOK_IDENT, "retry");
+    expect(&lx, TOK_EOF, NULL);
+  }
+
+  TEST("function types from docs use the Fn keyword") {
+    Lexer lx;
+    lexer_init(&lx, "keep: Fn<(T): bool> fn Fns");
+    expect(&lx, TOK_IDENT, "keep");
+    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_FN, "Fn");
+    expect(&lx, TOK_LESS_THAN, "<");
+    expect(&lx, TOK_LPAREN, "(");
+    expect(&lx, TOK_IDENT, "T");
+    expect(&lx, TOK_RPAREN, ")");
+    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_BOOL, "bool");
+    expect(&lx, TOK_GREATER_THAN, ">");
+    expect(&lx, TOK_IDENT, "fn");
+    expect(&lx, TOK_IDENT, "Fns");
+    expect(&lx, TOK_EOF, NULL);
+  }
+
+  TEST("empty type and typed bindings from docs") {
+    Lexer lx;
+    lexer_init(&lx, "log(message: str): () {\n  let count: lng = 0\n}");
+    expect(&lx, TOK_IDENT, "log");
+    expect(&lx, TOK_LPAREN, "(");
+    expect(&lx, TOK_IDENT, "message");
+    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_STR, "str");
+    expect(&lx, TOK_RPAREN, ")");
+    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_LPAREN, "(");
+    expect(&lx, TOK_RPAREN, ")");
+    expect(&lx, TOK_LBRACE, "{");
+    expect(&lx, TOK_NEWLINE, "\n");
+    expect(&lx, TOK_LET, "let");
+    expect(&lx, TOK_IDENT, "count");
+    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_LNG, "lng");
+    expect(&lx, TOK_EQUAL, "=");
+    expect(&lx, TOK_INT_LIT, "0");
+    expect(&lx, TOK_NEWLINE, "\n");
+    expect(&lx, TOK_RBRACE, "}");
     expect(&lx, TOK_EOF, NULL);
   }
 

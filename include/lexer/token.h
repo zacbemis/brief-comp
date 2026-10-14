@@ -35,10 +35,11 @@ typedef enum {
   TOK_CHR,   // chr
   TOK_STR,   // str
   TOK_SYM,   // Sym
+  TOK_FN,    // Fn (function type, as in Fn<(int): bool>)
   TOK_SELF,  // Self
 
   // Keywords Definitions
-  TOK_ENUM,   // enum
+  TOK_TYPE,   // type
   TOK_MOD,    // mod
   TOK_IMPORT, // import
   TOK_TRAIT,  // trait
@@ -47,12 +48,14 @@ typedef enum {
   TOK_OVR,    // ovr
 
   // Keywords Control Flow
-  TOK_IF,    // if
-  TOK_ELSE,  // else
-  TOK_FOR,   // for
-  TOK_IN,    // in
-  TOK_WHILE, // while
-  TOK_RET,   // ret
+  TOK_IF,       // if
+  TOK_ELSE,     // else
+  TOK_FOR,      // for
+  TOK_IN,       // in
+  TOK_WHILE,    // while
+  TOK_BREAK,    // break
+  TOK_CONTINUE, // continue
+  TOK_RET,      // ret
 
   // Arithmetic
   TOK_EQUAL,   // =
