@@ -1,0 +1,367 @@
+# Plan: The First Version of the Compiler
+
+> **Status: Plan.** This describes how the first version of the compiler will be built. The language it accepts is listed under "First version" in `docs/lang-desc.txt`. The language rules themselves are in the other `docs/lang-*.txt` files.
+
+## Goal
+
+A compiler, written in C, that reads one `.brf` file and produces a native program by emitting C and running an existing C compiler on it.
+
+```
+brief run hello.brf          // compile and run
+brief build hello.brf -o hello
+brief emit-c hello.brf       // print the generated C
+```
+
+The first version is done when every example in the docs that falls inside its scope compiles and behaves as described, and every compile error described in the docs is reported for the matching example.
+
+## Principles
+
+- **A working program end to end as early as possible.** The second milestone already turns `main() { print("Hello") }` into a running program. Every later feature is added through every stage at once, so the whole pipeline is always testable.
+- **One stage per job.** Each stage reads the previous stage's output and can be tested on its own.
+- **Report many errors at once.** Stages collect diagnostics and keep going where they can, instead of stopping at the first error.
+- **Simple memory inside the compiler.** The compiler is a short-lived process, so everything it builds is allocated from arenas and freed together at exit.
+- **The generated C is plain and readable.** It is meant to be read when debugging, and it is what the bootstrapped compiler will also produce.
+
+## Pipeline
+
+```
+.brf source
+  -> Lexer             tokens
+  -> Newline filter    tokens, with newlines that do not end a statement removed
+  -> Parser            syntax tree
+  -> Name resolution   every name linked to what it refers to
+  -> Type checking     every expression typed, symbol sets inferred, matches checked
+  -> Lowering          a small statement-based form with explicit temporaries
+  -> Reference counts  increments and decrements inserted
+  -> C emission        one C file, with the runtime included
+  -> cc                native program
+```
+
+### Source files and diagnostics (`src/common`)
+
+- **`SourceFile`**: the path, the text, and the byte offset where each line starts, so any offset can be turned into a line and column.
+- **`Span`**: a file and a start and end offset. Every token and every syntax tree node carries one.
+- **Diagnostics**: each error has a span, a message, and optional notes. They are printed with the source line and a marker under the problem, in the style Elm made popular:
+
+  ```
+  error: loadJson does not handle the errors parse can return
+    --> users.brf:12:22
+     |
+  12 |   path |> readFile()? |> parse()
+     |                          ^^^^^^^ add ? to return them, ! to panic, or match them with |> { ... }
+  ```
+
+- **Arena allocator**: one arena for the whole compilation. Syntax tree nodes, types, and strings are allocated from it and never freed individually.
+- **String interning**: every identifier and symbol tag is stored once, so names compare by pointer.
+
+### Lexer (`src/lexer`, exists)
+
+The lexer already covers the documented syntax. Changes for this version:
+
+- **Unterminated block comment.** `/* ...` running to the end of the file is currently skipped silently. It must be an error.
+- **Escapes.** Check string and character escapes against the documented list. An unknown escape is an error.
+- **Positions.** Give each token its offset, so columns can be reported.
+- **Whole file at once.** Lex the whole file into an array before parsing. The parser needs to look ahead and back up for generic calls (see Parser).
+
+### Newline filter (`src/lexer`)
+
+Newlines end statements except in the cases listed in `lang-syntax.txt`. A small layer between the lexer and the parser removes the newlines that do not end a statement.
+
+- **Brackets.** It keeps a stack of open brackets. When the innermost open bracket is `(` or `[`, newlines are removed. When it is `{`, they are kept. This matters because a match block inside call arguments still needs newlines between its arms:
+
+  ```
+  items |> select((json) => User.fromJson(json) |> {
+    :ok(user) => user                  // newlines inside { } still separate arms
+    Json.Error => User.blank()
+  })
+  ```
+
+- **Continuation tokens.** A newline after a token that cannot end a statement (`,` `:` `=` `=>` `|>` `.` or a binary operator) is removed.
+- **Continuation lines.** A newline before a line that starts with `|>` or `.` is removed.
+
+Doing this in one place keeps the parser free of newline special cases.
+
+### Parser (`src/parser`)
+
+Recursive descent for declarations, statements, and patterns. Expressions use a Pratt parser driven by a table built from the precedence list in `lang-syntax.txt`. Each operator gets a binding power, and the two operators that do not chain, comparisons and `..`, are rejected when chained.
+
+Cases that need specific handling:
+
+| Case | Approach |
+|---|---|
+| `Vec<User>()` versus `a < b` | After a name and `<`, try to parse type arguments. If they close with `>` and `(` follows, keep the generic call. Otherwise rewind to the saved token position and parse a comparison. |
+| `>>` closing two type argument lists | When a type argument list expects `>` and finds `>>`, split the token in two. |
+| Struct literal after `if`, `for`, `while` | A parser flag forbids struct literals until the next `(`, `[`, or call argument list, as Rust does. |
+| `x?`, `x!`, and `x != y` | The lexer already makes `!=` one token, so a `!` after an expression is always the postfix panic. |
+| Match blocks | After the pipeline operator, a `{` starts a match block. Anything else must be a call. |
+| Patterns | Literals, `_`, names that bind, `:tag` and `:tag(pattern)`, named sets such as `Json.Error`, ranges `a..b`, and comparisons `< 18`. |
+| `if` as a value | `if` is parsed as an expression everywhere. Type checking decides whether its value may be used. |
+
+**Error recovery.** After an error, skip to the next newline or `}` at the current nesting level and continue, so one mistake does not hide the rest.
+
+**Syntax tree.** Each node is a struct with a kind, a span, and a union of kind-specific fields, allocated from the arena. Lists are arena arrays with a count. The existing kind enums in `include/ast` become the tags of these unions.
+
+**Debugging aid.** `brief dump-ast file.brf` prints the tree as nested parentheses. Parser tests compare this text.
+
+### Name resolution (`src/sema`)
+
+- Build one table of the file's top-level declarations: structs, named types, functions, and constants. Reject duplicates and anything that is not a declaration.
+- Attach each `impl` block's functions to its struct.
+- Walk each function with nested scopes, linking every name to a parameter, local, function, struct, named type, or constant.
+- Check that `main()` exists.
+- Calls written `x.f()` and `x |> f()` depend on the type of `x`, so they are resolved during type checking.
+
+### Type checking (`src/sema`)
+
+This is the largest stage.
+
+**Types** are created once and shared, so two types are equal exactly when their pointers are equal. They are:
+
+- The primitives.
+- Structs.
+- `()`.
+- Symbol sets.
+
+A symbol set is a sorted list of tags, each with an optional payload type. Every tag name gets one number for the whole program, as `lang-errors.txt` requires.
+
+**Checking in two directions.** Every expression is either checked against a type the context expects, or its type is worked out from the expression alone. This is bidirectional type checking. It is what lets number literals take their type from context, and later lets lambda parameters take their types from the function they are passed to.
+
+**Return type inference.**
+
+1. Build the call graph between functions and split it into groups that call each other (strongly connected components, found with Tarjan's algorithm).
+2. Check groups in dependency order, so a function's callees are known before its body is checked.
+3. Inside a group of mutually recursive functions, start with empty error sets and re-check the group until no set grows. Sets only grow and the number of tags is finite, so this always stops.
+4. A function whose success type can only come from itself, such as `f() { f() }`, is reported as needing a written return type.
+
+**The error rules** from `lang-errors.txt`:
+
+| Rule | How it is checked |
+|---|---|
+| A call that can fail is handled where it is made | When a call's result has a variant other than `:ok`, its parent in the tree must be `?`, `!`, or a pipeline into a match block. Anything else is an error. |
+| Errors accumulate | A function's set is the union of every `?`, every `ret` of a symbol, and its final value. |
+| Ending with a plain value returns `:ok` of it | The final value is wrapped when the function's set has other variants. |
+| A result that can only be `:ok` is used directly | Its type is treated as the payload type wherever a value is expected. |
+| Same tag, different payload | Reported when two sets are combined. |
+| Written return types | The inferred set must fit inside the written one. `_` lets the rest be inferred. |
+
+**Exhaustiveness.** Each match block is compiled into a decision tree with the algorithm in Jules Jacobs' "How to compile pattern matching". The same tree is used twice:
+
+- **For checking.** A path through the tree that reaches no arm is a missing case, and is reported with an example value. An arm that no path reaches is reported as unreachable.
+- **For code generation.** C emission turns the tree directly into `switch` statements and `if` chains.
+
+Number patterns are turned into ranges of the scrutinee's type before building the tree:
+
+```
+< 18      -> [minimum, 17]
+18..100   -> [18, 99]
+>= 100    -> [100, maximum]
+```
+
+Coverage is then a question of whether the ranges together cover the type's whole range. Rust's exhaustiveness checker splits integer ranges the same way.
+
+**Other checks:**
+
+- `let` bindings are not reassigned.
+- Fields are only assigned through `&` parameters or locals.
+- `break` and `continue` appear only inside loops.
+- An `if` without `else` is not used as a value.
+
+Privacy is per module, and this version has one module per program, so privacy checks arrive with modules.
+
+### Lowering (`src/ir`)
+
+C expressions cannot contain statements, but here `if`, match blocks, and `?` produce values. Lowering turns the checked tree into a small statement-based form:
+
+- Every intermediate value gets a named temporary.
+- `if` and match blocks that produce values write to a temporary declared before them.
+- `?` becomes a test of the tag followed by an early return.
+- Each early return is explicit, so the next step can see every place a function can exit.
+
+This form is what Koka and Lean insert reference counts into, and it keeps C emission a direct printing step.
+
+### Reference counts (`src/ir`)
+
+The rules, following Lean's borrowed parameters and Lobster's ownership analysis:
+
+- **Locals own** what they hold. A struct or string is released when the last owner goes out of scope, and at every early return.
+- **Parameters borrow.** The caller's reference keeps the value alive for the call, so passing a value costs nothing.
+- **Returned values are owned** by the caller.
+- **Storing** a value in a field or another local adds a reference. **Overwriting** a field or a `var` releases the old value.
+- **String literals** are marked as permanent and are never counted.
+
+**The one unsafe case is guarded.** A borrowed parameter could be freed during the call if the same call also passes a `&` parameter that can overwrite where it came from:
+
+```
+setChild(user.child, &user)    // the callee could replace user.child while still using the first argument
+```
+
+When an argument is read from a field, and the same call also passes a `&` argument, the caller adds a reference for the duration of the call. This is conservative and can be refined later.
+
+Cycles are not collected in this version. Debug builds can print the objects still alive at exit, as Lobster does. That makes leaks from cycles visible.
+
+### C emission (`src/codegen`)
+
+| Language | C |
+|---|---|
+| `int`, `lng`, `shrt` and their unsigned forms | `int32_t`, `int64_t`, `int16_t`, `uint32_t`, `uint64_t`, `uint16_t` |
+| `flt`, `dub`, `bool`, `chr` | `float`, `double`, `bool`, `uint8_t` |
+| `str` | a pointer to the runtime's string object |
+| A struct | a pointer to a C struct whose first member is the runtime's object header |
+| A symbol set | a C struct with a `uint32_t` tag and a union of payloads |
+| A set with only `:ok(x)` | the C type of `x` |
+| `()` and `Sym<:ok>` | `void` |
+
+- **Names** are prefixed to avoid clashes with C: `User.new` becomes `brf_User_new`.
+- **Sets of different sizes.** Because tag numbers are shared by the whole program, passing a value from a smaller set to a larger one copies the tag and payload without translating anything.
+- **Overflow** is checked with the GCC and Clang built-ins `__builtin_add_overflow` and friends. C23's `ckd_add` is the standard spelling of the same thing. The check computes the result without undefined behaviour and calls the runtime's panic with the source location.
+- **Division** checks for zero before dividing.
+- **`#line` directives** map the generated C back to `.brf` lines, so a debugger and C compiler warnings point at the original source. Nim does the same.
+- **The entry point.** C's `main` calls the program's `main()`. If that returns an error symbol, it prints `error: :tag(payload)` to standard error and exits with status 1.
+
+The generated file is plain C11 apart from the overflow built-ins, so it builds with any recent GCC or Clang.
+
+### Runtime (`runtime/`)
+
+A small C library included in every generated program:
+
+- **Objects.** An object header holding the reference count and a pointer to a release function that releases the object's fields.
+- **Memory.** Allocation that aborts on out-of-memory, plus the add-reference and release operations. Counts are not atomic, since programs are single-threaded.
+- **Strings.** Creation, concatenation, comparison, and printing.
+- **Builtins.** `print` and the converters: `str(...)` for numbers and `bool`, and `int(...)` and the other number converters for `str`, returning their symbols.
+- **Panics.** Print a message with the file and line, then exit with a non-zero status.
+
+The compiler build embeds the runtime's text in the compiler binary, so `brief` can paste it into each generated file. The output is then a single self-contained C file.
+
+### Driver (`src/main.c`)
+
+- `brief run`, `brief build -o`, `brief emit-c`, and `brief dump-ast`.
+- It calls the C compiler named by the `CC` environment variable, defaulting to `cc`, with `-std=c11 -O2`. A `--debug` flag switches to `-O0 -g` and turns on the sanitizers.
+
+## Testing
+
+**Unit tests** use the existing harness in `tests/`, extended to the newline filter, the parser (comparing `dump-ast` output), and type checking.
+
+**Program tests** are `.brf` files in `tests/programs/`, each describing its own expected result in comments. The format is borrowed from Crafting Interpreters' test suite:
+
+```
+main() {
+  print(str(1 + 2))      // expect: 3
+  print("done")          // expect: done
+}
+```
+
+```
+main() {
+  let x = 1
+  x = 2                  // error: x is a let binding and cannot be reassigned
+}
+```
+
+```
+main() {
+  var count: shrt = 32767
+  count += 1             // panic: shrt overflow
+}
+```
+
+A runner script compiles each file, runs it, and compares standard output, compile errors, panics, and the exit status (`// exit: 1`) with the comments. CTest runs it alongside the unit tests.
+
+**Memory checks.** Every program test also runs once compiled with `-fsanitize=address,undefined`. AddressSanitizer reports objects used after being freed, which catches a missing reference. Its leak checker reports objects never freed, which catches an extra reference. Together they test the reference-count rules on every program.
+
+**The docs as tests.** The examples in the `lang-*.txt` files that fall inside the first version are copied into program tests as each feature lands.
+
+## Milestones
+
+Each milestone ends with every test passing.
+
+| # | Milestone | Done when |
+|---|---|---|
+| 0 | **Groundwork.** Arena, source files, diagnostics, interning. Lexer fixes. `-Wall -Wextra` and sanitizers for debug builds in CMake. | Lexer errors print with line, column, and source line. |
+| 1 | **Parser.** Newline filter, syntax tree, `dump-ast`, error recovery. | Every in-scope doc example parses, and parser tests compare tree dumps. |
+| 2 | **Walking skeleton.** Minimal name resolution, type checking, lowering, C emission, runtime, driver, and test runner. | `main() { print("Hello") }` runs through `brief run`, and the program test runner works. |
+| 3 | **Numbers and control flow.** Every number type, literals from context, `let` and `var`, overflow and division panics, `if` as a value, `while`, `for` over ranges, `break`, `continue`, functions with written return types, then inferred ones. | Arithmetic and loop programs, including panic tests, pass. |
+| 4 | **Strings and structs.** `str`, concatenation, `str(...)`, structs, `impl`, struct literals, `.` calls, `&` parameters, and reference counting. | Programs that build and change structs pass with no sanitizer reports. |
+| 5 | **Symbols.** Tags and payloads, named sets, `?`, `!`, pipeline calls and match blocks, exhaustiveness for symbols and number ranges, error accumulation, the handled-call rule, and `main()` returning errors. | The examples in `lang-errors.txt` behave as described, including their compile errors. |
+| 6 | **Finish.** Better error messages, every in-scope doc example as a test, and a README that describes the current language. | The goal at the top of this plan is met. |
+
+## Source layout
+
+```
+include/common/   src/common/    arena, source files, diagnostics, interning
+include/lexer/    src/lexer/     lexer (exists), newline filter
+include/ast/      src/ast/       syntax tree nodes (kinds exist), tree printer
+include/parser/   src/parser/    parser
+include/sema/     src/sema/      name resolution, types, type checking, decision trees
+include/ir/       src/ir/        lowering and reference counts
+include/codegen/  src/codegen/   C emission
+runtime/                         runtime library pasted into generated programs
+src/main.c                       driver
+tests/                           unit tests
+tests/programs/                  program tests
+```
+
+## Risks
+
+| Risk | Plan |
+|---|---|
+| Reference counting bugs are easy to make and hard to see. | Sanitizer runs on every program test from milestone 4 onward, and the conservative rule for borrowed arguments. |
+| Inference across recursive functions. | The fixpoint on error sets, with an error when a success type can only come from itself. |
+| The newline rules have edge cases nobody has met yet. | Keep them all in the newline filter, and add a test for every case found. |
+| Generic-call detection backs up the parser. | Back-up is cheap because tokens are already in an array. Only names followed by `<` trigger it. |
+| Generated C depends on GCC or Clang built-ins. | Acceptable for now. C23's `ckd_add` is the portable alternative once compilers support it widely. |
+
+## Resources
+
+What each resource is useful for, and whether its code may be reused.
+
+### Building a compiler in C
+
+- **[Crafting Interpreters](https://craftinginterpreters.com)**, Robert Nystrom.
+  - The existing lexer already follows the style of its C interpreter, clox.
+  - Its chapter on compiling expressions is a clear Pratt parser in C.
+  - Its test suite's `// expect:` comments are the model for the program tests.
+  - The code is MIT licensed and the book text is CC BY-NC-ND ([license](https://github.com/munificent/craftinginterpreters/blob/master/LICENSE)).
+- **[chibicc](https://github.com/rui314/chibicc)**, Rui Ueyama.
+  - A small C11 compiler written in C: a tokenizer, a recursive descent parser, type assignment, and code generation.
+  - Its history adds one feature per commit, which makes it a good model for how to grow a compiler in small steps.
+  - MIT licensed.
+- **[Writing a C Compiler](https://norasandler.com/book/)**, Nora Sandler (No Starch Press, 2024). It builds a compiler stage by stage with a test suite at each step. Its algorithms are pseudocode, so it gives structure rather than code.
+
+### Parsing
+
+- **[Simple but Powerful Pratt Parsing](https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html)**, Alex Kladov. Binding powers, prefix and postfix operators, and how to handle operators that do not chain.
+- **[Pratt Parsers: Expression Parsing Made Easy](https://journal.stuffwithstuff.com/2011/03/19/pratt-parsers-expression-parsing-made-easy/)**, Robert Nystrom.
+
+### Type checking
+
+- **[Bidirectional Typing](https://arxiv.org/abs/1908.05839)**, Jana Dunfield and Neel Krishnaswami (ACM Computing Surveys, 2021). A survey of checking against an expected type versus working a type out. Its point that this gives errors at the right place is why it suits this language.
+- **[Zig's inferred error sets](https://ziglang.org/documentation/master/#Inferred-Error-Sets)** and **[OCaml's polymorphic variants](https://ocaml.org/manual/5.2/polyvariant.html)**. The two closest existing designs to inferred symbol sets.
+
+### Pattern matching and exhaustiveness
+
+- **[How to compile pattern matching](https://julesjacobs.com/notes/patternmatching/patternmatching.pdf)**, Jules Jacobs (2021). A short note describing the decision-tree algorithm this plan uses. It reports a missing case wherever the tree has no arm to reach.
+- **[pattern-matching-in-rust](https://github.com/yorickpeterse/pattern-matching-in-rust)**, Yorick Peterse.
+  - Implementations of Jacobs' algorithm and of Sestoft's, with tests.
+  - Jacobs' note says this version supports integer literals and ranges, guards, and exhaustiveness and redundancy checks.
+  - Released under the Unlicense, so it can be translated freely.
+- **[Gleam v0.33](https://gleam.run/news/v0.33-exhaustive-gleam/)**. Gleam replaced an incomplete exhaustiveness checker with Jacobs' algorithm, with help from Peterse's project.
+- **[Warnings for pattern matching](https://resolve.cambridge.org/core/journals/journal-of-functional-programming/article/warnings-for-pattern-matching/3165B75113781E2431E3856972940347)**, Luc Maranget (Journal of Functional Programming, 2007). The algorithm behind OCaml's missing-case and unused-arm warnings.
+- **[rustc pattern exhaustiveness checking](https://rustc-dev-guide.rust-lang.org/pat-exhaustive-checking.html)** and the [`usefulness` module documentation](https://doc.rust-lang.org/nightly/nightly-rustc/rustc_pattern_analysis/usefulness/index.html). How Rust adapts Maranget's algorithm, including integer ranges.
+
+### Reference counting
+
+- **[Perceus: Garbage Free Reference Counting with Reuse](https://www.microsoft.com/en-us/research/publication/perceus-garbage-free-reference-counting-with-reuse/)**, Reinking, Xie, de Moura, Leijen (PLDI 2021). How to insert reference count operations so that nothing is kept alive longer than needed.
+- **[Koka](https://github.com/koka-lang/koka)**. The language Perceus was built for. It compiles to C with no garbage collector, and its C runtime, `kklib`, is a working example of object headers and count operations. Apache-2.0 licensed.
+- **[Counting Immutable Beans](https://arxiv.org/abs/1908.05647)**, Ullrich and de Moura (IFL 2019), and the **[Lean reference on reference counting](https://lean-lang.org/doc/reference/4.26.0/Run-Time-Code/Reference-Counting/)**. Borrowed parameters that do not change counts, which is the model for parameters here.
+- **[Lobster memory management](https://aardappel.github.io/lobster/memory_management.html)**.
+  - Compile-time ownership analysis, with arguments borrowed by default. The author reports about 95% of count operations removed.
+  - A report of leaked cycles at exit, which this plan copies for debug builds.
+- **[Nim memory management](https://nim-lang.org/docs/mm.html)** and **[destructors and move semantics](https://nim-lang.org/docs/destructors.html)**. ARC and ORC, the model for adding the cycle collector later. Nim's compiler is also a large, MIT-licensed example of emitting C with `#line` directives.
+
+### C output
+
+- **[GCC integer overflow built-ins](https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html)**. Overflow-checked arithmetic. GCC's C23 `<stdckdint.h>` is implemented on top of them.
+
+### Error messages
+
+- **[Compiler Errors for Humans](https://elm-lang.org/news/compiler-errors-for-humans)**, Evan Czaplicki (2015). Show the code as written, point at the problem, and suggest the fix. This is the style for this compiler's diagnostics.
