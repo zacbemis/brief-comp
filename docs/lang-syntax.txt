@@ -373,6 +373,11 @@ for row in rows {
 
 ## Struct literals and blocks
 
+A bare `{ ... }` is not a general expression or a standalone statement.
+Blocks must be introduced by a function header, `if`/`else`, `while`, `for`,
+a match arm's `=>`, or `|>`. For example, `print({ ... })` is a syntax error.
+An `if` or pipeline match can still produce a value as described above.
+
 `Name { ... }` defines a struct where a declaration is expected and creates a value where an expression is expected.
 
 After `if`, `for`, and `while`, the first `{` always starts the body.

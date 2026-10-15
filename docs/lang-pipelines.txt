@@ -163,7 +163,8 @@ Pattern arms can destructure payloads.
 :ok(user) => user.getName()
 ```
 
-An arm's body may also be a statement, such as `ret :invalid`, `break`,
+An arm's body may also be a block, with its last expression providing the arm's
+value, or a statement, such as `ret :invalid`, `break`,
 `continue`, or `count += 1`. An assignment statement produces no value, just as
 it does in an ordinary block; assignments cannot occur inside value expressions.
 
