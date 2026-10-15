@@ -1,6 +1,6 @@
 # Plan: The First Version of the Compiler
 
-> **Status: Milestones 0 and 1 implemented; milestones 2–6 planned.** This describes how the first version of the compiler will be built. The language it accepts is listed under "First version" in `docs/lang-desc.txt`. The language rules themselves are in the other `docs/lang-*.txt` files.
+> **Status: Milestones 0–2 implemented; milestones 3–6 planned.** This describes how the first version of the compiler will be built. The language it accepts is listed under "First version" in `docs/lang-desc.txt`. The language rules themselves are in the other `docs/lang-*.txt` files.
 
 ## Goal
 
@@ -134,7 +134,7 @@ A symbol set is a sorted list of tags, each with an optional payload type. Every
 
 **Return type inference.**
 
-1. Build the call graph between functions and split it into groups that call each other (strongly connected components, found with Tarjan's algorithm).
+1. Build the call graph between functions and split it into groups that call each other (strongly connected components, found with Tarjan's algorithm using explicit work stacks rather than C recursion). Long valid call chains must not consume the compiler's stack.
 2. Check groups in dependency order, so a function's callees are known before its body is checked.
 3. Inside a group of mutually recursive functions, start with empty error sets and re-check the group until no set grows. Sets only grow and the number of tags is finite, so this always stops.
 4. A function whose success type can only come from itself, such as `f() { f() }`, is reported as needing a written return type.
@@ -217,7 +217,8 @@ Cycles are not collected in this version. Debug builds can print the objects sti
 | A set with only `:ok(x)` | the C type of `x` |
 | `()` and `Sym<:ok>` | `void` |
 
-- **Names** are prefixed to avoid clashes with C: `User.new` becomes `brf_User_new`.
+- **Names** are prefixed to avoid clashes with C: `main` becomes `brf_main`, and `User.new` becomes `brf_User_new`. Runtime helpers/types and generated temporaries use the separate `brt_` namespace, so user functions cannot clash with them.
+- **String literals** are emitted as readable escaped C strings with explicit byte lengths. Fixed-width octal escapes preserve zero/non-ASCII bytes without absorbing following digits; question marks are escaped to prevent C11 trigraphs.
 - **Sets of different sizes.** Because tag numbers are shared by the whole program, passing a value from a smaller set to a larger one copies the tag and payload without translating anything.
 - **Overflow** is checked with the GCC and Clang built-ins `__builtin_add_overflow` and friends. C23's `ckd_add` is the standard spelling of the same thing. The check computes the result without undefined behaviour and calls the runtime's panic with the source location.
 - **Division** checks for zero before dividing.
@@ -238,8 +239,9 @@ A small C library included in every generated program:
 
 The compiler build embeds the runtime's text in the compiler binary, so `brief` can paste it into each generated file. The output is then a single self-contained C file.
 
-### Driver (`src/main.c`)
+### Driver (`src/main.c`, `src/driver/`)
 
+- `src/main.c` parses command-line arguments and coordinates compilation; `src/driver/` handles native compiler/program processes, signals, and temporary files.
 - `brief run`, `brief build -o`, `brief emit-c`, and `brief dump-ast`.
 - It calls the C compiler named by the `CC` environment variable, defaulting to `cc`, with `-std=c11 -O2`. A `--debug` flag switches to `-O0 -g` and turns on the sanitizers.
 
@@ -270,7 +272,7 @@ main() {
 }
 ```
 
-A runner script compiles each file, runs it, and compares standard output, compile errors, panics, and the exit status (`// exit: 1`) with the comments. CTest runs it alongside the unit tests.
+A runner program in C compiles each file, runs it, and compares standard output, compile errors, panics, and the exit status (`// exit: 1`) with the comments. CTest runs it alongside the unit tests.
 
 **Memory checks.** Every program test also runs once compiled with `-fsanitize=address,undefined`. AddressSanitizer reports objects used after being freed, which catches a missing reference. Its leak checker reports objects never freed, which catches an extra reference. Together they test the reference-count rules on every program.
 
@@ -283,6 +285,12 @@ Each milestone ends with every test passing.
 Milestone 0 is complete: the common infrastructure, lexer fixes, warning flags, and debug sanitizers are implemented and tested. `brief dump-tokens file.brf` exercises source loading and reports all lexer errors with line, byte column, source line, and marker. This debugging command does not parse or compile programs. Unit and CLI integration tests run through CTest.
 
 Milestone 1 is complete: the newline filter, arena-owned syntax trees, parser, recovery, and `dump-ast` are implemented. Unit tests compare tree dumps and cover precedence, generic-call rewind and virtual `>>` splitting, struct-literal ambiguity, match patterns, continuation rules, and recovery. CTest also parses 145 examples read directly from the design docs, with small wrappers for statement, type, and pattern fragments. The main continuation example keeps its first-version syntax by replacing just its lambda-bearing call with an ordinary method call. Expected semantic errors still parse; expected syntax errors are rejected. Blocks containing later-version syntax, incomplete signatures, or multi-file API notation are excluded by the documented test manifest; their first-version grammar is covered by the focused unit tests.
+
+Milestone 2 is complete: `run`, `build`, and `emit-c` connect minimal resolution and checking, a statement-based IR, self-contained C emission, an embedded runtime, and a POSIX native driver. The supported subset is zero-argument, non-recursive unit-returning functions, string literals, `print(str)`, function bodies, `()`, and unit returns. Bare blocks are not expressions or standalone statements; parser blocks remain available in their documented control-flow and match positions. Forward calls work; explicit `: ()` drops a final value. Other features are diagnosed as unimplemented instead of being silently ignored. The function call-graph walk limits its recursive descent to 128 function levels; full return inference and recursive groups remain milestone 3 work.
+
+The native driver invokes `CC` (default `cc`) as a single executable, never through a shell. `build` defaults to `a.out`, stages compilation beside the destination, and publishes it atomically on success. `run` uses `TMPDIR` and propagates the child's exit status. The driver ignores SIGINT while waiting and cleaning up, but restores the original disposition/mask in children, so terminal Ctrl-C stops the program without leaving temporary files. `--debug` enables native ASan/UBSan with `-O0 -g`. The runtime text is embedded at compiler build time, so generated C and the compiler binary do not depend on the checkout at runtime.
+
+The C program runner is registered with CTest for normal and sanitized builds, with no interpreter dependency. Its shared POSIX process helper captures stdout and stderr as bytes, enforces 30-second compilation and 10-second execution timeouts, and kills the process group on timeout. It checks output bytes, compile diagnostic messages and source lines, panic messages, and exit statuses from fixture comments. M2 adds 18 program fixtures plus stage-level and native-driver integration tests; arithmetic panic fixtures arrive with milestone 3. The runner's panic and failure paths have their own unit tests.
 
 | # | Milestone | Done when |
 |---|---|---|
@@ -304,8 +312,9 @@ include/parser/   src/parser/    parser
 include/sema/     src/sema/      name resolution, types, type checking, decision trees
 include/ir/       src/ir/        lowering and reference counts
 include/codegen/  src/codegen/   C emission
+include/driver/   src/driver/    native processes, signals, temporary files
 runtime/                         runtime library pasted into generated programs
-src/main.c                       driver
+src/main.c                       CLI and compilation orchestration
 tests/                           unit tests
 tests/programs/                  program tests
 ```

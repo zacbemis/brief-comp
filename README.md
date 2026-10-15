@@ -1,17 +1,19 @@
 # Brief
 
 Brief is an experimental statically typed language. The first compiler is
-written in C and will emit readable C, then invoke an existing C compiler to
+written in C and emits readable C, then invokes an existing C compiler to
 produce a native program.
 
-**Current state: milestones 0 and 1 (groundwork and parsing) are implemented.**
-There are token and syntax-tree dumps, but no type checker or code generation yet.
-Language examples in the design docs describe intended behavior, not features
-that can currently be compiled.
+**Current state: milestones 0–2 are implemented**, including the end-to-end
+walking skeleton. Compilation supports only the narrow subset below; the parser
+accepts much more syntax. Most examples in the design docs still describe future
+features, not programs that can currently be compiled.
 
 ## Build and test
 
-Requires a C11 compiler, CMake 3.16 or newer, and Ninja for the helper scripts.
+Requires a POSIX host, a C11 compiler (GCC or Clang), CMake 3.16 or newer,
+and Ninja for the helper scripts. The test tools are also written in C;
+CTest has no additional interpreter dependency.
 
 ```sh
 ./build.sh
@@ -53,12 +55,53 @@ an arena-owned tree, printed as a stable S-expression. Syntax errors are
 collected with source locations; malformed items are skipped so later errors
 can still be reported, even when the file also contains lexer errors. Assignment
 is parsed only as a standalone, non-chaining statement, and pipeline calls must
-have a name or dotted-path callee. Parsing does not resolve names, check types,
+have a name or dotted-path callee. Bare block expressions and standalone block
+statements are rejected; blocks remain valid in documented body and match
+positions. Parsing does not resolve names, check types,
 enforce error handling, or check match exhaustiveness.
 
-`run`, `build`, and `emit-c` are planned, not implemented commands.
+## Compile and run
 
-## Compiler groundwork
+```sh
+./build/brief run tests/programs/hello.brf
+./build/brief build tests/programs/hello.brf -o hello
+./hello
+./build/brief emit-c tests/programs/hello.brf > hello.c
+cc -std=c11 hello.c -o hello
+./build/brief run --debug tests/programs/hello.brf
+```
+
+Milestone 2 compiles zero-argument, unit-returning functions, including forward
+calls, string literals, `()`, `ret`, and `print(str)` in function bodies. `print`
+writes the string's bytes followed by a newline, including embedded zero bytes.
+An explicit `: ()` discards the final value; inferred non-unit returns are not
+implemented. `main()` is required. Duplicate functions, unknown calls, and
+incorrect argument counts/types are diagnosed before invoking C compilation.
+The name `print` is reserved for the builtin in this subset.
+
+Numbers, bindings, parameters, recursion, structs, symbols, pipelines, and other
+later-milestone features produce explicit unsupported-feature diagnostics.
+The call-graph traversal limits recursive descent to 128 function levels.
+`dump-ast` remains syntax-only and does not impose these compilation limits.
+
+`CC` names a **single executable** (default `cc`), not a shell command with
+flags. Paths containing spaces work; use an executable wrapper for extra flags
+or compiler launchers such as `ccache gcc`.
+Native compilation uses `-std=c11 -O2`; `--debug` instead selects `-O0 -g`, ASan,
+and UBSan. `build` defaults to `a.out` and atomically replaces the requested
+output only after successful C compilation. `run` uses `TMPDIR` (default `/tmp`),
+removes its temporary files (including after Ctrl-C), and propagates the program's
+exit status. While waiting, the driver ignores SIGINT but the child retains its
+original disposition, so terminal Ctrl-C stops the child and cleanup still runs. Use `--`
+before an input filename starting with `-` for `build` or `run`.
+
+The generated C uses readable `brf_main`/`brf_greet` function names, a separate
+`brt_` runtime namespace, and escaped string literals with explicit byte lengths.
+It includes its runtime and needs no project headers or libraries.
+Only permanent string literals exist so far; heap strings and reference counting
+arrive in milestone 4.
+
+## Compiler components
 
 - `include/common/`, `src/common/`: arena allocation, source loading and line
   indexing, byte-offset spans, diagnostics with notes, and string interning.
@@ -70,7 +113,15 @@ enforce error handling, or check match exhaustiveness.
 - `include/parser/`, `src/parser/`: recursive-descent declarations, statements,
   and patterns, Pratt expressions, generic-call disambiguation, and recovery.
 - `src/lexer/newline.c`: continuation and nested-delimiter newline filtering.
-- `tests/`: common, lexer, newline-filter, and parser unit tests; CLI tests;
+- `include/sema/`, `src/sema/`: separate name resolution and type checking,
+  with canonical unit/string types and resolved call targets.
+- `include/ir/`, `src/ir/`: statement-based lowering with string temporaries,
+  sequenced calls, and explicit returns.
+- `include/codegen/`, `src/codegen/`, `runtime/`: self-contained C emission,
+  source mapping, and an embedded literal-string/print runtime.
+- `include/driver/`, `src/driver/`: shell-free native compiler invocation.
+- `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
+  native driver tests; program tests in normal and sanitizer configurations;
   and 145 doc-example parsing cases, with wrappers for fragments and expected
   failures for syntax-error examples. Later-version syntax and incomplete
   API notation are excluded explicitly in the doc-test manifest.
@@ -92,5 +143,5 @@ Wide and combining characters do not yet have special display-width handling.
 - [Error handling](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
 
-The overview links the remaining topic documents. Next is milestone 2:
-the end-to-end walking skeleton that runs `main() { print("Hello") }`.
+The overview links the remaining topic documents. Next is milestone 3:
+numbers, bindings, control flow, and general function return checking/inference.
