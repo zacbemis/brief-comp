@@ -134,6 +134,12 @@ x /= y
 x %= y
 ```
 
+Assignment (`=`) and compound assignment (`+=`, `-=`, `*=`, `/=`, `%=`) are
+standalone statements, not expressions. They produce no value and do not chain.
+The target must be a binding, field, or indexed element. For example, `a = b`
+and `user.age += 1` are statements, but `a = b = c`, `if a = b { }`, and
+`f(a = 1)` are syntax errors. Use `==` to compare values in a condition.
+
 Comparison:
 
 ```
@@ -190,9 +196,8 @@ Operators earlier in this list bind tighter than operators after them.
 12. Comparison: `==` `!=` `<` `<=` `>` `>=`
 13. `and`
 14. `or`
-15. Assignment: `=` `+=` `-=` `*=` `/=` `%=`
 
-Operators on the same level group left to right. `**` groups right to left. `..` and the comparison operators do not chain.
+Operators on the same level group left to right. `**` groups right to left. `..` and the comparison operators do not chain. Assignment is statement-only, so it has no expression precedence.
 
 ### Arithmetic
 
@@ -262,7 +267,7 @@ x |> double() + 1              // read as x |> (double() + 1): Compiler error
 (x |> double()) + 1            // write this instead
 ```
 
-### Logical operators and assignment
+### Logical operators and binding initializers
 
 ```
 a or b and c                   // a or (b and c)
