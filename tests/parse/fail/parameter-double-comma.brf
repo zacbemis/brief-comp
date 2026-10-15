@@ -1,0 +1,4 @@
+// error: line 3
+// Why: an empty entry between commas is not allowed.
+add(a: int,, b: int) {
+}

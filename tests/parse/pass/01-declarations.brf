@@ -1,0 +1,79 @@
+// Every kind of first-version top-level declaration, with each return-type
+// form: inferred, written, partial (`_`), and the empty type.
+
+const LIMIT = 100
+pub const VERSION: flt = 0.5
+
+pub type Tier = Sym<:bronze, :silver, :gold>
+type Error = Sym<:notFound(str), :denied(str)>
+
+pub User {
+  name: str
+  age: int
+  tier: Tier
+}
+
+Empty {
+}
+
+Point { x: dub
+  y: dub }
+
+impl User {
+  pub new(name: str, age: int): Sym<:ok(User), :invalidAge(int)> {
+    if age < 0 {
+      ret :invalidAge(age)
+    }
+    User { name: name, age: age, tier: :bronze }
+  }
+
+  pub getName(user: User): str {
+    user.name
+  }
+
+  // An inferred return type.
+  pub isAdult(user: User) {
+    user.age >= 18
+  }
+
+  // A partial return type.
+  pub load(text: str): Sym<:ok(User), _> {
+    User.new(text, 20)?
+  }
+
+  // Returns the empty type.
+  pub birthday(user: &User): () {
+    user.age += 1
+  }
+}
+
+impl Empty {
+}
+
+noParams() {
+}
+
+oneParam(x: int) {
+  x
+}
+
+trailingComma(a: int, b: int,) {
+  a + b
+}
+
+borrowed(a: &User, b: User, c: &Point) {
+  a.age = b.age
+}
+
+namedSetsInReturn(path: str): Sym<:ok(str), Error, :tooLong(int)> {
+  :ok(path)
+}
+
+payloadlessOk(): Sym<:ok, :failed> {
+  :ok
+}
+
+main() {
+  let user = User.new("Bob", 20)!
+  print(user.getName())
+}

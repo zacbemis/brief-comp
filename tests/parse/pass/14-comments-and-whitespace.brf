@@ -1,0 +1,48 @@
+// Comments and whitespace in awkward places. A block comment that contains a
+// line break acts as a line break; one that does not is just a space.
+
+/* A block comment before the first declaration. */
+// A line comment before the first declaration.
+
+
+
+main(/* no parameters */) /* before the body */ {
+	// A tab-indented line.
+	let a = 1	// a tab before this comment
+  let b = /* inline */ 2 /* after */
+  let c = f(/* empty */)
+  let d = f(1, /* second */ 2)
+  let e = User { /* no fields yet */ }
+  let g = a /* between operands */ + b
+  let h = a + // the line continues after a trailing operator
+    b
+  let i = a /* a comment that ends
+  on the next line */
+  let j = 3
+
+  /*
+   * A multi-line block comment between statements.
+   */
+
+  // Several blank lines between statements.
+
+
+
+  print(a)
+}
+
+// /* A block comment opener inside a line comment does nothing.
+second() {
+  let x = 1 // */ a block comment closer inside a line comment does nothing
+}
+
+/* A block comment // containing a line comment marker. */
+third() {
+}
+
+/**/
+/***/
+/* * / */
+fourth() {
+}
+// A comment on the last line, with no declaration after it.

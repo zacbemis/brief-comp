@@ -1,0 +1,6 @@
+// error: line 6
+// Why: the newline after a trailing `+` is removed, so the `}` becomes the
+//   missing right operand.
+main() {
+  let x = 1 +
+}

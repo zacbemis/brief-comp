@@ -1,0 +1,12 @@
+// UTF-8 text in comments and strings: é, 日本語, emoji 🎉, and a right-to-left
+// word שלום. Only ASCII is allowed outside comments and literals.
+
+/* Block comment with wide characters: 漢字 and combining é. */
+
+main() {
+  let greeting = "héllo wörld"
+  let japanese = "日本語"
+  let emoji = "🎉 party"
+  let mixed = "tab\tthen 中文\n"
+  print(greeting) // trailing comment with ünïcödé
+}

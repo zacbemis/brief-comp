@@ -1,0 +1,7 @@
+// error: line 6
+// Why: `..` is not `.`: a line starting with `..` does not continue the
+//   previous line.
+main() {
+  let r = 0
+    ..10
+}

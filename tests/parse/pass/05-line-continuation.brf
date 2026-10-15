@@ -1,0 +1,115 @@
+// Every way a statement may continue onto the next line (lang-syntax.txt,
+// "Statements and line breaks"). Each statement below is one statement.
+
+main() {
+  // After a binary operator, including across blank lines and comments.
+  let total = price +
+    tax +
+
+    // a comment between continued lines
+    shipping
+
+  let product = a *
+    b **
+    c
+  let check = a ==
+    b
+  let both = a and
+    b or
+    c
+  let bits = a &
+    b |
+    c ^
+    d <<
+    e
+  let range = 0..
+    10
+
+  // After `=`.
+  let value =
+    compute()
+
+  // After `,` and `:` inside a struct literal.
+  let user = User { name:
+    "Bob", age:
+    20 }
+
+  // After `.`, and before a line that starts with `.`.
+  let name = users.
+    first()
+
+  let other = users
+    .find(name)!
+    .getName()
+
+  // After `|>`, and before a line that starts with `|>`.
+  let valid = json |>
+    parse()?
+
+  let parsed = json
+    |> parse()?
+    |> validate()?
+
+  // A comment line and a blank line before a leading `|>`.
+  let piped = value
+
+    // still the same statement
+    |> double()
+
+  // Inside parentheses and brackets every newline is ignored.
+  let created = User.new(
+    "Bob",
+    20
+  )!
+
+  let indexed = grid[
+    row
+  ][
+    column
+  ]
+
+  let grouped = (
+    a
+    + b
+    - c
+  )
+
+  // After a keyword that still needs its declaration, condition, or body.
+  let
+    spaced = 1
+
+  var
+    counter = 0
+
+  if
+    ready {
+    go()
+  }
+
+  for
+    i in
+    0..10 {
+    print(i)
+  }
+
+  while
+    running {
+    step()
+  }
+
+  // A prefix `!` at the end of a line continues; a postfix `!` does not.
+  let negated = !
+    ready
+}
+
+pub
+  later() {
+}
+
+type
+  Alias =
+  Sym<:a>
+
+impl
+  User {
+}

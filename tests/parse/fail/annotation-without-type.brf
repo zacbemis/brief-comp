@@ -1,0 +1,5 @@
+// error: line 4
+// Why: a `:` in a binding must be followed by a type.
+main() {
+  let count: = 1
+}

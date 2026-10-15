@@ -1,0 +1,110 @@
+// A realistic first-version program in the style of docs/lang-ex-base.txt,
+// without the later-version features (lambdas, traits, tuples, modules).
+
+pub type Tier = Sym<:tier1, :tier2, :tier3>
+pub type Error = Sym<:invalidAge(int), :emptyName>
+
+const MIN_AGE = 0
+const MAX_AGE: int = 150
+
+pub User {
+  name: str
+  age: int
+  tier: Tier
+}
+
+pub Admin {
+  user: User
+  level: int
+}
+
+impl User {
+  pub new(name: str, age: int): Sym<:ok(User), Error> {
+    if name == "" {
+      ret :emptyName
+    }
+    if age < MIN_AGE or age > MAX_AGE {
+      ret :invalidAge(age)
+    }
+    User { name: name, age: age, tier: :tier1 }
+  }
+
+  pub getName(user: User): str {
+    user.name
+  }
+
+  pub getAgeRange(user: User): Sym<:minor, :adult, :senior> {
+    user.age |> {
+      < 18 => :minor
+      18..65 => :adult
+      >= 65 => :senior
+    }
+  }
+
+  pub promote(user: &User) {
+    user.tier = user.tier |> {
+      :tier1 => :tier2
+      _ => :tier3
+    }
+  }
+
+  pub describe(user: User): str {
+    let range = user.getAgeRange() |> {
+      :minor => "minor"
+      :adult => "adult"
+      :senior => "senior"
+    }
+    user.name + " (" + range + ", " + str(user.age) + ")"
+  }
+}
+
+impl Admin {
+  pub new(name: str, age: int): Sym<:ok(Admin), Error> {
+    Admin { user: User.new(name, age)?, level: 1 }
+  }
+}
+
+countAdults(limit: int): int {
+  var count = 0
+  var age = 0
+  while age < limit {
+    age += 1
+    if age < 18 {
+      continue
+    }
+    count += 1
+    if count >= 100 {
+      break
+    }
+  }
+  count
+}
+
+sumTo(n: int) {
+  var total = 0
+  for i in 0..n + 1 {
+    total += i
+  }
+  total
+}
+
+classify(n: int): str {
+  if n < 0 { "negative" } else if n == 0 { "zero" } else { "positive" }
+}
+
+main() {
+  let bob = User.new("Bob", 42)!
+  var admin = Admin.new("Ann", 30)!
+  admin.user.promote()
+
+  User.new("", 10) |> {
+    :ok(user) => print(user.describe())
+    :emptyName => print("A name is required")
+    :invalidAge(age) => print("Not a valid age: " + str(age))
+  }
+
+  print(bob.describe())
+  print(countAdults(200) |> str())
+  print(str(sumTo(10)))
+  print(classify(-5))
+}

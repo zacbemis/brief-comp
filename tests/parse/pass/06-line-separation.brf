@@ -1,0 +1,54 @@
+// Lines that look like they might continue the previous line but must not.
+// These are the newline hazards from JavaScript's automatic semicolon
+// insertion and Go's semicolon rule. Every line is its own statement.
+
+main() {
+  // A line starting with `(` is a new statement, not a call of `b`.
+  let a = b
+  (c) |> print()
+
+  // A line starting with `-` is a new statement, not a subtraction.
+  let d = e
+  -f
+
+  // A line starting with `!` is a prefix not, not a panic on `g`.
+  let h = g
+  !ready
+
+  // A postfix `!` ends the line's statement.
+  let i = load()!
+  next()
+
+  // A postfix `?` ends the line's statement.
+  let j = load()?
+  next()
+
+  // `++` and `--` end the line's statement.
+  count++
+  -other
+  count--
+  !flag
+
+  // A symbol on its own line is a new statement.
+  let k = value
+  :done
+
+  // `ret` with nothing after it on the line returns no value. The value on
+  // the next line is a separate statement (JavaScript's `return` hazard).
+  if done {
+    ret
+  }
+
+  // A line ending in a type's closing `>` is complete.
+  let users: Vec<User> = Vec<User>()
+  let count = 0
+
+  // A comparison's `>` at the end of a line continues it instead.
+  let bigger = count >
+    10
+}
+
+loop() {
+  ret
+  unreachable()
+}

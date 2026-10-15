@@ -1,0 +1,6 @@
+// error: line 4
+// Why: the top level holds declarations only (lang-modules.txt, "Program
+//   entry").
+print("Hello")
+main() {
+}

@@ -1,0 +1,5 @@
+// error: line 4
+// Why: assignment is a statement and cannot be a value, even in parentheses.
+main() {
+  let x = (y = 1)
+}

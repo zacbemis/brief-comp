@@ -1,0 +1,5 @@
+// 100 nested parentheses around one name. Grouping recurses in the parser
+// but adds no tree nodes; this stays under the 128-level limit.
+main() {
+  let x = ((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((value))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+}

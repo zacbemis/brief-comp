@@ -1,0 +1,6 @@
+// error: line 5
+// Why: after `foo<Bar>` the next token is `.`, not `(`, so `<` and `>` are
+//   comparisons, and comparisons do not chain.
+main() {
+  let x = foo<Bar>.baz
+}

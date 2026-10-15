@@ -1,0 +1,7 @@
+// error: line 6
+// Why: only `|>` and `.` continue a statement from the start of a line. `+ b`
+//   is a new statement and `+` is not a prefix operator.
+main() {
+  let total = a
+    + b
+}

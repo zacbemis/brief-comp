@@ -1,0 +1,4 @@
+// error: line 3
+// Why: `_` is only allowed as an entry in `Sym<...>`.
+f(): _ {
+}

@@ -1,0 +1,8 @@
+// error: line 5
+// Why: `ovr` is later-version syntax that the first version rejects. Move this
+//   file to pass/ when the feature is added.
+impl User {
+  ovr pub getName(user: User): str {
+    user.name
+  }
+}

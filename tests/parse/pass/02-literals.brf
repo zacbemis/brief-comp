@@ -1,0 +1,33 @@
+// Every literal form, including strings that contain comment markers,
+// quotes, and escapes, which the lexer must not misread.
+
+main() {
+  let zero = 0
+  let leadingZeros = 007
+  let big = 4294967295
+  let ratio = 0.5
+  let whole = 10.0
+  let t = true
+  let f = false
+  let letter = 'a'
+  let quote = '\''
+  let doubleQuoteChar = '"'
+  let backslash = '\\'
+  let zeroByte = '\0'
+  let tab = '\t'
+  let empty = ""
+  let escapes = "line\nnext\ttab \\ \" \' \0"
+  let singleQuoteInString = "it's"
+  let notAComment = "// not a comment"
+  let notABlockComment = "/* not a comment */"
+  let pipeInString = "a |> b"
+  let braceInString = "{ not a block }"
+  let unit = ()
+  let tag = :ok
+  let tagged = :ok(1)
+  let nested = :ok(:some(:value(1.5)))
+  let computed = :sum(1 + 2 * 3)
+  let text = :message("hello, world")
+  let floatRange = 0.5..1.5
+  let intRange = 1..5
+}

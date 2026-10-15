@@ -1,0 +1,23 @@
+// Windows line endings (CRLF) throughout.
+
+User {
+  name: str
+  tags: Vec<str>
+}
+
+main() {
+  let total = a +
+    b
+  let parsed = json
+    |> parse()?
+  if total > 1 {
+    print("big")
+  }
+  else {
+    print("small")
+  }
+  value |> {
+    :ok(v) => v
+    _ => 0
+  }
+}

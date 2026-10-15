@@ -1,0 +1,6 @@
+// error: line 4
+// Why: the newline after `)` is kept, so a function body's `{` must be on the
+//   same line.
+main()
+{
+}

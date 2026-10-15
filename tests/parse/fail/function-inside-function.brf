@@ -1,0 +1,7 @@
+// error: line 5
+// Why: functions cannot be nested. `helper()` is read as a call, and the `{`
+//   after it on the same line has no meaning.
+main() {
+  helper() {
+  }
+}

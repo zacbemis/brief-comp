@@ -1,0 +1,5 @@
+// error: line 4
+// Why: a struct literal field needs `name: value`.
+main() {
+  let u = User { name "Bob" }
+}

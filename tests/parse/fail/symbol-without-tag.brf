@@ -1,0 +1,5 @@
+// error: line 4
+// Why: `:` in an expression must be followed directly by a tag name.
+main() {
+  let x = : 1
+}

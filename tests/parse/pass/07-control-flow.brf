@@ -1,0 +1,103 @@
+// `if`, `while`, `for`, `break`, and `continue`, including `if` as a value
+// and every place an `else` may appear relative to the closing `}`.
+
+main() {
+  if a {
+    print("a")
+  }
+
+  if a { print("a") } else { print("b") }
+
+  if age < 18 {
+    print("Minor")
+  } else if age < 100 {
+    print("Adult")
+  } else {
+    print("Senior")
+  }
+
+  // `else` on the line after the closing brace.
+  if a {
+    one()
+  }
+  else {
+    two()
+  }
+
+  // Blank lines and comments between `}` and `else`.
+  if a {
+    one()
+  }
+
+  // the else still belongs to the if above
+  else if b {
+    two()
+  }
+  /* a block comment */ else {
+    three()
+  }
+
+  // `if` as a value.
+  let label = if age < 18 { "Minor" } else { "Adult" }
+  let nested = if a { if b { 1 } else { 2 } } else { 3 }
+  let chained = if a { 1 } else if b { 2 } else if c { 3 } else { 4 }
+  print(if ok { "yes" } else { "no" })
+  let sum = 1 + if a { 2 } else { 3 }
+
+  // Conditions that look like generic calls or struct literals but are not.
+  if count < limit {
+    step()
+  }
+  if a < b and c > d {
+    step()
+  }
+  if ready {
+  }
+
+  // Empty bodies.
+  if a {} else {}
+  while a {}
+  for i in 0..10 {}
+
+  var count = 0
+  while count < 10 {
+    count += 1
+  }
+
+  for i in 0..10 {
+    print(i)
+  }
+
+  for i in start..start + length {
+    print(i)
+  }
+
+  for user in users {
+    if user.getAge() < 18 {
+      continue
+    }
+    if user.getName() == "Bob" {
+      break
+    }
+  }
+
+  for row in rows {
+    for cell in row {
+      if cell == 0 {
+        break
+      }
+    }
+  }
+
+  // A loop over a pipeline and over a call result.
+  for user in users |> sorted() {
+    print(user.getName())
+  }
+  for i in range(0, 10) {
+    print(i)
+  }
+
+  while queue.isEmpty() == false {
+    queue.pop()
+  }
+}

@@ -1,0 +1,8 @@
+// error: line 5
+// Why: only keywords continue the line; the newline after the loop variable
+//   ends it.
+main() {
+  for i
+  in 0..10 {
+  }
+}

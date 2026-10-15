@@ -1,0 +1,8 @@
+// error: line 6
+// Why: an `if` has at most one `else`.
+main() {
+  if a {
+  } else {
+  } else {
+  }
+}

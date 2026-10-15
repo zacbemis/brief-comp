@@ -1,0 +1,5 @@
+// error: line 4
+// Why: a pipeline stage must be a call or a match block.
+main() {
+  x |> 5
+}

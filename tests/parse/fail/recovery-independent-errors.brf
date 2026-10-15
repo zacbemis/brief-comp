@@ -1,0 +1,28 @@
+// error: line 9
+// error: line 11
+// error: line 16
+// error: line 20
+// error: line 25
+// Why: five independent errors. The parser must report all five, and none
+//   extra, recovering after each.
+main() {
+  let = 1
+  print("after the first error")
+  x |> f
+  let ok = 2
+}
+
+User {
+  name str
+  age: int
+}
+
+third(a, b: int) {
+}
+
+fourth() {
+  value |> {
+    :ok(v) v
+    :none => 0
+  }
+}

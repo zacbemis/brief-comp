@@ -1,0 +1,6 @@
+// error: line 5
+// Why: a stage's callee must be a name or dotted path; `f().g()` calls the
+//   result of a call (lang-pipelines.txt).
+main() {
+  x |> f().g()
+}

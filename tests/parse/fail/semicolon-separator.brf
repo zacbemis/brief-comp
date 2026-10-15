@@ -1,0 +1,6 @@
+// error: line 5
+// Why: there is no statement terminator; `;` is not a separator (lang-
+//   syntax.txt).
+main() {
+  print(a); print(b)
+}

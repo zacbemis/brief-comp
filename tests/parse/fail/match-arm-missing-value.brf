@@ -1,0 +1,9 @@
+// error: line 7
+// Why: the newline after `=>` is removed, so the next arm's pattern `:none`
+//   becomes this arm's value and its `=>` is unexpected.
+main() {
+  x |> {
+    :ok(v) =>
+    :none => 0
+  }
+}

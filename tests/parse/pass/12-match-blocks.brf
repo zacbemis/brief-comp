@@ -1,0 +1,133 @@
+// Match blocks: every pattern form, every arm-body form, and match blocks
+// nested in places where the newline filter must keep arm separators.
+
+main() {
+  // Number patterns: comparisons, ranges, literals, negatives, wildcard.
+  age |> {
+    < 18 => "Minor"
+    18..100 => "Adult"
+    >= 100 => "Senior"
+  }
+  temperature |> {
+    <= -40 => "extreme"
+    -40..0 => "freezing"
+    0 => "zero"
+    > 0 => "warm"
+  }
+  ratio |> {
+    0.5 => "half"
+    -1.5..1.5 => "small"
+    _ => "large"
+  }
+  index |> {
+    MIN..MAX => "inside"
+    LIMIT => "at the limit"
+    _ => "outside"
+  }
+
+  // Other literal patterns.
+  flag |> {
+    true => 1
+    false => 0
+  }
+  name |> {
+    "Bob" => 1
+    "" => 0
+    _ => 2
+  }
+  letter |> {
+    'a' => 1
+    '\n' => 2
+    _ => 3
+  }
+  nothing |> {
+    () => 0
+  }
+
+  // Symbol patterns, with and without payloads, nested, and named sets.
+  result |> {
+    :ok => print("done")
+    :ok(value) => print(value)
+    :ok(:some(inner)) => print(inner)
+    :notFound(_) => print("missing")
+    :denied("root") => print("root denied")
+    :tooLarge(< 100) => print("slightly large")
+    :range(1..10) => print("small range")
+    Json.Error => print("bad json")
+    models.Json.Error => print("bad json again")
+    other => print("other")
+  }
+
+  // Arm bodies: expressions, blocks, `ret`, `break`, `continue`, and
+  // assignment statements.
+  for item in items {
+    item |> {
+      :skip => continue
+      :stop => break
+      :fail(reason) => ret :failed(reason)
+      :bare => ret
+      :count => total += 1
+      :reset => total = 0
+      :field => stats.count += 1
+      :index => counts[0] = 1
+      :block => {
+        print("one")
+        print("two")
+      }
+      :empty => {}
+      :nested => item |> {
+        _ => 1
+      }
+      _ => print("other")
+    }
+  }
+
+  // An arm value spread across lines by continuation rules.
+  value |> {
+    :sum(a) => a +
+      1
+    :call(a) => f(
+      a
+    )
+    _ => 0
+  }
+
+  // A match block nested inside call arguments keeps its arm separators.
+  print(value |> {
+    :ok(v) => v
+    :none => 0
+  })
+  save(a, b |> {
+    _ => 1
+  }, c)
+
+  // Blank lines and comments between arms, and arms on the first line.
+  value |> { _ => 1 }
+  value |> {
+
+    // first arm
+    :a => 1
+
+    /* second arm */
+    :b => 2
+
+  }
+
+  // A match used as a value, in a condition, and as a return value.
+  let label = age |> {
+    < 18 => "Minor"
+    _ => "Adult"
+  }
+  if (value |> {
+    :ok => true
+    _ => false
+  }) {
+    print("ok")
+  }
+
+  // A catch-all binding and a pattern that looks like a struct literal head.
+  value |> {
+    User => 1
+    user => 2
+  }
+}

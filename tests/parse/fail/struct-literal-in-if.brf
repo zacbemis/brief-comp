@@ -1,0 +1,7 @@
+// error: line 5
+// Why: after `if`, the first `{` starts the body, so `Guest { name: name }` is
+//   not a struct literal there (lang-syntax.txt, "Struct literals and blocks").
+main() {
+  if Guest { name: name }.isAllowed() {
+  }
+}

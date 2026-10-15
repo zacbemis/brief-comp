@@ -1,0 +1,8 @@
+// error: line 7
+// Why: newlines are only ignored inside `( )` and `[ ]`, not inside `< >`. The
+//   newline after `:b` therefore ends the line, so the `>` on its own line is an
+//   error. Write `:b>` instead.
+type Error = Sym<
+  :a,
+  :b
+>

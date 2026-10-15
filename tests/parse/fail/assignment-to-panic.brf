@@ -1,0 +1,6 @@
+// error: line 5
+// Why: an assignment target must be a binding, field, or indexed element; `x!`
+//   is none of these. Note that `x! = y` is not `x != y`.
+main() {
+  x! = y
+}

@@ -1,0 +1,7 @@
+// error: line 5
+// Why: a pattern cannot be a call.
+main() {
+  x |> {
+    f(y) => 1
+  }
+}

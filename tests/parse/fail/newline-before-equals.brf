@@ -1,0 +1,7 @@
+// error: line 5
+// Why: a binding name is not a continuation token, so the newline after it
+//   ends the line.
+main() {
+  let x
+    = 5
+}

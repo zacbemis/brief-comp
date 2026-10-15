@@ -1,0 +1,6 @@
+// error: line 4
+// Why: generic declarations are later-version syntax that the first version
+//   rejects. Move this file to pass/ when the feature is added.
+Box<T> {
+  value: T
+}

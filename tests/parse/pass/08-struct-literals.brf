@@ -1,0 +1,108 @@
+// Struct literals in every position, with every field separator, and the
+// ways to use one in an `if`, `for`, or `while` header (lang-syntax.txt,
+// "Struct literals and blocks"; Rust's no-struct-literal restriction).
+
+main() {
+  let a = User { name: "Bob", age: 20 }
+  let b = User { name: "Bob", age: 20, }
+  let c = User {
+    name: "Bob"
+    age: 20
+  }
+  let d = User {
+    name: "Bob",
+    age: 20,
+  }
+  let e = User { name: "Bob"
+    age: 20 }
+  let f = User {
+
+    name: "Bob"
+
+    age: 20
+
+  }
+  let g = Empty {}
+  let h = Empty {
+  }
+  let i = models.User { name: "Bob" }
+  let j = Admin { user: User { name: "Bob", age: 20 }, tier: :gold }
+  let k = Admin {
+    user: User {
+      name: "Bob"
+      age: 20
+    }
+    tier: :gold
+  }
+
+  // Field values that are themselves complex expressions.
+  let l = User {
+    name: if short { "Al" } else { "Albert" }
+    age: base + 1
+    tier: level |> {
+      < 10 => :bronze
+      _ => :gold
+    }
+  }
+
+  // A field value that is a comparison, which must not be read as a type.
+  let m = Range { low: a < b, high: c > d }
+  let n = Range {
+    low: a < b
+    high: c > d
+  }
+
+  // A field name may match a keyword-like identifier or a type name.
+  let o = Config { enum: 1, match: 2, mod2: 3 }
+
+  // Struct literals as call arguments, return values, and arm values.
+  print(User { name: "Bob" })
+  save(User { name: "Bob" }, User { name: "Al" })
+  let p = User { name: "Bob" }.getName()
+  let q = User { name: "Bob" }.age + 1
+
+  // In an `if`, `for`, or `while` header, a struct literal must be wrapped
+  // in parentheses or passed inside call arguments.
+  if (Guest { name: name }).isAllowed() {
+    enter()
+  }
+  if isAllowed(Guest { name: name }) {
+    enter()
+  }
+  if guest == (Guest { name: name }) {
+    enter()
+  }
+  for user in (Users { items: list }).all() {
+    print(user)
+  }
+  while isOpen(Door { id: 1 }) {
+    wait()
+  }
+
+  // Inside an `if` body the restriction is lifted again.
+  if ready {
+    let r = User { name: "Bob" }
+  }
+}
+
+make(): User {
+  User { name: "Bob", age: 20 }
+}
+
+makeEarly(fast: bool): User {
+  if fast {
+    ret User { name: "Fast" }
+  }
+  User { name: "Slow" }
+}
+
+pick(flag: bool): User {
+  flag |> {
+    true => User { name: "Yes" }
+    false => User { name: "No" }
+  }
+}
+
+update(user: &User) {
+  user.home = Address { street: "Main", number: 1 }
+}

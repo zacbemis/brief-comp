@@ -1,0 +1,52 @@
+// The `<` ambiguity between generic calls and comparisons (lang-syntax.txt,
+// "Generic calls in expressions"). Rule: after a name and `<`, read type
+// arguments; it is a generic call only if they close with `>` and `(`
+// follows. Cases come from Rust's "bastion of the turbofish" test and from
+// the `>>` splitting problem C++ had before C++11.
+
+main() {
+  // Generic calls.
+  let users = Vec<User>()
+  let grid = Vec<Vec<int>>()
+  let cube = Vec<Vec<Vec<int>>>()
+  let lookup = Map<str, Vec<int>>()
+  let results = Vec<Sym<:ok(int), :none>>()
+  let nested = Vec<Sym<:ok(Vec<int>), :none>>()
+  let qualified = models.Vec<User>()
+  let method = json.read<User>(text)
+  let chained = Vec<User>().first()
+  let unwrapped = load<User>(path)?.name
+  let spaced = Vec < User > ()
+  let multiline = Map<
+    str,
+    int>()
+  let selfType = Vec<Self>()
+  let arrays = Vec<int[4]>()
+
+  // Comparisons.
+  let smaller = a < b
+  let inside = a < b and b > c
+  let notCall = a < b and c > (d)
+  let bothSides = (a < b) == (c > d)
+  let shifted = a < b >> c          // a < (b >> c): one > is left over
+  let shiftedCall = a < b >> (c)    // a < (b >> c): `>`, not `(`, follows the split
+  let lessEqual = a <= b
+  let negative = a < -b
+  let callRight = a < f(b)
+  let fieldLeft = user.age < limit
+
+  // Inside call arguments.
+  check(a < b, c > d)               // two comparisons: no ( after >
+  check((a < b), (c > (d)))         // two comparisons
+  check(a < b, c > (d))             // read as the generic call a<b, c>(d)
+  check(a < b > (c))                // read as the generic call a<b>(c)
+  check(a < b, c >= (d))            // two comparisons: >= is not >
+
+  // A generic call in a condition: the `{` after it starts the body.
+  if Vec<int>().isEmpty() {
+    print("empty")
+  }
+  while count < limit {
+    count += 1
+  }
+}

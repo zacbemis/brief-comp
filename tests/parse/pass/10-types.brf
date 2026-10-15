@@ -1,0 +1,103 @@
+// Type syntax in every position: annotations, parameters, fields, return
+// types, aliases, and `Sym` entries. Fields whose type ends in `>` or `>>`
+// test that the newline filter keeps the newline after a closing type `>`.
+
+type Simple = Sym<:a>
+type WithPayload = Sym<:ok(int), :err(str)>
+type Nested = Sym<:ok(Sym<:inner(int), :none>), :outer>
+type Merged = Sym<Simple, WithPayload, :extra>
+type Qualified = Sym<Json.Error, File.Error>
+type Applied = Vec<int>
+type Deep = Map<str, Vec<Vec<int>>>
+type Array = int[5]
+type Grid = int[3][4]
+type Unit = ()
+type TrailingComma = Sym<:a, :b,>
+type Multiline = Sym<
+  :notFound(str),
+  :denied(str),
+  :tooLarge(lng)>
+type LastAfterMultiline = Sym<:z>
+
+Holder {
+  plain: int
+  generic: Vec<User>
+  nested: Vec<Vec<int>>
+  tripleClose: Vec<Vec<Vec<int>>>
+  symbol: Sym<:ok(Node), :none>
+  symbolNested: Vec<Sym<:ok(int), :none>>
+  qualified: models.Box<int>
+  array: int[8]
+  unit: ()
+  last: str
+}
+
+AllPrimitives {
+  a: bool
+  b: int
+  c: uint
+  d: shrt
+  e: ushrt
+  f: lng
+  g: ulng
+  h: flt
+  i: dub
+  j: chr
+  k: str
+}
+
+impl Holder {
+  pub same(holder: Self): Self {
+    holder
+  }
+
+  pub get(holder: &Self, index: int): Sym<:ok(int), :outOfRange(int)> {
+    :ok(holder.plain)
+  }
+}
+
+returnsGeneric(): Vec<int> {
+  Vec<int>()
+}
+
+returnsNestedGeneric(): Map<str, Vec<int>> {
+  Map<str, Vec<int>>()
+}
+
+returnsSym(): Sym<:ok(Vec<int>), :none> {
+  :none
+}
+
+returnsPartial(): Sym<:ok(int), _> {
+  :ok(1)
+}
+
+returnsUnit(): () {
+}
+
+returnsArray(): int[3] {
+  make()
+}
+
+params(a: Vec<int>, b: &Vec<int>, c: Sym<:x, :y>, d: int[2], e: models.User) {
+}
+
+multilineParams(
+  a: int,
+  b: Map<
+    str,
+    int>,
+  c: str
+) {
+}
+
+main() {
+  let a: int = 1
+  let b: Vec<User> = Vec<User>()
+  let c: Sym<:ok(int), :none> = :none
+  var d: Map<str, Vec<int>> = Map<str, Vec<int>>()
+  let e: int[3] = make()
+  let f: () = ()
+  let g: Vec<Vec<int>> = Vec<Vec<int>>()
+  let h: lng = 10
+}

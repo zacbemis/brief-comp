@@ -1,0 +1,74 @@
+// Pipelines (lang-pipelines.txt). A stage is a call whose callee is a name or
+// a dotted path, optionally followed by `?` or `!`, or a match block.
+
+main() {
+  x |> f()
+  x |> f(1, 2)
+  x |> f()?
+  x |> f()!
+  x |> Report.summary()
+  x |> models.Report.summary()?
+  x |> Vec<int>()
+  x |> f() |> g() |> h()
+  path |> readFile()? |> parse()?
+  (x |> f()).g()
+  (x |> f())?
+  (x |> f())[0]
+  x |> f(y |> g())
+  x |> f(y |> {
+    _ => 1
+  })
+
+  // A match block as a stage, then more stages.
+  x |> {
+    :ok(v) => v
+    :none => 0
+  } |> double()
+
+  // Pipelines with precedence-sensitive neighbours.
+  let doubled = count |> double() > 10
+  let both = a |> f() and b |> g()
+  let shifted = x + 1 |> double()
+  let range = 0..10 |> sum()
+  let matched = (age >= 18) |> {
+    true => "Adult"
+    false => "Minor"
+  }
+
+  // `age >= 18 |> { ... }` parses as `age >= (18 |> { ... })`. It is a type
+  // error, not a syntax error.
+  let surprising = age >= 18 |> {
+    true => "Adult"
+    false => "Minor"
+  }
+
+  // A long pipeline split across lines in both styles.
+  let report = users
+    |> active()
+    |> sortByName()
+    |> limit(10)
+
+  let report2 = users |>
+    active() |>
+    limit(10)
+
+  // A pipeline as a condition, an iterable, a return value, and an argument.
+  if users |> isEmpty() {
+    print("none")
+  }
+  for user in users |> active() {
+    print(user)
+  }
+  print(x |> f())
+}
+
+finish(x: int) {
+  ret x |> double()
+}
+
+finishMatch(x: int): str {
+  x |> {
+    < 0 => "negative"
+    _ => "other"
+  }
+}

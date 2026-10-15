@@ -1,0 +1,36 @@
+// Postfix chains: calls, fields, indexing, `?`, `!`, `++`, and `--`, and how
+// they mix with prefix operators and `!=`.
+
+main() {
+  f()
+  f(1)
+  f(1, 2, 3)
+  f(1, 2, 3,)
+  f(g(h(1)))
+  a.b
+  a.b.c.d
+  a.b().c().d()
+  a[0]
+  a[i][j]
+  a[i + 1][f(j)]
+  f()[0]
+  a.items[0].name
+  parse(text)?
+  parse(text)!
+  parse(text)?.name
+  parse(text)!.name
+  load()!!
+  load()?!
+  user.find(name)?.getName()!
+  User.new("Bob", 20)!.getName()
+  count++
+  count--
+  user.age++
+  list[0]--
+  a != b                    // one token, not a panic followed by =
+  a! != b                   // panic, then not-equal
+  !a!                       // !(a!)
+  -a?                       // -(a?)
+  !f()?.ok                  // !((f()?).ok)
+  x!.y!.z!
+}

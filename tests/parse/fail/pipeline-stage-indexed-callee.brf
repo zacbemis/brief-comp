@@ -1,0 +1,6 @@
+// error: line 5
+// Why: a stage's callee must be a name or dotted path, not an indexed value
+//   (lang-pipelines.txt).
+main() {
+  x |> functions[0]()
+}

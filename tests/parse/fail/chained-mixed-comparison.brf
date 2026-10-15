@@ -1,0 +1,6 @@
+// error: line 5
+// Why: a comparison cannot be the operand of another comparison without
+//   parentheses.
+main() {
+  let ok = a < b == c
+}

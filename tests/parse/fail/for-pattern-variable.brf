@@ -1,0 +1,6 @@
+// error: line 4
+// Why: the loop variable must be a name, not a pattern.
+main() {
+  for :ok(x) in items {
+  }
+}

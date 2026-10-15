@@ -1,0 +1,6 @@
+// error: line 4
+// Why: after `while`, the first `{` starts the body.
+main() {
+  while Door { open: true }.isOpen() {
+  }
+}

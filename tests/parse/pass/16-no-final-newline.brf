@@ -1,0 +1,4 @@
+// No newline at the end of the file.
+main() {
+  print("end")
+}

@@ -1,0 +1,5 @@
+// error: line 4
+// Why: comparisons do not chain (lang-syntax.txt, "Comparisons do not chain").
+main() {
+  let ok = a < b < c
+}

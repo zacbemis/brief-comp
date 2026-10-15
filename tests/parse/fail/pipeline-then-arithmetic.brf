@@ -1,0 +1,6 @@
+// error: line 5
+// Why: `x |> double() + 1` reads as `x |> (double() + 1)`, and that stage is
+//   not a call (lang-syntax.txt, "Pipelines").
+main() {
+  let y = x |> double() + 1
+}

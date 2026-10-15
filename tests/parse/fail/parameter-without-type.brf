@@ -1,0 +1,4 @@
+// error: line 3
+// Why: every parameter needs `name: type`.
+add(a, b: int) {
+}

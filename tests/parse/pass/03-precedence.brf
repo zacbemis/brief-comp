@@ -1,0 +1,44 @@
+// Operator precedence and associativity from lang-syntax.txt. The comment on
+// each line gives the grouping the parser must produce.
+
+main() {
+  a + b * c                 // a + (b * c)
+  a * b + c                 // (a * b) + c
+  a - b - c                 // (a - b) - c
+  a / b / c                 // (a / b) / c
+  a % b * c                 // (a % b) * c
+  2 ** 3 ** 2               // 2 ** (3 ** 2)
+  -2 ** 2                   // -(2 ** 2)
+  2 ** -1                   // 2 ** (-1)
+  -a * b                    // (-a) * b
+  a - -b                    // a - (-b)
+  a + -b                    // a + (-b)
+  - - a                     // -(-a)
+  !!a                       // !(!a)
+  ~a & b                    // (~a) & b
+  ~~a                       // ~(~a)
+  !user.isActive()          // !(user.isActive())
+  -user.age                 // -(user.age)
+  1 << 2 + 3                // 1 << (2 + 3)
+  a << b >> c               // (a << b) >> c
+  a & b ^ c | d             // ((a & b) ^ c) | d
+  a | b ^ c & d             // a | (b ^ (c & d))
+  flags & MASK == 0         // (flags & MASK) == 0
+  a | b == c | d            // (a | b) == (c | d)
+  0..count + 1              // 0..(count + 1)
+  a * 2..b * 2              // (a * 2)..(b * 2)
+  x + 1 |> double()         // (x + 1) |> double()
+  count |> double() > 10    // (count |> double()) > 10
+  0..10 |> sum()            // (0..10) |> sum()
+  a |> f() and b |> g()     // (a |> f()) and (b |> g())
+  a or b and c              // a or (b and c)
+  a and b or c and d        // (a and b) or (c and d)
+  !a and b                  // (!a) and b
+  a < b and b < c           // (a < b) and (b < c)
+  a == b or c != d          // (a == b) or (c != d)
+  (a < b) == (c < d)        // grouped comparisons may be compared
+  (0..1) == (0..1)          // grouped ranges may be compared
+  ((((a))))                 // redundant grouping
+  let ok = age >= 18 and hasId
+  let mixed = -a ** 2 + b * c << 1 & mask | flag == 0 or done
+}
