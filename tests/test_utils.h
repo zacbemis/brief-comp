@@ -7,7 +7,8 @@
 
 // Minimal test harness. Each test file defines cases using TEST() inside
 // main() and calls RUN_TESTS() at the end. Failures print a message and
-// set a nonzero exit code so CTest reports the failure.
+// set a nonzero exit code so CTest reports the failure. Assertions are
+// nonfatal: a failed assertion does not leave the current test.
 
 static int brief_tests_run = 0;
 static int brief_tests_failed = 0;
@@ -22,12 +23,12 @@ static const char *brief_current_test = NULL;
     fprintf(stderr, "  [FAIL] %s: %s (at %s:%d)\n", brief_current_test, (msg), \
             __FILE__, __LINE__);                                               \
     brief_tests_failed++;                                                      \
-    continue;                                                                  \
   } while (0)
 
 #define ASSERT_TRUE(cond)                                                      \
   do {                                                                         \
-    if (!(cond)) FAIL("expected true: " #cond);                                \
+    if (!(cond))                                                               \
+      FAIL("expected true: " #cond);                                           \
   } while (0)
 
 #define ASSERT_EQ_INT(expected, actual)                                        \
@@ -36,8 +37,8 @@ static const char *brief_current_test = NULL;
     long long _a = (long long)(actual);                                        \
     if (_e != _a) {                                                            \
       char _buf[256];                                                          \
-      snprintf(_buf, sizeof(_buf),                                             \
-               "expected %lld, got %lld (" #actual ")", _e, _a);               \
+      snprintf(_buf, sizeof(_buf), "expected %lld, got %lld (%s)", _e, _a,     \
+               #actual);                                                       \
       FAIL(_buf);                                                              \
     }                                                                          \
   } while (0)
@@ -45,8 +46,7 @@ static const char *brief_current_test = NULL;
 #define ASSERT_EQ_STRN(expected, actual, len)                                  \
   do {                                                                         \
     size_t _len = (size_t)(len);                                               \
-    if (strlen(expected) != _len ||                                            \
-        memcmp((expected), (actual), _len) != 0) {                             \
+    if (strlen(expected) != _len || memcmp((expected), (actual), _len) != 0) { \
       char _buf[256];                                                          \
       snprintf(_buf, sizeof(_buf), "expected \"%s\", got \"%.*s\"",            \
                (expected), (int)_len, (actual));                               \
@@ -56,8 +56,8 @@ static const char *brief_current_test = NULL;
 
 #define RUN_TESTS()                                                            \
   do {                                                                         \
-    printf("%s: %d run, %d failed\n", __FILE__,                                \
-           brief_tests_run, brief_tests_failed);                               \
+    printf("%s: %d run, %d failed\n", __FILE__, brief_tests_run,               \
+           brief_tests_failed);                                                \
     return brief_tests_failed == 0 ? 0 : 1;                                    \
   } while (0)
 
