@@ -125,6 +125,9 @@ arrive in milestone 4.
   and 145 doc-example parsing cases, with wrappers for fragments and expected
   failures for syntax-error examples. Later-version syntax and incomplete
   API notation are excluded explicitly in the doc-test manifest.
+- `tests/parse/`: 106 parser example files that must parse or be rejected
+  on a stated line, run by `test_parse_examples` (CTest label
+  `parse-examples`).
 
 Source text, token arrays, interned names, and diagnostics live in the
 compilation arena. Tokens retain source slices even on errors; error messages

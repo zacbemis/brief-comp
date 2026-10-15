@@ -1,6 +1,10 @@
 # Parser example files
 
-Source files for parser tests. Nothing runs them yet.
+Source files for parser tests. `../test_parse_examples.cmake` runs them as the
+CTest test `test_parse_examples`, part of the normal suite. It has the label
+`parse-examples`, so `ctest -L parse-examples` runs only these files and
+`ctest -LE parse-examples` skips them. The test reports every failing file in
+one run.
 
 ## `pass/`
 

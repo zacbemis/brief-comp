@@ -52,6 +52,15 @@ add_test(NAME test_doc_parser
         -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_parser.cmake
 )
 
+# Run alone with `ctest -L parse-examples`, or skip with `-LE parse-examples`.
+add_test(NAME test_parse_examples
+    COMMAND ${CMAKE_COMMAND}
+        -DBRIEF=$<TARGET_FILE:brief>
+        -DEXAMPLES=${CMAKE_CURRENT_SOURCE_DIR}/parse
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/test_parse_examples.cmake
+)
+set_tests_properties(test_parse_examples PROPERTIES LABELS parse-examples)
+
 add_test(NAME test_cli_ast
     COMMAND ${CMAKE_COMMAND}
         -DBRIEF=$<TARGET_FILE:brief>
