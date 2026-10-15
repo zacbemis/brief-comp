@@ -1,6 +1,6 @@
 # Plan: The First Version of the Compiler
 
-> **Status: Plan.** This describes how the first version of the compiler will be built. The language it accepts is listed under "First version" in `docs/lang-desc.txt`. The language rules themselves are in the other `docs/lang-*.txt` files.
+> **Status: Milestone 0 implemented; milestones 1–6 planned.** This describes how the first version of the compiler will be built. The language it accepts is listed under "First version" in `docs/lang-desc.txt`. The language rules themselves are in the other `docs/lang-*.txt` files.
 
 ## Goal
 
@@ -56,12 +56,13 @@ The first version is done when every example in the docs that falls inside its s
 
 ### Lexer (`src/lexer`, exists)
 
-The lexer already covers the documented syntax. Changes for this version:
+The lexer covers the documented tokens. Groundwork changes implemented in milestone 0:
 
-- **Unterminated block comment.** `/* ...` running to the end of the file is currently skipped silently. It must be an error.
-- **Escapes.** Check string and character escapes against the documented list. An unknown escape is an error.
-- **Positions.** Give each token its offset, so columns can be reported.
-- **Whole file at once.** Lex the whole file into an array before parsing. The parser needs to look ahead and back up for generic calls (see Parser).
+- **Unterminated block comment.** `/* ...` running to the end of the file is an error at the opening delimiter.
+- **Escapes.** String and character escapes are checked against the documented list. An unknown escape is an error, and a character literal must contain exactly one decoded byte.
+- **Positions.** Each token carries a source span; error messages are separate from source spelling. Multiline tokens point at their starting line.
+- **Whole file at once.** The lexer can collect all tokens, including errors and EOF, into an arena array. The parser will use it to look ahead and back up for generic calls (see Parser).
+- **Raw newlines.** Newlines inside block comments are preserved so comments cannot accidentally join statements. The newline filter is still milestone 1.
 
 ### Newline filter (`src/lexer`)
 
@@ -273,6 +274,8 @@ A runner script compiles each file, runs it, and compares standard output, compi
 ## Milestones
 
 Each milestone ends with every test passing.
+
+Milestone 0 is complete: the common infrastructure, lexer fixes, warning flags, and debug sanitizers are implemented and tested. `brief dump-tokens file.brf` exercises source loading and reports all lexer errors with line, byte column, source line, and marker. This debugging command does not parse or compile programs. Unit and CLI integration tests run through CTest.
 
 | # | Milestone | Done when |
 |---|---|---|
