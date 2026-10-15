@@ -1,0 +1,1 @@
+main() { "value" } // error: Value-returning functions are not implemented yet; write ': ()' to discard the final value.

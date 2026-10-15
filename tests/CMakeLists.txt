@@ -16,15 +16,16 @@ add_brief_test(test_compile)
 
 # Binary-safe POSIX test tools, built with the same warning/sanitizer options
 # as the compiler. No interpreter or shell is needed to run program tests.
-add_library(brief_test_support STATIC process.c)
+add_library(brief_test_support STATIC process.c program_expect.c)
 target_link_libraries(brief_test_support PUBLIC brief_core)
 target_include_directories(brief_test_support PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-foreach(tool test_cli_native test_process)
+foreach(tool run_programs test_program_runner test_cli_native test_process)
     add_executable(${tool} ${tool}.c)
     target_link_libraries(${tool} PRIVATE brief_test_support)
 endforeach()
 add_executable(fake_cc fake_cc.c)
 target_link_libraries(fake_cc PRIVATE brief_options)
+add_test(NAME test_program_runner COMMAND test_program_runner)
 add_test(NAME test_process COMMAND test_process $<TARGET_FILE:fake_cc>)
 set_tests_properties(test_process PROPERTIES TIMEOUT 15)
 set(native_test_options)
@@ -34,6 +35,14 @@ endif()
 add_test(NAME test_cli_native
     COMMAND test_cli_native $<TARGET_FILE:brief> ${CMAKE_C_COMPILER}
         $<TARGET_FILE:fake_cc> ${native_test_options})
+add_test(NAME test_programs
+    COMMAND run_programs --brief $<TARGET_FILE:brief> --cc ${CMAKE_C_COMPILER}
+        --programs ${CMAKE_CURRENT_SOURCE_DIR}/programs)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
+    add_test(NAME test_programs_sanitized
+        COMMAND run_programs --brief $<TARGET_FILE:brief> --cc ${CMAKE_C_COMPILER}
+            --programs ${CMAKE_CURRENT_SOURCE_DIR}/programs --debug)
+endif()
 
 add_test(NAME test_doc_parser
     COMMAND ${CMAKE_COMMAND}

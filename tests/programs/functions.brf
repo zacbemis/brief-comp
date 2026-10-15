@@ -1,0 +1,13 @@
+main() { first() }
+// expect: first
+// expect: second
+// expect: last
+first() {
+  second()
+  print("last")
+}
+second(): () {
+  print("first")
+  ret print("second")
+  print("unreachable")
+}

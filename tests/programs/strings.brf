@@ -1,0 +1,10 @@
+main() {
+  print("") // expect:
+  print("first\nsecond") // expect: first
+  // expect: second
+  print("a\0b") // expect: a\0b
+  print("a\07f") // expect: a\07f
+  print("tab\tquote\" slash\\ apostrophe\'") // expect: tab\tquote" slash\\ apostrophe'
+  print("café 😀") // expect: café 😀
+  print("??/ trigraph") // expect: ??/ trigraph
+}

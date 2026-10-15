@@ -1,0 +1,9 @@
+main() { auto() }
+auto() { runtime_print() }
+runtime_print() {
+  print("safe names") // expect: safe names
+  t_0()
+}
+t_0() { string() }
+string() { brt_print() }
+brt_print() {}

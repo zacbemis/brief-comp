@@ -1,0 +1,4 @@
+main() {
+  let x = @ // error: Unexpected character.
+  let = 1 // error: Expected a binding name.
+}

@@ -1,0 +1,4 @@
+main() {
+  let x = "not yet" // error: Local declarations are not implemented yet.
+  1 + 2 // error: This expression is not implemented yet.
+}

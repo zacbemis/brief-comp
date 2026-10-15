@@ -1,0 +1,15 @@
+// Function bodies are blocks; bare block expressions are not allowed.
+main(): () {
+  early()
+  print("before") // expect: before
+  argument() // expect: argument
+  nested() // expect: nested
+  ret ()
+  print("unreachable")
+}
+argument() { print("argument") }
+nested() { print("nested") }
+early() {
+  ret ()
+  print("unreachable")
+}

@@ -1,0 +1,3 @@
+main() {
+  print(()) // error: print expects a str argument.
+}

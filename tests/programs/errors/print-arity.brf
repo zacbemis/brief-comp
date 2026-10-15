@@ -1,0 +1,4 @@
+main() {
+  print() // error: print expects exactly one str argument.
+  print("a", "b") // error: print expects exactly one str argument.
+}

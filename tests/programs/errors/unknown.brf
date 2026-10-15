@@ -1,0 +1,4 @@
+main() {
+  missing() // error: Unknown function.
+  other() // error: Unknown function.
+}

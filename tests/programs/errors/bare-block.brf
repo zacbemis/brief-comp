@@ -1,0 +1,4 @@
+main() {
+  { print("not a statement") } // error: Bare blocks are not allowed as expressions or statements.
+  print({ "not an expression" }) // error: Bare blocks are not allowed as expressions or statements.
+}
