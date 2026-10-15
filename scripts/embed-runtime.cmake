@@ -1,0 +1,5 @@
+file(READ "${INPUT}" bytes HEX)
+string(REGEX REPLACE "(..)" "0x\\1," bytes "${bytes}")
+get_filename_component(directory "${OUTPUT}" DIRECTORY)
+file(MAKE_DIRECTORY "${directory}")
+file(WRITE "${OUTPUT}" "/* Generated; do not edit. */\nstatic const unsigned char brief_runtime_text[] = {${bytes}0};\n")

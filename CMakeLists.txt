@@ -22,6 +22,16 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 endif()
 
+set(runtime_header "${CMAKE_CURRENT_BINARY_DIR}/generated/runtime_text.h")
+add_custom_command(OUTPUT "${runtime_header}"
+    COMMAND ${CMAKE_COMMAND}
+        -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/runtime/brief_runtime.c
+        -DOUTPUT=${runtime_header}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/scripts/embed-runtime.cmake
+    DEPENDS runtime/brief_runtime.c scripts/embed-runtime.cmake
+    VERBATIM
+)
+
 # Core compiler library. Sources are grouped by subsystem and added as they
 # come online so tests can link against them without a main().
 add_library(brief_core STATIC
@@ -36,10 +46,13 @@ add_library(brief_core STATIC
     src/ast/print.c
     src/sema/sema.c
     src/ir/lower.c
+    src/codegen/c.c
+    "${runtime_header}"
 )
 
 target_include_directories(brief_core PUBLIC
     ${CMAKE_SOURCE_DIR}/include
+    PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 
 target_link_libraries(brief_core PUBLIC brief_options)

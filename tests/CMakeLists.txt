@@ -12,6 +12,7 @@ add_brief_test(test_common)
 add_brief_test(test_lexer)
 add_brief_test(test_newline)
 add_brief_test(test_parser)
+add_brief_test(test_compile)
 
 add_test(NAME test_doc_parser
     COMMAND ${CMAKE_COMMAND}
