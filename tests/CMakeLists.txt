@@ -13,6 +13,14 @@ add_brief_test(test_lexer)
 add_brief_test(test_newline)
 add_brief_test(test_parser)
 
+add_test(NAME test_doc_parser
+    COMMAND ${CMAKE_COMMAND}
+        -DBRIEF=$<TARGET_FILE:brief>
+        -DROOT=${CMAKE_SOURCE_DIR}
+        -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/doc-parser-fixtures
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_parser.cmake
+)
+
 add_test(NAME test_cli_ast
     COMMAND ${CMAKE_COMMAND}
         -DBRIEF=$<TARGET_FILE:brief>
