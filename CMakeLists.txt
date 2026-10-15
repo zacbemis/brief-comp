@@ -32,6 +32,7 @@ add_library(brief_core STATIC
     src/lexer/lexer.c
     src/lexer/token.c
     src/lexer/newline.c
+    src/ast/print.c
 )
 
 target_include_directories(brief_core PUBLIC

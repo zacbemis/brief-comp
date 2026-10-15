@@ -5,17 +5,17 @@ typedef struct Expr Expr;
 
 typedef enum {
   EXPR_NAME,
+  EXPR_UNIT, // ()
   EXPR_INT,
   EXPR_FLOAT,
   EXPR_BOOL,
   EXPR_STRING,
   EXPR_CHAR,
-  EXPR_SYMBOL,     // :ok(user)
+  EXPR_SYMBOL, // :ok(user)
   EXPR_ARRAY,
   EXPR_STRUCT_LIT, // User { name: name }
   EXPR_UNARY,
   EXPR_BINARY,
-  EXPR_ASSIGN,
   EXPR_CALL,
   EXPR_FIELD,
   EXPR_INDEX,

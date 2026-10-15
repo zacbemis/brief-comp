@@ -12,6 +12,7 @@ typedef enum {
   TYPE_TUPLE, // (name: str, age: int)
   TYPE_SELF,  // Self
   TYPE_UNIT,  // ()
+  TYPE_INFER, // _ in a partial Sym return type
 } TypeKind;
 
 #endif

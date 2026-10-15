@@ -5,6 +5,7 @@ typedef struct Stmt Stmt;
 
 typedef enum {
   STMT_EXPR,
+  STMT_ASSIGN,
   STMT_RET,
   STMT_BREAK,
   STMT_CONTINUE,
