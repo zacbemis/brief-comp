@@ -19,7 +19,7 @@ add_brief_test(test_compile)
 add_library(brief_test_support STATIC process.c)
 target_link_libraries(brief_test_support PUBLIC brief_core)
 target_include_directories(brief_test_support PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-foreach(tool test_process)
+foreach(tool test_cli_native test_process)
     add_executable(${tool} ${tool}.c)
     target_link_libraries(${tool} PRIVATE brief_test_support)
 endforeach()
@@ -27,6 +27,13 @@ add_executable(fake_cc fake_cc.c)
 target_link_libraries(fake_cc PRIVATE brief_options)
 add_test(NAME test_process COMMAND test_process $<TARGET_FILE:fake_cc>)
 set_tests_properties(test_process PROPERTIES TIMEOUT 15)
+set(native_test_options)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
+    list(APPEND native_test_options --debug-supported)
+endif()
+add_test(NAME test_cli_native
+    COMMAND test_cli_native $<TARGET_FILE:brief> ${CMAKE_C_COMPILER}
+        $<TARGET_FILE:fake_cc> ${native_test_options})
 
 add_test(NAME test_doc_parser
     COMMAND ${CMAKE_COMMAND}
