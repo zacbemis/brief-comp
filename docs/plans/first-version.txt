@@ -1,6 +1,6 @@
 # Plan: The First Version of the Compiler
 
-> **Status: Milestone 0 implemented; milestones 1–6 planned.** This describes how the first version of the compiler will be built. The language it accepts is listed under "First version" in `docs/lang-desc.txt`. The language rules themselves are in the other `docs/lang-*.txt` files.
+> **Status: Milestones 0 and 1 implemented; milestones 2–6 planned.** This describes how the first version of the compiler will be built. The language it accepts is listed under "First version" in `docs/lang-desc.txt`. The language rules themselves are in the other `docs/lang-*.txt` files.
 
 ## Goal
 
@@ -62,7 +62,7 @@ The lexer covers the documented tokens. Groundwork changes implemented in milest
 - **Escapes.** String and character escapes are checked against the documented list. An unknown escape is an error, and a character literal must contain exactly one decoded byte. Both kinds of literal must close on the same source line; an unterminated literal leaves the newline available for recovery.
 - **Positions.** Each token carries a source span; error messages are separate from source spelling. Multiline tokens point at their starting line.
 - **Whole file at once.** The lexer can collect all tokens, including errors and EOF, into an arena array. The parser will use it to look ahead and back up for generic calls (see Parser).
-- **Raw newlines.** Newlines inside block comments are preserved so comments cannot accidentally join statements. The newline filter is still milestone 1.
+- **Raw newlines.** Newlines inside block comments are preserved so comments cannot accidentally join statements. The newline filter removes continuation newlines before parsing.
 
 ### Newline filter (`src/lexer`)
 
@@ -80,7 +80,9 @@ Newlines end statements except in the cases listed in `lang-syntax.txt`. A small
 - **Continuation tokens.** A newline after a token that cannot end a statement (`,` `:` `=` `=>` `|>` `.` or a binary operator) is removed.
 - **Continuation lines.** A newline before a line that starts with `|>` or `.` is removed.
 
-Doing this in one place keeps the parser free of newline special cases.
+- **Type argument closers.** A `>` or `>>` closing type arguments in a type annotation, a named type, or `Sym` is not a binary continuation operator. The filter records these lexical contexts so field and declaration separators are preserved. Generic-call disambiguation still belongs to the parser.
+
+Doing continuation filtering in one place keeps expression parsing free of continuation-newline special cases. The parser consumes retained separators and allows retained newlines before `else`.
 
 ### Parser (`src/parser`)
 
@@ -94,15 +96,18 @@ Cases that need specific handling:
 | `>>` closing two type argument lists | When a type argument list expects `>` and finds `>>`, split the token in two. |
 | Struct literal after `if`, `for`, `while` | A parser flag forbids struct literals until the next `(`, `[`, or call argument list, as Rust does. |
 | `x?`, `x!`, and `x != y` | The lexer already makes `!=` one token, so a `!` after an expression is always the postfix panic. |
-| Match blocks | After the pipeline operator, a `{` starts a match block. Anything else must be a call. |
+| Pipeline stages | After the pipeline operator, a `{` starts a match block. Otherwise the stage must be a call whose callee is a name or dotted path; calls through a call result or indexed value are rejected. |
+| Assignment | Assignment and compound assignment are standalone, non-chaining statements, not Pratt expression operators. They are rejected in conditions, arguments, and other value contexts. |
 | Patterns | Literals, `_`, names that bind, `:tag` and `:tag(pattern)`, named sets such as `Json.Error`, ranges `a..b`, and comparisons `< 18`. |
 | `if` as a value | `if` is parsed as an expression everywhere. Type checking decides whether its value may be used. |
 
-**Error recovery.** After an error, skip to the next newline or `}` at the current nesting level and continue, so one mistake does not hide the rest.
+**Error recovery.** After an error, skip to the next newline or `}` at the current nesting level and continue, so one mistake does not hide the rest. `dump-ast` runs parsing even when lexing reports errors; an error token is not diagnosed again as a syntax error.
 
 **Syntax tree.** Each node is a struct with a kind, a span, and a union of kind-specific fields, allocated from the arena. Lists are arena arrays with a count. The existing kind enums in `include/ast` become the tags of these unions.
 
-**Debugging aid.** `brief dump-ast file.brf` prints the tree as nested parentheses. Parser tests compare this text.
+**Debugging aid.** `brief dump-ast file.brf` prints the tree as nested parentheses. Parser tests compare this text. The command reports syntax errors but does not resolve names or perform semantic checks.
+
+**Implementation limits.** Parser recursion and expression/type tree depth are limited to 128 levels, with a diagnostic when exceeded. The tree-depth check also covers long left-associated operator chains and repeated array type suffixes, which do not recurse while being parsed.
 
 ### Name resolution (`src/sema`)
 
@@ -276,6 +281,8 @@ A runner script compiles each file, runs it, and compares standard output, compi
 Each milestone ends with every test passing.
 
 Milestone 0 is complete: the common infrastructure, lexer fixes, warning flags, and debug sanitizers are implemented and tested. `brief dump-tokens file.brf` exercises source loading and reports all lexer errors with line, byte column, source line, and marker. This debugging command does not parse or compile programs. Unit and CLI integration tests run through CTest.
+
+Milestone 1 is complete: the newline filter, arena-owned syntax trees, parser, recovery, and `dump-ast` are implemented. Unit tests compare tree dumps and cover precedence, generic-call rewind and virtual `>>` splitting, struct-literal ambiguity, match patterns, continuation rules, and recovery. CTest also parses 145 examples read directly from the design docs, with small wrappers for statement, type, and pattern fragments. The main continuation example keeps its first-version syntax by replacing just its lambda-bearing call with an ordinary method call. Expected semantic errors still parse; expected syntax errors are rejected. Blocks containing later-version syntax, incomplete signatures, or multi-file API notation are excluded by the documented test manifest; their first-version grammar is covered by the focused unit tests.
 
 | # | Milestone | Done when |
 |---|---|---|

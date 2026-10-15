@@ -4,8 +4,8 @@ Brief is an experimental statically typed language. The first compiler is
 written in C and will emit readable C, then invoke an existing C compiler to
 produce a native program.
 
-**Current state: milestone 0 (groundwork) is implemented.** There is a lexer
-and a token-dump command, but no parser, type checker, or code generation yet.
+**Current state: milestones 0 and 1 (groundwork and parsing) are implemented.**
+There are token and syntax-tree dumps, but no type checker or code generation yet.
 Language examples in the design docs describe intended behavior, not features
 that can currently be compiled.
 
@@ -36,10 +36,11 @@ cmake --build build-release
 ctest --test-dir build-release --output-on-failure
 ```
 
-## Inspect tokens
+## Inspect source
 
 ```sh
 ./build/brief dump-tokens hello.brf
+./build/brief dump-ast hello.brf
 ```
 
 The command loads the whole file and prints each token's line, byte column,
@@ -47,7 +48,15 @@ kind, and escaped source spelling. Lexical errors are collected and printed
 on standard error with their source line and an underline; invalid input exits
 with status 1. Invalid command arguments exit with status 2.
 
-`run`, `build`, `emit-c`, and `dump-ast` are planned, not implemented commands.
+`dump-ast` filters continuation newlines and parses first-version syntax into
+an arena-owned tree, printed as a stable S-expression. Syntax errors are
+collected with source locations; malformed items are skipped so later errors
+can still be reported, even when the file also contains lexer errors. Assignment
+is parsed only as a standalone, non-chaining statement, and pipeline calls must
+have a name or dotted-path callee. Parsing does not resolve names, check types,
+enforce error handling, or check match exhaustiveness.
+
+`run`, `build`, and `emit-c` are planned, not implemented commands.
 
 ## Compiler groundwork
 
@@ -57,14 +66,19 @@ with status 1. Invalid command arguments exit with status 2.
   escapes, single-line strings, and single-byte character literals. Unterminated
   literals report errors without consuming the next line; unclosed block
   comments are also errors.
-- `include/ast/`: initial syntax-tree kind enums only.
-- `tests/`: common-infrastructure and lexer unit tests, plus CLI integration
-  tests for token dumps, multiple diagnostics, and file-loading errors.
+- `include/ast/`, `src/ast/`: syntax-tree nodes with spans and a tree printer.
+- `include/parser/`, `src/parser/`: recursive-descent declarations, statements,
+  and patterns, Pratt expressions, generic-call disambiguation, and recovery.
+- `src/lexer/newline.c`: continuation and nested-delimiter newline filtering.
+- `tests/`: common, lexer, newline-filter, and parser unit tests; CLI tests;
+  and 145 doc-example parsing cases, with wrappers for fragments and expected
+  failures for syntax-error examples. Later-version syntax and incomplete
+  API notation are excluded explicitly in the doc-test manifest.
 
 Source text, token arrays, interned names, and diagnostics live in the
 compilation arena. Tokens retain source slices even on errors; error messages
 are separate. Raw newlines, including those in block comments, are preserved
-for the future newline filter. Source columns count bytes; diagnostic excerpts
+until the newline filter runs. Source columns count bytes; diagnostic excerpts
 expand tabs to four-column stops and count UTF-8 code points rather than bytes.
 Wide and combining characters do not yet have special display-width handling.
 
@@ -78,5 +92,5 @@ Wide and combining characters do not yet have special display-width handling.
 - [Error handling](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
 
-The overview links the remaining topic documents. Next is milestone 1:
-newline filtering, syntax-tree nodes, parsing, recovery, and `dump-ast`.
+The overview links the remaining topic documents. Next is milestone 2:
+the end-to-end walking skeleton that runs `main() { print("Hello") }`.
