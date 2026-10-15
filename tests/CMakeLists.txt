@@ -8,4 +8,6 @@ function(add_brief_test name)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
+add_brief_test(test_common)
 add_brief_test(test_lexer)
+

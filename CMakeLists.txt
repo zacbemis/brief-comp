@@ -25,6 +25,10 @@ endif()
 # Core compiler library. Sources are grouped by subsystem and added as they
 # come online so tests can link against them without a main().
 add_library(brief_core STATIC
+    src/common/arena.c
+    src/common/source.c
+    src/common/diagnostic.c
+    src/common/intern.c
     src/lexer/lexer.c
     src/lexer/token.c
 )
