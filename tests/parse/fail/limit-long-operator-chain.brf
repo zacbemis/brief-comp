@@ -1,4 +1,4 @@
-// error: line 6
+// parse-error: line 6
 // Why: a left-associated chain of 300 operands is 300 levels deep, over the
 // 128-level limit, even though the parser builds it without recursing
 // (plans/first-version.txt, "Implementation limits").

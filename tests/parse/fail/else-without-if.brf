@@ -1,4 +1,4 @@
-// error: line 4
+// parse-error: line 4
 // Why: `else` must follow the closing `}` of an `if`.
 main() {
   else {

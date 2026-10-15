@@ -1,4 +1,4 @@
-// error: line 5
+// parse-error: line 5
 // Why: a `}` with nothing to close.
 main() {
 }

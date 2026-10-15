@@ -1,4 +1,4 @@
-// error: line 4
+// parse-error: line 4
 // Why: `==` and `!=` are comparisons, and comparisons do not chain.
 main() {
   let ok = a == b != c

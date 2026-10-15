@@ -1,4 +1,4 @@
-// error: end of file
+// parse-error: end of file
 // Why: the function body is never closed.
 main() {
   print("a")

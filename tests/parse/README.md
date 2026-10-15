@@ -22,15 +22,16 @@ Every file must be rejected: `brief dump-ast` exits with status 1 and prints no
 tree. Each file starts with a header:
 
 ```
-// error: line 5
+// parse-error: line 5
 // Why: the rule the file breaks, and where the docs state it.
 ```
 
-- `// error: line N` gives the line of an expected diagnostic, counted from the
-  top of the file (header included). `// error: end of file` means the error
-  is reported at the end of the input.
+- `// parse-error: line N` gives the line of an expected diagnostic, counted
+  from the top of the file (header included). `// parse-error: end of file`
+  means the error is reported at the end of the input. The header is not the
+  `// error:` comment used by `tests/programs/`.
 - In most files only the first diagnostic is checked against the first
-  `error:` line. A file may produce follow-on errors after it.
+  `// parse-error:` line. A file may produce follow-on errors after it.
 - Files named `recovery-*` list every expected diagnostic in order. The parser
   must report exactly those lines, which checks that one error does not hide
   later ones or cause a cascade.

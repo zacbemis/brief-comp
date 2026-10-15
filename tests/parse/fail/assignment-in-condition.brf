@@ -1,4 +1,4 @@
-// error: line 5
+// parse-error: line 5
 // Why: assignment is a statement and cannot be a condition. Use `==` to
 //   compare.
 main() {

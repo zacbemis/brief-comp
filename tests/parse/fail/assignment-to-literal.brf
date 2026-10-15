@@ -1,4 +1,4 @@
-// error: line 4
+// parse-error: line 4
 // Why: an assignment target must be a binding, field, or indexed element.
 main() {
   1 = x

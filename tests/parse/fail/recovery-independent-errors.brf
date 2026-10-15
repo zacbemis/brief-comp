@@ -1,8 +1,8 @@
-// error: line 9
-// error: line 11
-// error: line 16
-// error: line 20
-// error: line 25
+// parse-error: line 9
+// parse-error: line 11
+// parse-error: line 16
+// parse-error: line 20
+// parse-error: line 25
 // Why: five independent errors. The parser must report all five, and none
 //   extra, recovering after each.
 main() {

@@ -1,4 +1,4 @@
-// error: line 5
+// parse-error: line 5
 // Why: a pattern cannot be an arbitrary expression.
 main() {
   x |> {

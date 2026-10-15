@@ -1,4 +1,4 @@
-// error: line 6
+// parse-error: line 6
 // Why: a block comment that contains a line break acts as a line break, so `+
 //   2` starts a new statement.
 main() {

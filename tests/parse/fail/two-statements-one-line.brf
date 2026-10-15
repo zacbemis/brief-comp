@@ -1,4 +1,4 @@
-// error: line 5
+// parse-error: line 5
 // Why: statements are separated by newlines. A comment between them is not a
 //   separator.
 main() {

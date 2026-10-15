@@ -1,4 +1,4 @@
-// error: line 6
+// parse-error: line 6
 // Why: only `|>` and `.` continue a statement from the start of a line. Put
 //   `and` at the end of the previous line.
 main() {

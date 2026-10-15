@@ -1,4 +1,4 @@
-// error: line 4
+// parse-error: line 4
 // Why: `;;` is not part of the current syntax.
 main() {
   print(a);;

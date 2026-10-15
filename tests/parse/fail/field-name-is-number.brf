@@ -1,4 +1,4 @@
-// error: line 5
+// parse-error: line 5
 // Why: a field or method name after `.` must be a name. There are no tuple
 //   index fields in the first version.
 main() {

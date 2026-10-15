@@ -1,4 +1,4 @@
-// error: line 4
+// parse-error: line 4
 // Why: `ret` is a statement, not an expression.
 main() {
   let x = ret 1

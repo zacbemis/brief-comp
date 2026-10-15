@@ -1,4 +1,4 @@
-// error: line 4
+// parse-error: line 4
 // Why: only `const` bindings may appear at the top level; `let` and `var`
 //   belong in a function.
 let count = 0

@@ -1,3 +1,3 @@
-// error: line 3
+// parse-error: line 3
 // Why: `ret` is a statement and cannot appear at the top level.
 ret 1

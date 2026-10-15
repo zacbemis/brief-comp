@@ -1,4 +1,4 @@
-// error: line 5
+// parse-error: line 5
 // Why: `--` is one token, the postfix decrement. `a--b` is `a--` followed by
 //   `b` on the same line. Write `a - -b`.
 main() {

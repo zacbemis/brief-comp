@@ -1,4 +1,4 @@
-// error: line 6
+// parse-error: line 6
 // Why: an `if` has at most one `else`.
 main() {
   if a {

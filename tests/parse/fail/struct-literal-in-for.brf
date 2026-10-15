@@ -1,4 +1,4 @@
-// error: line 4
+// parse-error: line 4
 // Why: after `for ... in`, the first `{` starts the body.
 main() {
   for user in Users { items: list }.all() {

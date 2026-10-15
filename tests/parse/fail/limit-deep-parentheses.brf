@@ -1,4 +1,4 @@
-// error: line 5
+// parse-error: line 5
 // Why: 200 nested parentheses exceed the parser's 128-level nesting limit
 // (plans/first-version.txt, "Implementation limits").
 main() {

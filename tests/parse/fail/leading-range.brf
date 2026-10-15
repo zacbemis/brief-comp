@@ -1,4 +1,4 @@
-// error: line 6
+// parse-error: line 6
 // Why: `..` is not `.`: a line starting with `..` does not continue the
 //   previous line.
 main() {

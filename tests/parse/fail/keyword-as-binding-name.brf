@@ -1,4 +1,4 @@
-// error: line 4
+// parse-error: line 4
 // Why: `for` is a keyword and cannot name a binding.
 main() {
   let for = 1

@@ -1,5 +1,5 @@
-// error: line 8
-// error: line 13
+// parse-error: line 8
+// parse-error: line 13
 // Why: one missing `)` must produce one error, and the next function must
 //   still be parsed. Newlines inside the open `(` are ignored, so the error is
 //   reported where the next call begins.

@@ -1,4 +1,4 @@
-// error: line 5
+// parse-error: line 5
 // Why: the newline after the condition is kept, so the body's `{` must be on
 //   the condition's line (the same rule as Go).
 main() {

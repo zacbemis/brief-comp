@@ -1,4 +1,4 @@
-// error: line 6
+// parse-error: line 6
 // Why: the call's `(` is never closed. Newlines inside it are ignored, so the
 //   error is at the `}`.
 main() {

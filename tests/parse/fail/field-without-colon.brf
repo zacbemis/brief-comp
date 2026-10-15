@@ -1,4 +1,4 @@
-// error: line 4
+// parse-error: line 4
 // Why: a struct field needs `:` between its name and type.
 User {
   name str

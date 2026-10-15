@@ -1,5 +1,5 @@
-// error: line 6
-// error: line 10
+// parse-error: line 6
+// parse-error: line 10
 // Why: a lexer error must not hide a later syntax error; both must be
 //   reported.
 main() {

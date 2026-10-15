@@ -1,4 +1,4 @@
-// error: line 5
+// parse-error: line 5
 // Why: an assignment target must be a binding, field, or indexed element. `a +
 //   b = c` is `(a + b) = c`.
 main() {
