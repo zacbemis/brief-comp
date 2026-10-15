@@ -825,8 +825,10 @@ static Expr *primary(Parser *p, int allow_struct) {
     e->span = through(token.span, p->previous.span);
     return e;
   }
-  if (at(p, TOK_LBRACE))
-    return block(p);
+  if (at(p, TOK_LBRACE)) {
+    error(p, "Bare blocks are not allowed as expressions or statements.");
+    return NULL;
+  }
   if (at(p, TOK_IF))
     return conditional(p);
   if (match(p, TOK_WHILE)) {
@@ -1005,6 +1007,13 @@ static Pattern *pattern(Parser *p) {
   return result;
 }
 static Expr *arm_value(Parser *p) {
+  if (at(p, TOK_LBRACE)) {
+    if (!enter(p))
+      return NULL;
+    Expr *result = block(p);
+    p->depth--;
+    return result;
+  }
   if (!at(p, TOK_RET) && !at(p, TOK_BREAK) && !at(p, TOK_CONTINUE)) {
     BlockItem item = {0};
     if (!simple_item(p, &item))

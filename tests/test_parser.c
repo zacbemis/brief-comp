@@ -239,6 +239,27 @@ int main(void) {
         &arena, "(if x { 1 } else { 2 }) + 3",
         "(+ (if (name x) (block (int 1)) (block (int 2))) (int 3))");
   }
+  TEST("bare blocks are rejected but explicit match-arm blocks remain valid") {
+    const char *bad[] = {
+        "main() { { print(\"a\") } }",
+        "main() { print({ print(\"a\")\n\"b\" }) }",
+        "main() { let x = { 1 } }",
+        "main() { ret { 1 } }",
+        "main() { f(({ 1 })) }",
+    };
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++)
+      invalid(&arena, bad[i], "Bare blocks are not allowed");
+    expression_dump(&arena, "x |> { _ => { print(\"before\")\n42 } }",
+                    "(|> (name x) (match (arm (wildcard) (block (call (name "
+                    "print) (str \"before\")) (int 42)))))");
+    expression_dump(&arena, "x |> { _ => {} }",
+                    "(|> (name x) (match (arm (wildcard) (block))))");
+    Parsed *v =
+        parse(&arena, "main() {\n{ 1 }\nprint(\"kept\")\n}\nlater() {}\n");
+    ASSERT_EQ_INT(1, v->diagnostics.count);
+    ASSERT_EQ_INT(2, v->program->count);
+    ASSERT_EQ_INT(1, v->program->items[0]->as.function.body->as.block.count);
+  }
   TEST(
       "struct-literal suppression resets inside grouping, calls, and indices") {
     expression_dump(&arena, "if (Guest { name: name }).isAllowed() {}",
