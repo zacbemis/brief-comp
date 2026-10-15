@@ -430,6 +430,17 @@ int main(void) {
     ASSERT_EQ_INT(TOK_ERR, t.type);
   }
 
+  TEST("a multi-byte character outside a literal is one error token") {
+    Lexer lx;
+    init_lexer(&lx, "let \xe6\x97\xa5 = \xc3\xa9\x80");
+    expect(&lx, TOK_LET, "let");
+    expect(&lx, TOK_ERR, "\xe6\x97\xa5");
+    expect(&lx, TOK_EQUAL, "=");
+    expect(&lx, TOK_ERR, "\xc3\xa9");
+    expect(&lx, TOK_ERR, "\x80");
+    expect(&lx, TOK_EOF, NULL);
+  }
+
   TEST("if/else expression") {
     Lexer lx;
     init_lexer(&lx, "if y == 0 { err } else { ok }");

@@ -371,6 +371,12 @@ Token lexer_next_token(Lexer *lexer) {
     return make_token(lexer, TOK_RBRACKET);
   }
 
+  // Report a multi-byte UTF-8 character once, not once per byte.
+  unsigned char lead = (unsigned char)c;
+  int continuation = lead >= 0xf0 ? 3 : lead >= 0xe0 ? 2 : lead >= 0xc0 ? 1 : 0;
+  for (int i = 0;
+       i < continuation && ((unsigned char)peek(lexer) & 0xc0) == 0x80; i++)
+    advance(lexer);
   return err_token(lexer, "Unexpected character.");
 }
 
