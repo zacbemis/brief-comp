@@ -46,6 +46,12 @@ let names = users
 
 A pipeline can call any function, including one that does not belong to the type of the piped value. Method-call syntax cannot.
 
+A call stage's callee must be a name or dotted path, such as `f()` or
+`Report.summary()`. A call result or indexed value cannot be the callee of a
+stage. In particular, `x |> f().g()` and `x |> functions[0]()` are syntax errors.
+Write `x |> f() |> g()` for two stages, or `(x |> f()).g()` to call a method on
+the pipeline result. `?` and `!` may still follow a stage's call.
+
 ## Finding the function
 
 In `x |> f()`, the name `f` is looked up in two places, in order:
