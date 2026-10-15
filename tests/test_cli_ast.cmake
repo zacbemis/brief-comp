@@ -1,0 +1,61 @@
+file(MAKE_DIRECTORY "${TEST_DIR}")
+set(valid "${TEST_DIR}/ast-valid.brf")
+file(WRITE "${valid}" "main() {\n  print(\n    \"Hello\"\n  )\n}\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${valid}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE tree ERROR_VARIABLE errors)
+set(expected "(program (fn main (params) _ (block (call (name print) (str \"Hello\")))))\n")
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT tree STREQUAL expected)
+    message(FATAL_ERROR "incorrect AST (${status}):\n${errors}\n${tree}\nexpected:\n${expected}")
+endif()
+
+set(invalid "${TEST_DIR}/ast-invalid.brf")
+file(WRITE "${invalid}" "main() {\n  let = 1\n  bad(1\n}\nnext() { 3 }\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${invalid}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE tree ERROR_VARIABLE errors)
+string(REGEX MATCHALL "error:" messages "${errors}")
+list(LENGTH messages count)
+if(NOT status EQUAL 1 OR NOT tree STREQUAL "" OR NOT count EQUAL 2)
+    message(FATAL_ERROR "expected two syntax errors and no AST (${status}):\n${errors}\n${tree}")
+endif()
+foreach(expected IN ITEMS "Expected a binding name." "${invalid}:2:7" "Expected ')' after call arguments." "${invalid}:4:1")
+    string(FIND "${errors}" "${expected}" found)
+    if(found LESS 0)
+        message(FATAL_ERROR "missing diagnostic text ${expected}:\n${errors}")
+    endif()
+endforeach()
+
+# Lexical errors must not suppress unrelated parser diagnostics, and an
+# error-token initializer must not produce a duplicate expression error.
+file(WRITE "${invalid}" "main() {\n  @\n  let a = @\n  let = 1\n}\nnext(x) {}\nlast() {}\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${invalid}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE tree ERROR_VARIABLE errors)
+string(REGEX MATCHALL "error:" messages "${errors}")
+list(LENGTH messages count)
+if(NOT status EQUAL 1 OR NOT tree STREQUAL "" OR NOT count EQUAL 4)
+    message(FATAL_ERROR "expected two lexer and two parser errors (${status}):\n${errors}\n${tree}")
+endif()
+foreach(expected IN ITEMS "Unexpected character." "Expected a binding name." "Expected ':' before type.")
+    string(FIND "${errors}" "${expected}" found)
+    if(found LESS 0)
+        message(FATAL_ERROR "missing mixed diagnostic ${expected}:\n${errors}")
+    endif()
+endforeach()
+string(FIND "${errors}" "Expected an expression" duplicate)
+if(NOT duplicate LESS 0)
+    message(FATAL_ERROR "duplicate diagnostic on a lexer error token:\n${errors}")
+endif()
+# dump-tokens deliberately remains a lexer-only command.
+execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE tree ERROR_VARIABLE errors)
+string(REGEX MATCHALL "error:" messages "${errors}")
+list(LENGTH messages count)
+if(NOT status EQUAL 1 OR NOT tree STREQUAL "" OR NOT count EQUAL 2)
+    message(FATAL_ERROR "dump-tokens should report only the two lexer errors (${status}):\n${errors}")
+endif()
+
+file(WRITE "${valid}" "")
+execute_process(COMMAND "${BRIEF}" dump-ast "${valid}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE tree ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT tree STREQUAL "(program)\n")
+    message(FATAL_ERROR "empty-file AST failed (${status}):\n${errors}\n${tree}")
+endif()

@@ -1,5 +1,7 @@
 #include "common/diagnostic.h"
 #include "lexer/lexer.h"
+#include "lexer/newline.h"
+#include "parser/parser.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -36,9 +38,11 @@ static void print_lexeme(const Token *token) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 3 || strcmp(argv[1], "dump-tokens") != 0) {
+  if (argc != 3 || (strcmp(argv[1], "dump-tokens") != 0 &&
+                    strcmp(argv[1], "dump-ast") != 0)) {
     fputs("usage: brief dump-tokens file.brf\n"
-          "Only lexing is implemented; parsing and compilation come later.\n",
+          "       brief dump-ast file.brf\n"
+          "Compilation is not implemented yet.\n",
           stderr);
     return 2;
   }
@@ -56,6 +60,20 @@ int main(int argc, char **argv) {
   }
 
   TokenArray tokens = lexer_tokenize(&arena, source, &diagnostics);
+  if (strcmp(argv[1], "dump-ast") == 0) {
+    InternTable names;
+    intern_init(&names, &arena);
+    TokenArray filtered = newline_filter(&arena, tokens);
+    Program *program = parse_program(&arena, &names, filtered, &diagnostics);
+    if (diagnostics.count) {
+      diagnostics_print(&diagnostics, stderr);
+      arena_destroy(&arena);
+      return 1;
+    }
+    ast_print(stdout, program);
+    arena_destroy(&arena);
+    return 0;
+  }
   if (diagnostics.count) {
     diagnostics_print(&diagnostics, stderr);
     arena_destroy(&arena);
