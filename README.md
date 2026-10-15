@@ -1,224 +1,81 @@
 # Brief
 
-## Comments
+Brief is an experimental statically typed language. The first compiler is
+written in C and will emit readable C, then invoke an existing C compiler to
+produce a native program.
 
-```
-// line comment
-/* block comment */
-```
+**Current state: milestone 0 (groundwork) is implemented.** There is a lexer
+and a token-dump command, but no parser, type checker, or code generation yet.
+Language examples in the design docs describe intended behavior, not features
+that can currently be compiled.
 
-## Primitive Types
+## Build and test
 
-| Type    | Description       |
-| ------- | ----------------- |
-| `bool`  | boolean           |
-| `int`   | integer           |
-| `uint`  | unsigned integer  |
-| `shrt`  | short             |
-| `ushrt` | unsigned short    |
-| `lng`   | long              |
-| `ulng`  | unsigned long     |
-| `flt`   | float             |
-| `dub`   | double            |
-| `chr`   | character         |
-| `str`   | string            |
-| `unit`  | default type      |
+Requires a C11 compiler, CMake 3.16 or newer, and Ninja for the helper scripts.
 
-Arrays use `T[N]`:
-
-```
-int[5]
+```sh
+./build.sh
+./test.sh
 ```
 
-## Dynamic Types
+The scripts build in `build/` using the Debug configuration. GCC and Clang
+builds enable `-Wall -Wextra -Wpedantic`; Debug builds also enable AddressSanitizer
+and UndefinedBehaviorSanitizer by default. To disable sanitizers explicitly:
 
-```
-Vec
-String
-
-let mut x = Vec(int, [1, 2, 3])
-let mut y = String("Hi")
-```
-
-## Bindings
-
-| Keyword | Meaning                  |
-| ------- | ------------------------ |
-| `let`   | binding cannot change    |
-| `var`   | binding can change       |
-| `mut`   | value can change         |
-| `shr`   | object is shared         |
-
-## Tuples
-
-```
-let pair = (1, 2)
+```sh
+cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBRIEF_ENABLE_SANITIZERS=OFF
+cmake --build build
+ctest --test-dir build --output-on-failure
 ```
 
-## Structs
+For an optimized build without sanitizers:
 
-```
-struct Animal {
-  int id
-  str species
-}
-```
-
-## Enums
-
-```
-enum Color {
-  Red
-  Green
-  Blue
-}
+```sh
+cmake -G Ninja -S . -B build-release -DCMAKE_BUILD_TYPE=Release
+cmake --build build-release
+ctest --test-dir build-release --output-on-failure
 ```
 
-## Operators
+## Inspect tokens
 
-```
-x + y
-x - y
-x * y
-x / y
-
-x++
-y--
-x += y
-x -= y
-x *= y
-x /= y
+```sh
+./build/brief dump-tokens hello.brf
 ```
 
-## Functions
+The command loads the whole file and prints each token's line, byte column,
+kind, and escaped source spelling. Lexical errors are collected and printed
+on standard error with their source line and an underline; invalid input exits
+with status 1. Invalid command arguments exit with status 2.
 
-```
-int add(int x, int y) {
-  x + y
-}
-```
+`run`, `build`, `emit-c`, and `dump-ast` are planned, not implemented commands.
 
-Lambdas:
+## Compiler groundwork
 
-```
-add(x, y) => x + y
-```
+- `include/common/`, `src/common/`: arena allocation, source loading and line
+  indexing, byte-offset spans, diagnostics with notes, and string interning.
+- `include/lexer/`, `src/lexer/`: streaming and whole-file lexing, validated
+  escapes and single-byte character literals, and errors for unterminated
+  literals and block comments.
+- `include/ast/`: initial syntax-tree kind enums only.
+- `tests/`: common-infrastructure and lexer unit tests, plus CLI integration
+  tests for token dumps, multiple diagnostics, and file-loading errors.
 
-## Move Semantics
+Source text, token arrays, interned names, and diagnostics live in the
+compilation arena. Tokens retain source slices even on errors; error messages
+are separate. Raw newlines, including those in block comments, are preserved
+for the future newline filter. Source columns count bytes; diagnostic excerpts
+expand tabs to four-column stops and count UTF-8 code points rather than bytes.
+Wide and combining characters do not yet have special display-width handling.
 
-By default values are moved:
+## Design and implementation plan
 
-```
-let user = User("Alice", 20)
-let newUser = take(user)
-user.name // error: user has been moved and cannot be accessed
-```
+- [Language overview and first-version scope](docs/lang-desc.txt)
+- [Syntax](docs/lang-syntax.txt)
+- [Types](docs/lang-types.txt)
+- [Functions](docs/lang-functions.txt)
+- [Symbols](docs/lang-symbols.txt)
+- [Error handling](docs/lang-errors.txt)
+- [First compiler plan](docs/plans/first-version.txt)
 
-`shr` makes a value shared instead of moved:
-
-```
-let shr user = User("Bob", 30)
-let newUser = take(user) // user is moved to newUser variable but can still be accessed from the original user variable
-```
-
-Shared values alias, unique values are moved.
-
-## Mutability
-
-Both the field and the binding must be `mut` to mutate through a function:
-
-```
-struct Dog {
-  mut str name
-}
-
-speak(Dog dog) => "woof " + dog.name
-rename(mut Dog dog, string newName) => dog.name = newName
-
-let Milo = Dog(Milo)
-speak(Milo)
-rename(Milo, "Spark") // error: Milo is not mutable
-
-let mut Spark = Dog(Spark)
-rename(Spark, "Milo") // success
-```
-
-## Pattern Matching
-
-```
-enum Shape {
-  circle(flt radius)
-  rectangle(flt width, flt height)
-}
-
-flt area(Shape shape) {
-  match shape {
-    circle(r) => 3.14 * r * r
-    rectangle(w, h) => w * h
-  }
-}
-```
-
-## Generics
-
-```
-struct Box<T> {
-    T val
-}
-
-T unbox(Box<T> box) {
-    box.val
-}
-
-let intBox = Box(42)
-unbox(intBox) // returns 42
-```
-
-## Control Flow
-
-```
-if y == 0 {
-  err("Cannot divide by zero")
-} else {
-  ok(x / y)
-}
-
-for i : 0..len(arr) {
-  if arr[i] == target {
-    some(i);;
-  }
-}
-```
-
-## Result and Option
-
-```
-enum Result<T, E> {
-  ok(T)
-  err(E)
-}
-
-enum Option<T> {
-  some(T)
-  none
-}
-```
-
-## Modules
-
-```
-module User
-
-struct User {
-  str name
-  int age
-}
-
-pub Result<User, str> createUser(str name, int age) {
-  if age < 0 {
-    err("Age cannot be negative")
-  } else {
-    ok(User(name, age))
-  }
-}
-```
+The overview links the remaining topic documents. Next is milestone 1:
+newline filtering, syntax-tree nodes, parsing, recovery, and `dump-ast`.
