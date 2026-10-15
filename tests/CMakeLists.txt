@@ -14,6 +14,20 @@ add_brief_test(test_newline)
 add_brief_test(test_parser)
 add_brief_test(test_compile)
 
+# Binary-safe POSIX test tools, built with the same warning/sanitizer options
+# as the compiler. No interpreter or shell is needed to run program tests.
+add_library(brief_test_support STATIC process.c)
+target_link_libraries(brief_test_support PUBLIC brief_core)
+target_include_directories(brief_test_support PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+foreach(tool test_process)
+    add_executable(${tool} ${tool}.c)
+    target_link_libraries(${tool} PRIVATE brief_test_support)
+endforeach()
+add_executable(fake_cc fake_cc.c)
+target_link_libraries(fake_cc PRIVATE brief_options)
+add_test(NAME test_process COMMAND test_process $<TARGET_FILE:fake_cc>)
+set_tests_properties(test_process PROPERTIES TIMEOUT 15)
+
 add_test(NAME test_doc_parser
     COMMAND ${CMAKE_COMMAND}
         -DBRIEF=$<TARGET_FILE:brief>
