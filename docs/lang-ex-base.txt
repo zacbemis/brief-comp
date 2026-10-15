@@ -161,7 +161,7 @@ impl User: HasUser {
     Json.object({
       "name": user.name,
       "age": user.age,
-      "Version: user.userVer,
+      "Version": user.userVer,
     })
   }
 }

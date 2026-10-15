@@ -37,6 +37,25 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
     message(FATAL_ERROR "incorrect UTF-8 escape diagnostic (${status}):\n${errors}\nexpected:\n${expected}")
 endif()
 
+# An unclosed string must not swallow errors or valid strings on later lines.
+# Check both line-ending styles and reject backslash-newline continuation.
+foreach(line_ending IN ITEMS "\n" "\r\n")
+    foreach(prefix IN ITEMS "\"abc" "\"abc\\")
+        set(recovery "${TEST_DIR}/recovery.brf")
+        file(WRITE "${recovery}" "${prefix}${line_ending}@ \"ok\"${line_ending}")
+        execute_process(COMMAND "${BRIEF}" dump-tokens "${recovery}"
+            RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+        string(LENGTH "${prefix}" prefix_length)
+        math(EXPR tail_length "${prefix_length} - 1")
+        string(REPEAT "~" ${tail_length} tail)
+        set(expected
+            "error: Unterminated string.\n  --> ${recovery}:1:1\n  |\n1 | ${prefix}\n  | ^${tail}\nerror: Unexpected character.\n  --> ${recovery}:2:1\n  |\n2 | @ \"ok\"\n  | ^\n")
+        if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+            message(FATAL_ERROR "incorrect string recovery (${status}):\n${errors}\nexpected:\n${expected}")
+        endif()
+    endforeach()
+endforeach()
+
 execute_process(COMMAND "${BRIEF}" dump-tokens "${TEST_DIR}/missing.brf"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 if(NOT status EQUAL 1 OR NOT errors MATCHES "error: cannot read")

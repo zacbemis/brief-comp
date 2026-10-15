@@ -870,6 +870,47 @@ int main(void) {
     }
   }
 
+  TEST("unterminated strings stop at LF and CRLF and report later errors") {
+    const char *prefixes[] = {"\"", "\"abc", "\"abc\\", "\"bad\\q"};
+    const char *newlines[] = {"\n", "\r\n"};
+    for (size_t i = 0; i < sizeof(prefixes) / sizeof(prefixes[0]); i++) {
+      for (size_t j = 0; j < sizeof(newlines) / sizeof(newlines[0]); j++) {
+        char text[64];
+        snprintf(text, sizeof(text), "%s%s@ \"ok\"\n", prefixes[i], newlines[j]);
+        SourceFile *source = source_create(&test_arena, "recovery.brf", text,
+                                           strlen(text));
+        Diagnostics diagnostics;
+        diagnostics_init(&diagnostics, &test_arena);
+        Lexer lx;
+        lexer_init(&lx, source, &diagnostics);
+        Token string_error = lexer_next_token(&lx);
+        ASSERT_EQ_INT(TOK_ERR, string_error.type);
+        ASSERT_EQ_STRN(prefixes[i], string_error.start, string_error.length);
+        ASSERT_EQ_STRN("Unterminated string.", string_error.message,
+                       strlen(string_error.message));
+        ASSERT_EQ_INT(0, string_error.span.start);
+        ASSERT_EQ_INT(strlen(prefixes[i]), string_error.span.end);
+        expect(&lx, TOK_NEWLINE, "\n");
+        Token later_error = lexer_next_token(&lx);
+        ASSERT_EQ_INT(TOK_ERR, later_error.type);
+        ASSERT_EQ_STRN("@", later_error.start, later_error.length);
+        ASSERT_EQ_INT(2, later_error.line);
+        ASSERT_EQ_INT(1, source_position(source, later_error.span.start).column);
+        expect(&lx, TOK_STR_LIT, "\"ok\"");
+        expect(&lx, TOK_NEWLINE, "\n");
+        expect(&lx, TOK_EOF, NULL);
+        ASSERT_EQ_INT(2, diagnostics.count);
+        Diagnostics batch_diagnostics;
+        diagnostics_init(&batch_diagnostics, &test_arena);
+        TokenArray tokens = lexer_tokenize(&test_arena, source, &batch_diagnostics);
+        ASSERT_EQ_INT(6, tokens.count);
+        ASSERT_EQ_INT(2, batch_diagnostics.count);
+        ASSERT_EQ_INT(TOK_STR_LIT, tokens.items[3].type);
+        ASSERT_EQ_INT(TOK_EOF, tokens.items[tokens.count - 1].type);
+      }
+    }
+  }
+
   TEST("unterminated characters leave the newline available for recovery") {
     Lexer lx;
     init_lexer(&lx, "'a\nx");
@@ -931,10 +972,9 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
-  TEST("token spans refer to source and use starting lines for multiline "
-       "tokens") {
+  TEST("token spans track CRLF lines and escaped newlines") {
     Lexer lx;
-    init_lexer(&lx, " \tfoo\r\n  \"a\nb\" @");
+    init_lexer(&lx, " \tfoo\r\n  \"a\\nb\"\n  @");
     Token name = lexer_next_token(&lx);
     ASSERT_EQ_INT(2, name.span.start);
     ASSERT_EQ_INT(5, name.span.end);
@@ -947,19 +987,20 @@ int main(void) {
     Token string_token = lexer_next_token(&lx);
     ASSERT_EQ_INT(TOK_STR_LIT, string_token.type);
     ASSERT_EQ_INT(9, string_token.span.start);
-    ASSERT_EQ_INT(14, string_token.span.end);
+    ASSERT_EQ_INT(15, string_token.span.end);
     ASSERT_EQ_INT(2, string_token.line);
+    expect(&lx, TOK_NEWLINE, "\n");
     Token error = lexer_next_token(&lx);
     ASSERT_EQ_INT(TOK_ERR, error.type);
     ASSERT_EQ_STRN("@", error.start, error.length);
-    ASSERT_EQ_INT(15, error.span.start);
-    ASSERT_EQ_INT(16, error.span.end);
+    ASSERT_EQ_INT(18, error.span.start);
+    ASSERT_EQ_INT(19, error.span.end);
     ASSERT_EQ_INT(3, error.line);
-    ASSERT_EQ_INT(4, source_position(lx.source, error.span.start).column);
+    ASSERT_EQ_INT(3, source_position(lx.source, error.span.start).column);
     Token eof = lexer_next_token(&lx);
     ASSERT_EQ_INT(TOK_EOF, eof.type);
-    ASSERT_EQ_INT(16, eof.span.start);
-    ASSERT_EQ_INT(16, eof.span.end);
+    ASSERT_EQ_INT(19, eof.span.start);
+    ASSERT_EQ_INT(19, eof.span.end);
     ASSERT_EQ_INT(0, eof.length);
   }
 

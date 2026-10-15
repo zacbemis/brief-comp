@@ -225,17 +225,23 @@ static int valid_escape(char c) {
   return c == 'n' || c == 't' || c == '\\' || c == '"' || c == '\'' || c == '0';
 }
 
+static int at_line_break(Lexer *lexer) {
+  return peek(lexer) == '\n' ||
+         (peek(lexer) == '\r' && peek_next(lexer) == '\n');
+}
+
 static Token literal(Lexer *lexer, char quote, TokenType type) {
   const char *error = NULL;
   Span error_span = {0};
   size_t bytes = 0;
   while (!is_at_end(lexer) && peek(lexer) != quote) {
-    if (quote == '\'' && peek(lexer) == '\n')
+    // Leave the line ending available for statement separation and recovery.
+    if (at_line_break(lexer))
       break;
     size_t start = (size_t)(lexer->current - lexer->source->text);
     char c = advance(lexer);
     if (c == '\\') {
-      if (is_at_end(lexer) || (quote == '\'' && peek(lexer) == '\n'))
+      if (is_at_end(lexer) || at_line_break(lexer))
         break;
       if (!valid_escape(advance(lexer)) && !error) {
         error = quote == '"' ? "Unknown escape in string literal."

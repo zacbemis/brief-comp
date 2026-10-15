@@ -59,7 +59,7 @@ The first version is done when every example in the docs that falls inside its s
 The lexer covers the documented tokens. Groundwork changes implemented in milestone 0:
 
 - **Unterminated block comment.** `/* ...` running to the end of the file is an error at the opening delimiter.
-- **Escapes.** String and character escapes are checked against the documented list. An unknown escape is an error, and a character literal must contain exactly one decoded byte.
+- **Escapes.** String and character escapes are checked against the documented list. An unknown escape is an error, and a character literal must contain exactly one decoded byte. Both kinds of literal must close on the same source line; an unterminated literal leaves the newline available for recovery.
 - **Positions.** Each token carries a source span; error messages are separate from source spelling. Multiline tokens point at their starting line.
 - **Whole file at once.** The lexer can collect all tokens, including errors and EOF, into an arena array. The parser will use it to look ahead and back up for generic calls (see Parser).
 - **Raw newlines.** Newlines inside block comments are preserved so comments cannot accidentally join statements. The newline filter is still milestone 1.

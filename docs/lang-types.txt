@@ -163,6 +163,15 @@ String and character literals accept these escapes:
 
 Any other character after a backslash is a compile error.
 
+String and character literals must begin and end on the same source line. A raw
+newline (LF or CRLF) before the closing quote is a compile error, even when it
+follows a backslash. Write `\n` to include a newline in the value; there is no
+backslash-newline continuation or multiline string syntax.
+
+```
+let message = "first\nsecond"   // one source line, a newline in the value
+```
+
 A `chr` is one byte. A character outside ASCII takes more than one `chr`.
 
 ```

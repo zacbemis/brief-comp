@@ -54,8 +54,9 @@ with status 1. Invalid command arguments exit with status 2.
 - `include/common/`, `src/common/`: arena allocation, source loading and line
   indexing, byte-offset spans, diagnostics with notes, and string interning.
 - `include/lexer/`, `src/lexer/`: streaming and whole-file lexing, validated
-  escapes and single-byte character literals, and errors for unterminated
-  literals and block comments.
+  escapes, single-line strings, and single-byte character literals. Unterminated
+  literals report errors without consuming the next line; unclosed block
+  comments are also errors.
 - `include/ast/`: initial syntax-tree kind enums only.
 - `tests/`: common-infrastructure and lexer unit tests, plus CLI integration
   tests for token dumps, multiple diagnostics, and file-loading errors.
