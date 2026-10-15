@@ -1,19 +1,25 @@
 #include "lexer/lexer.h"
+
+#include <stdint.h>
 #include <string.h>
 
-void lexer_init(Lexer *lexer, const char *source) {
-  lexer->source = source;
-  lexer->start = source;
-  lexer->current = source;
-  lexer->line = 1;
+void lexer_init(Lexer *lexer, const SourceFile *source,
+                Diagnostics *diagnostics) {
+  *lexer = (Lexer){.source = source,
+                   .diagnostics = diagnostics,
+                   .start = source->text,
+                   .current = source->text,
+                   .end = source->text + source->length};
 }
 
-static int is_at_end(Lexer *lexer) { return *lexer->current == '\0'; }
+static int is_at_end(Lexer *lexer) { return lexer->current == lexer->end; }
 
-static char peek(Lexer *lexer) { return *lexer->current; }
+static char peek(Lexer *lexer) {
+  return is_at_end(lexer) ? '\0' : *lexer->current;
+}
 
 static char peek_next(Lexer *lexer) {
-  if (is_at_end(lexer))
+  if (lexer->end - lexer->current < 2)
     return '\0';
   return lexer->current[1];
 }
@@ -31,29 +37,64 @@ static int match(Lexer *lexer, char expected) {
 }
 
 static Token make_token(Lexer *lexer, TokenType type) {
-  Token token;
-  token.type = type;
-  token.start = lexer->start;
-  token.length = (size_t)(lexer->current - lexer->start);
-  token.line = lexer->line;
+  size_t start = (size_t)(lexer->start - lexer->source->text);
+  size_t end = (size_t)(lexer->current - lexer->source->text);
+  return (Token){.type = type,
+                 .span = span_make(lexer->source, start, end),
+                 .start = lexer->start,
+                 .length = end - start,
+                 .line = source_position(lexer->source, start).line};
+}
+
+// The token still covers the full source lexeme for recovery; the diagnostic
+// can highlight just the offending part of it.
+static Token err_token_at(Lexer *lexer, const char *message, Span highlight) {
+  Token token = make_token(lexer, TOK_ERR);
+  token.message = message;
+  if (lexer->diagnostics)
+    diagnostics_error(lexer->diagnostics, highlight, message);
   return token;
 }
 
 static Token err_token(Lexer *lexer, const char *message) {
-  Token token;
-  token.type = TOK_ERR;
-  token.start = message;
-  token.length = strlen(message);
-  token.line = lexer->line;
-  return token;
+  Span span = span_make(lexer->source,
+                        (size_t)(lexer->start - lexer->source->text),
+                        (size_t)(lexer->current - lexer->source->text));
+  return err_token_at(lexer, message, span);
 }
 
-// Skip spaces, tabs, carriage returns, and comments. Newlines are NOT
-// skipped here because they are emitted as TOK_NEWLINE tokens.
-static void skip_whitespace_and_comments(Lexer *lexer) {
+// Emit newlines even inside block comments: otherwise a comment spanning
+// lines could accidentally join two statements before the newline filter.
+// Returns true when it produces a newline or an unterminated-comment error.
+static int skip_whitespace_and_comments(Lexer *lexer, Token *token) {
   for (;;) {
-    char c = peek(lexer);
-    switch (c) {
+    if (lexer->block_comment_start) {
+      while (!is_at_end(lexer)) {
+        if (peek(lexer) == '*' && peek_next(lexer) == '/') {
+          advance(lexer);
+          advance(lexer);
+          lexer->block_comment_start = NULL;
+          break;
+        }
+        if (peek(lexer) == '\n') {
+          lexer->start = lexer->current;
+          advance(lexer);
+          *token = make_token(lexer, TOK_NEWLINE);
+          return 1;
+        }
+        advance(lexer);
+      }
+      if (lexer->block_comment_start) {
+        lexer->start = lexer->block_comment_start;
+        lexer->block_comment_start = NULL;
+        *token = err_token(lexer, "Unterminated block comment.");
+        return 1;
+      }
+      continue;
+    }
+    if (is_at_end(lexer))
+      return 0;
+    switch (peek(lexer)) {
     case ' ':
     case '\t':
     case '\r':
@@ -64,24 +105,15 @@ static void skip_whitespace_and_comments(Lexer *lexer) {
         while (!is_at_end(lexer) && peek(lexer) != '\n')
           advance(lexer);
       } else if (peek_next(lexer) == '*') {
-        advance(lexer); // consume '/'
-        advance(lexer); // consume '*'
-        while (!is_at_end(lexer) &&
-               !(peek(lexer) == '*' && peek_next(lexer) == '/')) {
-          if (peek(lexer) == '\n')
-            lexer->line++;
-          advance(lexer);
-        }
-        if (!is_at_end(lexer)) {
-          advance(lexer); // consume '*'
-          advance(lexer); // consume '/'
-        }
+        lexer->block_comment_start = lexer->current;
+        advance(lexer);
+        advance(lexer);
       } else {
-        return;
+        return 0;
       }
       break;
     default:
-      return;
+      return 0;
     }
   }
 }
@@ -189,38 +221,49 @@ static Token number(Lexer *lexer) {
   return make_token(lexer, TOK_INT_LIT);
 }
 
-static Token string(Lexer *lexer) {
-  while (!is_at_end(lexer) && peek(lexer) != '"') {
-    if (peek(lexer) == '\n')
-      lexer->line++;
-    if (peek(lexer) == '\\' && peek_next(lexer) != '\0')
-      advance(lexer);
-    advance(lexer);
-  }
-
-  if (is_at_end(lexer))
-    return err_token(lexer, "Unterminated string.");
-
-  advance(lexer);
-  return make_token(lexer, TOK_STR_LIT);
+static int valid_escape(char c) {
+  return c == 'n' || c == 't' || c == '\\' || c == '"' || c == '\'' || c == '0';
 }
 
-static Token character(Lexer *lexer) {
-  while (!is_at_end(lexer) && peek(lexer) != '\'' && peek(lexer) != '\n') {
-    if (peek(lexer) == '\\' && peek_next(lexer) != '\0')
-      advance(lexer);
-    advance(lexer);
+static Token literal(Lexer *lexer, char quote, TokenType type) {
+  const char *error = NULL;
+  Span error_span = {0};
+  size_t bytes = 0;
+  while (!is_at_end(lexer) && peek(lexer) != quote) {
+    if (quote == '\'' && peek(lexer) == '\n')
+      break;
+    size_t start = (size_t)(lexer->current - lexer->source->text);
+    char c = advance(lexer);
+    if (c == '\\') {
+      if (is_at_end(lexer) || (quote == '\'' && peek(lexer) == '\n'))
+        break;
+      if (!valid_escape(advance(lexer)) && !error) {
+        error = quote == '"' ? "Unknown escape in string literal."
+                             : "Unknown escape in character literal.";
+        error_span = span_make(lexer->source, start, start + 2);
+      }
+    } else if (c == '\0' && !error) {
+      error = "Zero byte in literal; use \\0 instead.";
+      error_span = span_make(lexer->source, start, start + 1);
+    }
+    bytes++;
   }
-
-  if (is_at_end(lexer) || peek(lexer) == '\n')
-    return err_token(lexer, "Unterminated character.");
-
+  if (is_at_end(lexer) || peek(lexer) != quote)
+    return err_token(lexer, quote == '"' ? "Unterminated string."
+                                         : "Unterminated character.");
   advance(lexer);
-  return make_token(lexer, TOK_CHAR_LIT);
+  if (error)
+    return err_token_at(lexer, error, error_span);
+  if (quote == '\'' && bytes != 1)
+    return err_token(lexer,
+                     "A character literal must contain exactly one byte.");
+  return make_token(lexer, type);
 }
 
 Token lexer_next_token(Lexer *lexer) {
-  skip_whitespace_and_comments(lexer);
+  Token trivia;
+  if (skip_whitespace_and_comments(lexer, &trivia))
+    return trivia;
   lexer->start = lexer->current;
 
   if (is_at_end(lexer))
@@ -234,15 +277,12 @@ Token lexer_next_token(Lexer *lexer) {
     return number(lexer);
 
   switch (c) {
-  case '\n': {
-    Token t = make_token(lexer, TOK_NEWLINE);
-    lexer->line++;
-    return t;
-  }
+  case '\n':
+    return make_token(lexer, TOK_NEWLINE);
   case '"':
-    return string(lexer);
+    return literal(lexer, '"', TOK_STR_LIT);
   case '\'':
-    return character(lexer);
+    return literal(lexer, '\'', TOK_CHAR_LIT);
   case ';':
     if (match(lexer, ';'))
       return make_token(lexer, TOK_SEMI_SEMI);
@@ -332,4 +372,28 @@ Token lexer_next_token(Lexer *lexer) {
   }
 
   return err_token(lexer, "Unexpected character.");
+}
+
+TokenArray lexer_tokenize(Arena *arena, const SourceFile *source,
+                          Diagnostics *diagnostics) {
+  Lexer lexer;
+  lexer_init(&lexer, source, diagnostics);
+  TokenArray tokens = {0};
+  size_t capacity = 0;
+  for (;;) {
+    if (tokens.count == capacity) {
+      size_t grown_capacity = capacity ? capacity * 2 : 64;
+      if (grown_capacity < capacity)
+        grown_capacity = SIZE_MAX;
+      Token *items = arena_calloc(arena, grown_capacity, sizeof(*items));
+      if (tokens.count)
+        memcpy(items, tokens.items, tokens.count * sizeof(*items));
+      tokens.items = items;
+      capacity = grown_capacity;
+    }
+    Token token = lexer_next_token(&lexer);
+    tokens.items[tokens.count++] = token;
+    if (token.type == TOK_EOF)
+      return tokens;
+  }
 }

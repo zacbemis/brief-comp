@@ -1,7 +1,7 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-#include <stddef.h>
+#include "common/source.h"
 
 typedef enum {
   // Special
@@ -115,10 +115,17 @@ typedef enum {
 
 typedef struct {
   TokenType type;
-  const char *start;
+  Span span;
+  const char *start; // Source slice, including for TOK_ERR.
   size_t length;
-  int line;
+  size_t line;         // Starting line; span is the authoritative location.
+  const char *message; // Only set for TOK_ERR, never stored in start.
 } Token;
+
+typedef struct {
+  Token *items;
+  size_t count; // Includes errors and the final EOF token.
+} TokenArray;
 
 const char *token_type_name(TokenType type);
 
