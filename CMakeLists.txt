@@ -34,6 +34,7 @@ add_library(brief_core STATIC
     src/lexer/newline.c
     src/parser/parser.c
     src/ast/print.c
+    src/sema/sema.c
 )
 
 target_include_directories(brief_core PUBLIC
