@@ -11,3 +11,9 @@ endfunction()
 add_brief_test(test_common)
 add_brief_test(test_lexer)
 
+add_test(NAME test_cli
+    COMMAND ${CMAKE_COMMAND}
+        -DBRIEF=$<TARGET_FILE:brief>
+        -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/cli-fixtures
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/test_cli.cmake
+)

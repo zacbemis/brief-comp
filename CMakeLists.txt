@@ -39,11 +39,9 @@ target_include_directories(brief_core PUBLIC
 
 target_link_libraries(brief_core PUBLIC brief_options)
 
-# Main compiler executable. Only built once a main.c exists.
-if(EXISTS "${CMAKE_SOURCE_DIR}/src/main.c")
-    add_executable(brief src/main.c)
-    target_link_libraries(brief PRIVATE brief_core)
-endif()
+# The milestone-0 driver exposes lexing, not compilation yet.
+add_executable(brief src/main.c)
+target_link_libraries(brief PRIVATE brief_core)
 
 enable_testing()
 add_subdirectory(tests)
