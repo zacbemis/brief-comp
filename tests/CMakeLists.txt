@@ -10,6 +10,7 @@ endfunction()
 
 add_brief_test(test_common)
 add_brief_test(test_lexer)
+add_brief_test(test_newline)
 
 add_test(NAME test_cli
     COMMAND ${CMAKE_COMMAND}
