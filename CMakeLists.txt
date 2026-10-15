@@ -47,6 +47,7 @@ add_library(brief_core STATIC
     src/sema/sema.c
     src/ir/lower.c
     src/codegen/c.c
+    src/driver/native.c
     "${runtime_header}"
 )
 
@@ -57,7 +58,7 @@ target_include_directories(brief_core PUBLIC
 
 target_link_libraries(brief_core PUBLIC brief_options)
 
-# Debugging commands expose lexing and parsing, not compilation yet.
+# Compiler and debugging commands share the same independently testable core.
 add_executable(brief src/main.c)
 target_link_libraries(brief PRIVATE brief_core)
 
