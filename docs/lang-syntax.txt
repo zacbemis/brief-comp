@@ -26,6 +26,7 @@ A statement may span several lines. The examples in this document assume a newli
 
 - Inside `( )` or `[ ]`.
 - After a token that cannot end a statement, such as `,`, `:`, `=`, `=>`, `|>`, `.`, or a binary operator.
+- After a keyword that still needs its declaration, condition, iterable, or body: `let`, `var`, `const`, `type`, `impl`, `pub`, `if`, `else`, `for`, `in`, or `while`.
 - Before a line that begins with `|>` or `.`.
 
 ```
