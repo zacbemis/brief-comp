@@ -197,7 +197,7 @@ int main(void) {
       ASSERT_TRUE(strstr(text, "int main(void)") != NULL);
       ASSERT_TRUE(strstr(text, "quote\\\"and\\\\slash.brf") != NULL);
       ASSERT_TRUE(strstr(text, "brt_bytes_0[] = \"Hi\";") != NULL);
-      ASSERT_TRUE(strstr(text, "brt_literal_0 = {2, brt_bytes_0};") != NULL);
+      ASSERT_TRUE(strstr(text, "brt_literal_0 = {{0, NULL}, 2, brt_bytes_0};") != NULL);
       ASSERT_TRUE(strstr(text, "brf_fn_0") == NULL);
       fclose(out);
     } else if (out)

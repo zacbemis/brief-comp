@@ -14,12 +14,15 @@ add_brief_test(test_newline)
 add_brief_test(test_parser)
 add_brief_test(test_compile)
 add_brief_test(test_sema)
+add_brief_test(test_objects)
 
 # Binary-safe POSIX test tools, built with the same warning/sanitizer options
 # as the compiler. No interpreter or shell is needed to run program tests.
 add_library(brief_test_support STATIC process.c program_expect.c)
 target_link_libraries(brief_test_support PUBLIC brief_core)
 target_include_directories(brief_test_support PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(test_objects PRIVATE brief_test_support)
+target_compile_definitions(test_objects PRIVATE BRT_DEBUG)
 foreach(tool run_programs test_program_runner test_cli_native test_process test_arithmetic)
     add_executable(${tool} ${tool}.c)
     target_link_libraries(${tool} PRIVATE brief_test_support)

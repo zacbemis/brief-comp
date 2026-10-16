@@ -1,5 +1,5 @@
-/* Embedded verbatim. Strings are still permanent literals; heap ownership
- * arrives in M4. Arithmetic checks are present in every build mode. */
+/* Embedded verbatim. Single-threaded ARC; literals are immortal. Arithmetic
+ * and allocation checks are present in every build mode. */
 #include <float.h>
 #include <inttypes.h>
 #include <math.h>
@@ -7,13 +7,20 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 _Static_assert(sizeof(float) == 4 && FLT_RADIX == 2 && FLT_MANT_DIG == 24 &&
                    FLT_MAX_EXP == 128,
                "Brief requires binary32 float");
 _Static_assert(sizeof(double) == 8 && DBL_MANT_DIG == 53 && DBL_MAX_EXP == 1024,
                "Brief requires binary64 double");
+typedef struct brt_object brt_object;
+struct brt_object {
+  size_t refs; // Zero is reserved for immortal program literals.
+  void (*destroy)(brt_object *);
+};
 typedef struct {
+  brt_object object;
   size_t length;
   const unsigned char *bytes;
 } brt_string;
@@ -39,6 +46,136 @@ _Noreturn void brt_panic(const char *message) {
     fprintf(stderr, "  --> %s:%zu\n", brt_source_file, brt_source_line);
   exit(1);
 }
+static size_t brt_live_objects;
+void brt_retain(const void *pointer) {
+  brt_object *o = (brt_object *)pointer;
+  if (o && o->refs) {
+    if (o->refs == SIZE_MAX)
+      brt_panic("reference count overflow");
+    o->refs++;
+  }
+}
+void brt_release(const void *pointer) {
+  brt_object *o = (brt_object *)pointer;
+  if (o && o->refs && --o->refs == 0) {
+    o->destroy(o);
+    brt_live_objects--;
+    free(o);
+  }
+}
+void *brt_alloc(size_t size, void (*destroy)(brt_object *)) {
+  brt_object *o = calloc(1, size);
+  if (!o)
+    brt_panic("out of memory");
+  o->refs = 1;
+  o->destroy = destroy;
+  brt_live_objects++;
+  return o;
+}
+void brt_finish(void) {
+  (void)
+      brt_live_objects; // Counter also supports runtime tests without reports.
+#ifdef BRT_DEBUG
+  if (brt_live_objects) {
+    fprintf(
+        stderr,
+        "debug: %zu objects still alive at exit (cycles are not collected)\n",
+        brt_live_objects);
+  }
+#endif
+}
+void brt_destroy_string(brt_object *o) { (void)o; }
+const brt_string *brt_string_alloc(size_t length) {
+  if (length > SIZE_MAX - sizeof(brt_string) - 1)
+    brt_panic("string too large");
+  brt_string *s = brt_alloc(sizeof(*s) + length + 1, brt_destroy_string);
+  s->length = length;
+  s->bytes = (const unsigned char *)(s + 1);
+  return s;
+}
+const brt_string *brt_string_new(const void *bytes, size_t length) {
+  const brt_string *s = brt_string_alloc(length);
+  if (length)
+    memcpy((unsigned char *)s->bytes, bytes, length);
+  return s;
+}
+const brt_string *brt_concat(const brt_string *a, const brt_string *b) {
+  if (b->length > SIZE_MAX - a->length)
+    brt_panic("string too large");
+  const brt_string *s = brt_string_alloc(a->length + b->length);
+  if (a->length)
+    memcpy((unsigned char *)s->bytes, a->bytes, a->length);
+  if (b->length)
+    memcpy((unsigned char *)s->bytes + a->length, b->bytes, b->length);
+  return s;
+}
+int brt_compare(const brt_string *a, const brt_string *b) {
+  size_t common = a->length < b->length ? a->length : b->length;
+  int order = common ? memcmp(a->bytes, b->bytes, common) : 0;
+  return order ? order : (a->length > b->length) - (a->length < b->length);
+}
+const brt_string *brt_formatted(const char *buffer, int length,
+                                size_t capacity) {
+  if (length < 0 || (size_t)length >= capacity)
+    brt_panic("cannot format number");
+  return brt_string_new(buffer, (size_t)length);
+}
+const brt_string *brt_str_s(int64_t value) {
+  char buffer[32];
+  int n = snprintf(buffer, sizeof(buffer), "%" PRId64, value);
+  return brt_formatted(buffer, n, sizeof(buffer));
+}
+const brt_string *brt_str_u(uint64_t value) {
+  char buffer[32];
+  int n = snprintf(buffer, sizeof(buffer), "%" PRIu64, value);
+  return brt_formatted(buffer, n, sizeof(buffer));
+}
+const brt_string *brt_str_bool(_Bool value) {
+  return brt_string_new(value ? "true" : "false", value ? 4 : 5);
+}
+const brt_string *brt_str_real(double value, int single) {
+  if (isnan(value))
+    return brt_string_new("nan", 3);
+  if (isinf(value))
+    return brt_string_new(signbit(value) ? "-inf" : "inf",
+                          signbit(value) ? 4 : 3);
+  char buffer[64];
+  int n = 0;
+  // First significant-digit precision that round-trips at the source width.
+  // Keep -0, and canonicalize nonfinite values above. The C locale is used.
+  int precision;
+  for (precision = 1; precision <= (single ? 9 : 17); precision++) {
+    n = snprintf(buffer, sizeof(buffer), "%.*g", precision, value);
+    if (n < 0 || (size_t)n >= sizeof(buffer))
+      brt_panic("cannot format number");
+    double parsed =
+        single ? (double)strtof(buffer, NULL) : strtod(buffer, NULL);
+    if (parsed == value && !!signbit(parsed) == !!signbit(value))
+      break;
+  }
+  // Prefer ordinary decimal notation when it is no longer than exponent form.
+  char *exponent = strchr(buffer, 'e');
+  if (exponent) {
+    long e = strtol(exponent + 1, NULL, 10);
+    long places = precision - 1 - e;
+    if (places < 0)
+      places = 0;
+    if (places <= 20 && e >= -20 && e <= 21) {
+      char decimal[64];
+      int d = snprintf(decimal, sizeof(decimal), "%.*f", (int)places, value);
+      if (d >= 0 && d <= n) {
+        memcpy(buffer, decimal, (size_t)d + 1);
+        n = d;
+      }
+    }
+  }
+  return brt_formatted(buffer, n, sizeof(buffer));
+}
+const brt_string *brt_str_flt(float value) {
+  return brt_str_real((double)value, 1);
+}
+const brt_string *brt_str_dub(double value) { return brt_str_real(value, 0); }
+
 int64_t brt_max_s(unsigned bits) { return INT64_MAX >> (64 - bits); }
 int64_t brt_min_s(unsigned bits) { return -brt_max_s(bits) - 1; }
 uint64_t brt_max_u(unsigned bits) { return UINT64_MAX >> (64 - bits); }

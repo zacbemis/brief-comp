@@ -140,7 +140,7 @@ int emit_c(FILE *out, const IrProgram *p) {
         string_literal(out, in->as.string.bytes, in->as.string.length);
         fputs(";\n", out);
         fprintf(out,
-                "  static const brt_string brt_literal_%zu = {%zu, "
+                "  static const brt_string brt_literal_%zu = {{0, NULL}, %zu, "
                 "brt_bytes_%zu};\n  brt_tmp_%zu = &brt_literal_%zu;\n",
                 id, in->as.string.length, id, id, id);
         break;
