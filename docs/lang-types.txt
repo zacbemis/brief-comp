@@ -246,7 +246,7 @@ let letter: chr = 'a'
 `()` is the type of a function that returns nothing useful. It has exactly one value, also written `()`. It is the named tuple with no fields.
 
 ```
-pub add(collection: &UserCollection, user: User): () {
+pub add(collection: &UserCollection, user: &User): () {
   collection.userVec.add(user)
 }
 ```

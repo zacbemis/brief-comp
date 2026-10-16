@@ -71,7 +71,7 @@ Traditional loops remain available for cases where they are clearer or more appr
 | `update(items, test, change)` | `UPDATE ... WHERE` | Applies `change` to every element that passes `test`. |
 | `remove(items, test)` | `DELETE ... WHERE` | Removes every element that passes `test` and returns them as a `Vec`. |
 
-Changing functions take the collection as `&`, so they can only be called through a binding that may mutate it.
+Changing functions take the collection as `&`, so they can only be called through a binding that may mutate it. `add` keeps its item, so the item is also taken as `&`: a read-only value cannot be added (`lang-memory.txt`, "Storing references").
 
 ```
 const frozen = Vec<User>()

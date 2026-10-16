@@ -69,10 +69,10 @@ let user = User.new("Bob", 20)!
 let age = getAge(user)   // no count change: user outlives the call
 ```
 
-The count goes up when a function stores the object somewhere that outlives the call.
+The count goes up when a function stores the object somewhere that outlives the call. A function that keeps an argument takes it as `&` ("Storing references" below).
 
 ```
-pub add(collection: &UserCollection, user: User) {
+pub add(collection: &UserCollection, user: &User) {
   collection.userVec.add(user)   // the vector now holds its own reference
 }
 ```
@@ -170,38 +170,44 @@ At control-flow joins, access is read-only if any continuing path is read-only.
 Loops conservatively include zero iterations and backedges; `break`/`continue`
 states are included, and returning paths do not restrict continuing paths.
 
-A call receiving any read-only struct argument produces a read-only result if
-its result is a struct. This includes receiver arguments and associated calls;
-owning the returned reference does not upgrade access. A struct literal with
-any read-only struct initializer is read-only as a whole, including its other
-fields. Nested calls and literals preserve the restriction.
+A struct call result is read-only when it could hold an object from a
+read-only argument (including the receiver): when some struct type can be
+reached, through fields, both from the result's type and from that argument's
+type. The compiler works this out from the type definitions, as it does for
+cycles. An identity call `same(p)` and a getter returning `q.p` stay
+read-only. `Report.new(q.user)` stays read-only if a `Report` can contain a
+`User`, and is writable if it holds only strings and numbers. Owning the
+returned reference does not upgrade access.
 
-These rules are deliberately conservative, without per-field or interprocedural
-permission inference. For example, `Report.new(q.user)` is read-only when `q`
-is an ordinary parameter, even if the constructor builds an independent report.
-Even the report's unrelated fields cannot be changed. Calls with no read-only
-struct arguments and literals with no read-only struct initializers remain
-writable. Primitive results and copied primitive fields do not carry the
-restriction.
+A struct literal with any read-only struct initializer is read-only as a whole,
+including its other fields. Primitive results and copied primitive fields do
+not carry the restriction.
 
-This is an access-path rule, not a purity promise or transitive `const`.
-Fields stored in an already writable object remain accessible through that
-object's permission. Storing a read-only reference into such a field therefore
-makes it writable through that path:
+### Storing references
+
+A read-only struct cannot be stored in a field. Whoever can write the holder
+could later change the stored object, so storing would turn read-only access
+into writable access. A function that keeps an argument takes it as `&`, which
+tells its callers that the object may be changed later.
 
 ```
-viaStore(q: Q) {
-  var holder = Q { p: P { name: "fresh" } }
-  holder.p = q.p
-  holder.p.name = "changed"   // allowed: changes the caller's object
+attach(report: &Report, user: User) {
+  report.owner = user          // Compiler error: user is read-only; take it as &User
+}
+
+attach(report: &Report, user: &User) {
+  report.owner = user          // allowed
 }
 ```
 
-Restricting stored references is an open question (`lang-desc.txt`, open
-question 1). Rejecting such stores would also forbid ordinary code such as
-`report.owner = user`, and marking the holder read-only would not cover its
-other aliases. Other writable aliases can still change the data.
-M4 does not implement `const` or cloning.
+The rule covers every path to the store: a local alias, a call result that
+could hold the argument, and a literal built from it. A caller holding only a
+read-only value cannot pass it to `attach`; it needs a value it may change,
+such as a fresh object or, once cloning exists, a copy.
+
+This is an access-path rule, not a purity promise or transitive `const`.
+Other writable aliases can still change the data. M4 does not implement
+`const` or cloning.
 
 ### Shared aliases
 
@@ -264,11 +270,12 @@ let total = users |> count()          // allowed: an int is copied
 
 This is sometimes stricter than needed, for example when the call builds entirely new objects.
 
-`const` is enforced at compile time. Three cases are outside what that check can see and are not yet handled:
+`const` is enforced at compile time. Two cases are outside what that check can see and are not yet handled:
 
 - A value returned by a call that is still referenced elsewhere, as in `const dog = kennel.first()`.
 - A mutable object stored inside a `const` value, as in `const kennel = Kennel.new(dog)`.
-- A `const` value passed to a function that stores it in a mutable object.
+
+A `const` value passed to a function that stores it in a mutable object is already prevented: a `const` can only reach an ordinary parameter, where it is read-only and cannot be stored ("Storing references").
 
 ## Resource Management
 

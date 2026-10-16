@@ -14,11 +14,11 @@ The last expression is implicitly returned. Ordinary parameters are immutable
 bindings: the function cannot reassign them. A `&` parameter permits changing
 the borrowed data, not replacing the parameter binding. Ordinary struct parameters
 and directly derived local/field aliases are read-only, even through `let`/`var`.
-Struct call results inherit read-only access from any read-only struct argument
-(including the receiver); struct literals inherit it from any read-only struct
-initializer. The restriction conservatively covers the whole result, even if a
-call actually builds an independent object. This is not deep `const` or a purity
-guarantee. `lang-memory.txt` describes propagation and its limits.
+A struct call result is read-only when its type could hold an object from a
+read-only argument, and a struct literal is read-only when built from one. A
+read-only struct cannot be stored in a field, so a function that keeps an
+argument takes it as `&`. This is not deep `const` or a purity guarantee.
+`lang-memory.txt` describes the rules.
 
 Explicit returns use `ret`.
 
@@ -270,7 +270,7 @@ logName(user: User) {
 When the return type is left out and the body ends in an expression with a value, that value is returned.
 
 ```
-pub add(collection: &UserCollection, user: User) {
+pub add(collection: &UserCollection, user: &User) {
   collection.userVec.add(user)
 }
 
@@ -280,7 +280,7 @@ pub add(collection: &UserCollection, user: User) {
 Writing `()` as the return type drops the value of the last expression.
 
 ```
-pub add(collection: &UserCollection, user: User): () {
+pub add(collection: &UserCollection, user: &User): () {
   collection.userVec.add(user)
 }
 

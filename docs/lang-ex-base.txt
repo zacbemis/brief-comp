@@ -204,7 +204,7 @@ impl UserCollection {
     }
   }
 
-  pub add(collection: &UserCollection, user: User): () {
+  pub add(collection: &UserCollection, user: &User): () {
     collection.userVec.add(user)
   }
 
