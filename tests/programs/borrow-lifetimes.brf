@@ -1,0 +1,40 @@
+Child { name: str }
+Parent { child: Child }
+store(parent: &Parent, child: Child) { parent.child = child }
+replace(child: Child, parent: &Parent) {
+  parent.child = Child { name: "replacement" + "!" }
+  print(child.name)
+}
+replaceString(name: str, child: &Child) {
+  child.name = "new" + " text"
+  print(name)
+}
+replaceLater(parent: &Parent): Parent {
+  parent.child = Child { name: "later" + " argument" }
+  parent
+}
+compound(child: &Child): str {
+  child.name = "right" + " side"
+  "!"
+}
+main() {
+  let parent = Parent { child: Child { name: "original" + " child" } }
+  replace(parent.child, parent) // expect: original child
+  print(parent.child.name) // expect: replacement!
+  replaceString(parent.child.name, parent.child) // expect: replacement!
+  print(parent.child.name) // expect: new text
+  replace(parent.child, replaceLater(parent)) // expect: new text
+  print(parent.child.name) // expect: replacement!
+  parent.child.name += compound(parent.child)
+  print(parent.child.name) // expect: replacement!!
+  var current = parent.child
+  let old = current
+  current.name = if true {
+    current = Child { name: "different" + " object" }
+    "target" + " captured"
+  } else { "unreachable" }
+  print(old.name) // expect: target captured
+  print(current.name) // expect: different object
+  store(parent, Child { name: "stored" + " borrowed argument" })
+  print(parent.child.name) // expect: stored borrowed argument
+}

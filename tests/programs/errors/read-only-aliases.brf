@@ -1,0 +1,37 @@
+P { name: str }
+Q { p: P }
+mutate(p: &P) { p.name = "changed" }
+sneaky(q: Q) {
+  let inner = q.p
+  inner.name = "changed" // error: Cannot mutate through an ordinary parameter; use &.
+  mutate(inner) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+}
+rebind(q: Q) {
+  var inner = P { name: "fresh" }
+  inner = q.p
+  inner.name += "!" // error: Cannot mutate through an ordinary parameter; use &.
+}
+branch(q: Q, flag: bool) {
+  let inner = if flag { q.p } else { P { name: "fresh" } }
+  mutate(inner) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+}
+branchAssignment(q: Q, flag: bool) {
+  var inner = P { name: "fresh" }
+  if flag { inner = q.p }
+  mutate(inner) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+}
+backedge(q: Q, flag: bool) {
+  var inner = P { name: "fresh" }
+  while flag {
+    mutate(inner) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+    inner = q.p
+    continue
+  }
+}
+loopExit(q: Q) {
+  var inner = P { name: "fresh" }
+  while true { inner = q.p
+    break }
+  mutate(inner) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+}
+main() {}

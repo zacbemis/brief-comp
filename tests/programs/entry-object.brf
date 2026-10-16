@@ -1,0 +1,2 @@
+Box { value: str }
+main() { Box { value: "discarded" + " owned result" } }

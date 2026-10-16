@@ -1,0 +1,17 @@
+Pair {
+  a: str
+  b: str
+  ignored: ()
+}
+mark(label: str): str { print(label)
+label + "!" }
+unit(): () { print("unit") }
+main() {
+  let pair = Pair { b: mark("b"), ignored: unit(), a: mark("a") }
+  // expect: b
+  // expect: unit
+  // expect: a
+  print(pair.a + pair.b) // expect: a!b!
+  pair.ignored = unit() // expect: unit
+  pair.ignored
+}

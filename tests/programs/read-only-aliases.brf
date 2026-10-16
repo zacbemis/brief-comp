@@ -1,0 +1,41 @@
+P { name: str }
+Q { p: P }
+make(name: str): P { P { name: name } }
+read(q: Q, flag: bool) {
+  let inner = q.p
+  print(inner.name)
+  var replaced = inner
+  replaced = P { name: "fresh" }
+  replaced.name += "!"
+  print(replaced.name)
+  if flag { replaced = make("left") } else { replaced = make("right") }
+  replaced.name += "!"
+  print(replaced.name)
+  while true { replaced = P { name: "loop" }
+    break }
+  replaced.name += "!"
+  print(replaced.name)
+  let owned = make(inner.name)
+  owned.name += " copy"
+  print(owned.name)
+  var copied = 1
+  copied++
+  print(str(copied))
+}
+change(q: &Q) {
+  let inner = q.p
+  inner.name = "allowed through &"
+}
+main() {
+  let q = Q { p: P { name: "original" } }
+  read(q, true)
+  // expect: original
+  // expect: fresh!
+  // expect: left!
+  // expect: loop!
+  // expect: original copy
+  // expect: 2
+  print(q.p.name) // expect: original
+  change(q)
+  print(q.p.name) // expect: allowed through &
+}

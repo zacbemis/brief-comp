@@ -1,0 +1,29 @@
+pub User {
+  name: str
+  age: int
+  ignored: ()
+}
+impl User {
+  pub new(name: str, age: int): Self { Self { age: age, ignored: (), name: name } }
+  pub label(user: Self) { user.name + ": " + str(user.age) }
+  pub birthday(user: &Self) { user.age++ }
+  pub rename(user: &Self, name: str) { user.name = name }
+}
+Box { user: User }
+main() {
+  let user = User.new("Bob", 20)
+  let alias = user
+  user.birthday()
+  alias.rename("Robert" + "!")
+  print(user.label()) // expect: Robert!: 21
+  user.age += 2
+  user.age--
+  print(alias.label()) // expect: Robert!: 22
+  let box = Box { user: user }
+  box.user.age = 23
+  print(user.label()) // expect: Robert!: 23
+  print(str(User.label(user) == user.label())) // expect: true
+  box.user = User.new("Jane", 30)
+  print(box.user.label()) // expect: Jane: 30
+  print(alias.label()) // expect: Robert!: 23
+}

@@ -1,0 +1,19 @@
+echo(text: str): str { text }
+main() {
+  let prefix = "Hello "
+  var text = prefix + "world"
+  let alias = text
+  text += "!"
+  print(text) // expect: Hello world!
+  print(echo(alias)) // expect: Hello world
+  print("[" + prefix + "]") // expect: [Hello ]
+  text = text
+  print(text) // expect: Hello world!
+  print("a\0" + "b") // expect: a\0b
+  print("" + "") // expect:
+  print(str(("a\0z" < "a\0zz") and ("a\0b" > "a\0a"))) // expect: true
+  print(str("a" == ("" + "a"))) // expect: true
+  print(str("z" != "zz")) // expect: true
+  print(str("é" > "z")) // expect: true
+  print(str("" <= "" and "abc" >= "abc")) // expect: true
+}

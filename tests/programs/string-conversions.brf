@@ -1,0 +1,29 @@
+main() {
+  let a: shrt = -32768
+  let b: ushrt = 65535
+  let c: int = -2147483648
+  let d: uint = 4294967295
+  let e: lng = -9223372036854775808
+  let f: ulng = 18446744073709551615
+  print(str(a)) // expect: -32768
+  print(str(b)) // expect: 65535
+  print(str(c)) // expect: -2147483648
+  print(str(d)) // expect: 4294967295
+  print(str(e)) // expect: -9223372036854775808
+  print(str(f)) // expect: 18446744073709551615
+  print(str(true)) // expect: true
+  print(str(false)) // expect: false
+  print(str(0)) // expect: 0
+  let single: flt = 0.1
+  print(str(single)) // expect: 0.1
+  print(str(0.1)) // expect: 0.1
+  print(str(10.0)) // expect: 10
+  print(str(1000.0)) // expect: 1000
+  let huge: dub = 1234567890123456700000
+  print(str(huge)) // expect: 1234567890123456774144
+  print(str(0.0)) // expect: 0
+  print(str(-0.0)) // expect: -0
+  print(str(1.0 / 0.0)) // expect: inf
+  print(str(-1.0 / 0.0)) // expect: -inf
+  print(str(0.0 / 0.0)) // expect: nan
+}

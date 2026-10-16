@@ -1,0 +1,44 @@
+Box { text: str }
+identity(box: Box): Box { box }
+choose(flag: bool) {
+  let outer = "outer" + " owner"
+  if flag {
+    let box = Box { text: outer }
+    ret identity(box)
+  }
+  Box { text: "tail" + " result" }
+}
+step(box: &Box, index: int): str {
+  if index == 2 { ret box.text }
+  box.text = box.text + "."
+  box.text
+}
+main() {
+  print(choose(true).text) // expect: outer owner
+  print(choose(false).text) // expect: tail result
+  let box = Box { text: "x" + "y" }
+  for i in 0..100 {
+    let local = Box { text: str(i) }
+    if i < 50 { continue }
+    if i > 60 { break }
+    for j in 0..3 {
+      let inner = Box { text: local.text + str(j) }
+      if j == 0 { continue }
+      if j == 1 { break }
+    }
+    step(box, 2)
+  }
+  var n = 0
+  while n < 10 {
+    let local = choose(n == 0)
+    n++
+    if n < 5 { continue }
+    if n == 8 { break }
+    step(box, 0)
+  }
+  print(box.text) // expect: xy...
+  let selected = if true { choose(true) } else { choose(false) }
+  print(selected.text) // expect: outer owner
+  let text = if false { "left" + " string" } else { "right" + " string" }
+  print(text) // expect: right string
+}

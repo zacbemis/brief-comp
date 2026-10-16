@@ -1,0 +1,7 @@
+Box { value: str }
+main() {
+  let box = Box { value: "heap" + " object" }
+  var n: shrt = 32767
+  box.value += "!"
+  n++ // panic: integer overflow
+}

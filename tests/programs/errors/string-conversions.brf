@@ -1,0 +1,10 @@
+Box {}
+main(): () {
+  str() // error: str expects exactly one number or bool argument.
+  str(1, 2) // error: str expects exactly one number or bool argument.
+  str(()) // error: str expects a number or bool argument.
+  str("text") // error: str expects a number or bool argument.
+  str('x') // error: str expects a number or bool argument.
+  str(Box {}) // error: str expects a number or bool argument.
+  "x" + 1 // error: Operator operands must have the same type; numeric conversions are explicit.
+}

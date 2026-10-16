@@ -1,0 +1,17 @@
+Box { n: int }
+Holder { child: Box }
+mutate(value: &Box) { value.n++ }
+readOnly(value: Box) {
+  value.n = 2 // error: Cannot mutate through an ordinary parameter; use &.
+  value.n++ // error: Cannot mutate through an ordinary parameter; use &.
+  mutate(value) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+}
+nested(value: Holder) {
+  value.child.n += 1 // error: Cannot mutate through an ordinary parameter; use &.
+  mutate(value.child) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+}
+replace(value: &Box) {
+  value = Box { n: 0 } // error: Cannot reassign an immutable binding.
+}
+primitive(value: &int) {} // error: Mutable borrowing currently requires a struct type.
+main() {}

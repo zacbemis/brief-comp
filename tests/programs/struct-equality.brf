@@ -1,0 +1,22 @@
+Leaf {
+  text: str
+  n: int
+  ignored: ()
+}
+Tree {
+  left: Leaf
+  right: Leaf
+}
+Empty {}
+FloatBox { value: dub }
+main() {
+  let a = Tree { left: Leaf { text: "a" + "b", n: 1, ignored: () }, right: Leaf { text: "c", n: 2, ignored: () } }
+  let b = Tree { right: Leaf { ignored: (), n: 2, text: "c" }, left: Leaf { text: "ab", n: 1, ignored: () } }
+  print(str(a == b)) // expect: true
+  b.left.n++
+  print(str(a != b)) // expect: true
+  print(str(Empty {} == Empty {})) // expect: true
+  let nan = FloatBox { value: 0.0 / 0.0 }
+  print(str(nan == nan)) // expect: false
+  print(str(nan != nan)) // expect: true
+}

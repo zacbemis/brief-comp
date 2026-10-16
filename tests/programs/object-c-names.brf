@@ -1,0 +1,17 @@
+string { auto: str }
+A_B { value: int }
+A { value: int }
+impl string {
+  new(auto: str): Self { Self { auto: auto } }
+  get(value: Self) { value.auto }
+}
+impl A_B { c(value: Self) { value.value } }
+impl A { B_c(value: Self) { value.value } }
+method_3_A_B_c() { "top" }
+main() {
+  let value = string.new("heap" + " string")
+  print(value.get()) // expect: heap string
+  print(str(A_B { value: 1 }.c())) // expect: 1
+  print(str(A { value: 2 }.B_c())) // expect: 2
+  print(method_3_A_B_c()) // expect: top
+}
