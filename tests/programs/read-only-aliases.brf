@@ -3,6 +3,9 @@ Q { p: P }
 make(name: str): P { P { name: name } }
 same(p: P): P { p }
 text(p: P): str { p.name }
+// A Report holds only a str, so it cannot contain the read-only P it reads.
+Report { name: str }
+impl Report { new(p: P): Self { Self { name: p.name } } }
 read(q: Q, flag: bool) {
   let inner = q.p
   print(inner.name)
@@ -29,6 +32,9 @@ read(q: Q, flag: bool) {
   let wrapper = Q { p: P { name: text(q.p) } }
   wrapper.p.name += " literal"
   print(wrapper.p.name)
+  let report = Report.new(q.p)
+  report.name += " report"
+  print(report.name)
 }
 change(q: &Q) {
   let inner = same(q.p)
@@ -46,6 +52,7 @@ main() {
   // expect: 2
   // expect: original call
   // expect: original literal
+  // expect: original report
   print(q.p.name) // expect: original
   change(q)
   print(q.p.name) // expect: allowed through &

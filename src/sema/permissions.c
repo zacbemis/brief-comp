@@ -3,9 +3,10 @@
 
 // Access permission is separate from ownership: retaining a reference does not
 // upgrade it. State bits mean "may hold a read-only struct reference". Direct
-// copies propagate the bit, as do struct call results with read-only arguments
-// and struct literals with read-only children. These are conservative local
-// access rules, not deep const or a function purity guarantee.
+// copies propagate the bit, as do struct literals with read-only children and
+// struct call results whose type can reach a read-only argument's objects.
+// These are local access rules, not deep const or a function purity
+// guarantee.
 typedef unsigned char *State;
 typedef struct Loop Loop;
 struct Loop {
@@ -22,6 +23,10 @@ struct Header {
 typedef struct {
   Arena *arena;
   Diagnostics *errors;
+  // reach[a * structs + b]: a value of struct a can lead, through fields, to a
+  // value of struct b (including a == b). Strings are immutable and ignored.
+  const unsigned char *reach;
+  size_t structs;
   size_t count;
   int probe, active, changed;
   Loop *loop;
@@ -49,6 +54,42 @@ static void error(Permissions *p, Span span, const char *message) {
     diagnostics_error(p->errors, span, message);
 }
 static int visit(Permissions *p, SemaExpr *e, State state);
+// A call result can only hold objects from a read-only argument when some
+// struct type is reachable from both: identity calls and getters returning a
+// field are caught, while a constructor building a User from a Json is not.
+static int may_share(const Permissions *p, const SemaType *a,
+                     const SemaType *b) {
+  if (!a || !b || a->kind != SEMA_STRUCT || b->kind != SEMA_STRUCT)
+    return 0;
+  const unsigned char *x = p->reach + a->structure->id * p->structs;
+  const unsigned char *y = p->reach + b->structure->id * p->structs;
+  for (size_t i = 0; i < p->structs; i++)
+    if (x[i] && y[i])
+      return 1;
+  return 0;
+}
+static const unsigned char *reachability(SemaProgram *program) {
+  size_t n = program->struct_count;
+  unsigned char *reach = arena_calloc(program->arena, n * n, 1);
+  size_t *work = arena_calloc(program->arena, n, sizeof(*work));
+  for (size_t from = 0; from < n; from++) {
+    unsigned char *row = reach + from * n;
+    size_t top = 0;
+    row[from] = 1;
+    work[top++] = from;
+    while (top) {
+      const SemaStruct *s = &program->structs[work[--top]];
+      for (size_t f = 0; f < s->count; f++) {
+        const SemaType *type = s->fields[f].type;
+        if (type && type->kind == SEMA_STRUCT && !row[type->structure->id]) {
+          row[type->structure->id] = 1;
+          work[top++] = type->structure->id;
+        }
+      }
+    }
+  }
+  return reach;
+}
 static Loop loop(Permissions *p) {
   return (Loop){
       .breaks = copy(p, NULL), .continues = copy(p, NULL), .outer = p->loop};
@@ -120,8 +161,9 @@ static int visit(Permissions *p, SemaExpr *e, State state) {
   case SEMA_EXPR_ASSIGN:
   case SEMA_EXPR_UPDATE: {
     SemaExpr *target = e->as.binding.target;
+    int parent = 0;
     if (target) {
-      int parent = visit(p, target->as.field.object, state);
+      parent = visit(p, target->as.field.object, state);
       if (parent && target->as.field.field && target->type &&
           target->type->kind >= SEMA_UNIT)
         error(p, target->span,
@@ -140,7 +182,7 @@ static int visit(Permissions *p, SemaExpr *e, State state) {
       SemaExpr *arg = e->as.call.args[i];
       int value =
           visit(p, arg, state); // Capture before later arguments rebind names.
-      readonly |= value;
+      readonly |= value && may_share(p, e->type, arg->type);
       SemaSymbol *s = e->as.call.target;
       if (value && s && i < s->arity && s->params[i]->data_mutable &&
           arg->type == s->params[i]->type)
@@ -239,10 +281,13 @@ static int visit(Permissions *p, SemaExpr *e, State state) {
   return structure(e) && readonly;
 }
 void sema_check_permissions(SemaProgram *program, Diagnostics *errors) {
+  const unsigned char *reach = reachability(program);
   for (size_t i = 0; i < program->count; i++) {
     SemaFunction *f = &program->functions[i];
     Permissions p = {.arena = program->arena,
                      .errors = errors,
+                     .reach = reach,
+                     .structs = program->struct_count,
                      .count = f->variable_count,
                      .active = 1};
     State entry = copy(&p, NULL);

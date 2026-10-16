@@ -45,11 +45,12 @@ viaLiteral(q: Q) {
   wrapper.p.name = "changed through a new struct literal" // error: Cannot mutate through an ordinary parameter; use &.
   mutate(wrapper.p) // error: A mutable argument cannot be borrowed through an ordinary parameter.
 }
-Report { name: str }
-impl Report { new(p: P): Self { Self { name: p.name } } }
-freshReport(q: Q) {
-  let report = Report.new(q.p)
-  report.name = "fresh but conservatively read-only" // error: Cannot mutate through an ordinary parameter; use &.
+// A result type that can reach the argument's types may hold its objects.
+Holder { p: P }
+impl Holder { new(p: P): Self { Self { p: p } } }
+holderCall(q: Q) {
+  let holder = Holder.new(q.p)
+  holder.p.name = "a Holder can contain the P" // error: Cannot mutate through an ordinary parameter; use &.
 }
 Wrapper { p: P
   name: str }
