@@ -40,10 +40,9 @@ impl User {
   }
 
   pub toJson(user: User): Json {
-    Json.object({
-      "name": user.name,
-      "age": user.age
-    })
+    Json.object()
+      |> set("name", Json.str(user.name))
+      |> set("age", Json.int(user.age))
   }
 }
 ```

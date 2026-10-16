@@ -20,13 +20,13 @@ The pipeline itself does not automatically unwrap symbols.
 ## Function calls
 
 ```
-json |> parse() |> validate()
+text |> trim() |> lower()
 ```
 
 is equivalent to:
 
 ```
-validate(parse(json))
+lower(trim(text))
 ```
 
 Further arguments follow the piped value: `x |> f(a)` is `f(x, a)`.
@@ -130,9 +130,11 @@ Matching on a comparison needs parentheses.
 
 ## Value transformations
 
+A match arm whose pattern is a name binds the whole value.
+
 ```
 10 |> {
-  (x) => x * 2
+  x => x * 2
 }
 ```
 

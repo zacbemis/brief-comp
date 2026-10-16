@@ -287,7 +287,7 @@ pub add(collection: &UserCollection, user: User): () {
 // returns nothing
 ```
 
-A `Sym` is never dropped this way.
+A `Sym` that can fail, one with an `:ok` variant and at least one other variant, is never dropped this way.
 
 ```
 closeLog(file: &File): () {
@@ -301,13 +301,13 @@ closeLog(file: &File): () {
 
 ## Unused values
 
-A call whose result is not a `Sym` may be written as a statement, and its result is ignored.
+Every function returns a `Sym` (`lang-errors.txt`, section 9), but only a result that can fail must be handled. A call whose result cannot fail may be written as a statement, and its result is ignored. That includes a result that can only be `:ok`, and a `Sym` with no `:ok` variant, which is ordinary data.
 
 ```
 users.len()             // allowed: the int is ignored
 ```
 
-A call whose result is a `Sym` must be used. `lang-errors.txt` lists the accepted ways.
+A call whose result can fail must be handled where it is made. `lang-errors.txt` lists the accepted ways.
 
 ```
 file.close()            // Compiler error: the result is not used
@@ -324,8 +324,8 @@ reads the target's old value before evaluating the right side.
 
 ```
 user.getName()     // getName belongs to User
-print(user)        // print does not belong to User
-user |> print()    // the same call, written as a pipeline
+save(user)         // save does not belong to User
+user |> save()     // the same call, written as a pipeline
 ```
 
 Method-call syntax `x.f()` is only valid when `f` belongs to the type of `x`: it is defined in an `impl` block for that type, or in a trait the type implements, and takes the value as its first parameter.

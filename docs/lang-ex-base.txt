@@ -125,9 +125,10 @@ pub trait HasUser{
     value.getUser().age
   }
 
-  pub getAgeRange(value: Self): Sym<:ofAge, :old> {
+  pub getAgeRange(value: Self): Sym<:negative, :ofAge, :old> {
     value.getAge() |> {
-      18..100 => :ofAge
+      < 0 => :negative
+      0..100 => :ofAge
       >= 100 => :old
     }
   }
@@ -158,11 +159,10 @@ impl User: HasUser {
   }
 
   pub toJson(user: User): Json {
-    Json.object({
-      "name": user.name,
-      "age": user.age,
-      "Version": user.userVer,
-    })
+    Json.object()
+      |> set("name", Json.str(user.name))
+      |> set("age", Json.int(user.age))
+      |> set("Version", Json.flt(user.userVer))
   }
 }
 
@@ -180,7 +180,7 @@ impl Admin: User.HasUser {
   getUser(admin: Admin): User {admin.user}
 
   ovr pub getName(admin: Admin): str {
-    Admin.getUser().name
+    admin.getUser().name
   }
 
   // ending with a plain value returns :ok of it
@@ -197,7 +197,7 @@ pub UserCollection {
 }
 
 impl UserCollection {
-  pub new(): userCollection {
+  pub new(): UserCollection {
     UserCollection {
       userVec: Vec<User>()
       userVersion: User.VERSION
@@ -212,7 +212,7 @@ impl UserCollection {
     let users = json.getArray("users")?
     let collection = UserCollection.new()
 
-    for user in users {
+    for item in users {
       let user = User.fromJson(item)?
       collection.add(user)
     }
@@ -221,9 +221,8 @@ impl UserCollection {
   }
 
   pub toJson(collection: UserCollection): Json {
-    Json.object({
-      "users": collection.userVec |> select((user) => user.toJson())
-    })
+    Json.object()
+      |> set("users", Json.array(collection.userVec |> select((user) => user.toJson())))
   }
 
   pub findByName(collection: UserCollection, name: str): Sym<:found(User), :missing> {
@@ -242,7 +241,7 @@ impl UserCollection {
     collection.userVec.len()
   }
 
-  pub olderThan(collection: UserCollection, age: int): User[] {
+  pub olderThan(collection: UserCollection, age: int): Vec<User> {
     collection.userVec |> where((user) => user.getAge() > age)
   }
 }
@@ -263,7 +262,7 @@ const user = User.new("Bob", 20)! // panic
 // or
 const user = User.new("Bob", 20) |> {
   :ok(user) => user
-  :err(error) => error
+  :err(error) => ret :err(error)
 }
 
 const message = user.getAgeRange() |> {
@@ -275,8 +274,8 @@ const message = user.getAgeRange() |> {
 // x.f() only works when f belongs to x
 user.getName()
 // otherwise call it directly or pipe it
-print(user)
-user |> print()
+save(user)
+user |> save()
 
 // pipe passes the value as the first argument like elixir
 // ? after a step works the same as on a normal call

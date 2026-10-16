@@ -70,6 +70,8 @@ const MAX_USERS = 100
 
 `let` prevents reassigning the variable, but does not inherently make the referenced object immutable.
 
+The table describes the binding itself. A struct value read from an ordinary (non-`&`) parameter stays read-only whichever binding holds it (`lang-memory.txt`, "Mutable borrow").
+
 `var` allows the binding to be reassigned.
 
 `const` provides immutable data in addition to an immutable binding.
@@ -340,7 +342,7 @@ while count < 10 {
 
 ```
 for i in 0..10 {
-  print(i)          // 0 through 9
+  print(str(i))     // 0 through 9
 }
 
 for user in users {

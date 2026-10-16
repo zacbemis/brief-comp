@@ -295,7 +295,7 @@ let groups = users |> groupBy((user) => user.getTier())
 let byTier = users |> toMap((user) => user.getTier())   // Map<Tier, Vec<User>>
 
 byTier |> get(:gold) |> {
-  :ok(golds) => print(golds |> count())
+  :ok(golds) => print(golds |> count() |> str())
   :none => print("No gold users")
 }
 ```

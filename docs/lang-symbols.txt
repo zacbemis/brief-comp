@@ -7,14 +7,14 @@ One of the language's central features is its typed symbol system.
 `Sym` is a tagged union that can represent multiple possible outcomes.
 
 ```
-Sym<:ok(User), :err(str)>
+Sym<:ok(User), :invalidAge(int)>
 ```
 
 A function returning this type can produce either:
 
 ```
 :ok(user)
-:err("Invalid user")
+:invalidAge(15)
 ```
 
 Symbols can also carry no payload.
@@ -70,7 +70,7 @@ This reduces the need for separate `Result`, `Option`, exception, and ad hoc sta
 
 Functions returning recoverable errors must expose them through their types.
 
-The compiler should prevent those errors from being silently discarded.
+The compiler prevents those errors from being silently discarded: a call that can fail must be handled where it is made.
 
 The standard library reports errors through the same `Sym` mechanism as user programs. There is no separate error system for library code.
 
@@ -99,11 +99,11 @@ This extracts the successful value or panics on failure.
 ```
 User.new("Bob", 20) |> {
   :ok(user) => print(user.getName())
-  :err(error) => print(error)
+  :invalidAge(age) => print("Not a valid age: " + str(age))
 }
 ```
 
-The compiler should require acknowledgement of all possible outcomes when exhaustiveness is required.
+Every match must cover every outcome (`lang-pipelines.txt`, "Exhaustiveness").
 
 ## Composable error variants
 

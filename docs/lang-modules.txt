@@ -244,9 +244,9 @@ Constructors are ordinary associated functions, conventionally named `new`.
 They are not required to have special object-oriented inheritance behavior.
 
 ```
-pub new(name: str, age: int): Sym<:ok(User), :err(str)> {
+pub new(name: str, age: int): Sym<:ok(User), :invalidAge(int)> {
   if age < 18 {
-    ret :err("Age is too low")
+    ret :invalidAge(age)
   }
 
   :ok(User {

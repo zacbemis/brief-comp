@@ -247,7 +247,7 @@ File.open("data.txt") |> {
 
 ## 6. A `Sym` that can fail cannot be discarded
 
-A call whose result has a variant other than `:ok` must be handled where it is made.
+A call whose result can fail, meaning it has an `:ok` variant and at least one other variant, must be handled where it is made.
 
 ```
 file.close()                // Compiler error: the result is not handled
@@ -368,7 +368,7 @@ items |> select((json) => User.fromJson(json)?)    // Sym<:ok(Vec<User>), Json.E
 
 ## 10. A call that can fail is handled where it is made
 
-A call whose result has a variant other than `:ok` must be handled at the call, with `?`, `!`, or a match block. This applies in every position, including the last line of a function and the body of a lambda.
+A call whose result can fail must be handled at the call, with `?`, `!`, or a match block. This applies in every position, including the last line of a function and the body of a lambda.
 
 ```
 loadJson(path: str) {

@@ -93,6 +93,8 @@ let small = int(big)?             // Sym<:ok(int), :overflow>: big may not fit i
 print(str(count))                 // always succeeds
 ```
 
+`print` takes a `str`. Other values are converted first with `str(...)`.
+
 Converting a value of your own type, as in `str(user)`, will need a way for the type to say how it converts. That is planned as a trait.
 
 M4 currently implements `str(number)` and `str(bool)`, with exactly one argument.
@@ -335,7 +337,7 @@ let ages = Map<str, int>()
 ages |> set("Bob", 20)
 
 ages |> get("Bob") |> {
-  :ok(age) => print(age)
+  :ok(age) => print(str(age))
   :none => print("No Bob")
 }
 ```
