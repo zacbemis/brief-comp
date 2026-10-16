@@ -10,7 +10,9 @@ add(x: int, y: int): int {
 }
 ```
 
-The last expression is implicitly returned.
+The last expression is implicitly returned. Ordinary parameters are immutable
+bindings: the function cannot reassign them. A `&` parameter permits changing
+the borrowed data, not replacing the parameter binding.
 
 Explicit returns use `ret`.
 
@@ -138,6 +140,19 @@ Exhaustive matching, `?`, and `!` behave the same whichever form is used.
 ### Inferred
 
 The compiler reads every value the body can produce and builds the return type from them.
+For plain primitive values, reachable explicit returns and the fallthrough tail
+must agree on one type. Context is shared across these return paths when typing
+number literals; already-typed numbers are never implicitly converted. Statements
+after an unconditional return are still checked, but do not contribute a return
+type.
+
+Recursive functions are checked together. A return type with no independent
+anchor, as in `f() { f() }`, needs a written annotation. This is a type-inference
+requirement, not a restriction on recursion.
+
+Current compiler limitation: runtime calls use the host C stack. Sufficiently
+deep recursion may exhaust that stack and crash rather than produce a Brief
+panic. Tail-call elimination is not guaranteed.
 
 ```
 double(x: int) {
@@ -291,6 +306,13 @@ A call whose result is a `Sym` must be used. `lang-errors.txt` lists the accepte
 ```
 file.close()            // Compiler error: the result is not used
 ```
+
+## Evaluation order
+
+Operator operands and function arguments are evaluated from left to right.
+`and` and `or` short-circuit: the right operand is evaluated only when needed.
+Assignment evaluates the target before the right side; compound assignment
+reads the target's old value before evaluating the right side.
 
 ## Call syntax
 

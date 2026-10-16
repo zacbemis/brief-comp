@@ -200,7 +200,10 @@ main() {
 }
 ```
 
-A program starts at the `main()` function of the file given to the compiler.
+A program starts at the zero-argument `main()` function of the file given to
+the compiler. Returning a plain value (including `()`) is successful: the value
+is discarded and the process exits with status 0. A numeric result is not a
+process exit status.
 
 `main()` may return errors without handling them. If it does, the program prints the error symbol and its payload to standard error and exits with status 1.
 

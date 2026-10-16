@@ -44,6 +44,15 @@ let count = 10             // int
 let ratio = 0.5            // dub
 ```
 
+Whole-number literals may take any numeric type, including `flt` or `dub`.
+A literal with a decimal point takes `flt` or `dub`, not an integer type.
+An integer literal outside its contextual integer type's range is a compile
+error; a directly negated literal may represent the signed minimum. Floating
+literals round directly to their destination precision, without an intermediate
+rounding to another type. Subnormal results and underflow to signed zero are
+allowed; overflow to infinity is a compile error. A literal slightly larger
+than the largest finite value is allowed if it still rounds to that value.
+
 A constant that is meant to be a `flt` therefore needs the annotation.
 
 ```
@@ -117,6 +126,8 @@ The names of these functions are not final.
 ### Division
 
 Integer division truncates toward zero, and the remainder has the sign of the left operand. This matches C.
+Dividing a signed minimum by `-1` panics because the result is out of range;
+the corresponding remainder is safely `0`.
 
 ```
 7 / 2        // 3
@@ -131,6 +142,30 @@ Integer division or remainder by zero panics.
 ```
 let ratio = total / count  // panics when count is 0
 ```
+
+### Power, bitwise operators, and shifts
+
+Both operands of an arithmetic or bitwise operator have the same numeric type;
+literals take that type from their context. `%` and the bitwise operators
+require integers. `chr` and `bool` are not numeric types.
+
+Integer `**` takes a nonnegative exponent; a negative exponent panics. It uses
+checked multiplication, and `0 ** 0` is `1`. Floating-point power accepts
+floating-point exponents, including negative ones.
+
+A shift count must be at least zero and less than the operand type's bit width;
+otherwise it panics, even when the value being shifted is zero. Left shift is
+checked multiplication by a power of two, including for negative signed values.
+Signed right shift is arithmetic: it preserves the sign, so `-3 >> 1` is `-2`.
+Unsigned right shift fills with zeroes.
+
+### Floating-point arithmetic
+
+`flt` and `dub` use IEEE binary32 and binary64 arithmetic. Overflow produces
+infinity, and invalid real operations produce NaN. Floating-point division by
+zero does not panic: a nonzero numerator produces signed infinity, and zero
+divided by zero produces NaN. Signed zero is preserved. NaN compares unequal
+to every value, including itself.
 
 ## Strings and characters
 
@@ -173,6 +208,8 @@ let message = "first\nsecond"   // one source line, a newline in the value
 ```
 
 A `chr` is one byte. A character outside ASCII takes more than one `chr`.
+Characters compare by their unsigned byte values; arithmetic on characters
+requires an explicit numeric conversion.
 
 ```
 let letter: chr = 'a'

@@ -82,6 +82,12 @@ var counter = 0
 counter = counter + 1         // allowed
 ```
 
+Names are visible after their declaration, not inside their own initializer.
+An initializer can still refer to an outer binding with the same name. A name
+cannot be declared twice in one lexical scope; an inner block may shadow an
+outer name. Function parameters are immutable bindings, as are `for` loop
+iteration bindings.
+
 The previous `const var` combination has been removed from the current design.
 
 ### Type annotations
@@ -134,6 +140,13 @@ x /= y
 x %= y
 ```
 
+Increment (`x++`) and decrement (`x--`) are standalone statements, not
+expressions. They update a mutable numeric target by one and produce no value,
+not even the old value. Their target must be a binding, field, or indexed
+element, as for assignment. Prefix `++x` and `--x` are not supported.
+`let old = x++`, `f(x++)`, and `while count++ < 3 { ... }` are syntax errors;
+write the update as a separate statement.
+
 Assignment (`=`) and compound assignment (`+=`, `-=`, `*=`, `/=`, `%=`) are
 standalone statements, not expressions. They produce no value and do not chain.
 The target must be a binding, field, or indexed element. For example, `a = b`
@@ -182,7 +195,7 @@ if !user.isActive() or user.isBanned() {
 
 Operators earlier in this list bind tighter than operators after them.
 
-1. Postfix: `f()` `x.y` `x[i]` `?` `!` `++` `--`
+1. Postfix: `f()` `x.y` `x[i]` `?` `!`
 2. Power: `**`
 3. Prefix: `-x` `!x` `~x`
 4. `*` `/` `%`
@@ -197,7 +210,7 @@ Operators earlier in this list bind tighter than operators after them.
 13. `and`
 14. `or`
 
-Operators on the same level group left to right. `**` groups right to left. `..` and the comparison operators do not chain. Assignment is statement-only, so it has no expression precedence.
+Operators on the same level group left to right. `**` groups right to left. `..` and the comparison operators do not chain. Assignment, increment, and decrement are statement-only, so they have no expression precedence.
 
 ### Arithmetic
 
@@ -289,6 +302,9 @@ if age < 18 {
 ```
 
 `if` produces a value, so it can be assigned. Each branch's last expression is that branch's value.
+When the value is used, branches that reach their end must have compatible
+types. When it is discarded, including at the tail of a `: ()` function,
+branch values are ignored individually.
 
 ```
 let label = if age < 18 {
@@ -332,7 +348,14 @@ for user in users {
 }
 ```
 
-A range `a..b` includes `a` and excludes `b`.
+A range `a..b` includes `a` and excludes `b`. Its bounds are integers of the
+same type and are evaluated once, left to right, before the loop starts. It
+walks upward by one; when `a >= b`, the body does not run. The iteration binding
+is immutable and is visible only in the loop body. `continue` advances to the
+next value before testing the bound again.
+
+`while` and `for` are statements producing `()`, not value-producing
+expressions; their results cannot be assigned or passed as arguments.
 
 ### `break` and `continue`
 
