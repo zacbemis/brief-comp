@@ -1,6 +1,8 @@
 P { name: str }
 Q { p: P }
 make(name: str): P { P { name: name } }
+same(p: P): P { p }
+text(p: P): str { p.name }
 read(q: Q, flag: bool) {
   let inner = q.p
   print(inner.name)
@@ -21,10 +23,17 @@ read(q: Q, flag: bool) {
   var copied = 1
   copied++
   print(str(copied))
+  let called = same(make(inner.name))
+  called.name += " call"
+  print(called.name)
+  let wrapper = Q { p: P { name: text(q.p) } }
+  wrapper.p.name += " literal"
+  print(wrapper.p.name)
 }
 change(q: &Q) {
-  let inner = q.p
-  inner.name = "allowed through &"
+  let inner = same(q.p)
+  let wrapper = Q { p: inner }
+  wrapper.p.name = "allowed through &"
 }
 main() {
   let q = Q { p: P { name: "original" } }
@@ -35,6 +44,8 @@ main() {
   // expect: loop!
   // expect: original copy
   // expect: 2
+  // expect: original call
+  // expect: original literal
   print(q.p.name) // expect: original
   change(q)
   print(q.p.name) // expect: allowed through &

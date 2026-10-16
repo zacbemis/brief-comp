@@ -50,7 +50,9 @@ scope/loop/early-return cleanup; fieldwise equality including NaN; generated-nam
 collisions; and a panic with live heap objects. Negative fixtures check fields,
 conversion boundaries, and mutation permissions. Read-only alias fixtures cover
 local/field copies, reassignment, branch joins, loop backedges/exits, and fresh
-rebinding without changing the caller's original object. Every executable fixture runs in
+rebinding without changing the caller's original object. Call results and struct
+literals propagate read-only struct inputs to the whole result, including
+conservative rejection of genuinely fresh constructors and unrelated fields. Every executable fixture runs in
 normal and sanitizer configurations, and normal debug exit reports remaining owners.
 
 These are compilation/execution tests for the current subset, not the much

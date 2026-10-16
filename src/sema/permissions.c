@@ -3,8 +3,9 @@
 
 // Access permission is separate from ownership: retaining a reference does not
 // upgrade it. State bits mean "may hold a read-only struct reference". Direct
-// copies propagate the bit; fresh literals/call results start writable. These
-// are local access rules, not deep const or a function purity guarantee.
+// copies propagate the bit, as do struct call results with read-only arguments
+// and struct literals with read-only children. These are conservative local
+// access rules, not deep const or a function purity guarantee.
 typedef unsigned char *State;
 typedef struct Loop Loop;
 struct Loop {
@@ -139,6 +140,7 @@ static int visit(Permissions *p, SemaExpr *e, State state) {
       SemaExpr *arg = e->as.call.args[i];
       int value =
           visit(p, arg, state); // Capture before later arguments rebind names.
+      readonly |= value;
       SemaSymbol *s = e->as.call.target;
       if (value && s && i < s->arity && s->params[i]->data_mutable &&
           arg->type == s->params[i]->type)
@@ -147,15 +149,14 @@ static int visit(Permissions *p, SemaExpr *e, State state) {
               "parameter.");
       p->active = p->active && (arg->flow & SEMA_NEXT);
     }
-    break; // An owned call result is a writable access boundary, not deep
-           // const.
+    break; // Ownership does not upgrade access; primitive results stay values.
   case SEMA_EXPR_STRUCT:
     for (size_t i = 0; i < e->as.structure.count; i++) {
       SemaExpr *value = e->as.structure.values[i];
-      visit(p, value, state);
+      readonly |= visit(p, value, state);
       p->active = p->active && (value->flow & SEMA_NEXT);
     }
-    break; // A new struct is writable; shared children are not frozen.
+    break; // Conservatively restrict the whole object, not individual fields.
   case SEMA_EXPR_RETURN:
     if (e->as.value)
       visit(p, e->as.value, state);

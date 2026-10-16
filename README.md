@@ -97,7 +97,9 @@ Compilation supports:
   numeric field updates, `impl`, associated/receiver calls, and `Self`.
   Ordinary parameters and their direct local/field aliases are read-only; `&`
   struct parameters permit mutation. Permissions propagate through rebinding and
-  control flow; fresh literals and owned call results permit writable access.
+  control flow. Struct call results inherit read-only access from any read-only
+  struct argument; literals inherit it from any read-only struct initializer.
+  This conservatively restricts the whole result, even if it is actually fresh.
   References share objects rather than copying them (this is not `const` or purity).
 - Fieldwise equality for nonrecursive structs. Reference counting owns locals,
   temporaries, fields and returns; parameters borrow. Every scope exit and early
