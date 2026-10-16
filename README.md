@@ -4,8 +4,9 @@ Brief is an experimental statically typed language. The first compiler is
 written in C and emits readable C, then invokes an existing C compiler to
 produce a native program.
 
-**Current state: milestones 0–2 are implemented**, including the end-to-end
-walking skeleton. Compilation supports only the narrow subset below; the parser
+**Current state: milestones 0–3 are implemented**, including native compilation,
+numbers, bindings, control flow, and function return inference. Compilation
+supports the subset below; the parser
 accepts much more syntax. Most examples in the design docs still describe future
 features, not programs that can currently be compiled.
 
@@ -67,27 +68,44 @@ enforce error handling, or check match exhaustiveness.
 ./build/brief build tests/programs/hello.brf -o hello
 ./hello
 ./build/brief emit-c tests/programs/hello.brf > hello.c
-cc -std=c11 hello.c -o hello
+cc -std=c11 hello.c -lm -o hello
 ./build/brief run --debug tests/programs/hello.brf
 ```
 
-Milestone 2 compiles zero-argument, unit-returning functions, including forward
-calls, string literals, `()`, `ret`, and `print(str)` in function bodies. `print`
-writes the string's bytes followed by a newline, including embedded zero bytes.
-An explicit `: ()` discards the final value; inferred non-unit returns are not
-implemented. `main()` is required. Duplicate functions, unknown calls, and
-incorrect argument counts/types are diagnosed before invoking C compilation.
-The name `print` is reserved for the builtin in this subset.
+Compilation supports:
 
-Numbers, bindings, parameters, recursion, structs, symbols, pipelines, and other
-later-milestone features produce explicit unsupported-feature diagnostics.
-The call-graph traversal limits recursive descent to 128 function levels.
-`dump-ast` remains syntax-only and does not impose these compilation limits.
+- Every integer and floating-point type, contextual decimal literals, `bool`,
+  `chr`, permanent strings, and `()`; no implicit numeric conversions.
+- Arithmetic, numeric/character comparisons, bool/unit equality, bitwise
+  operations, and short-circuit logic. Integer
+  overflow, integer division/remainder by zero, invalid shifts, and negative
+  integer exponents panic in every build, with the Brief file and line.
+- Lexical `let`/`var` bindings, optional annotations, assignments, compound
+  assignments, and standalone `x++`/`x--` statements (no update expressions).
+- Value-producing `if`/`else`, `while`, half-open ascending range `for` loops,
+  and innermost-loop `break`/`continue`.
+- Typed parameters, forward calls, recursion, written or inferred primitive
+  return types, `ret`, and implicit tail returns. Unanchored recursive return
+  types need annotations; call-graph analysis uses explicit work stacks, not
+  the old 128-function depth limit. Runtime recursion still uses the host C
+  stack and may exhaust it rather than panic; tail-call elimination is not
+  guaranteed.
+
+`main()` is required and cannot have parameters. Its plain result is discarded;
+success exits 0. An explicit `: ()` discards a function's tail value, but not an
+explicit non-unit `ret`. `print` remains a reserved top-level builtin taking exactly one
+`str`; it writes bytes plus a newline, including embedded zero bytes. Numeric
+results in the program tests are observed through comparisons and branches.
+
+`const`, numeric conversions, string operations, heap strings, structs, symbols,
+pipelines, mutable
+borrow parameters, and other later-milestone features produce explicit
+unsupported-feature diagnostics. `dump-ast` remains syntax-only.
 
 `CC` names a **single executable** (default `cc`), not a shell command with
 flags. Paths containing spaces work; use an executable wrapper for extra flags
 or compiler launchers such as `ccache gcc`.
-Native compilation uses `-std=c11 -O2`; `--debug` instead selects `-O0 -g`, ASan,
+Native compilation uses `-std=c11 -O2` and links `-lm`; `--debug` instead selects `-O0 -g`, ASan,
 and UBSan. `build` defaults to `a.out` and atomically replaces the requested
 output only after successful C compilation. `run` uses `TMPDIR` (default `/tmp`),
 removes its temporary files (including after Ctrl-C), and propagates the program's
@@ -97,7 +115,9 @@ before an input filename starting with `-` for `build` or `run`.
 
 The generated C uses readable `brf_main`/`brf_greet` function names, a separate
 `brt_` runtime namespace, and escaped string literals with explicit byte lengths.
-It includes its runtime and needs no project headers or libraries.
+It includes its runtime and needs no project headers or libraries; link with
+system `libm` (`-lm`) for floating-point power. Generated C checks that the host
+provides binary32 `float` and binary64 `double`.
 Only permanent string literals exist so far; heap strings and reference counting
 arrive in milestone 4.
 
@@ -114,11 +134,12 @@ arrive in milestone 4.
   and patterns, Pratt expressions, generic-call disambiguation, and recovery.
 - `src/lexer/newline.c`: continuation and nested-delimiter newline filtering.
 - `include/sema/`, `src/sema/`: separate name resolution and type checking,
-  with canonical unit/string types and resolved call targets.
-- `include/ir/`, `src/ir/`: statement-based lowering with string temporaries,
-  sequenced calls, and explicit returns.
+  with canonical primitive types, lexical scopes, flow checks, and iterative
+  SCC-based recursive return inference.
+- `include/ir/`, `src/ir/`: typed temporaries, sequenced calls, explicit control
+  flow/returns, loop targets, and value-producing branches.
 - `include/codegen/`, `src/codegen/`, `runtime/`: self-contained C emission,
-  source mapping, and an embedded literal-string/print runtime.
+  source mapping, literal strings/printing, and checked numeric operations.
 - `include/driver/`, `src/driver/`: shell-free native compiler invocation.
 - `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
   native driver tests; program tests in normal and sanitizer configurations;
@@ -146,5 +167,5 @@ Wide and combining characters do not yet have special display-width handling.
 - [Error handling](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
 
-The overview links the remaining topic documents. Next is milestone 3:
-numbers, bindings, control flow, and general function return checking/inference.
+The overview links the remaining topic documents. Next is milestone 4:
+heap strings, conversions, structs, methods, mutable borrows, and reference counts.

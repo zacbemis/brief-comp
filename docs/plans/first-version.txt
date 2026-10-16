@@ -1,6 +1,6 @@
 # Plan: The First Version of the Compiler
 
-> **Status: Milestones 0–2 implemented; milestones 3–6 planned.** This describes how the first version of the compiler will be built. The language it accepts is listed under "First version" in `docs/lang-desc.txt`. The language rules themselves are in the other `docs/lang-*.txt` files.
+> **Status: Milestones 0–3 implemented; milestones 4–6 planned.** This describes how the first version of the compiler will be built. The language it accepts is listed under "First version" in `docs/lang-desc.txt`. The language rules themselves are in the other `docs/lang-*.txt` files.
 
 ## Goal
 
@@ -97,7 +97,7 @@ Cases that need specific handling:
 | Struct literal after `if`, `for`, `while` | A parser flag forbids struct literals until the next `(`, `[`, or call argument list, as Rust does. |
 | `x?`, `x!`, and `x != y` | The lexer already makes `!=` one token, so a `!` after an expression is always the postfix panic. |
 | Pipeline stages | After the pipeline operator, a `{` starts a match block. Otherwise the stage must be a call whose callee is a name or dotted path; calls through a call result or indexed value are rejected. |
-| Assignment | Assignment and compound assignment are standalone, non-chaining statements, not Pratt expression operators. They are rejected in conditions, arguments, and other value contexts. |
+| Assignment and updates | Assignment and compound assignment are standalone, non-chaining statements. `x++` and `x--` are also standalone, valueless statements. None are Pratt expression operators, and all are rejected in conditions, arguments, and other value contexts. |
 | Patterns | Literals, `_`, names that bind, `:tag` and `:tag(pattern)`, named sets such as `Json.Error`, ranges `a..b`, and comparisons `< 18`. |
 | `if` as a value | `if` is parsed as an expression everywhere. Type checking decides whether its value may be used. |
 
@@ -136,7 +136,7 @@ A symbol set is a sorted list of tags, each with an optional payload type. Every
 
 1. Build the call graph between functions and split it into groups that call each other (strongly connected components, found with Tarjan's algorithm using explicit work stacks rather than C recursion). Long valid call chains must not consume the compiler's stack.
 2. Check groups in dependency order, so a function's callees are known before its body is checked.
-3. Inside a group of mutually recursive functions, start with empty error sets and re-check the group until no set grows. Sets only grow and the number of tags is finite, so this always stops.
+3. Inside a group of mutually recursive functions, re-check until types stabilize. M3 implements plain primitive returns with the finite lattice unknown → concrete type → error. Non-literal anchors propagate before decimal defaults, then whole-number defaults, so numeric literals do not prematurely fix recursive results to `int`. M5 will additionally start with empty error sets and grow them to a fixpoint; sets only grow and the number of tags is finite.
 4. A function whose success type can only come from itself, such as `f() { f() }`, is reported as needing a written return type.
 
 **The error rules** from `lang-errors.txt`:
@@ -210,7 +210,7 @@ Cycles are not collected in this version. Debug builds can print the objects sti
 | Language | C |
 |---|---|
 | `int`, `lng`, `shrt` and their unsigned forms | `int32_t`, `int64_t`, `int16_t`, `uint32_t`, `uint64_t`, `uint16_t` |
-| `flt`, `dub`, `bool`, `chr` | `float`, `double`, `bool`, `uint8_t` |
+| `flt`, `dub`, `bool`, `chr` | `float`, `double`, `_Bool`, `uint8_t` |
 | `str` | a pointer to the runtime's string object |
 | A struct | a pointer to a C struct whose first member is the runtime's object header |
 | A symbol set | a C struct with a `uint32_t` tag and a union of payloads |
@@ -220,12 +220,12 @@ Cycles are not collected in this version. Debug builds can print the objects sti
 - **Names** are prefixed to avoid clashes with C: `main` becomes `brf_main`, and `User.new` becomes `brf_User_new`. Runtime helpers/types and generated temporaries use the separate `brt_` namespace, so user functions cannot clash with them.
 - **String literals** are emitted as readable escaped C strings with explicit byte lengths. Fixed-width octal escapes preserve zero/non-ASCII bytes without absorbing following digits; question marks are escaped to prevent C11 trigraphs.
 - **Sets of different sizes.** Because tag numbers are shared by the whole program, passing a value from a smaller set to a larger one copies the tag and payload without translating anything.
-- **Overflow** is checked with the GCC and Clang built-ins `__builtin_add_overflow` and friends. C23's `ckd_add` is the standard spelling of the same thing. The check computes the result without undefined behaviour and calls the runtime's panic with the source location.
+- **Overflow** is checked with portable C11 range preconditions before evaluating signed arithmetic. Unsigned operations also check their language-width limits. Power and left shift use checked multiplication/doubling; division guards the signed-minimum / -1 case, while the corresponding remainder is safely zero. Each checked IR operation records its Brief file/line for panic reporting. No overflow built-ins are required.
 - **Division** checks for zero before dividing.
 - **`#line` directives** map the generated C back to `.brf` lines, so a debugger and C compiler warnings point at the original source. Nim does the same.
-- **The entry point.** C's `main` calls the program's `main()`. If that returns an error symbol, it prints `error: :tag(payload)` to standard error and exits with status 1.
+- **The entry point.** C's `main` calls the program's zero-argument `main()`, discards a plain result, and exits 0 after flushing stdout. M5 will handle an error symbol by printing `error: :tag(payload)` to standard error and exiting with status 1.
 
-The generated file is plain C11 apart from the overflow built-ins, so it builds with any recent GCC or Clang.
+The generated file is plain C11 and links system `libm` for floating-point power. It builds with recent GCC or Clang on POSIX hosts with fixed-width integers and IEEE binary32/binary64 floating-point types (checked by static assertions).
 
 ### Runtime (`runtime/`)
 
@@ -288,9 +288,11 @@ Milestone 1 is complete: the newline filter, arena-owned syntax trees, parser, r
 
 Milestone 2 is complete: `run`, `build`, and `emit-c` connect minimal resolution and checking, a statement-based IR, self-contained C emission, an embedded runtime, and a POSIX native driver. The supported subset is zero-argument, non-recursive unit-returning functions, string literals, `print(str)`, function bodies, `()`, and unit returns. Bare blocks are not expressions or standalone statements; parser blocks remain available in their documented control-flow and match positions. Forward calls work; explicit `: ()` drops a final value. Other features are diagnosed as unimplemented instead of being silently ignored. The function call-graph walk limits its recursive descent to 128 function levels; full return inference and recursive groups remain milestone 3 work.
 
-The native driver invokes `CC` (default `cc`) as a single executable, never through a shell. `build` defaults to `a.out`, stages compilation beside the destination, and publishes it atomically on success. `run` uses `TMPDIR` and propagates the child's exit status. The driver ignores SIGINT while waiting and cleaning up, but restores the original disposition/mask in children, so terminal Ctrl-C stops the program without leaving temporary files. `--debug` enables native ASan/UBSan with `-O0 -g`. The runtime text is embedded at compiler build time, so generated C and the compiler binary do not depend on the checkout at runtime.
+Milestone 3 is complete: all numeric primitives, contextual literals, bool/chr, lexical `let`/`var`, assignments and standalone valueless updates, checked arithmetic/bitwise operations, short-circuit logic, value-producing branches, while/range loops, and loop control run through every stage. Typed parameters and written/inferred primitive returns support forward and recursive calls. Iterative Tarjan analysis replaces the M2 call-depth limit; recursive groups need an independent return-type anchor or an annotation. Flow checking includes reachable explicit returns and fallthrough tails, still diagnoses unreachable syntax, and lets written `()` discard a tail without accepting an explicit non-unit return. Permanent strings can be bound, passed, and returned; heap strings and conversions remain M4 work.
 
-The C program runner is registered with CTest for normal and sanitized builds, with no interpreter dependency. Its shared POSIX process helper captures stdout and stderr as bytes, enforces 30-second compilation and 10-second execution timeouts, and kills the process group on timeout. It checks output bytes, compile diagnostic messages and source lines, panic messages, and exit statuses from fixture comments. M2 adds 18 program fixtures plus stage-level and native-driver integration tests; arithmetic panic fixtures arrive with milestone 3. The runner's panic and failure paths have their own unit tests.
+The native driver invokes `CC` (default `cc`) as a single executable, never through a shell. M3 links `-lm` for floating-point power. `build` defaults to `a.out`, stages compilation beside the destination, and publishes it atomically on success. `run` uses `TMPDIR` and propagates the child's exit status. The driver ignores SIGINT while waiting and cleaning up, but restores the original disposition/mask in children, so terminal Ctrl-C stops the program without leaving temporary files. `--debug` enables native ASan/UBSan with `-O0 -g`. The runtime text is embedded at compiler build time, so generated C and the compiler binary do not depend on the checkout at runtime.
+
+The C program runner is registered with CTest for normal and sanitized builds, with no interpreter dependency. Its shared POSIX process helper captures stdout and stderr as bytes, enforces 30-second compilation and 10-second execution timeouts, and kills the process group on timeout. It checks output bytes, compile diagnostic messages and source lines, panic messages, and exit statuses from fixture comments. M2 added 18 program fixtures plus stage-level and native-driver integration tests. M3 brings the fixture count to 40, including arithmetic panics, direct-precision floating-literal rounding, statement-only updates, independent inference errors, and numeric/control-flow/recursive programs. Semantic tests exercise 2,050-function chains and recursive components; runtime tests exhaustively check small-width valid arithmetic and exercise boundary/panic cases for every language integer width. The runner's panic and failure paths have their own unit tests.
 
 | # | Milestone | Done when |
 |---|---|---|
@@ -327,7 +329,7 @@ tests/programs/                  program tests
 | Inference across recursive functions. | The fixpoint on error sets, with an error when a success type can only come from itself. |
 | The newline rules have edge cases nobody has met yet. | Keep them all in the newline filter, and add a test for every case found. |
 | Generic-call detection backs up the parser. | Back-up is cheap because tokens are already in an array. Only names followed by `<` trigger it. |
-| Generated C depends on GCC or Clang built-ins. | Acceptable for now. C23's `ckd_add` is the portable alternative once compilers support it widely. |
+| Numeric backend assumptions differ across hosts. | Fixed-width C integers, binary32/binary64 assertions, portable precondition-based overflow checks, and GCC/Clang sanitizer runs. |
 
 ## Resources
 
