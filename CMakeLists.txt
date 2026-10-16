@@ -47,7 +47,9 @@ add_library(brief_core STATIC
     src/sema/sema.c
     src/sema/check.c
     src/sema/graph.c
+    src/sema/permissions.c
     src/ir/lower.c
+    src/ir/rc.c
     src/codegen/c.c
     src/driver/native.c
     "${runtime_header}"

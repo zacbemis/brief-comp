@@ -144,6 +144,7 @@ int native_build(Arena *arena, const IrProgram *p, const char *output,
   argv[n++] = debug ? "-O0" : "-O2";
   if (debug) {
     argv[n++] = "-g";
+    argv[n++] = "-DBRT_DEBUG";
     argv[n++] = "-fsanitize=address,undefined";
     argv[n++] = "-fno-sanitize-recover=all";
     argv[n++] = "-fno-omit-frame-pointer";

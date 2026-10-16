@@ -50,6 +50,12 @@ static const SemaType *hint(SemaExpr *e) {
     return e->as.variable ? e->as.variable->type : NULL;
   case SEMA_EXPR_CALL:
     return e->as.call.target ? e->as.call.target->return_type : NULL;
+  case SEMA_EXPR_STRUCT:
+    return &e->as.structure.type->type;
+  case SEMA_EXPR_FIELD: {
+    SemaField *f = sema_field(hint(e->as.field.object), e->as.field.name);
+    return f ? f->type : e->type;
+  }
   case SEMA_EXPR_UNARY: {
     const SemaType *h = hint(e->as.unary.value);
     return e->as.unary.op == UNARY_NOT || special(h) ? e->type : h;
@@ -172,6 +178,15 @@ static void mutable(Checker *c, SemaVar *v, Span span) {
   if (v && !v->mutable)
     error(c, span, "Cannot reassign an immutable binding.");
 }
+static const SemaType *lvalue(Checker *c, SemaExpr *e) {
+  if (e->as.binding.target) {
+    SemaExpr *target = e->as.binding.target;
+    return check(c, target, NULL, VALUE);
+  }
+  mutable(c, e->as.binding.variable, e->span);
+  return e->as.binding.variable ? e->as.binding.variable->type
+                                : t(c, SEMA_ERROR);
+}
 static const SemaType *operand_type(Checker *c, SemaExpr *a, SemaExpr *b,
                                     const SemaType *expected) {
   if (sema_number(expected))
@@ -236,29 +251,58 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     break;
   }
   case SEMA_EXPR_ASSIGN: {
-    SemaVar *v = e->as.binding.variable;
+    const SemaType *target = lvalue(c, e);
+    if (e->as.binding.target)
+      flow = e->as.binding.target->flow;
+    c->reachable = reachable && (flow & SEMA_NEXT);
     SemaExpr *value = e->as.binding.value;
-    mutable(c, v, e->span);
-    check(c, value, v ? v->type : NULL, VALUE);
-    flow = value->flow;
-    if (v) {
-      expect(c, value, v->type, "Assignment value has the wrong type.");
-      if (e->as.binding.op != ASSIGN_SET && !special(v->type) &&
-          !sema_number(v->type))
-        error(c, e->span, "Compound assignment requires numbers.");
-      if (e->as.binding.op == ASSIGN_REM && sema_number(v->type) &&
-          !sema_integer(v->type))
-        error(c, e->span, "Remainder requires integers.");
-    }
+    check(c, value, target, VALUE);
+    flow = sequence(flow, value->flow);
+    expect(c, value, target, "Assignment value has the wrong type.");
+    if (e->as.binding.op != ASSIGN_SET && !special(target) &&
+        !sema_number(target) &&
+        !(target->kind == SEMA_STR && e->as.binding.op == ASSIGN_ADD))
+      error(c, e->span,
+            "Compound assignment requires numbers (or str for +=).");
+    if (e->as.binding.op == ASSIGN_REM && sema_number(target) &&
+        !sema_integer(target))
+      error(c, e->span, "Remainder requires integers.");
     break;
   }
   case SEMA_EXPR_UPDATE: {
-    SemaVar *v = e->as.binding.variable;
-    mutable(c, v, e->span);
-    if (v && !special(v->type) && !sema_number(v->type))
+    const SemaType *target = lvalue(c, e);
+    if (e->as.binding.target)
+      flow = e->as.binding.target->flow;
+    if (!special(target) && !sema_number(target))
       error(c, e->span, "Increment and decrement require a numeric binding.");
     break;
   }
+  case SEMA_EXPR_FIELD: {
+    const SemaType *owner = check(c, e->as.field.object, NULL, VALUE);
+    flow = e->as.field.object->flow;
+    e->as.field.field = sema_field(owner, e->as.field.name);
+    result = e->as.field.field ? e->as.field.field->type
+             : unknown(owner)  ? t(c, SEMA_UNKNOWN)
+                               : t(c, SEMA_ERROR);
+    if (!special(owner) && !e->as.field.field)
+      error(c, e->span,
+            owner->kind == SEMA_STRUCT ? "Unknown struct field."
+                                       : "Field access requires a struct.");
+    break;
+  }
+  case SEMA_EXPR_STRUCT:
+    for (size_t i = 0; i < e->as.structure.count; i++) {
+      c->reachable = reachable && (flow & SEMA_NEXT);
+      SemaField *field = e->as.structure.fields[i];
+      SemaExpr *value = e->as.structure.values[i];
+      check(c, value, field ? field->type : NULL, VALUE);
+      if (field)
+        expect(c, value, field->type,
+               "Struct field initializer has the wrong type.");
+      flow = sequence(flow, value->flow);
+    }
+    result = &e->as.structure.type->type;
+    break;
   case SEMA_EXPR_RETURN: {
     const SemaType *value = t(c, SEMA_UNIT);
     if (e->as.value) {
@@ -302,21 +346,43 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     break;
   case SEMA_EXPR_CALL: {
     SemaSymbol *s = e->as.call.target;
+    if (e->as.call.method) {
+      const SemaType *receiver = check(c, e->as.call.args[0], NULL, VALUE);
+      s = e->as.call.target = sema_method(c->p, receiver, e->as.call.method);
+      if (!special(receiver)) {
+        if (!s)
+          error(c, e->span, "Unknown method for this type.");
+        else if (!s->arity || s->params[0]->type != receiver)
+          error(c, e->span,
+                "A method requires a first parameter of the receiver type.");
+      }
+    }
     for (size_t i = 0; i < e->as.call.count; i++) {
       c->reachable = reachable && (flow & SEMA_NEXT);
       SemaExpr *arg = e->as.call.args[i];
       const SemaType *wanted = s && i < s->arity ? s->params[i]->type : NULL;
-      check(c, arg, wanted, VALUE);
+      if (!(e->as.call.method && i == 0))
+        check(c, arg, wanted, VALUE);
       expect(c, arg, wanted,
-             s && s->builtin ? "print expects a str argument."
-                             : "Function argument has the wrong type.");
+             s && s->builtin == SEMA_BUILTIN_PRINT
+                 ? "print expects a str argument."
+                 : "Function argument has the wrong type.");
+      if (s && s->builtin == SEMA_BUILTIN_STR && !special(arg->type) &&
+          !sema_number(arg->type) && arg->type->kind != SEMA_BOOL)
+        error(c, arg->span, "str expects a number or bool argument.");
       flow = sequence(flow, arg->flow);
     }
     if (s && e->as.call.count != s->arity)
       error(c, e->span,
-            s->builtin ? "print expects exactly one str argument."
-                       : "Wrong number of function arguments.");
-    result = s ? s->return_type : t(c, SEMA_ERROR);
+            s->builtin == SEMA_BUILTIN_PRINT
+                ? "print expects exactly one str argument."
+            : s->builtin == SEMA_BUILTIN_STR
+                ? "str expects exactly one number or bool argument."
+                : "Wrong number of function arguments.");
+    result = s ? s->return_type
+             : e->as.call.method && unknown(e->as.call.args[0]->type)
+                 ? t(c, SEMA_UNKNOWN)
+                 : t(c, SEMA_ERROR);
     break;
   }
   case SEMA_EXPR_UNARY: {
@@ -361,13 +427,16 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     } else if (comparison) {
       if (!special(result) &&
           !(sema_number(result) || result->kind == SEMA_CHR ||
+            result->kind == SEMA_STR ||
             ((op == BINARY_EQ || op == BINARY_NE) &&
-             (result->kind == SEMA_BOOL || result->kind == SEMA_UNIT))))
+             (result->kind == SEMA_BOOL || result->kind == SEMA_UNIT ||
+              (result->kind == SEMA_STRUCT && result->structure->equatable)))))
         error(c, e->span, "Comparison of this type is not implemented yet.");
       result = t(c, SEMA_BOOL);
     } else if (!special(result)) {
       int integer = op == BINARY_REM || op >= BINARY_BIT_AND;
-      if (!(integer ? sema_integer(result) : sema_number(result)))
+      if (!(integer ? sema_integer(result) : sema_number(result)) &&
+          !(op == BINARY_ADD && result->kind == SEMA_STR))
         error(c, e->span,
               integer ? "This operator requires integers."
                       : "Arithmetic requires numbers.");
@@ -545,5 +614,6 @@ void sema_check(SemaProgram *p, Diagnostics *errors) {
       }
     }
   }
+  sema_check_permissions(p, errors);
   p->checked = p->resolved && errors->count == 0;
 }

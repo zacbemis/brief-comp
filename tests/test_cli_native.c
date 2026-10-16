@@ -177,6 +177,7 @@ int main(int argc, char **argv) {
     ASSERT_TRUE(argument_recorded(normal, "-lm"));
     ASSERT_TRUE(argument_recorded(normal, "-O2"));
     ASSERT_TRUE(!argument_recorded(normal, "-fsanitize=address,undefined"));
+    ASSERT_TRUE(!argument_recorded(normal, "-DBRT_DEBUG"));
     if (argc == 5) {
       call(&c, (const char *[]){"build", "--debug", source, "-o", output, NULL},
            0, wrapped, 5);
@@ -188,6 +189,7 @@ int main(int argc, char **argv) {
                            all.length - normal.length};
         ASSERT_TRUE(argument_recorded(debug, "-O0"));
         ASSERT_TRUE(argument_recorded(debug, "-g"));
+        ASSERT_TRUE(argument_recorded(debug, "-DBRT_DEBUG"));
         ASSERT_TRUE(argument_recorded(debug, "-fsanitize=address,undefined"));
         ASSERT_TRUE(argument_recorded(debug, "-fno-sanitize-recover=all"));
       }

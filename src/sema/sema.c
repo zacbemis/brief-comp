@@ -11,6 +11,7 @@ typedef struct {
   Arena *arena;
   SemaProgram *program;
   SemaFunction *function;
+  SemaStruct *owner;
   Diagnostics *errors;
   Local *locals;
   unsigned depth, loops;
@@ -21,15 +22,50 @@ int sema_integer(const SemaType *t) {
 int sema_number(const SemaType *t) {
   return sema_integer(t) || (t && (t->kind == SEMA_FLT || t->kind == SEMA_DUB));
 }
+int sema_reference(const SemaType *t) {
+  return t && (t->kind == SEMA_STR || t->kind == SEMA_STRUCT);
+}
+static SemaStruct *structure(SemaProgram *p, const char *name) {
+  for (size_t i = 0; i < p->struct_count; i++)
+    if (!strcmp(name, p->structs[i].type.name))
+      return &p->structs[i];
+  return NULL;
+}
+static SemaStruct *named_structure(Resolver *r, const char *name) {
+  return !strcmp(name, "Self") ? r->owner : structure(r->program, name);
+}
+SemaField *sema_field(const SemaType *t, const char *name) {
+  if (!t || t->kind != SEMA_STRUCT || !t->structure)
+    return NULL;
+  for (size_t i = 0; i < t->structure->count; i++)
+    if (!strcmp(name, t->structure->fields[i].name))
+      return &t->structure->fields[i];
+  return NULL;
+}
+SemaSymbol *sema_method(SemaProgram *p, const SemaType *t, const char *name) {
+  if (!t || t->kind != SEMA_STRUCT || !t->structure)
+    return NULL;
+  for (size_t i = 0; i < p->count; i++)
+    if (p->functions[i].symbol.owner == t->structure &&
+        !strcmp(name, p->functions[i].symbol.name))
+      return &p->functions[i].symbol;
+  return NULL;
+}
 static const SemaType *type(Resolver *r, const Type *syntax) {
   if (!syntax)
     return &r->program->types[SEMA_UNKNOWN];
   if (syntax->kind == TYPE_UNIT)
     return &r->program->types[SEMA_UNIT];
-  if (syntax->kind == TYPE_NAME)
-    for (size_t i = SEMA_BOOL; i < SEMA_TYPE_COUNT; i++)
+  if (syntax->kind == TYPE_SELF && r->owner)
+    return &r->owner->type;
+  if (syntax->kind == TYPE_NAME) {
+    for (size_t i = SEMA_BOOL; i < SEMA_STRUCT; i++)
       if (!strcmp(syntax->as.name, r->program->types[i].name))
         return &r->program->types[i];
+    SemaStruct *s = structure(r->program, syntax->as.name);
+    if (s)
+      return &s->type;
+  }
   diagnostics_error(r->errors, syntax->span,
                     "This type is unknown or not implemented yet.");
   return &r->program->types[SEMA_ERROR];
@@ -37,8 +73,11 @@ static const SemaType *type(Resolver *r, const Type *syntax) {
 static SemaSymbol *lookup(SemaProgram *p, const char *name) {
   if (!strcmp(name, "print"))
     return &p->print;
+  if (!strcmp(name, "str"))
+    return &p->stringify;
   for (size_t i = 0; i < p->count; i++)
-    if (!strcmp(name, p->functions[i].symbol.name))
+    if (!p->functions[i].symbol.owner &&
+        !strcmp(name, p->functions[i].symbol.name))
       return &p->functions[i].symbol;
   return NULL;
 }
@@ -63,6 +102,7 @@ static SemaVar *variable(Resolver *r, const char *name, Span span,
                  .span = span,
                  .id = f->variable_count,
                  .mutable = mutable,
+                 .data_mutable = 1,
                  .annotation = annotation,
                  .type = annotation};
   if (f->variable_count == f->variable_capacity) {
@@ -94,25 +134,32 @@ static SemaExpr *resolve_stmt(Resolver *r, const Stmt *s) {
   if (s->kind == STMT_EXPR)
     return resolve_expr(r, s->as.value);
   if (s->kind == STMT_INC || s->kind == STMT_DEC) {
-    if (s->as.value->kind != EXPR_NAME)
-      return unsupported(r, s->span,
-                         "Field and index updates are not implemented yet.");
+    if (s->as.value->kind == EXPR_INDEX)
+      return unsupported(r, s->span, "Index updates are not implemented yet.");
     SemaExpr *e = node(r, SEMA_EXPR_UPDATE, s->span);
-    e->as.binding.variable = local(r, s->as.value->as.name);
-    if (!e->as.binding.variable)
-      diagnostics_error(r->errors, s->as.value->span, "Unknown binding.");
+    if (s->as.value->kind == EXPR_FIELD)
+      e->as.binding.target = resolve_expr(r, s->as.value);
+    else {
+      e->as.binding.variable = local(r, s->as.value->as.name);
+      if (!e->as.binding.variable)
+        diagnostics_error(r->errors, s->as.value->span, "Unknown binding.");
+    }
     e->as.binding.op = s->kind == STMT_INC ? ASSIGN_ADD : ASSIGN_SUB;
     return e;
   }
   if (s->kind == STMT_ASSIGN) {
-    if (s->as.assign.target->kind != EXPR_NAME)
-      return unsupported(
-          r, s->span, "Field and index assignments are not implemented yet.");
+    if (s->as.assign.target->kind == EXPR_INDEX)
+      return unsupported(r, s->span,
+                         "Index assignments are not implemented yet.");
     SemaExpr *e = node(r, SEMA_EXPR_ASSIGN, s->span);
-    e->as.binding.variable = local(r, s->as.assign.target->as.name);
-    if (!e->as.binding.variable)
-      diagnostics_error(r->errors, s->as.assign.target->span,
-                        "Unknown binding.");
+    if (s->as.assign.target->kind == EXPR_FIELD)
+      e->as.binding.target = resolve_expr(r, s->as.assign.target);
+    else {
+      e->as.binding.variable = local(r, s->as.assign.target->as.name);
+      if (!e->as.binding.variable)
+        diagnostics_error(r->errors, s->as.assign.target->span,
+                          "Unknown binding.");
+    }
     e->as.binding.value = resolve_expr(r, s->as.assign.value);
     e->as.binding.op = s->as.assign.op;
     return e;
@@ -183,30 +230,102 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     if (s->as.call.type_count)
       diagnostics_error(r->errors, s->span,
                         "Generic calls are not implemented yet.");
-    if (s->as.call.callee->kind != EXPR_NAME)
-      diagnostics_error(
-          r->errors, s->as.call.callee->span,
-          "Only calls to plain function names are currently implemented.");
+    const Expr *callee = s->as.call.callee;
+    SemaExpr *receiver = NULL;
+    if (callee->kind == EXPR_FIELD) {
+      SemaStruct *owner =
+          callee->as.field.object->kind == EXPR_NAME &&
+                  !local(r, callee->as.field.object->as.name)
+              ? named_structure(r, callee->as.field.object->as.name)
+              : NULL;
+      if (owner) {
+        e->as.call.target =
+            sema_method(r->program, &owner->type, callee->as.field.name);
+        if (!e->as.call.target)
+          diagnostics_error(r->errors, callee->span,
+                            "Unknown associated function.");
+      } else {
+        e->as.call.method = callee->as.field.name;
+        receiver = resolve_expr(r, callee->as.field.object);
+      }
+    } else if (callee->kind != EXPR_NAME)
+      diagnostics_error(r->errors, callee->span,
+                        "Function values are not implemented yet.");
     else if (local(r, s->as.call.callee->as.name))
       diagnostics_error(r->errors, s->as.call.callee->span,
                         "A local binding is not callable.");
     else {
       e->as.call.target = lookup(r->program, s->as.call.callee->as.name);
-      if (!e->as.call.target)
-        diagnostics_error(r->errors, s->as.call.callee->span,
-                          "Unknown function.");
-      else if (!e->as.call.target->builtin) {
+      if (!e->as.call.target) {
+        int conversion = 0;
+        for (size_t i = SEMA_SHRT; i <= SEMA_DUB; i++)
+          if (!strcmp(callee->as.name, r->program->types[i].name))
+            conversion = 1;
+        diagnostics_error(r->errors, callee->span,
+                          conversion
+                              ? "Numeric conversions are not implemented yet."
+                              : "Unknown function.");
+      }
+    }
+    // Instance receiver types may be inferred later. Conservative edges to
+    // matching methods keep every possible callee in the SCC schedule.
+    for (size_t i = 0; i < r->program->count; i++) {
+      SemaSymbol *symbol = &r->program->functions[i].symbol;
+      if (symbol == e->as.call.target ||
+          (e->as.call.method && symbol->owner &&
+           !strcmp(symbol->name, e->as.call.method))) {
         SemaEdge *edge = arena_alloc(r->arena, sizeof(*edge));
-        *edge = (SemaEdge){e->as.call.target->id, r->function->edges};
+        *edge = (SemaEdge){symbol->id, r->function->edges};
         r->function->edges = edge;
       }
     }
-    e->as.call.count = s->as.call.count;
+    e->as.call.count = s->as.call.count + (receiver != NULL);
     e->as.call.args =
         arena_calloc(r->arena, e->as.call.count, sizeof(SemaExpr *));
-    for (size_t i = 0; i < e->as.call.count; i++)
-      e->as.call.args[i] = resolve_expr(r, s->as.call.args[i]);
+    if (receiver)
+      e->as.call.args[0] = receiver;
+    for (size_t i = 0; i < s->as.call.count; i++)
+      e->as.call.args[i + (receiver != NULL)] =
+          resolve_expr(r, s->as.call.args[i]);
     return e;
+  case EXPR_FIELD:
+    e = node(r, SEMA_EXPR_FIELD, s->span);
+    e->as.field.object = resolve_expr(r, s->as.field.object);
+    e->as.field.name = s->as.field.name;
+    return e;
+  case EXPR_STRUCT_LIT: {
+    SemaStruct *owner = s->as.structure.type->kind == EXPR_NAME
+                            ? named_structure(r, s->as.structure.type->as.name)
+                            : NULL;
+    if (!owner)
+      return unsupported(r, s->span, "Unknown struct type.");
+    e = node(r, SEMA_EXPR_STRUCT, s->span);
+    e->as.structure.type = owner;
+    e->as.structure.count = s->as.structure.count;
+    e->as.structure.values =
+        arena_calloc(r->arena, s->as.structure.count, sizeof(SemaExpr *));
+    e->as.structure.fields =
+        arena_calloc(r->arena, s->as.structure.count, sizeof(SemaField *));
+    unsigned char *seen = arena_calloc(r->arena, owner->count, 1);
+    for (size_t i = 0; i < s->as.structure.count; i++) {
+      FieldValue f = s->as.structure.fields[i];
+      SemaField *field = sema_field(&owner->type, f.name);
+      if (!field)
+        diagnostics_error(r->errors, f.span, "Unknown struct field.");
+      else if (seen[field->id])
+        diagnostics_error(r->errors, f.span,
+                          "Duplicate struct field initializer.");
+      else
+        seen[field->id] = 1;
+      e->as.structure.fields[i] = field;
+      e->as.structure.values[i] = resolve_expr(r, f.value);
+    }
+    for (size_t i = 0; i < owner->count; i++)
+      if (!seen[i])
+        diagnostics_error(r->errors, s->span,
+                          "Missing struct field initializer.");
+    return e;
+  }
   case EXPR_BLOCK: {
     e = node(r, SEMA_EXPR_BLOCK, s->span);
     e->as.block.count = s->as.block.count;
@@ -279,76 +398,170 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     return unsupported(r, s->span, "This expression is not implemented yet.");
   }
 }
+static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
+  SemaProgram *p = r->program;
+  if (d->kind != DECL_FN) {
+    diagnostics_error(r->errors, d->span,
+                      "Only functions are supported inside impl.");
+    return;
+  }
+  SemaSymbol *previous =
+      owner ? sema_method(p, &owner->type, d->name) : lookup(p, d->name);
+  if (previous) {
+    Diagnostic *error = diagnostics_error(
+        r->errors, d->span,
+        previous->builtin == SEMA_BUILTIN_PRINT
+            ? "The name 'print' is reserved for the builtin."
+        : previous->builtin ? "The name 'str' is reserved for the builtin."
+                            : "Duplicate function name.");
+    if (!previous->builtin)
+      diagnostic_note(r->errors, error, previous->span, "First declared here.");
+    return;
+  }
+  if (!owner && structure(p, d->name)) {
+    diagnostics_error(r->errors, d->span,
+                      "A function and a struct cannot share a name.");
+    return;
+  }
+  SemaFunction *f = &p->functions[p->count];
+  f->syntax = d;
+  r->function = f;
+  r->owner = owner;
+  r->locals = NULL;
+  r->depth = 0;
+  f->written = d->as.function.return_type != NULL;
+  f->symbol = (SemaSymbol){.name = d->name,
+                           .span = d->span,
+                           .id = p->count++,
+                           .arity = d->as.function.count,
+                           .owner = owner,
+                           .return_type = type(r, d->as.function.return_type)};
+  f->symbol.params = arena_calloc(r->arena, f->symbol.arity, sizeof(SemaVar *));
+  for (size_t j = 0; j < f->symbol.arity; j++) {
+    Parameter param = d->as.function.params[j];
+    SemaVar *v = variable(r, param.name, param.span, type(r, param.type), 0);
+    v->data_mutable = param.borrow == BORROW_MUT;
+    if (v->data_mutable && v->type->kind != SEMA_STRUCT &&
+        v->type->kind != SEMA_ERROR)
+      diagnostics_error(r->errors, param.span,
+                        "Mutable borrowing currently requires a struct type.");
+    f->symbol.params[j] = v;
+  }
+  if (!owner && !strcmp(d->name, "main")) {
+    p->entry = &f->symbol;
+    if (f->symbol.arity)
+      diagnostics_error(r->errors, d->span, "main() cannot have parameters.");
+  }
+}
 SemaProgram *sema_resolve(Arena *a, const Program *syntax,
                           Diagnostics *errors) {
   SemaProgram *p = arena_calloc(a, 1, sizeof(*p));
   p->arena = a;
-  const char *names[] = {"unknown", "never", "error", "()",  "bool",
-                         "chr",     "shrt",  "ushrt", "int", "uint",
-                         "lng",     "ulng",  "flt",   "dub", "str"};
-  unsigned bits[] = {0, 0, 0, 0, 1, 8, 16, 16, 32, 32, 64, 64, 32, 64, 0};
+  const char *names[] = {"unknown", "never", "error", "()",    "bool", "chr",
+                         "shrt",    "ushrt", "int",   "uint",  "lng",  "ulng",
+                         "flt",     "dub",   "str",   "struct"};
+  unsigned bits[] = {0, 0, 0, 0, 1, 8, 16, 16, 32, 32, 64, 64, 32, 64, 0, 0};
   for (size_t i = 0; i < SEMA_TYPE_COUNT; i++)
-    p->types[i] = (SemaType){(SemaTypeKind)i, names[i], bits[i],
-                             i == SEMA_SHRT || i == SEMA_INT || i == SEMA_LNG};
-  SemaVar *arg = arena_calloc(a, 1, sizeof(*arg));
-  arg->type = &p->types[SEMA_STR];
+    p->types[i] = (SemaType){.kind = (SemaTypeKind)i,
+                             .name = names[i],
+                             .bits = bits[i],
+                             .is_signed = i == SEMA_SHRT || i == SEMA_INT ||
+                                          i == SEMA_LNG};
   p->print = (SemaSymbol){.name = "print",
                           .arity = 1,
-                          .builtin = 1,
+                          .builtin = SEMA_BUILTIN_PRINT,
                           .return_type = &p->types[SEMA_UNIT]};
-  p->print.params = arena_alloc(a, sizeof(SemaVar *));
-  p->print.params[0] = arg;
-  p->functions = arena_calloc(a, syntax->count, sizeof(SemaFunction));
+  p->stringify = (SemaSymbol){.name = "str",
+                              .arity = 1,
+                              .builtin = SEMA_BUILTIN_STR,
+                              .return_type = &p->types[SEMA_STR]};
+  p->print.params = arena_calloc(a, 1, sizeof(SemaVar *));
+  p->print.params[0] = arena_calloc(a, 1, sizeof(SemaVar));
+  p->print.params[0]->type = &p->types[SEMA_STR];
+  p->stringify.params = arena_calloc(a, 1, sizeof(SemaVar *));
+  p->stringify.params[0] = arena_calloc(a, 1, sizeof(SemaVar));
+  p->stringify.params[0]->type = &p->types[SEMA_UNKNOWN];
+  p->structs = arena_calloc(a, syntax->count, sizeof(SemaStruct));
+  size_t capacity = syntax->count;
   Resolver r = {.arena = a, .program = p, .errors = errors};
   for (size_t i = 0; i < syntax->count; i++) {
     const Decl *d = syntax->items[i];
-    if (d->kind != DECL_FN) {
-      diagnostics_error(
-          errors, d->span,
-          "Only function declarations are currently implemented.");
+    if (d->kind == DECL_IMPL)
+      capacity += d->as.impl.count;
+    if (d->kind != DECL_STRUCT)
+      continue;
+    if (structure(p, d->name) || lookup(p, d->name)) {
+      diagnostics_error(errors, d->span, "Duplicate or reserved struct name.");
       continue;
     }
-    SemaSymbol *previous = lookup(p, d->name);
-    if (previous) {
-      Diagnostic *error = diagnostics_error(
-          errors, d->span,
-          previous->builtin ? "The name 'print' is reserved for the builtin."
-                            : "Duplicate function name.");
-      if (!previous->builtin)
-        diagnostic_note(errors, error, previous->span, "First declared here.");
-      continue;
+    SemaStruct *s = &p->structs[p->struct_count];
+    s->id = p->struct_count++;
+    s->syntax = d;
+    s->type = (SemaType){.kind = SEMA_STRUCT, .name = d->name, .structure = s};
+    s->count = d->as.structure.count;
+    s->fields = arena_calloc(a, s->count, sizeof(SemaField));
+  }
+  // Named types exist before resolving fields, including forward references.
+  for (size_t i = 0; i < p->struct_count; i++) {
+    SemaStruct *s = &p->structs[i];
+    r.owner = s;
+    for (size_t j = 0; j < s->count; j++) {
+      Parameter f = s->syntax->as.structure.fields[j];
+      for (size_t k = 0; k < j; k++)
+        if (!strcmp(s->fields[k].name, f.name))
+          diagnostics_error(errors, f.span, "Duplicate struct field.");
+      if (f.borrow == BORROW_MUT)
+        diagnostics_error(errors, f.span,
+                          "Struct fields cannot be borrowed parameters.");
+      s->fields[j] = (SemaField){
+          .name = f.name, .span = f.span, .id = j, .type = type(&r, f.type)};
     }
-    SemaFunction *f = &p->functions[p->count];
-    f->syntax = d;
-    r.function = f;
-    r.locals = NULL;
-    r.depth = 0;
-    f->written = d->as.function.return_type != NULL;
-    f->symbol =
-        (SemaSymbol){.name = d->name,
-                     .span = d->span,
-                     .id = p->count++,
-                     .arity = d->as.function.count,
-                     .return_type = type(&r, d->as.function.return_type)};
-    f->symbol.params = arena_calloc(a, f->symbol.arity, sizeof(SemaVar *));
-    for (size_t j = 0; j < f->symbol.arity; j++) {
-      Parameter param = d->as.function.params[j];
-      if (param.borrow == BORROW_MUT)
-        diagnostics_error(errors, param.span,
-                          "Mutable borrow parameters are not implemented yet.");
-      f->symbol.params[j] =
-          variable(&r, param.name, param.span, type(&r, param.type), 0);
+  }
+  // A bottom-up fixpoint marks exactly the finite, nonrecursive shapes.
+  // Recursive equality is intentionally unavailable; no recursive C traversal.
+  int changed;
+  do {
+    changed = 0;
+    for (size_t i = 0; i < p->struct_count; i++) {
+      SemaStruct *s = &p->structs[i];
+      if (s->equatable)
+        continue;
+      int ready = 1;
+      for (size_t j = 0; j < s->count; j++)
+        if (s->fields[j].type->kind == SEMA_STRUCT &&
+            !s->fields[j].type->structure->equatable)
+          ready = 0;
+      if (ready) {
+        s->equatable = 1;
+        changed = 1;
+      }
     }
-    if (!strcmp(d->name, "main")) {
-      p->entry = &f->symbol;
-      if (f->symbol.arity)
-        diagnostics_error(errors, d->span, "main() cannot have parameters.");
-    }
+  } while (changed);
+  p->functions = arena_calloc(a, capacity, sizeof(SemaFunction));
+  for (size_t i = 0; i < syntax->count; i++) {
+    const Decl *d = syntax->items[i];
+    if (d->kind == DECL_FN)
+      collect_function(&r, d, NULL);
+    else if (d->kind == DECL_IMPL) {
+      r.owner = NULL;
+      const SemaType *target = type(&r, d->as.impl.target);
+      if (target->kind != SEMA_STRUCT) {
+        if (target->kind != SEMA_ERROR)
+          diagnostics_error(errors, d->span,
+                            "impl currently requires a struct type.");
+        continue;
+      }
+      for (size_t j = 0; j < d->as.impl.count; j++)
+        collect_function(&r, d->as.impl.methods[j], target->structure);
+    } else if (d->kind != DECL_STRUCT)
+      diagnostics_error(errors, d->span,
+                        "This top-level declaration is not implemented yet.");
   }
   if (!p->entry)
     diagnostics_error(errors, syntax->span, "A program must define main().");
   for (size_t i = 0; i < p->count; i++) {
     r.function = &p->functions[i];
+    r.owner = r.function->symbol.owner;
     r.locals = NULL;
     r.depth = 0;
     for (size_t j = 0; j < r.function->symbol.arity; j++) {

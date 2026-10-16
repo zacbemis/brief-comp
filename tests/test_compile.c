@@ -63,9 +63,9 @@ int main(void) {
     invalid(&a, "main(x: str) {}", "cannot have parameters");
     invalid(&a, "main() {}\nf(x: &int) {}", "Mutable borrow");
     invalid(&a, "main(): Thing { () }", "type is unknown");
-    invalid(&a, "pub User {}\nmain() {}", "Only function declarations");
+    invalid(&a, "type Error = Sym<:bad>\nmain() {}", "top-level declaration");
     invalid(&a, "main() { main<int>() }", "Generic calls");
-    invalid(&a, "main() { Module.f() }", "plain function names");
+    invalid(&a, "main() { Module.f() }", "Unknown binding");
     invalid(&a, "main() { print(\"x\") |> f() }",
             "expression is not implemented");
   }
@@ -95,7 +95,7 @@ int main(void) {
     IrProgram *p = ir_lower(&a, c.program);
     ASSERT_TRUE(p != NULL);
     if (p) {
-      ASSERT_EQ_INT(201, p->functions[0].count);
+      ASSERT_EQ_INT(301, p->functions[0].count); // Includes lexical drops.
       ASSERT_EQ_INT(100, p->functions[0].temporaries);
     }
   }
@@ -117,7 +117,7 @@ int main(void) {
     ASSERT_TRUE(p != NULL);
     if (p) {
       IrFunction *f = &p->functions[0];
-      ASSERT_EQ_INT(SEMA_UNIT, f->return_type);
+      ASSERT_EQ_INT(SEMA_UNIT, f->return_type->kind);
       ASSERT_EQ_INT(11, f->count);
       ASSERT_EQ_INT(IR_BINARY, f->instructions[4].op);
       ASSERT_EQ_INT(BINARY_ADD, f->instructions[4].as.binary);
@@ -140,7 +140,7 @@ int main(void) {
     ASSERT_TRUE(p != NULL);
     if (p) {
       IrFunction *f = &p->functions[0];
-      ASSERT_EQ_INT(5, f->count);
+      ASSERT_EQ_INT(7, f->count);
       ASSERT_EQ_INT(IR_STRING, f->instructions[0].op);
       ASSERT_EQ_INT(IR_CALL, f->instructions[1].op);
       ASSERT_EQ_INT(IR_STRING, f->instructions[2].op);
@@ -152,7 +152,9 @@ int main(void) {
       ASSERT_EQ_INT(0, f->instructions[2].as.string.bytes[sizeof(expected)]);
       ASSERT_EQ_INT(1, f->instructions[3].as.call.count);
       ASSERT_EQ_INT(1, f->instructions[3].as.call.args[0]);
-      ASSERT_EQ_INT(IR_RETURN, f->instructions[4].op);
+      ASSERT_EQ_INT(IR_DROP_TEMP, f->instructions[4].op);
+      ASSERT_EQ_INT(IR_DROP_TEMP, f->instructions[5].op);
+      ASSERT_EQ_INT(IR_RETURN, f->instructions[6].op);
     }
   }
   TEST("explicit unit discards the tail; early return truncates only IR") {
@@ -166,12 +168,13 @@ int main(void) {
     IrProgram *p = ir_lower(&a, c.program);
     ASSERT_TRUE(p != NULL);
     if (p) {
-      ASSERT_EQ_INT(2, p->functions[0].count);
+      ASSERT_EQ_INT(5, p->functions[0].count);
       ASSERT_EQ_INT(1, p->functions[1].count);
       ASSERT_EQ_INT(IR_RETURN, p->functions[1].instructions[0].op);
-      ASSERT_EQ_INT(3, p->functions[2].count);
+      ASSERT_EQ_INT(4, p->functions[2].count);
       ASSERT_EQ_INT(IR_CALL, p->functions[2].instructions[1].op);
-      ASSERT_EQ_INT(IR_RETURN, p->functions[2].instructions[2].op);
+      ASSERT_EQ_INT(IR_DROP_TEMP, p->functions[2].instructions[2].op);
+      ASSERT_EQ_INT(IR_RETURN, p->functions[2].instructions[3].op);
     }
     invalid(&a, "main() { ret\nmissing() }", "Unknown function");
   }
@@ -184,6 +187,8 @@ int main(void) {
     FILE *out = tmpfile();
     ASSERT_TRUE(out != NULL);
     if (out && p) {
+      ASSERT_TRUE(!emit_c(out, p)); // Emission requires the ownership stage.
+      ir_insert_rc(&a, p);
       ASSERT_TRUE(emit_c(out, p));
       ASSERT_EQ_INT(0, fflush(out));
       rewind(out);

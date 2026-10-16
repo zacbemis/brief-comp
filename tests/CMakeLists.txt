@@ -14,7 +14,10 @@ add_brief_test(test_newline)
 add_brief_test(test_parser)
 add_brief_test(test_compile)
 add_brief_test(test_sema)
+add_brief_test(test_structs)
 add_brief_test(test_objects)
+add_brief_test(test_ownership)
+set_tests_properties(test_structs PROPERTIES TIMEOUT 30)
 
 # Binary-safe POSIX test tools, built with the same warning/sanitizer options
 # as the compiler. No interpreter or shell is needed to run program tests.

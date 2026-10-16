@@ -99,7 +99,7 @@ int main(void) {
     invalid(&a, "main() { (1 + 2)++ }", "increment/decrement target");
     invalid(&a, "main() { var flag = false\nflag++ }", "numeric binding");
     invalid(&a, "main() { missing++ }", "Unknown binding");
-    invalid(&a, "main() { object.field++ }", "Field and index updates");
+    invalid(&a, "main() { object[0]++ }", "Index updates");
     Result updates = check(&a, "main() { var n = 0\nn++\nn-- }");
     ASSERT_EQ_INT(0, updates.errors.count);
     ASSERT_TRUE(updates.program->functions[0].symbol.return_type ==
@@ -137,7 +137,7 @@ int main(void) {
     invalid(&a, "main() { 1 and 2 }", "require bool");
     invalid(&a, "main() { !1 }", "requires bool");
     invalid(&a, "main() { ~1.0 }", "requires integers");
-    invalid(&a, "main() { \"a\" == \"b\" }", "not implemented yet");
+    valid(&a, "main() { \"a\" == \"b\" }");
   }
   TEST("floating literals round once at their destination precision") {
     real_literal(

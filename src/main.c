@@ -133,6 +133,7 @@ int main(int argc, char **argv) {
         result = 1;
       } else {
         IrProgram *ir = ir_lower(&arena, checked);
+        ir_insert_rc(&arena, ir);
         if (options.command == EMIT_C) {
           if (!emit_c(stdout, ir) || fflush(stdout) != 0) {
             fputs("error: cannot write generated C\n", stderr);
