@@ -1,1 +1,1 @@
-main() { main() } // error: Recursive functions are not implemented yet.
+main() { main() } // error: Cannot infer recursive return type; write a return type.

@@ -45,6 +45,8 @@ add_library(brief_core STATIC
     src/parser/parser.c
     src/ast/print.c
     src/sema/sema.c
+    src/sema/check.c
+    src/sema/graph.c
     src/ir/lower.c
     src/codegen/c.c
     src/driver/native.c

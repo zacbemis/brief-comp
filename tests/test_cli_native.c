@@ -145,6 +145,16 @@ int main(int argc, char **argv) {
     ASSERT_EQ_INT(0, compiled.err.length);
     expect_binary(&c, binary);
   }
+  TEST("arithmetic panics name the original Brief file and line") {
+    char *panic = test_path(&a, root, "panic input.brf");
+    ASSERT_TRUE(
+        test_write_file(panic, TEST_BYTES("main() {\n  2147483647 + 1\n}\n")));
+    ProcessResult r =
+        call(&c, (const char *[]){"run", panic, NULL}, 1, NULL, 0);
+    ASSERT_EQ_INT(0, r.out.length);
+    ASSERT_TRUE(bytes_contains(r.err, TEST_BYTES("panic: integer overflow\n")));
+    ASSERT_TRUE(bytes_contains(r.err, TEST_BYTES("panic input.brf:2\n")));
+  }
   TEST("build uses a.out by default and accepts an explicit path") {
     call(&c, (const char *[]){"build", source, NULL}, 0, NULL, 0);
     expect_binary(&c, test_path(&a, root, "a.out"));
@@ -164,6 +174,7 @@ int main(int argc, char **argv) {
          5);
     TestBytes normal = read_file(&a, record);
     ASSERT_TRUE(argument_recorded(normal, "-std=c11"));
+    ASSERT_TRUE(argument_recorded(normal, "-lm"));
     ASSERT_TRUE(argument_recorded(normal, "-O2"));
     ASSERT_TRUE(!argument_recorded(normal, "-fsanitize=address,undefined"));
     if (argc == 5) {

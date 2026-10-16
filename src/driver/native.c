@@ -149,6 +149,7 @@ int native_build(Arena *arena, const IrProgram *p, const char *output,
     argv[n++] = "-fno-omit-frame-pointer";
   }
   argv[n++] = c_path;
+  argv[n++] = "-lm";
   argv[n++] = "-o";
   argv[n++] = binary;
   argv[n] = NULL;

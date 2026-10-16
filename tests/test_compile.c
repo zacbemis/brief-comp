@@ -44,9 +44,9 @@ int main(void) {
     sema_check(c.program, &c.errors);
     ASSERT_EQ_INT(0, c.errors.count);
     ASSERT_TRUE(c.program->checked);
-    ASSERT_TRUE(call->type == &c.program->unit_type);
+    ASSERT_TRUE(call->type == &c.program->types[SEMA_UNIT]);
     SemaExpr *print = c.program->functions[1].body->as.block.items[0];
-    ASSERT_TRUE(print->as.call.args[0]->type == &c.program->str_type);
+    ASSERT_TRUE(print->as.call.args[0]->type == &c.program->types[SEMA_STR]);
   }
   TEST("name diagnostics collect independent errors and duplicate notes") {
     Checked c =
@@ -58,10 +58,11 @@ int main(void) {
     invalid(&a, "main() {}\nprint() {}", "reserved");
   }
   TEST("unsupported features are rejected rather than ignored") {
-    invalid(&a, "main() { 1 }", "expression is not implemented");
-    invalid(&a, "main() { let a = \"x\" }", "Local declarations");
-    invalid(&a, "main(x: str) {}", "parameters are not implemented");
-    invalid(&a, "main(): str { \"x\" }", "written return type");
+    invalid(&a, "main() { :nope }", "expression is not implemented");
+    invalid(&a, "main() { const a = \"x\" }", "const bindings");
+    invalid(&a, "main(x: str) {}", "cannot have parameters");
+    invalid(&a, "main() {}\nf(x: &int) {}", "Mutable borrow");
+    invalid(&a, "main(): Thing { () }", "type is unknown");
     invalid(&a, "pub User {}\nmain() {}", "Only function declarations");
     invalid(&a, "main() { main<int>() }", "Generic calls");
     invalid(&a, "main() { Module.f() }", "plain function names");
@@ -72,14 +73,17 @@ int main(void) {
     invalid(&a, "main() { @ }", "Unexpected character");
     invalid(&a, "main() { let = 1 }", "Expected a binding name");
   }
-  TEST("call graph descent is bounded and IR instruction lists grow") {
+  TEST("call graphs use explicit stacks and IR instruction lists grow") {
     char text[16384];
     size_t length = (size_t)snprintf(text, sizeof(text), "main() { f0() }\n");
     for (size_t i = 0; i < 140; i++)
       length += (size_t)snprintf(text + length, sizeof(text) - length,
                                  "f%zu() { f%zu() }\n", i, i + 1);
     snprintf(text + length, sizeof(text) - length, "f140() {}\n");
-    invalid(&a, text, "call graph depth limit");
+    Checked chain = resolve(&a, text, "chain.brf");
+    sema_check(chain.program, &chain.errors);
+    ASSERT_EQ_INT(0, chain.errors.count);
+    ASSERT_TRUE(ir_lower(&a, chain.program) != NULL);
     length = (size_t)snprintf(text, sizeof(text), "main() {\n");
     for (size_t i = 0; i < 100; i++)
       length += (size_t)snprintf(text + length, sizeof(text) - length,
@@ -99,10 +103,32 @@ int main(void) {
     invalid(&a, "main() { print() }", "exactly one str");
     invalid(&a, "main() { print(()) }", "expects a str");
     invalid(&a, "main() { f(\"x\") }\nf() {}", "Wrong number");
-    invalid(&a, "main() { \"x\" }", "Value-returning functions");
-    invalid(&a, "main() { ret \"x\" }", "unit return values");
-    invalid(&a, "main() { main() }", "Recursive functions");
-    invalid(&a, "main() { f() }\nf() { main() }", "Recursive functions");
+    invalid(&a, "main(): int { \"x\" }", "written return type");
+    invalid(&a, "main(): () { ret \"x\" }", "written return type");
+    invalid(&a, "main() { main() }", "Cannot infer recursive return type");
+    invalid(&a, "main() { f() }\nf() { main() }",
+            "Cannot infer recursive return type");
+  }
+  TEST("updates lower to checked stores and leave no function result") {
+    Checked c = resolve(&a, "main() { var n = 0\nn++\nn-- }", "updates.brf");
+    sema_check(c.program, &c.errors);
+    ASSERT_EQ_INT(0, c.errors.count);
+    IrProgram *p = ir_lower(&a, c.program);
+    ASSERT_TRUE(p != NULL);
+    if (p) {
+      IrFunction *f = &p->functions[0];
+      ASSERT_EQ_INT(SEMA_UNIT, f->return_type);
+      ASSERT_EQ_INT(11, f->count);
+      ASSERT_EQ_INT(IR_BINARY, f->instructions[4].op);
+      ASSERT_EQ_INT(BINARY_ADD, f->instructions[4].as.binary);
+      ASSERT_EQ_INT(IR_STORE, f->instructions[5].op);
+      ASSERT_EQ_INT(IR_BINARY, f->instructions[8].op);
+      ASSERT_EQ_INT(BINARY_SUB, f->instructions[8].as.binary);
+      ASSERT_EQ_INT(IR_STORE, f->instructions[9].op);
+      ASSERT_EQ_INT(IR_RETURN, f->instructions[10].op);
+      ASSERT_TRUE(f->instructions[10].a == IR_NO_VALUE);
+    }
+    invalid(&a, "main(): int { var n = 0\nn++ }", "written return type");
   }
   TEST("lowering decodes bytes and sequences string temporaries before calls") {
     Checked c = resolve(
@@ -124,7 +150,8 @@ int main(void) {
       ASSERT_TRUE(memcmp(expected, f->instructions[2].as.string.bytes,
                          sizeof(expected)) == 0);
       ASSERT_EQ_INT(0, f->instructions[2].as.string.bytes[sizeof(expected)]);
-      ASSERT_EQ_INT(1, f->instructions[3].as.call.argument);
+      ASSERT_EQ_INT(1, f->instructions[3].as.call.count);
+      ASSERT_EQ_INT(1, f->instructions[3].as.call.args[0]);
       ASSERT_EQ_INT(IR_RETURN, f->instructions[4].op);
     }
   }
@@ -160,7 +187,7 @@ int main(void) {
       ASSERT_TRUE(emit_c(out, p));
       ASSERT_EQ_INT(0, fflush(out));
       rewind(out);
-      char text[8192] = {0};
+      char text[32768] = {0};
       size_t count = fread(text, 1, sizeof(text) - 1, out);
       ASSERT_TRUE(count > 0);
       ASSERT_TRUE(strstr(text, "brt_print(brt_tmp_0)") != NULL);
