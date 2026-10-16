@@ -1,6 +1,6 @@
 # Plan: The First Version of the Compiler
 
-> **Status: Milestones 0–3 implemented; milestones 4–6 planned.** This describes how the first version of the compiler will be built. The language it accepts is listed under "First version" in `docs/lang-desc.txt`. The language rules themselves are in the other `docs/lang-*.txt` files.
+> **Status: Milestones 0–4 implemented; milestones 5–6 planned.** This describes how the first version of the compiler will be built. The language it accepts is listed under "First version" in `docs/lang-desc.txt`. The language rules themselves are in the other `docs/lang-*.txt` files.
 
 ## Goal
 
@@ -136,7 +136,7 @@ A symbol set is a sorted list of tags, each with an optional payload type. Every
 
 1. Build the call graph between functions and split it into groups that call each other (strongly connected components, found with Tarjan's algorithm using explicit work stacks rather than C recursion). Long valid call chains must not consume the compiler's stack.
 2. Check groups in dependency order, so a function's callees are known before its body is checked.
-3. Inside a group of mutually recursive functions, re-check until types stabilize. M3 implements plain primitive returns with the finite lattice unknown → concrete type → error. Non-literal anchors propagate before decimal defaults, then whole-number defaults, so numeric literals do not prematurely fix recursive results to `int`. M5 will additionally start with empty error sets and grow them to a fixpoint; sets only grow and the number of tags is finite.
+3. Inside a group of mutually recursive functions, re-check until types stabilize. M3 implements plain primitive returns, extended to nominal structs in M4, with the finite lattice unknown → concrete type → error. Non-literal anchors propagate before decimal defaults, then whole-number defaults, so numeric literals do not prematurely fix recursive results to `int`. M5 will additionally start with empty error sets and grow them to a fixpoint; sets only grow and the number of tags is finite.
 4. A function whose success type can only come from itself, such as `f() { f() }`, is reported as needing a written return type.
 
 **The error rules** from `lang-errors.txt`:
@@ -168,7 +168,7 @@ Coverage is then a question of whether the ranges together cover the type's whol
 **Other checks:**
 
 - `let` bindings are not reassigned.
-- Fields are only assigned through `&` parameters or locals.
+- Fields are only assigned through writable access. Direct aliases of ordinary parameters stay read-only, even in local `let`/`var` bindings. A separate intraprocedural permission pass propagates access through assignments, branches and loop fixpoints after types stabilize. New literals and owned call results are writable boundaries, not deep copies or a purity guarantee.
 - `break` and `continue` appear only inside loops.
 - An `if` without `else` is not used as a value.
 
@@ -190,7 +190,7 @@ This form is what Koka and Lean insert reference counts into, and it keeps C emi
 The rules, following Lean's borrowed parameters and Lobster's ownership analysis:
 
 - **Locals own** what they hold. A struct or string is released when the last owner goes out of scope, and at every early return.
-- **Parameters borrow.** The caller's reference keeps the value alive for the call, so passing a value costs nothing.
+- **Parameters borrow.** The caller keeps the value alive. M4 conservatively pins reference reads into owned temporaries, including all reference arguments; eliminating provably unnecessary counts is a later optimization.
 - **Returned values are owned** by the caller.
 - **Storing** a value in a field or another local adds a reference. **Overwriting** a field or a `var` releases the old value.
 - **String literals** are marked as permanent and are never counted.
@@ -198,10 +198,10 @@ The rules, following Lean's borrowed parameters and Lobster's ownership analysis
 **The one unsafe case is guarded.** A borrowed parameter could be freed during the call if the same call also passes a `&` parameter that can overwrite where it came from:
 
 ```
-setChild(user.child, &user)    // the callee could replace user.child while still using the first argument
+setChild(user.child, user)    // setChild(child: Child, user: &User) could replace user.child
 ```
 
-When an argument is read from a field, and the same call also passes a `&` argument, the caller adds a reference for the duration of the call. This is conservative and can be refined later.
+M4 pins every reference-valued read, not just field arguments in calls with `&` parameters. This also protects a first argument from a mutation performed while evaluating a later argument. Parameters themselves borrow; returns transfer an owned reference; stores retain before releasing their old values. Lowering records lexical/exit drops, and the separate, idempotent `ir_insert_rc()` pass inserts counts and releases reused temporary slots. Emission requires this pass.
 
 Cycles are not collected in this version. Debug builds can print the objects still alive at exit, as Lobster does. That makes leaks from cycles visible.
 
@@ -217,7 +217,7 @@ Cycles are not collected in this version. Debug builds can print the objects sti
 | A set with only `:ok(x)` | the C type of `x` |
 | `()` and `Sym<:ok>` | `void` |
 
-- **Names** are prefixed to avoid clashes with C: `main` becomes `brf_main`, and `User.new` becomes `brf_User_new`. Runtime helpers/types and generated temporaries use the separate `brt_` namespace, so user functions cannot clash with them.
+- **Names** are prefixed to avoid clashes with C: `main` becomes `brf_main`, and `User.new` becomes `brm_4_User_new`. Methods encode the owner's name length and use a distinct namespace, avoiding clashes with top-level names and underscore-separated paths. Struct types use `brs_`; runtime helpers and generated temporaries use `brt_`.
 - **String literals** are emitted as readable escaped C strings with explicit byte lengths. Fixed-width octal escapes preserve zero/non-ASCII bytes without absorbing following digits; question marks are escaped to prevent C11 trigraphs.
 - **Sets of different sizes.** Because tag numbers are shared by the whole program, passing a value from a smaller set to a larger one copies the tag and payload without translating anything.
 - **Overflow** is checked with portable C11 range preconditions before evaluating signed arithmetic. Unsigned operations also check their language-width limits. Power and left shift use checked multiplication/doubling; division guards the signed-minimum / -1 case, while the corresponding remainder is safely zero. Each checked IR operation records its Brief file/line for panic reporting. No overflow built-ins are required.
@@ -290,9 +290,11 @@ Milestone 2 is complete: `run`, `build`, and `emit-c` connect minimal resolution
 
 Milestone 3 is complete: all numeric primitives, contextual literals, bool/chr, lexical `let`/`var`, assignments and standalone valueless updates, checked arithmetic/bitwise operations, short-circuit logic, value-producing branches, while/range loops, and loop control run through every stage. Typed parameters and written/inferred primitive returns support forward and recursive calls. Iterative Tarjan analysis replaces the M2 call-depth limit; recursive groups need an independent return-type anchor or an annotation. Flow checking includes reachable explicit returns and fallthrough tails, still diagnoses unreachable syntax, and lets written `()` discard a tail without accepting an explicit non-unit return. Permanent strings can be bound, passed, and returned; heap strings and conversions remain M4 work.
 
-The native driver invokes `CC` (default `cc`) as a single executable, never through a shell. M3 links `-lm` for floating-point power. `build` defaults to `a.out`, stages compilation beside the destination, and publishes it atomically on success. `run` uses `TMPDIR` and propagates the child's exit status. The driver ignores SIGINT while waiting and cleaning up, but restores the original disposition/mask in children, so terminal Ctrl-C stops the program without leaving temporary files. `--debug` enables native ASan/UBSan with `-O0 -g`. The runtime text is embedded at compiler build time, so generated C and the compiler binary do not depend on the checkout at runtime.
+Milestone 4 is complete: immutable heap strings support concatenation, bytewise comparisons and `str(number/bool)` with documented compact round-tripping float formatting. Nominal structs support complete named initialization in source order, field access/mutation, `impl`, associated/receiver calls, `Self`, and struct return inference. Mutation permissions follow access paths: ordinary struct parameters and their direct aliases are read-only, while `&` parameters permit writes. Fresh literals and owned call results grant writable access, and parameter bindings cannot be replaced. A flow-sensitive permission pass handles copies, rebinding, branch joins and loop backedges/exits; loop headers grow to a function-wide fixpoint without recursively multiplying nested-loop walks. This does not provide purity or transitive `const`. Nonrecursive structs have fieldwise equality. A separate ownership pass implements borrowed parameters, owned results, pinned reference snapshots, retain-before-release stores, scope/return/loop-control cleanup and bounded reused loop slots. All compiler metadata remains arena-owned. The runtime has permanent literals, single-threaded ARC, allocation/size checks and a debug live-object report. Cycles, cloning, identity comparison, numeric-target conversions, and the other explicitly excluded features remain unimplemented; symbols and fallible conversions are M5 work.
 
-The C program runner is registered with CTest for normal and sanitized builds, with no interpreter dependency. Its shared POSIX process helper captures stdout and stderr as bytes, enforces 30-second compilation and 10-second execution timeouts, and kills the process group on timeout. It checks output bytes, compile diagnostic messages and source lines, panic messages, and exit statuses from fixture comments. M2 added 18 program fixtures plus stage-level and native-driver integration tests. M3 brings the fixture count to 40, including arithmetic panics, direct-precision floating-literal rounding, statement-only updates, independent inference errors, and numeric/control-flow/recursive programs. Semantic tests exercise 2,050-function chains and recursive components; runtime tests exhaustively check small-width valid arithmetic and exercise boundary/panic cases for every language integer width. The runner's panic and failure paths have their own unit tests.
+The native driver invokes `CC` (default `cc`) as a single executable, never through a shell. M3 links `-lm` for floating-point power. `build` defaults to `a.out`, stages compilation beside the destination, and publishes it atomically on success. `run` uses `TMPDIR` and propagates the child's exit status. The driver ignores SIGINT while waiting and cleaning up, but restores the original disposition/mask in children, so terminal Ctrl-C stops the program without leaving temporary files. `--debug` enables native ASan/UBSan with `-O0 -g` and `BRT_DEBUG` live-object reporting. The runtime text is embedded at compiler build time, so generated C and the compiler binary do not depend on the checkout at runtime.
+
+The C program runner is registered with CTest for normal and sanitized builds, with no interpreter dependency. Its shared POSIX process helper captures stdout and stderr as bytes, enforces 30-second compilation and 10-second execution timeouts, and kills the process group on timeout. It checks output bytes, compile diagnostic messages and source lines, panic messages, and exit statuses from fixture comments. M2 added 18 program fixtures plus stage-level and native-driver integration tests. M3 brings the fixture count to 40, including arithmetic panics, direct-precision floating-literal rounding, statement-only updates, independent inference errors, and numeric/control-flow/recursive programs. Semantic tests exercise 2,050-function chains and recursive components; runtime tests exhaustively check small-width valid arithmetic and exercise boundary/panic cases for every language integer width. M4 brings the fixture count to 55, adding string conversions/comparisons, structs/methods, alias-invalidating calls and later arguments, target/initializer order, branch/loop/return ownership, equality, generated-name collisions and heap panic coverage, plus read-only alias propagation and writable fresh rebinding. Separate ownership and runtime-object suites test count insertion/idempotence and live counts; 10,000 bit patterns per float width exercise finite round-tripping through formatting. Struct tests include a 2,051-type field chain without compiler recursion. The runner's panic and failure paths have their own unit tests.
 
 | # | Milestone | Done when |
 |---|---|---|

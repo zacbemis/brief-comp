@@ -4,8 +4,8 @@ Brief is an experimental statically typed language. The first compiler is
 written in C and emits readable C, then invokes an existing C compiler to
 produce a native program.
 
-**Current state: milestones 0–3 are implemented**, including native compilation,
-numbers, bindings, control flow, and function return inference. Compilation
+**Current state: milestones 0–4 are implemented**, including native compilation,
+numbers, control flow, heap strings, structs, methods, and reference counting. Compilation
 supports the subset below; the parser
 accepts much more syntax. Most examples in the design docs still describe future
 features, not programs that can currently be compiled.
@@ -75,7 +75,7 @@ cc -std=c11 hello.c -lm -o hello
 Compilation supports:
 
 - Every integer and floating-point type, contextual decimal literals, `bool`,
-  `chr`, permanent strings, and `()`; no implicit numeric conversions.
+  `chr`, strings, and `()`; no implicit numeric conversions.
 - Arithmetic, numeric/character comparisons, bool/unit equality, bitwise
   operations, and short-circuit logic. Integer
   overflow, integer division/remainder by zero, invalid shifts, and negative
@@ -84,42 +84,59 @@ Compilation supports:
   assignments, and standalone `x++`/`x--` statements (no update expressions).
 - Value-producing `if`/`else`, `while`, half-open ascending range `for` loops,
   and innermost-loop `break`/`continue`.
-- Typed parameters, forward calls, recursion, written or inferred primitive
-  return types, `ret`, and implicit tail returns. Unanchored recursive return
+- Typed parameters, forward calls, recursion, written or inferred plain
+  return types (including structs), `ret`, and implicit tail returns. Unanchored recursive return
   types need annotations; call-graph analysis uses explicit work stacks, not
   the old 128-function depth limit. Runtime recursion still uses the host C
   stack and may exhaust it rather than panic; tail-call elimination is not
   guaranteed.
 
+- Immutable heap strings, `+`/`+=`, bytewise comparisons, and `str(number)` /
+  `str(bool)` conversions. See `docs/lang-types.txt` for formatting choices.
+- Nominal structs, complete named field initialization, field reads/writes and
+  numeric field updates, `impl`, associated/receiver calls, and `Self`.
+  Ordinary parameters and their direct local/field aliases are read-only; `&`
+  struct parameters permit mutation. Permissions propagate through rebinding and
+  control flow; fresh literals and owned call results permit writable access.
+  References share objects rather than copying them (this is not `const` or purity).
+- Fieldwise equality for nonrecursive structs. Reference counting owns locals,
+  temporaries, fields and returns; parameters borrow. Every scope exit and early
+  return releases owners, and loop temporary slots release previous values.
+
 `main()` is required and cannot have parameters. Its plain result is discarded;
 success exits 0. An explicit `: ()` discards a function's tail value, but not an
 explicit non-unit `ret`. `print` remains a reserved top-level builtin taking exactly one
-`str`; it writes bytes plus a newline, including embedded zero bytes. Numeric
-results in the program tests are observed through comparisons and branches.
+`str`; it writes bytes plus a newline, including embedded zero bytes. `str` is
+also reserved as a top-level builtin and accepts exactly one number or `bool`.
 
-`const`, numeric conversions, string operations, heap strings, structs, symbols,
-pipelines, mutable
-borrow parameters, and other later-milestone features produce explicit
-unsupported-feature diagnostics. `dump-ast` remains syntax-only.
+`const`, numeric-target conversions, character/object/string-to-string conversions,
+symbols, pipelines, indexing, function values, cloning, identity comparison, and
+other later features remain unsupported. Equality of recursive struct shapes
+(including structs containing them) is not supported. `dump-ast` remains syntax-only.
 
 `CC` names a **single executable** (default `cc`), not a shell command with
 flags. Paths containing spaces work; use an executable wrapper for extra flags
 or compiler launchers such as `ccache gcc`.
 Native compilation uses `-std=c11 -O2` and links `-lm`; `--debug` instead selects `-O0 -g`, ASan,
-and UBSan. `build` defaults to `a.out` and atomically replaces the requested
+and UBSan, with a debug report for any heap objects still alive at normal exit. `build` defaults to `a.out` and atomically replaces the requested
 output only after successful C compilation. `run` uses `TMPDIR` (default `/tmp`),
 removes its temporary files (including after Ctrl-C), and propagates the program's
 exit status. While waiting, the driver ignores SIGINT but the child retains its
 original disposition, so terminal Ctrl-C stops the child and cleanup still runs. Use `--`
 before an input filename starting with `-` for `build` or `run`.
 
-The generated C uses readable `brf_main`/`brf_greet` function names, a separate
-`brt_` runtime namespace, and escaped string literals with explicit byte lengths.
+The generated C uses readable `brf_main`/`brf_greet` function names, a distinct
+`brm_` namespace for length-qualified methods, `brs_` for struct types, and `brt_`
+for runtime helpers and generated locals. Strings have explicit byte lengths.
 It includes its runtime and needs no project headers or libraries; link with
 system `libm` (`-lm`) for floating-point power. Generated C checks that the host
 provides binary32 `float` and binary64 `double`.
-Only permanent string literals exist so far; heap strings and reference counting
-arrive in milestone 4.
+String literals remain permanent; computed strings and structs use single-threaded
+reference counting. The initial ownership pass conservatively pins all reference
+reads, including argument snapshots, before later evaluation can invalidate them.
+Count elimination and cycle collection are not implemented. Generated equality
+and release callbacks also use the host C stack; very deep object shapes can
+exhaust it rather than panic. Panics terminate the process without unwinding owners.
 
 ## Compiler components
 
@@ -134,12 +151,15 @@ arrive in milestone 4.
   and patterns, Pratt expressions, generic-call disambiguation, and recovery.
 - `src/lexer/newline.c`: continuation and nested-delimiter newline filtering.
 - `include/sema/`, `src/sema/`: separate name resolution and type checking,
-  with canonical primitive types, lexical scopes, flow checks, and iterative
+  with canonical primitive/nominal types, lexical scopes, flow checks, read-only
+  alias analysis, and iterative
   SCC-based recursive return inference.
 - `include/ir/`, `src/ir/`: typed temporaries, sequenced calls, explicit control
-  flow/returns, loop targets, and value-producing branches.
+  flow/returns, loop targets, value-producing branches, field operations, and a
+  separately testable reference-count insertion pass.
 - `include/codegen/`, `src/codegen/`, `runtime/`: self-contained C emission,
-  source mapping, literal strings/printing, and checked numeric operations.
+  source mapping, heap strings/structs, automatic ownership, printing/conversions,
+  and checked numeric operations.
 - `include/driver/`, `src/driver/`: shell-free native compiler invocation.
 - `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
   native driver tests; program tests in normal and sanitizer configurations;
@@ -167,5 +187,5 @@ Wide and combining characters do not yet have special display-width handling.
 - [Error handling](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
 
-The overview links the remaining topic documents. Next is milestone 4:
-heap strings, conversions, structs, methods, mutable borrows, and reference counts.
+The overview links the remaining topic documents. Next is milestone 5:
+symbols, fallible conversions, error handling, pipelines, and exhaustive matching.

@@ -50,7 +50,15 @@ Programmers do not manually call `retain()` or `release()`.
 
 The compiler may eliminate unnecessary operations through ownership transfer, escape analysis, and lifetime analysis.
 
-Passing an object to a plain parameter is a borrow. When the compiler can prove the caller's reference stays alive for the whole call, no count is changed.
+Passing an object to a plain parameter is a borrow. When the compiler can prove the caller's reference stays alive for the whole call, no count needs to change.
+
+M4's initial ownership pass is conservative: reference-valued reads produce owned
+temporary snapshots. This pins field arguments even if a later argument or the
+callee overwrites their owner's field. The callee still borrows its parameters;
+returned references are owned. Stores retain the new value before releasing the
+old one, including self-assignment. Locals and temporaries are released on lexical
+scope exits, returns, break, and continue; reused loop slots release their previous
+values. Lifetime/count elimination is a future optimization.
 
 ```
 getAge(user: User): int {
@@ -141,9 +149,32 @@ setAge(user: &User, age: int) {
 
 The caller does not need to explicitly transfer ownership.
 
-`&` is a permission on the name, not a claim of exclusivity. A plain parameter cannot be used to mutate the object. A `&` parameter can.
+`&` grants writable access, not exclusivity. A plain parameter and direct aliases
+read from it have read-only access. A `&` parameter grants writable access.
 
 Other references to the same object may exist while it is borrowed.
+
+In the current compiler, `&` parameters require a struct type. The caller writes
+an ordinary argument; `&` appears only in the parameter declaration. The parameter
+binding itself remains immutable. Field paths rooted in an ordinary parameter
+cannot be written or forwarded to an `&` parameter. Reading a struct reference
+from that parameter, or from its fields, preserves read-only access when bound
+to `let` or `var`, copied again, selected by a branch, or assigned to a local.
+Retaining a reference does not upgrade its permission. Copied primitive values
+are independent and do not carry this restriction.
+
+A `var` binding can be rebound; its current reference's permission follows the
+new value. Rebinding to a fresh literal or an owned call result permits mutation.
+At control-flow joins, access is read-only if any continuing path is read-only.
+Loops conservatively include zero iterations and backedges; `break`/`continue`
+states are included, and returning paths do not restrict continuing paths.
+
+This is an access-path rule, not a purity promise or transitive `const`.
+New struct literals and owned call results are writable access boundaries,
+including when they contain or return shared references. Fields stored in an
+already writable object remain accessible through that object's permission.
+In particular, a call result need not be a deep copy of its arguments. Other
+writable aliases can still change the data. M4 does not implement `const` or cloning.
 
 ### Shared aliases
 
@@ -156,7 +187,8 @@ let other = user
 
 The presence of multiple references does not, by itself, prohibit mutation.
 
-Borrowing does not restrict aliases. Only `const` guarantees that no reference can mutate an object.
+Borrowing does not forbid shared aliases. Read-only access does not freeze the
+object; only `const` guarantees that no reference can mutate it.
 
 ### Immutability
 

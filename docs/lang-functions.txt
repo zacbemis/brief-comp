@@ -12,7 +12,11 @@ add(x: int, y: int): int {
 
 The last expression is implicitly returned. Ordinary parameters are immutable
 bindings: the function cannot reassign them. A `&` parameter permits changing
-the borrowed data, not replacing the parameter binding.
+the borrowed data, not replacing the parameter binding. Ordinary struct parameters
+and directly derived local/field aliases are read-only, even through `let`/`var`.
+Fresh literals and owned call results grant writable access; this is not deep
+`const` or a purity guarantee. `lang-memory.txt` describes propagation through
+rebinding and control flow.
 
 Explicit returns use `ret`.
 

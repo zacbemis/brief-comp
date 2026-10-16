@@ -20,7 +20,18 @@ Making a type public does not automatically make its fields public.
 
 ## Struct literals
 
-A struct literal sets each field by name. Fields are separated by a comma or a newline.
+A struct literal sets each field by name, exactly once; there are no defaults.
+Missing, duplicate, and unknown fields are compile errors. Field initializers run
+in their written order, not declaration order. Fields are separated by a comma or
+a newline in literals (declarations use newlines).
+
+M4 compiles single-file structs and `impl` blocks, including `Self` in their type
+positions, associated calls such as `User.new(...)`, and receiver calls. `Self`
+can also name the enclosing struct in literals and associated calls. Return
+inference includes nominal struct types. There is no implicit receiver: it is an
+explicit first parameter, and calls within `impl` use the same receiver or
+associated-call syntax (for example, `Self.new(...)`). All code is in one module, so visibility
+across files and external `impl` blocks remain later-version work.
 
 ```
 let user = User { name: "Bob", age: 20, userVer: 0.5 }

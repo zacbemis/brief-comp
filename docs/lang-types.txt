@@ -95,6 +95,16 @@ print(str(count))                 // always succeeds
 
 Converting a value of your own type, as in `str(user)`, will need a way for the type to say how it converts. That is planned as a trait.
 
+M4 currently implements `str(number)` and `str(bool)`, with exactly one argument.
+Other conversions, including `str(str)` and `str(chr)`, are not implemented yet.
+Integers use ordinary decimal notation; bools produce `true` or `false`.
+Floating formatting is an explicit initial implementation choice: use the first
+C-locale `%g` precision (1–9 significant digits for `flt`, 1–17 for `dub`) that
+round-trips at the source width. Prefer fixed decimal notation when it is no
+longer than that exponent form. No `.0` is appended; signed zero becomes `-0`,
+and nonfinite values are `inf`, `-inf`, and `nan` (without a NaN sign).
+This is compact round-tripping text, not a promise of globally shortest text.
+
 ### Overflow
 
 Integer arithmetic that goes outside the range of its type panics. This applies to every integer type and to every build of a program. There is no mode that turns the check off.
@@ -170,6 +180,10 @@ to every value, including itself.
 ## Strings and characters
 
 A `str` is immutable. An operation that appears to change a string produces a new one.
+`+` concatenates strings, and `+=` replaces the target with the concatenated result.
+The comparison operators compare unsigned bytes lexicographically, including
+embedded zero bytes; if one byte sequence is a prefix, the shorter sorts first.
+No Unicode normalization or locale-dependent comparison is performed.
 
 ```
 let name = "Bob"
