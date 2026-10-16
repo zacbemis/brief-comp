@@ -1,6 +1,6 @@
 Child { name: str }
 Parent { child: Child }
-store(parent: &Parent, child: Child) { parent.child = child }
+store(parent: &Parent, child: &Child) { parent.child = child }
 replace(child: Child, parent: &Parent) {
   parent.child = Child { name: "replacement" + "!" }
   print(child.name)

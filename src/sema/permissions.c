@@ -5,8 +5,8 @@
 // upgrade it. State bits mean "may hold a read-only struct reference". Direct
 // copies propagate the bit, as do struct literals with read-only children and
 // struct call results whose type can reach a read-only argument's objects.
-// These are local access rules, not deep const or a function purity
-// guarantee.
+// A read-only struct cannot be stored in a field. These are local access
+// rules, not deep const or a function purity guarantee.
 typedef unsigned char *State;
 typedef struct Loop Loop;
 struct Loop {
@@ -174,6 +174,13 @@ static int visit(Permissions *p, SemaExpr *e, State state) {
       int value = visit(p, e->as.binding.value, state);
       if (!target && e->as.binding.variable)
         state[e->as.binding.variable->id] = (unsigned char)value;
+      // A stored reference outlives this access path: whoever can write the
+      // holder could later write through it. Keeping an argument therefore
+      // needs an & parameter. A read-only holder was already reported above.
+      if (target && target->as.field.field && value && !parent)
+        error(p, e->as.binding.value->span,
+              "A read-only struct cannot be stored in a field; take the "
+              "parameter it comes from as &.");
     }
     break;
   }

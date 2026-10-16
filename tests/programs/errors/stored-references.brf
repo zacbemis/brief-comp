@@ -1,0 +1,25 @@
+P { name: str }
+Q { p: P }
+W { q: Q }
+same(p: P): P { p }
+direct(holder: &Q, p: P) {
+  holder.p = p // error: A read-only struct cannot be stored in a field; take the parameter it comes from as &.
+}
+throughAlias(holder: &Q, q: Q) {
+  let inner = q.p
+  holder.p = inner // error: A read-only struct cannot be stored in a field; take the parameter it comes from as &.
+}
+localHolder(q: Q) {
+  var holder = Q { p: P { name: "fresh" } }
+  holder.p = q.p // error: A read-only struct cannot be stored in a field; take the parameter it comes from as &.
+}
+throughCall(holder: &Q, q: Q) {
+  holder.p = same(q.p) // error: A read-only struct cannot be stored in a field; take the parameter it comes from as &.
+}
+throughLiteral(holder: &W, q: Q) {
+  holder.q = Q { p: q.p } // error: A read-only struct cannot be stored in a field; take the parameter it comes from as &.
+}
+readOnlyHolder(q: Q, p: P) {
+  q.p = p // error: Cannot mutate through an ordinary parameter; use &.
+}
+main() {}

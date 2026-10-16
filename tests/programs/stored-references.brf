@@ -1,0 +1,23 @@
+P { name: str }
+Q { p: P }
+make(name: str): P { P { name: name } }
+// A function that keeps an argument takes it as &.
+keep(holder: &Q, p: &P) { holder.p = p }
+// Copied strings and numbers are not references and may be stored.
+rename(holder: &Q, source: P) { holder.p.name = source.name }
+main() {
+  var holder = Q { p: P { name: "first" } }
+  let shared = P { name: "shared" }
+  keep(holder, shared)
+  shared.name = "changed through the original"
+  print(holder.p.name) // expect: changed through the original
+  holder.p = make("fresh" + " call")
+  print(holder.p.name) // expect: fresh call
+  holder.p = P { name: "literal" }
+  print(holder.p.name) // expect: literal
+  let local = P { name: "local" }
+  holder.p = local
+  print(holder.p.name) // expect: local
+  rename(holder, P { name: "copied" + " text" })
+  print(holder.p.name) // expect: copied text
+}
