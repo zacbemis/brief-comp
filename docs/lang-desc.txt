@@ -172,7 +172,7 @@ The plan for building it is in `docs/plans/`.
 
 The following areas are not fully specified and should not be assumed to have final behavior:
 
-1. Enforcing `const` for values returned by calls, nested objects, and stored references.
+1. Enforcing `const` for values returned by calls, nested objects, and stored references. The same question applies to read-only access from ordinary parameters: storing a read-only reference into a field of a writable object currently makes it writable through that field (`lang-memory.txt`).
 2. Shallow versus deep cloning rules.
 3. Trait coherence and conflict resolution.
 4. Weak-reference syntax and runtime representation.

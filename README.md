@@ -165,7 +165,7 @@ exhaust it rather than panic. Panics terminate the process without unwinding own
 - `include/driver/`, `src/driver/`: shell-free native compiler invocation.
 - `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
   native driver tests; program tests in normal and sanitizer configurations;
-  and 145 doc-example parsing cases, with wrappers for fragments and expected
+  and 146 doc-example parsing cases, with wrappers for fragments and expected
   failures for syntax-error examples. Later-version syntax and incomplete
   API notation are excluded explicitly in the doc-test manifest.
 - `tests/parse/`: 106 parser example files that must parse or be rejected

@@ -186,7 +186,21 @@ restriction.
 
 This is an access-path rule, not a purity promise or transitive `const`.
 Fields stored in an already writable object remain accessible through that
-object's permission. Other writable aliases can still change the data.
+object's permission. Storing a read-only reference into such a field therefore
+makes it writable through that path:
+
+```
+viaStore(q: Q) {
+  var holder = Q { p: P { name: "fresh" } }
+  holder.p = q.p
+  holder.p.name = "changed"   // allowed: changes the caller's object
+}
+```
+
+Restricting stored references is an open question (`lang-desc.txt`, open
+question 1). Rejecting such stores would also forbid ordinary code such as
+`report.owner = user`, and marking the holder read-only would not cover its
+other aliases. Other writable aliases can still change the data.
 M4 does not implement `const` or cloning.
 
 ### Shared aliases
