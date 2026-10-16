@@ -1,0 +1,3 @@
+// panic: invalid shift count
+main() { let x: ulng = 0
+  x >> 64 }

@@ -1,0 +1,56 @@
+// expect: numbers ok
+check(ok: bool, message: str): () {
+  if !ok { print(message) }
+}
+main() {
+  let s: shrt = -32768
+  let us: ushrt = 65535
+  let i = -2147483648
+  let ui: uint = 4294967295
+  let l: lng = -9223372036854775808
+  let ul: ulng = 18446744073709551615
+  check(s + 1 == -32767, "shrt minimum")
+  check(us - 1 == 65534, "ushrt maximum")
+  check(i + 1 == -2147483647, "int minimum")
+  check(ui - 1 == 4294967294, "uint maximum")
+  check(l + 1 == -9223372036854775807, "lng minimum")
+  check(ul - 1 == 18446744073709551614, "ulng maximum")
+  check(1 + l == -9223372036854775807, "literal context on left")
+  check(s % -1 == 0 and i % -1 == 0 and l % -1 == 0, "minimum remainder")
+  check(-7 / 2 == -3 and -7 % 2 == -1, "division truncation")
+  check(7 / -2 == -3 and 7 % -2 == 1, "division signs")
+  check(2 ** 3 ** 2 == 512 and -2 ** 2 == -4, "power precedence")
+  check(0 ** 0 == 1 and 0 ** 7 == 0, "zero power")
+  check(2147483647 ** 1 == 2147483647, "no unnecessary power squaring")
+  check(ul ** 1 == 18446744073709551615, "unsigned power maximum")
+  check(l ** 1 == -9223372036854775808, "signed power minimum")
+  check(~us == 0 and ~ui == 0 and ~ul == 0, "unsigned bitwise not")
+  check(~s == 32767 and ~i == 2147483647 and ~l == 9223372036854775807, "signed bitwise not")
+  check((5 & 3) == 1 and (5 | 3) == 7 and (5 ^ 3) == 6, "bitwise operators")
+  check(-3 >> 1 == -2 and l >> 63 == -1, "arithmetic right shift")
+  check(us >> 15 == 1 and ul >> 63 == 1, "unsigned right shift")
+  check(-1 << 31 == -2147483648, "checked signed left shift")
+  let high: ulng = 1 << 63
+  check(high == 9223372036854775808, "unsigned left shift")
+  let f: flt = 0.5
+  let d = 0.5
+  check(f + 1 == 1.5 and d * 2 == 1.0, "float arithmetic")
+  check(f ** -1.0 == 2.0 and d / 2 == 0.25, "float power and division")
+  let round: flt = 16777217
+  check(round == 16777216, "binary32 literal rounding")
+  let one: flt = 1
+  check(one + 16777216 == 16777216, "binary32 operation rounding")
+  let branch = if true { 1 } else { 2.0 }
+  let nested = (1 + 2.0) * 3
+  let mixed = (if true { 1 } else { 2.0 }) + 3
+  check(branch == 1.0 and nested == 9.0 and mixed == 4.0, "nested literal defaults")
+  let zero: uint = -0
+  check(zero == 0, "unsigned negative zero literal")
+  let inf = 1.0 / 0.0
+  let negInf = 1.0 / -0.0
+  let nan = 0.0 / 0.0
+  check(inf > 1.0 and negInf < -1.0 and nan != nan, "IEEE division by zero")
+  check('a' < 'b' and '\0' == '\0', "character comparison")
+  check(true != false and !false and () == (), "bool and unit equality")
+  print("numbers ok")
+}

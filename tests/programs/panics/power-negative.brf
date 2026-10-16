@@ -1,0 +1,2 @@
+// panic: negative integer exponent
+main() { 2 ** -1 }

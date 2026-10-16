@@ -1,0 +1,18 @@
+main(): () {
+  let fixed = 1
+  fixed = 2 // error: Cannot reassign an immutable binding.
+  fixed++ // error: Cannot reassign an immutable binding.
+  var wide: lng = 1
+  wide = fixed // error: Assignment value has the wrong type.
+  let small: shrt = 32768 // error: Number literal is outside the range of its type.
+  let narrow: int = wide // error: Binding value does not match its annotation.
+  wide + fixed // error: Operator operands must have the same type; numeric conversions are explicit.
+  f(true) // error: Function argument has the wrong type.
+  let f = 1
+  f() // error: A local binding is not callable.
+  let repeated = 1
+  let repeated = 2 // error: Duplicate binding in this scope.
+  if true { let inner = 1 }
+  inner // error: Unknown binding.
+}
+f(value: int) {}

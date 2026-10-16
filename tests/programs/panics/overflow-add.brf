@@ -1,0 +1,3 @@
+// panic: integer overflow
+main() { var count: shrt = 32767
+  count += 1 }

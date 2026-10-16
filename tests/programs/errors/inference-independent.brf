@@ -1,0 +1,3 @@
+main() { missing() } // error: Unknown function.
+f(x: bool) { if x { g(x) } else { true } }
+g(x: bool) { if x { f(x) } else { 1 } } // error: Cannot infer a consistent return type.

@@ -1,0 +1,61 @@
+// expect: returns ok
+check(ok: bool, message: str): () { if !ok { print(message) } }
+factorial(n: int) {
+  if n == 0 { 1 } else { n * factorial(n - 1) }
+}
+even(n: int) { if n == 0 { true } else { odd(n - 1) } }
+odd(n: int) { if n == 0 { false } else { even(n - 1) } }
+choose(flag: bool) { if flag { ret 1 } else { ret 2 } }
+early(flag: bool): int {
+  let item = if flag { ret 7 } else { 9 }
+  item
+}
+neverBind(flag: bool) { let unused = if flag { ret 1 } else { ret 2 } }
+wide(flag: bool) {
+  let x: lng = 3
+  if flag { ret 1 }
+  x
+}
+wideTail(flag: bool) {
+  let x: lng = 3
+  if flag { ret x }
+  1
+}
+wideCycle(flag: bool) { if flag { wideOther(flag) } else { 1 } }
+wideOther(flag: bool) { let x: lng = 4
+  if flag { wideCycle(false) } else { x } }
+unreachable() { ret 1
+  let ignored: lng = 9
+  ignored }
+text() { ret "returns ok" }
+discard(): () { 42 }
+unitEarly(flag: bool): () { if flag { ret }
+  "discard this tail" }
+forReturn() { for i in 0..2 { ret } }
+forBreak() { for i in 0..2 { break } }
+noElse() { if true { 12 } }
+annotated(n: int): int { if n == 0 { ret 8 }
+  annotated(n - 1) }
+loopReturn(): int { while true { ret 6 } }
+main() {
+  check(factorial(5) == 120, "inferred recursion")
+  check(even(8) and odd(7), "mutual recursion")
+  check(choose(true) == 1 and choose(false) == 2, "all explicit returns")
+  check(early(true) == 7 and early(false) == 9, "return inside initializer")
+  check(neverBind(false) == 2, "diverging binding")
+  let w: lng = wide(true)
+  let t: lng = wideTail(false)
+  let c: lng = wideCycle(true)
+  check(w == 1 and t == 1 and c == 1, "context across all returns and cycles")
+  let inferred: int = unreachable()
+  check(inferred == 1, "unreachable code is not a return anchor")
+  check(annotated(4) == 8 and loopReturn() == 6, "written recursive return and loop flow")
+  check(discard() == () and noElse() == (), "discard and statement tails")
+  unitEarly(true)
+  unitEarly(false)
+  forReturn()
+  forBreak()
+  check(!(false and 1 / 0 == 0), "short-circuit and")
+  check(true or 1 / 0 == 0, "short-circuit or")
+  print(text())
+}

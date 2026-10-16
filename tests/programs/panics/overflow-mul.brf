@@ -1,0 +1,3 @@
+// panic: integer overflow
+main() { let big: lng = 9223372036854775807
+  big * 2 }

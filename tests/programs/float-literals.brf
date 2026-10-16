@@ -1,0 +1,25 @@
+// expect: float literals ok
+check(ok: bool, message: str): () { if !ok { print(message) } }
+main() {
+  let above: flt = 1.000000059604644776257986737988403547205962240695953369140625
+  check(above == 1.00000011920928955078125, "double rounding above midpoint")
+  let below: flt = 1.000000178813934326171874
+  check(below == 1.00000011920928955078125, "double rounding below midpoint")
+  let tie: flt = 1.000000059604644775390625
+  check(tie == 1.0, "tie rounds to even")
+  let whole: flt = 36028799166447617
+  check(whole == 36028801313931264, "whole literal rounds directly to flt")
+  let negative: flt = -1.000000059604644776257986737988403547205962240695953369140625
+  check(negative == -1.00000011920928955078125, "negative literal rounding")
+  let maximum: flt = 340282356779733661637539395458142568447.0
+  check(maximum == 340282346638528859811704183484516925440, "round down to largest flt")
+  let negativeMax: flt = -340282356779733661637539395458142568447.0
+  check(negativeMax == -340282346638528859811704183484516925440, "round to negative largest flt")
+  let tiny: flt = 0.0000000000000000000000000000000000000000000014
+  check(tiny > 0 and tiny + tiny > tiny, "finite underflow is accepted")
+  let zero: flt = -0.000000000000000000000000000000000000000000000000000000000000000001
+  check(zero == 0 and 1 / zero < 0, "underflow preserves negative zero")
+  let precise: dub = 1.000000059604644776257986737988403547205962240695953369140625
+  check(precise == 1.000000059604644775390625, "dub still uses binary64 rounding")
+  print("float literals ok")
+}

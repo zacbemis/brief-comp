@@ -1,0 +1,12 @@
+main(): () {
+  if 1 {} // error: An if condition must be bool.
+  while 1 {} // error: A while condition must be bool.
+  let incomplete = if true { 1 } // error: An if without else cannot be used as a value.
+  let mismatch = if true { 1 } else { false } // error: Value-producing if branches must have compatible types.
+  let loop = while false {} // error: Loops cannot be used as values.
+  for i in 0..1 { i++ } // error: Cannot reassign an immutable binding.
+  break // error: break and continue are only allowed inside loops.
+  continue // error: break and continue are only allowed inside loops.
+}
+missing(value: bool): int { if value { ret 1 } } // error: Function body does not match the written return type.
+wrong(): () { ret 1 } // error: Return value does not match the written return type.

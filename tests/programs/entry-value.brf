@@ -1,0 +1,3 @@
+// Plain main results are not process statuses; successful execution exits 0.
+// exit: 0
+main() { 42 }

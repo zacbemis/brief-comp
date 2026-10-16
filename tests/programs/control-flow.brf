@@ -1,0 +1,97 @@
+// expect: lower
+// expect: upper
+// expect: iteration
+// expect: iteration
+// expect: left
+// expect: right
+// expect: good
+// expect: 1
+// expect: 2
+// expect: unit a
+// expect: unit c
+// expect: control ok
+check(ok: bool, message: str): () { if !ok { print(message) } }
+trace(label: str, value: int) { print(label)
+  value }
+add(a: int, b: int) { a + b }
+unitArg(a: (), b: int, c: ()) { b }
+mark(label: str) { print(label) }
+main() {
+  var count = 0
+  var total: lng = 0
+  while count < 10 {
+    count++
+    if count == 3 { continue }
+    if count == 6 { break }
+    total += 2
+  }
+  check(count == 6 and total == 8, "while, continue, break")
+  count++
+  count++
+  check(count == 8, "increment statements")
+  count--
+  count--
+  check(count == 6, "decrement statements")
+  var floating: flt = 0.5
+  floating++
+  check(floating == 1.5, "floating increment")
+  floating--
+  check(floating == 0.5, "floating decrement")
+  var arithmetic: shrt = 5
+  arithmetic += 7
+  arithmetic -= 2
+  arithmetic *= 3
+  arithmetic /= 4
+  arithmetic %= 5
+  check(arithmetic == 2, "compound assignment")
+  var iterations = 0
+  let stop = 4
+  for i in 0..stop {
+    if i == 1 { continue }
+    for j in 0..3 {
+      if j == 2 { break }
+      iterations += 1
+    }
+  }
+  check(iterations == 6, "nested for loops")
+  var pieces = 0
+  for i in 0..5 {
+    let piece = if i == 1 { continue } else if i == 3 { break } else { i }
+    pieces += piece
+  }
+  check(pieces == 2, "loop control inside a value-producing branch")
+  var condition = 0
+  while (if true { condition++
+    condition < 4 } else { false }) {}
+  check(condition == 4, "loop condition is reevaluated")
+  for unused in 8..2 { print("descending range ran") }
+  let top: ulng = 18446744073709551615
+  var last: ulng = 0
+  for n in top - 2..top { last = n }
+  check(last == top - 1, "range near unsigned maximum")
+  for i in trace("lower", 0)..trace("upper", 2) { print("iteration") }
+  check(trace("left", 1) + trace("right", 2) == 3, "operand order")
+  var side = 3
+  side += if true { side = 100
+    4 } else { 0 }
+  check(side == 7, "compound target read before RHS")
+  let original = 7
+  if true {
+    let original = original + 2
+    check(original == 9, "inner shadow")
+  }
+  check(original == 7, "outer scope")
+  var flag = false
+  flag = true
+  let result = if flag { 21 } else { 42 }
+  check(result == 21, "value-producing if")
+  let selected = if false { "bad" } else if true { "good" } else { "bad" }
+  print(if result == 21 { selected } else { "bad" })
+  check(add(trace("1", 10), trace("2", 20)) == 30, "argument order")
+  check(unitArg(mark("unit a"), 11, mark("unit c")) == 11, "unit argument effects")
+  let unused: () = ()
+  var empty = unused
+  empty = ()
+  check(empty == (), "unit bindings")
+  print("control ok")
+}

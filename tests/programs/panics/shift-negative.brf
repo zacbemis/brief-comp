@@ -1,0 +1,2 @@
+// panic: invalid shift count
+main() { 0 << -1 }

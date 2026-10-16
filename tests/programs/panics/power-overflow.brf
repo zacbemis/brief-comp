@@ -1,0 +1,3 @@
+// panic: integer overflow
+main() { let base: ushrt = 256
+  base ** 2 }

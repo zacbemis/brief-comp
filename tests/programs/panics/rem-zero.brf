@@ -1,0 +1,2 @@
+// panic: division by zero
+main() { 1 % 0 }

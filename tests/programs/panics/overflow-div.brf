@@ -1,0 +1,3 @@
+// panic: integer overflow
+main() { let small: lng = -9223372036854775808
+  small / -1 }

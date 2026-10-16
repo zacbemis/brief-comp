@@ -1,0 +1,3 @@
+// panic: division by zero
+main() { let zero: uint = 0
+  1 / zero }

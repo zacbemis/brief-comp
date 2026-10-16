@@ -1,0 +1,11 @@
+main() {
+  var count = 0
+  let old = count++ // error: Increment and decrement are only allowed as standalone statements.
+  while count++ < 3 {} // error: Increment and decrement are only allowed as standalone statements.
+  print(count--) // error: Increment and decrement are only allowed as standalone statements.
+  count = count++ // error: Increment and decrement are only allowed as standalone statements.
+  count++ + 1 // error: Increment and decrement are only allowed as standalone statements.
+  count++++ // error: Increment and decrement are only allowed as standalone statements.
+  (count + 1)++ // error: Expected a name, field, or index as an increment/decrement target.
+  ret count-- // error: Increment and decrement are only allowed as standalone statements.
+}

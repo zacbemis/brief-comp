@@ -1,0 +1,5 @@
+// panic: integer overflow
+main() {
+  var value: ushrt = 65535
+  value++
+}
