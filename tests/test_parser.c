@@ -162,12 +162,55 @@ int main(void) {
                     "(|> (name x) (match (arm (wildcard) (block (+= (name "
                     "count) (int 1))))))");
   }
+  TEST("increment and decrement are standalone statements, not unary values") {
+    expression_dump(&arena, "x++", "(inc (name x))");
+    expression_dump(&arena, "x--", "(dec (name x))");
+    expression_dump(&arena, "user.age++", "(inc (field (name user) age))");
+    expression_dump(&arena, "items[0]--", "(dec (index (name items) (int 0)))");
+    expression_dump(
+        &arena, "x |> { _ => count++ }",
+        "(|> (name x) (match (arm (wildcard) (block (inc (name count))))))");
+    Parsed *v = parse(&arena, "main() { x++\ny-- }");
+    ASSERT_EQ_INT(0, v->diagnostics.count);
+    Expr *body = v->program->items[0]->as.function.body;
+    ASSERT_EQ_INT(2, body->as.block.count);
+    ASSERT_EQ_INT(BLOCK_ITEM_STMT, body->as.block.items[0].kind);
+    ASSERT_EQ_INT(STMT_INC, body->as.block.items[0].as.stmt->kind);
+    ASSERT_EQ_INT(STMT_DEC, body->as.block.items[1].as.stmt->kind);
+    const char *bad[] = {"main() { let y = x++ }",
+                         "main() { ret x-- }",
+                         "main() { f(x++) }",
+                         "main() { if x++ {} }",
+                         "main() { while count++ < 3 {} }",
+                         "main() { for i in 0..n++ {} }",
+                         "main() { a[x++] }",
+                         "main() { (x++) }",
+                         "main() { x++ + y }",
+                         "main() { x + y++ }",
+                         "main() { x++++ }",
+                         "main() { x++ = y }",
+                         "main() { x = y++ }",
+                         "main() { x++() }",
+                         "main() { x++.field }",
+                         "main() { x++ |> f() }",
+                         "main() { :ok(x--) }"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++)
+      invalid(&arena, bad[i], "only allowed as standalone statements");
+    invalid(&arena, "main() { 1++ }", "increment/decrement target");
+    invalid(&arena, "main() { (x + y)-- }", "increment/decrement target");
+    invalid(&arena, "main() { f()++ }", "increment/decrement target");
+    invalid(&arena, "main() { ++x }", "Expected an expression");
+    invalid(&arena, "main() { --x }", "Expected an expression");
+    Parsed *recovered =
+        parse(&arena, "main() {\nlet x = count++\nprint(\"after\")\n}");
+    ASSERT_EQ_INT(1, recovered->diagnostics.count);
+    ASSERT_EQ_INT(
+        1, recovered->program->items[0]->as.function.body->as.block.count);
+  }
   TEST("postfix chains distinguish panic, logical not, and !=") {
     expression_dump(
         &arena, "items[0].get()?!",
         "(panic (? (call (field (index (name items) (int 0)) get))))");
-    expression_dump(&arena, "x++ + y--",
-                    "(+ (post++ (name x)) (post-- (name y)))");
     expression_dump(&arena, "!x != y!", "(!= (! (name x)) (panic (name y)))");
     expression_dump(&arena, "json |> parse()? |> validate()!",
                     "(|> (|> (name json) (? (call (name parse)))) (panic (call "

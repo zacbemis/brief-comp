@@ -1123,6 +1123,11 @@ static int assignment(TokenType t) {
   return t == TOK_EQUAL || t == TOK_PLUS_EQUAL || t == TOK_MINUS_EQUAL ||
          t == TOK_STAR_EQUAL || t == TOK_SLASH_EQUAL || t == TOK_PERCENT_EQUAL;
 }
+static int update(TokenType t) {
+  return t == TOK_PLUS_PLUS || t == TOK_MINUS_MINUS;
+}
+static const char update_message[] =
+    "Increment and decrement are only allowed as standalone statements.";
 static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
   Expr *left = primary(p, allow_struct);
   if (!left)
@@ -1192,15 +1197,6 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
         left = e;
         continue;
       }
-      if (token.type == TOK_PLUS_PLUS || token.type == TOK_MINUS_MINUS) {
-        take(p);
-        Expr *e = new_expr(p, EXPR_UNARY, through(left->span, token.span));
-        e->as.unary.op =
-            token.type == TOK_PLUS_PLUS ? UNARY_POST_INC : UNARY_POST_DEC;
-        e->as.unary.value = left;
-        left = e;
-        continue;
-      }
     }
     const Operator *op = operator_info(token.type);
     if (!op || op->power < minimum)
@@ -1253,6 +1249,10 @@ static Expr *expression(Parser *p, int minimum, int allow_struct) {
     return NULL;
   Expr *result = expression_inner(p, minimum, allow_struct);
   p->depth--;
+  if (result && update(peek(p).type)) {
+    error(p, update_message);
+    return NULL;
+  }
   if (result && assignment(peek(p).type)) {
     error(p,
           "Assignment is only allowed as a standalone, non-chaining statement, "
@@ -1263,8 +1263,8 @@ static Expr *expression(Parser *p, int minimum, int allow_struct) {
 }
 
 static int simple_item(Parser *p, BlockItem *item) {
-  // Only this statement-level entry point permits an assignment token after
-  // the left expression. All nested expressions go through expression().
+  // Only this statement-level entry point permits assignment or ++/-- after
+  // the target expression. All nested expressions go through expression().
   if (!enter(p))
     return 0;
   Expr *left = expression_inner(p, 0, 1);
@@ -1274,6 +1274,28 @@ static int simple_item(Parser *p, BlockItem *item) {
   item->kind = BLOCK_ITEM_EXPR;
   item->as.expr = left;
   item->span = left->span;
+  if (update(peek(p).type)) {
+    Token op = take(p);
+    if (left->kind != EXPR_NAME && left->kind != EXPR_FIELD &&
+        left->kind != EXPR_INDEX) {
+      error_at(
+          p, left->span,
+          "Expected a name, field, or index as an increment/decrement target.");
+      return 0;
+    }
+    if (!at(p, TOK_NEWLINE) && !at(p, TOK_RBRACE) && !at(p, TOK_EOF)) {
+      error(p, update_message);
+      return 0;
+    }
+    Stmt *s = arena_calloc(p->arena, 1, sizeof(*s));
+    s->kind = op.type == TOK_PLUS_PLUS ? STMT_INC : STMT_DEC;
+    s->span = through(left->span, op.span);
+    s->as.value = left;
+    item->kind = BLOCK_ITEM_STMT;
+    item->as.stmt = s;
+    item->span = s->span;
+    return 1;
+  }
   if (!assignment(peek(p).type))
     return 1;
   Token op = take(p);

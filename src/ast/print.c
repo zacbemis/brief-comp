@@ -112,6 +112,12 @@ static void statement(FILE *out, const Stmt *s) {
   case STMT_EXPR:
     expr(out, s->as.value);
     break;
+  case STMT_INC:
+  case STMT_DEC:
+    fprintf(out, "(%s ", s->kind == STMT_INC ? "inc" : "dec");
+    expr(out, s->as.value);
+    fputc(')', out);
+    break;
   case STMT_ASSIGN: {
     static const char *ops[] = {"=", "+=", "-=", "*=", "/=", "%="};
     fprintf(out, "(%s ", ops[s->as.assign.op]);
@@ -197,8 +203,7 @@ static void expr(FILE *out, const Expr *e) {
     fputc(')', out);
     break;
   case EXPR_UNARY: {
-    static const char *ops[] = {"-",     "!",      "~",     "pre++",
-                                "pre--", "post++", "post--"};
+    static const char *ops[] = {"-", "!", "~"};
     fprintf(out, "(%s ", ops[e->as.unary.op]);
     expr(out, e->as.unary.value);
     fputc(')', out);

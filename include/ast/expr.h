@@ -34,10 +34,6 @@ typedef enum {
   UNARY_NEG,
   UNARY_NOT,
   UNARY_BIT_NOT,
-  UNARY_PRE_INC,
-  UNARY_PRE_DEC,
-  UNARY_POST_INC,
-  UNARY_POST_DEC,
 } UnaryOp;
 
 typedef enum {

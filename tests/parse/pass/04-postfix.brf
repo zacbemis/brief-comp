@@ -1,4 +1,4 @@
-// Postfix chains: calls, fields, indexing, `?`, `!`, `++`, and `--`, and how
+// Postfix chains: calls, fields, indexing, `?`, `!`; standalone updates; and how
 // they mix with prefix operators and `!=`.
 
 main() {

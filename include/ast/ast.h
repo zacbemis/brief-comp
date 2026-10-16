@@ -155,7 +155,7 @@ struct Stmt {
   StmtKind kind;
   Span span;
   union {
-    Expr *value; // RET (optional) / EXPR
+    Expr *value; // RET (optional) / EXPR / INC or DEC target
     struct {
       AssignOp op;
       Expr *target;
