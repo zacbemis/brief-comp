@@ -4,13 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum { DISCARD, VALUE, TAIL } Use;
+typedef enum { DISCARD, VALUE, TAIL, OUTCOME } Use;
 typedef struct {
   SemaProgram *p;
   SemaFunction *function;
   Diagnostics *errors;
   int probe, defaults, reachable, saw_return;
-  const SemaType *candidate, *expected;
+  const SemaType *candidate, *expected, *failures;
 } Checker;
 static const SemaType *t(Checker *c, SemaTypeKind k) { return &c->p->types[k]; }
 static int unknown(const SemaType *a) { return !a || a->kind == SEMA_UNKNOWN; }
@@ -23,7 +23,8 @@ static void error(Checker *c, Span span, const char *message) {
 }
 static void expect(Checker *c, SemaExpr *e, const SemaType *wanted,
                    const char *message) {
-  if (!special(wanted) && !special(e->type) && e->type != wanted)
+  if (!special(wanted) && !special(e->type) &&
+      !sema_assignable(e->type, wanted))
     error(c, e->span, message);
 }
 static const SemaType *join(Checker *c, const SemaType *a, const SemaType *b,
@@ -34,6 +35,12 @@ static const SemaType *join(Checker *c, const SemaType *a, const SemaType *b,
     return a;
   if (a == b)
     return a;
+  if (a->kind == SEMA_SYM && b->kind == SEMA_SYM) {
+    const SemaType *set = sema_symbol_union(c->p, a, b);
+    if (set)
+      return set;
+    message = "Symbol tag has conflicting payload types.";
+  }
   if (a->kind != SEMA_ERROR && b->kind != SEMA_ERROR) {
     c->function->inference_conflict = 1;
     if (!c->probe)
@@ -41,6 +48,34 @@ static const SemaType *join(Checker *c, const SemaType *a, const SemaType *b,
     error(c, span, message);
   }
   return t(c, SEMA_ERROR);
+}
+static const SemaType *full(Checker *c, const SemaType *type) {
+  const SemaVariant *ok = sema_ok(c->expected);
+  if (type->kind == SEMA_UNIT && ok && ok->payload == type)
+    return sema_symbol_set(c->p, ok, 1);
+  return special(type) || type->kind == SEMA_SYM ? type
+                                                 : sema_success(c->p, type);
+}
+static const SemaType *return_join(Checker *c, const SemaType *a,
+                                   const SemaType *b, Span span,
+                                   const char *message) {
+  if ((a->kind == SEMA_SYM && !special(b)) ||
+      (b->kind == SEMA_SYM && !special(a))) {
+    a = full(c, a);
+    b = full(c, b);
+  }
+  return join(c, a, b, span, message);
+}
+static int return_fits(Checker *c, const SemaType *actual) {
+  const SemaType *wanted = c->function->written_type;
+  if (special(actual) || special(wanted))
+    return 1;
+  actual = full(c, actual);
+  wanted = full(c, wanted);
+  if (!c->function->partial)
+    return sema_assignable(actual, wanted);
+  const SemaVariant *ok = sema_ok(actual), *wok = sema_ok(wanted);
+  return !ok || (wok && ok->payload == wok->payload);
 }
 static const SemaType *hint(SemaExpr *e) {
   if (!e)
@@ -52,6 +87,12 @@ static const SemaType *hint(SemaExpr *e) {
     return e->as.call.target ? e->as.call.target->return_type : NULL;
   case SEMA_EXPR_STRUCT:
     return &e->as.structure.type->type;
+  case SEMA_EXPR_TRY:
+  case SEMA_EXPR_PANIC: {
+    const SemaType *input = hint(e->as.value);
+    const SemaVariant *ok = sema_ok(input);
+    return ok && ok->payload ? ok->payload : e->type;
+  }
   case SEMA_EXPR_FIELD: {
     SemaField *f = sema_field(hint(e->as.field.object), e->as.field.name);
     return f ? f->type : e->type;
@@ -168,6 +209,9 @@ static unsigned char escaped(unsigned char c) {
 }
 static const SemaType *literal(Checker *c, SemaExpr *e,
                                const SemaType *expected) {
+  const SemaVariant *ok = sema_ok(expected);
+  if (ok)
+    expected = ok->payload;
   const SemaType *kind = sema_number(expected) ? expected : NULL;
   if (e->kind == SEMA_EXPR_FLOAT && sema_integer(kind))
     kind = NULL;
@@ -228,6 +272,9 @@ static const SemaType *lvalue(Checker *c, SemaExpr *e) {
 }
 static const SemaType *operand_type(Checker *c, SemaExpr *a, SemaExpr *b,
                                     const SemaType *expected) {
+  const SemaVariant *ok = sema_ok(expected);
+  if (ok)
+    expected = ok->payload;
   if (sema_number(expected))
     return expected;
   const SemaType *h = hint(a);
@@ -251,6 +298,9 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   unsigned flow = SEMA_NEXT;
   int reachable = c->reachable;
   e->reachable = reachable;
+  e->adapt = e->outcome = 0;
+  e->failures = NULL;
+  const SemaType *raw = NULL;
   switch (e->kind) {
   case SEMA_EXPR_UNIT:
     break;
@@ -281,9 +331,9 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   case SEMA_EXPR_BIND: {
     SemaVar *v = e->as.binding.variable;
     SemaExpr *value = e->as.binding.value;
-    v->type =
-        check(c, value,
-              e->as.binding.stage ? pipeline_hint(c, e) : v->annotation, VALUE);
+    v->type = check(c, value,
+                    e->as.binding.stage ? pipeline_hint(c, e) : v->annotation,
+                    e->as.binding.outcome ? OUTCOME : VALUE);
     expect(c, value, v->annotation,
            "Binding value does not match its annotation.");
     if (!unknown(v->annotation))
@@ -331,6 +381,34 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
                                        : "Field access requires a struct.");
     break;
   }
+  case SEMA_EXPR_SYMBOL: {
+    SemaExpr *payload = e->as.symbol.payload;
+    const SemaType *context_type = expected;
+    if (e->as.symbol.tag == c->p->ok && !special(expected) &&
+        expected->kind != SEMA_SYM)
+      context_type = sema_success(c->p, expected);
+    const SemaVariant *context = sema_variant(context_type, e->as.symbol.tag);
+    const SemaType *pt =
+        payload ? check(c, payload, context ? context->payload : NULL,
+                        payload->kind == SEMA_EXPR_SYMBOL ? OUTCOME : VALUE)
+                : NULL;
+    if (payload)
+      flow = payload->flow;
+    if (!e->as.symbol.tag)
+      result = t(c, SEMA_ERROR);
+    else if (pt && special(pt))
+      result = pt;
+    else {
+      // A payload has the variant's contextual type when it fits. In
+      // particular, nested symbol literals may widen before being packed.
+      if (pt && context && context->payload &&
+          sema_assignable(pt, context->payload))
+        pt = context->payload;
+      SemaVariant variant = {e->as.symbol.tag, pt};
+      result = sema_symbol_set(c->p, &variant, 1);
+    }
+    break;
+  }
   case SEMA_EXPR_STRUCT:
     for (size_t i = 0; i < e->as.structure.count; i++) {
       c->reachable = reachable && (flow & SEMA_NEXT);
@@ -347,18 +425,18 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   case SEMA_EXPR_RETURN: {
     const SemaType *value = t(c, SEMA_UNIT);
     if (e->as.value) {
-      value = check(c, e->as.value, c->expected, VALUE);
+      value = check(c, e->as.value, c->expected, TAIL);
       flow = e->as.value->flow;
     }
     if (flow & SEMA_NEXT) {
-      if (c->function->written && !special(value) && value != c->expected)
+      if (c->function->written && !return_fits(c, value))
         error(c, e->span,
               "Return value does not match the written return type.");
       if (reachable) {
         c->saw_return = 1;
-        if (!c->function->written)
-          c->candidate = join(c, c->candidate, value, e->span,
-                              "Incompatible return types.");
+        if (!c->function->written || c->function->partial)
+          c->candidate = return_join(c, c->candidate, value, e->span,
+                                     "Incompatible return types.");
       }
       flow = sequence(flow, SEMA_RETURN);
     }
@@ -384,6 +462,8 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
         result = value;
       flow = sequence(flow, item->flow);
     }
+    if (e->as.block.pipeline && e->as.block.count)
+      e->outcome = e->as.block.items[e->as.block.count - 1]->outcome;
     break;
   case SEMA_EXPR_CALL: {
     SemaSymbol *s = e->as.call.target;
@@ -432,6 +512,51 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
              : e->as.call.method && unknown(e->as.call.args[0]->type)
                  ? t(c, SEMA_UNKNOWN)
                  : t(c, SEMA_ERROR);
+    e->outcome = 1;
+    const SemaType *outcome = s ? s->outcome_type : NULL;
+    const SemaVariant *ok = sema_ok(outcome);
+    if (ok && outcome->symbols->count > 1 && !e->as.call.handled)
+      error(c, e->span,
+            "A call that can fail must be handled with ?, !, or a match.");
+    if (ok && outcome->symbols->count == 1 &&
+        (use == OUTCOME ||
+         (use == VALUE && expected && expected->kind == SEMA_SYM))) {
+      raw = result;
+      result = outcome;
+      e->adapt = 1;
+    }
+    break;
+  }
+  case SEMA_EXPR_TRY:
+  case SEMA_EXPR_PANIC: {
+    SemaExpr *value = e->as.value;
+    const SemaType *input = check(c, value, NULL, OUTCOME);
+    flow = value->flow;
+    const SemaVariant *ok = sema_ok(input);
+    if (!ok) {
+      if (!special(input))
+        error(c, e->span,
+              "? and ! require a symbol outcome with an :ok variant.");
+      // An inferred SCC can expose its errors before its success anchor.
+      // Do not permanently poison callers while that set is still growing.
+      result = c->probe && input->kind == SEMA_SYM ? t(c, SEMA_UNKNOWN)
+               : special(input)                    ? input
+                                                   : t(c, SEMA_ERROR);
+    } else {
+      result = ok->payload ? ok->payload : t(c, SEMA_UNIT);
+      e->failures = sema_failures(c->p, input);
+      if (e->kind == SEMA_EXPR_TRY && e->failures) {
+        flow = sequence(flow, SEMA_NEXT | SEMA_RETURN);
+        if (c->function->written && !return_fits(c, e->failures))
+          error(c, e->span,
+                "Propagated variants are not in the written return type.");
+        if (reachable && (value->flow & SEMA_NEXT))
+          c->failures = c->failures
+                            ? join(c, c->failures, e->failures, e->span,
+                                   "Symbol tag has conflicting payload types.")
+                            : e->failures;
+      }
+    }
     break;
   }
   case SEMA_EXPR_UNARY: {
@@ -464,11 +589,21 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     c->reachable = reachable && (a->flow & SEMA_NEXT);
     const SemaType *bt = check(c, b, special(at) ? context : at, VALUE);
     flow = sequence(a->flow, logical ? (b->flow | SEMA_NEXT) : b->flow);
-    if (!special(at) && !special(bt) && at != bt)
-      error(c, e->span,
-            "Operator operands must have the same type; numeric conversions "
-            "are explicit.");
-    result = special(at) ? bt : at;
+    e->as.binary.common = NULL;
+    if (at->kind == SEMA_SYM && bt->kind == SEMA_SYM) {
+      result = sema_symbol_union(c->p, at, bt);
+      if (!result) {
+        error(c, e->span, "Symbol tag has conflicting payload types.");
+        result = t(c, SEMA_ERROR);
+      } else
+        e->as.binary.common = result;
+    } else {
+      if (!special(at) && !special(bt) && at != bt)
+        error(c, e->span,
+              "Operator operands must have the same type; numeric conversions "
+              "are explicit.");
+      result = special(at) ? bt : at;
+    }
     if (logical) {
       expect(c, a, t(c, SEMA_BOOL), "Logical operators require bool.");
       expect(c, b, t(c, SEMA_BOOL), "Logical operators require bool.");
@@ -479,7 +614,8 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
             result->kind == SEMA_STR ||
             ((op == BINARY_EQ || op == BINARY_NE) &&
              (result->kind == SEMA_BOOL || result->kind == SEMA_UNIT ||
-              (result->kind == SEMA_STRUCT && result->structure->equatable)))))
+              ((result->kind == SEMA_STRUCT || result->kind == SEMA_SYM) &&
+               sema_equatable(result))))))
         error(c, e->span, "Comparison of this type is not implemented yet.");
       result = t(c, SEMA_BOOL);
     } else if (!special(result)) {
@@ -494,13 +630,17 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   }
   case SEMA_EXPR_MATCH: {
     SemaExpr *input = e->as.match.input;
-    const SemaType *it = check(c, input, NULL, VALUE);
+    const SemaType *it = check(c, input, NULL, OUTCOME);
     int scalar =
         sema_number(it) || it->kind == SEMA_BOOL || it->kind == SEMA_CHR;
     for (size_t i = 0; i < e->as.match.count; i++) {
       SemaArm *a = &e->as.match.arms[i];
       if (a->binding)
         a->binding->type = it;
+      if (it->kind == SEMA_SYM)
+        continue;
+      if (!special(it) && (a->kind == PAT_SYMBOL || a->kind == PAT_SET))
+        error(c, a->span, "Symbol patterns require a symbol input.");
       if (a->lower) {
         check(c, a->lower, it, VALUE);
         if (scalar)
@@ -535,9 +675,12 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       if (a->useful) {
         arms_flow |= a->body->flow;
         if (use != DISCARD)
-          result =
-              join(c, result, at, a->span,
-                   "Value-producing match arms must have compatible types.");
+          result = use == TAIL ? return_join(c, result, at, a->span,
+                                             "Value-producing match arms must "
+                                             "have compatible types.")
+                               : join(c, result, at, a->span,
+                                      "Value-producing match arms must have "
+                                      "compatible types.");
       }
     }
     flow = sequence(input->flow, arms_flow);
@@ -567,9 +710,14 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     if (!no || use == DISCARD)
       result = t(c, SEMA_UNIT);
     else
-      result = join(c, yt, nt, e->span,
-                    "Value-producing if branches must have compatible types.");
-    if (!no && use == VALUE)
+      result =
+          use == TAIL
+              ? return_join(
+                    c, yt, nt, e->span,
+                    "Value-producing if branches must have compatible types.")
+              : join(c, yt, nt, e->span,
+                     "Value-producing if branches must have compatible types.");
+    if (!no && (use == VALUE || use == OUTCOME))
       error(c, e->span, "An if without else cannot be used as a value.");
     break;
   }
@@ -585,7 +733,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
         !(body->flow & SEMA_BREAK))
       exit &= ~SEMA_NEXT;
     flow = sequence(condition->flow, exit);
-    if (use == VALUE)
+    if (use == VALUE || use == OUTCOME)
       error(c, e->span, "Loops cannot be used as values.");
     break;
   }
@@ -607,7 +755,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     check(c, body, NULL, DISCARD);
     flow = sequence(sequence(a->flow, b->flow),
                     SEMA_NEXT | (body->flow & SEMA_RETURN));
-    if (use == VALUE)
+    if (use == VALUE || use == OUTCOME)
       error(c, e->span, "Loops cannot be used as values.");
     break;
   }
@@ -615,6 +763,19 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   c->reachable = reachable;
   e->flow = flow;
   e->returns = !(flow & SEMA_NEXT);
+  e->raw_type = e->returns ? t(c, SEMA_NEVER) : (raw ? raw : result);
+  if (!e->returns && !e->adapt) {
+    const SemaVariant *ok = sema_ok(result);
+    if (ok && result->symbols->count == 1 && use != OUTCOME && use != TAIL &&
+        (!expected || expected->kind != SEMA_SYM)) {
+      result = ok->payload ? ok->payload : t(c, SEMA_UNIT);
+      e->adapt = 2;
+    } else if (e->outcome && e->kind != SEMA_EXPR_CALL && !special(result) &&
+               result->kind != SEMA_SYM && use == OUTCOME) {
+      result = sema_success(c->p, result);
+      e->adapt = 1;
+    }
+  }
   e->type = e->returns ? t(c, SEMA_NEVER) : result;
   return e->type;
 }
@@ -628,35 +789,54 @@ static const SemaType *check_function(SemaProgram *p, SemaFunction *f,
                .defaults = defaults,
                .reachable = 1,
                .candidate = &p->types[SEMA_UNKNOWN],
-               .expected = f->symbol.return_type};
+               .expected =
+                   f->written ? f->written_type : f->symbol.outcome_type};
   if (unknown(c.expected)) {
     c.expected = return_hint(f->body);
     if (special(c.expected))
       c.expected = hint(f->body);
   }
-  const SemaType *body = check(
-      &c, f->body, c.expected,
-      f->written && f->symbol.return_type->kind == SEMA_UNIT ? DISCARD : TAIL);
-  if (!f->written && (f->body->flow & SEMA_NEXT))
-    c.candidate = join(&c, c.candidate, body, f->body->span,
-                       "Incompatible return types.");
-  else if (!c.saw_return)
+  int discard = f->written && f->written_type->kind == SEMA_UNIT;
+  const SemaType *body =
+      check(&c, f->body, c.expected, discard ? DISCARD : TAIL);
+  if (f->body->flow & SEMA_NEXT) {
+    if (discard)
+      body = &p->types[SEMA_UNIT];
+    if (!f->written || f->partial)
+      c.candidate = return_join(&c, c.candidate, body, f->body->span,
+                                "Incompatible return types.");
+    if (f->written && !return_fits(&c, body))
+      error(&c, f->body->span,
+            "Function body does not match the written return type.");
+  } else if (!c.saw_return)
     c.candidate = &p->types[SEMA_UNIT];
-  if (f->written) {
-    if ((f->body->flow & SEMA_NEXT) && f->symbol.return_type->kind != SEMA_UNIT)
-      expect(&c, f->body, f->symbol.return_type,
-             "Function body does not match the written return type.");
-    return f->symbol.return_type;
-  }
-  return c.candidate;
+  const SemaType *result = full(&c, c.candidate);
+  if (c.failures)
+    result = join(&c, result, c.failures, f->body->span,
+                  "Symbol tag has conflicting payload types.");
+  if (f->written && !f->partial)
+    return full(&c, f->written_type);
+  if (f->partial)
+    result = join(&c, result, full(&c, f->written_type), f->body->span,
+                  "Symbol tag has conflicting payload types.");
+  return result;
 }
 void sema_check(SemaProgram *p, Diagnostics *errors) {
   size_t count = sema_components(p);
   for (size_t i = 0; i < p->count; i++) {
     p->functions[i].inference_conflict = 0;
     p->functions[i].inference_reported = 0;
-    if (!p->functions[i].written)
-      p->functions[i].symbol.return_type = &p->types[SEMA_UNKNOWN];
+    SemaFunction *f = &p->functions[i];
+    if (!f->written) {
+      f->symbol.outcome_type = &p->types[SEMA_UNKNOWN];
+      f->symbol.return_type = &p->types[SEMA_UNKNOWN];
+    } else {
+      f->symbol.outcome_type =
+          f->written_type->kind == SEMA_SYM || special(f->written_type)
+              ? f->written_type
+              : sema_success(p, f->written_type);
+      f->symbol.return_type = sema_result(p, f->symbol.outcome_type);
+    }
   }
   // Bucket members once: long acyclic call chains must not require quadratic
   // scans of the entire program, nor use the C stack.
@@ -681,30 +861,41 @@ void sema_check(SemaProgram *p, Diagnostics *errors) {
         for (size_t i = head[component]; i != SIZE_MAX; i = next[i]) {
           SemaFunction *f = &p->functions[i];
           const SemaType *inferred = check_function(p, f, errors, 1, defaults);
-          // A finite lattice: unknown -> one concrete type -> error. Never
-          // let a contradictory cycle oscillate between guessed types.
-          const SemaType *old = f->symbol.return_type;
-          if (!f->written && old->kind != SEMA_ERROR && !unknown(inferred) &&
-              inferred != old) {
-            if (!unknown(old) && inferred->kind != SEMA_ERROR)
-              f->inference_conflict = 1;
-            f->symbol.return_type =
-                unknown(old) ? inferred : &p->types[SEMA_ERROR];
-            changed = 1;
+          // Symbol sets grow monotonically; one tag cannot change payload
+          // type. Other concrete types still have the M3 finite lattice.
+          const SemaType *old = f->symbol.outcome_type;
+          if ((!f->written || f->partial) && old->kind != SEMA_ERROR &&
+              !unknown(inferred) && inferred != old) {
+            const SemaType *merged = unknown(old) ? inferred : NULL;
+            if (old->kind == SEMA_SYM && inferred->kind == SEMA_SYM)
+              merged = sema_symbol_union(p, old, inferred);
+            if (!merged) {
+              if (inferred->kind != SEMA_ERROR)
+                f->inference_conflict = 1;
+              merged = &p->types[SEMA_ERROR];
+            }
+            f->symbol.outcome_type = merged;
+            f->symbol.return_type = sema_result(p, merged);
+            changed |= merged != old;
           }
         }
       } while (changed);
     }
     for (size_t i = head[component]; i != SIZE_MAX; i = next[i]) {
       SemaFunction *f = &p->functions[i];
-      if (unknown(f->symbol.return_type)) {
-        diagnostics_error(
-            errors, f->symbol.span,
-            "Cannot infer recursive return type; write a return type.");
-        f->symbol.return_type = &p->types[SEMA_ERROR];
-        f->inference_reported = 1;
+      int unresolved = unknown(f->symbol.return_type);
+      const SemaType *final = check_function(p, f, errors, 0, 2);
+      if (unresolved) {
+        // A malformed handler may have stayed unknown while SCC outcomes
+        // grew. Its final, specific error is not an unanchored recursion.
+        if (final->kind != SEMA_ERROR) {
+          diagnostics_error(
+              errors, f->symbol.span,
+              "Cannot infer recursive return type; write a return type.");
+          f->inference_reported = 1;
+        }
+        f->symbol.return_type = f->symbol.outcome_type = &p->types[SEMA_ERROR];
       }
-      (void)check_function(p, f, errors, 0, 2);
       // Unrelated errors, even in this function, must not hide a conflict.
       // Track its provenance rather than the total diagnostic count: avoid
       // cascades from frontend/callee error types and duplicate join errors.

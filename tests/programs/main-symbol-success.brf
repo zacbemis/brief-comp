@@ -1,0 +1,3 @@
+// A symbol payload inside an only-:ok function is still a successful entry.
+type Data = Sym<:value(str), :empty>
+main(): Sym<:ok(Data)> { :ok(:value("he" + "ap")) }

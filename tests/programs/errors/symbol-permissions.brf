@@ -1,0 +1,31 @@
+P { x: int }
+type Choice = Sym<:some(P), :none>
+Holder { value: Choice }
+get(s: Choice) { s |> { :some(p) => p
+  :none => P { x: 0 } } }
+wrap(p: P) { :some(p) }
+write(s: &Choice) {}
+ordinary(s: Choice) {
+  s |> {
+    :some(p) => p.x = 1 // error: Cannot mutate through an ordinary parameter; use &.
+    :none => ()
+  }
+  get(s).x = 1 // error: Cannot mutate through an ordinary parameter; use &.
+  write(s) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+}
+wrapped(p: P) {
+  wrap(p) |> { :some(q) => q.x = 1 } // error: Cannot mutate through an ordinary parameter; use &.
+  write(:some(p)) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+}
+store(h: &Holder, s: Choice, p: P) {
+  h.value = s // error: A read-only struct cannot be stored in a field; take the parameter it comes from as &.
+  h.value = :some(p) // error: A read-only struct cannot be stored in a field; take the parameter it comes from as &.
+}
+narrow(s: Choice) {
+  s |> { :none => ()
+    other => other |> {
+      :some(p) => p.x = 2 // error: Cannot mutate through an ordinary parameter; use &.
+    }
+  }
+}
+main() {}

@@ -40,11 +40,22 @@ void brt_locate(const char *file, size_t line) {
   brt_source_file = file;
   brt_source_line = line;
 }
-_Noreturn void brt_panic(const char *message) {
-  fprintf(stderr, "panic: %s\n", message);
+void brt_panic_begin(void) {
+  // Flush before the first stderr byte, including when both streams share a
+  // file.
+  (void)fflush(stdout);
+  fputs("panic: ", stderr);
+}
+_Noreturn void brt_panic_end(void) {
+  (void)fflush(stdout);
   if (brt_source_file)
     fprintf(stderr, "  --> %s:%zu\n", brt_source_file, brt_source_line);
   exit(1);
+}
+_Noreturn void brt_panic(const char *message) {
+  brt_panic_begin();
+  fprintf(stderr, "%s\n", message);
+  brt_panic_end();
 }
 static size_t brt_live_objects;
 void brt_retain(const void *pointer) {
@@ -175,6 +186,35 @@ const brt_string *brt_str_flt(float value) {
   return brt_str_real((double)value, 1);
 }
 const brt_string *brt_str_dub(double value) { return brt_str_real(value, 0); }
+
+// Diagnostic formatting is binary-safe and does not add owners to user data.
+void brt_write_quoted(FILE *out, const unsigned char *bytes, size_t length,
+                      int quote) {
+  fputc(quote, out);
+  for (size_t i = 0; i < length; i++) {
+    unsigned char c = bytes[i];
+    if (c == '\\' || c == quote) {
+      fputc('\\', out);
+      fputc(c, out);
+    } else if (c == '\n')
+      fputs("\\n", out);
+    else if (c == '\r')
+      fputs("\\r", out);
+    else if (c == '\t')
+      fputs("\\t", out);
+    else if (!c)
+      fputs("\\0", out);
+    else if (c < 32 || c >= 127)
+      fprintf(out, "\\x%02x", (unsigned)c);
+    else
+      fputc(c, out);
+  }
+  fputc(quote, out);
+}
+void brt_write_number(FILE *out, const brt_string *text) {
+  fwrite(text->bytes, 1, text->length, out);
+  brt_release(text);
+}
 
 int64_t brt_max_s(unsigned bits) { return INT64_MAX >> (64 - bits); }
 int64_t brt_min_s(unsigned bits) { return -brt_max_s(bits) - 1; }

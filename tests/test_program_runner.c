@@ -41,6 +41,23 @@ int main(void) {
     ASSERT_TRUE(validate(&a, "", 1, TEST_BYTES("error: unexpected\n"), empty,
                          empty, 0, 0) != NULL);
   }
+  TEST("standard error expectations are binary-safe, exact and "
+       "status-independent") {
+    ASSERT_TRUE(validate(&a, "// stderr: error: :bad(\"a\\\\0b\")\n// exit: 1",
+                         0, empty, empty,
+                         TEST_BYTES("error: :bad(\"a\\0b\")\n"), 1, 1) == NULL);
+    ASSERT_TRUE(validate(&a, "// stderr: a\\0b\n// exit: 1", 0, empty, empty,
+                         TEST_BYTES("a\0b\n"), 1, 1) == NULL);
+    ASSERT_TRUE(validate(&a, "// stderr: a\n// exit: 1", 0, empty, empty,
+                         TEST_BYTES("a\nextra\n"), 1, 1) != NULL);
+    ASSERT_TRUE(validate(&a, "// stderr: a\n// exit: 1", 0, empty, empty,
+                         TEST_BYTES("a\n"), 0, 1) != NULL);
+    ASSERT_TRUE(validate(&a, "// stderr: a", 0, empty, empty, TEST_BYTES("a\n"),
+                         0, 1) == NULL);
+    ASSERT_TRUE(validate(&a, "// stderr: AddressSanitizer: bad\n// exit: 1", 0,
+                         empty, empty, TEST_BYTES("AddressSanitizer: bad\n"), 1,
+                         1) != NULL);
+  }
   TEST("compile diagnostics require exact messages, locations and "
        "multiplicities") {
     const char *source = "main() { bad() } // error: Unknown function.\n";
@@ -89,6 +106,8 @@ int main(void) {
     const char *bad[] = {"// error: bad\n// expect: ok",
                          "// error: bad\n// panic: bad",
                          "// error: bad\n// exit: 1",
+                         "// error: bad\n// stderr: bad",
+                         "// panic: bad\n// stderr: bad",
                          "// exit: 0\n// exit: 1",
                          "// exit:",
                          "// exit: nope",

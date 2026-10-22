@@ -1,0 +1,74 @@
+// expect: kept
+// expect: old
+// expect: new
+// expect: 1500
+// expect: result
+// expect: result
+// expect: result
+// expect: nested
+// expect: 9
+type Choice = Sym<:text(str), :node(Node), :empty>
+Node { name: str }
+Holder { value: Choice }
+wrap(n: &Node): Choice { :node(n) }
+set(h: &Holder, s: &Choice) { h.value = s }
+replace(h: &Holder) { h.value = :text("n" + "ew") }
+first(a: Choice, b: ()): Choice { a }
+get(s: Choice) {
+  s |> {
+    :text(text) => text
+    :node(node) => node.name
+    :empty => "empty"
+  }
+}
+escape(s: Choice) {
+  s |> {
+    :text(text) => ret :text(text + "ult")
+    other => other
+  }
+}
+main(): () {
+  let h = Holder { value: :empty }
+  let node = Node { name: "ke" + "pt" }
+  set(h, wrap(node))
+  get(h.value) |> print()
+  h.value = :text("o" + "ld")
+  h.value |> first(replace(h)) |> get() |> print()
+  h.value |> get() |> print()
+  h.value = h.value
+  var total = 0
+  for i in 0..1000 {
+    var value: Choice = :empty
+    if i % 2 == 0 {
+      value = :node(Node { name: "a" + "b" })
+    } else { value = :text("a" + "b") }
+    value |> {
+      :node(n) => { total += 1
+        if i % 4 == 0 { continue }
+        h.value = :node(n) }
+      :text(t) => { total += 2
+        h.value = :text(t) }
+      :empty => break
+    }
+    value = :empty
+  }
+  print(str(total))
+  var result: Choice = if true { :text("res") } else { :empty }
+  result = escape(result)
+  result |> get() |> print()
+  let saved = result |> { :empty => :empty
+    other => other }
+  result = :empty
+  get(saved) |> print()
+  :outer(saved) |> { :outer(inner) => get(inner) |> print() }
+  let nested = :a(:b("nest" + "ed"))
+  nested |> { :a(inner) => inner |> { :b(text) => print(text) } }
+  // Borrowed symbol parameters grant mutable payload access only with &.
+  let object = Counter { count: 0 }
+  bump(:counter(object))
+  print(str(object.count))
+}
+Counter { count: int }
+bump(s: &Sym<:counter(Counter)>) {
+  s |> { :counter(c) => c.count = 9 }
+}

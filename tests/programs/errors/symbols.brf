@@ -1,0 +1,34 @@
+type Conflict = Sym<:bad(int), :bad(str)> // error: Symbol tag has conflicting payload types.
+type Included = Sym<int> // error: A symbol-set inclusion requires a symbol set.
+type Partial = Sym<:data, _> // error: Partial symbol sets are only allowed as function return types.
+type Outcome = Sym<:ok, :bad>
+type Text = Sym<:value(str)>
+
+missing(x: Sym<:a, :b>) {
+  x |> { :a => () } // error: Match is not exhaustive.
+}
+unreachable() {
+  :a |> { :a => ()
+    _ => () // error: Unreachable match arm.
+  }
+}
+shape() {
+  :a(1) |> { :a => () } // error: Symbol pattern has the wrong payload shape.
+}
+wrong() {
+  :a |> { :other => () // error: Symbol pattern tag is not in the input set.
+    _ => () }
+}
+refutable() {
+  :a(1) |> { :a(1) => () } // error: Refutable symbol payload patterns are not implemented yet.
+}
+conflict() {
+  :value(1) |> { Text => () } // error: Symbol tag has conflicting payload types.
+}
+smaller(): Sym<:a> { // error: Function body does not match the written return type.
+  :b
+}
+main() {
+  let x: Sym<:a> = :b // error: Binding value does not match its annotation.
+  :a < :b // error: Comparison of this type is not implemented yet.
+}

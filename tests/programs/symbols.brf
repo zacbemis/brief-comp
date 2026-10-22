@@ -1,0 +1,71 @@
+// expect: bronze
+// expect: silver
+// expect: gold
+// expect: 4294967296
+// expect: 0.1
+// expect: true
+// expect: false
+// expect: true
+// expect: false
+// expect: true
+// expect: false
+// expect: nested
+// expect: effect
+// expect: unit
+// expect: widened
+// expect: true
+pub type Tier = Sym<:bronze, :silver, :gold>
+type Extended = Sym<Tier, :platinum, Tier>
+Account { tier: Tier }
+Payload { value: int }
+Container { value: Sym<:text(str), :object(Payload), :empty> }
+
+describe(t: Tier) {
+  t |> {
+    :bronze => "bronze"
+    :silver => "silver"
+    :gold => "gold"
+  }
+}
+choose(n: int) {
+  if n == 0 { ret :bronze }
+  if n == 1 { :silver } else { :gold }
+}
+wide(n: Sym<:value(lng)>) { n }
+small(n: Sym<:value(flt)>) { n }
+effect() { print("effect") }
+type Inner = Sym<:text(str), :empty>
+nested(b: bool): Sym<:outer(Inner)> {
+  if b { :outer(:text("wide" + "ned")) } else { :outer(:empty) }
+}
+main(): () {
+  for i in 0..3 { choose(i) |> describe() |> print() }
+  let account = Account { tier: :gold }
+  account.tier = :bronze
+  let extended: Extended = account.tier
+  extended |> { Tier => ()
+    :platinum => print("wrong") }
+  :value(4294967296) |> wide() |> { :value(n) => print(str(n)) }
+  :value(0.1) |> small() |> { :value(n) => print(str(n)) }
+  print(str(:a == :a))
+  print(str(:a == :b))
+  print(str(:text("ab") == :text("a" + "b")))
+  print(str(:object(Payload { value: 1 }) == :object(Payload { value: 2 })))
+  let a = Container { value: :object(Payload { value: 1 }) }
+  let b = Container { value: :object(Payload { value: 1 }) }
+  print(str(a == b))
+  let nan = 0.0 / 0.0
+  let x = :number(nan)
+  print(str(x == x))
+  :outer(:text("nest" + "ed")) |> {
+    :outer(inner) => inner |> { :text(text) => print(text) }
+  }
+  :unit(effect()) |> { :unit(value) => value }
+  :unit(()) |> { :unit(_) => print("unit") }
+  nested(true) |> { :outer(inner) => inner |> {
+    :text(text) => print(text)
+    :empty => ()
+  } }
+  let widened: Sym<:outer(Inner)> = :outer(:text("widened"))
+  print(str(widened == nested(true)))
+}

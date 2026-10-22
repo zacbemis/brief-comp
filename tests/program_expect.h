@@ -10,7 +10,7 @@ struct ExpectedMessage {
   ExpectedMessage *next;
 };
 typedef struct {
-  TestBytes output;
+  TestBytes output, standard_error;
   ExpectedMessage *errors, *panics;
   size_t error_count, panic_count;
   int has_exit, exit_status;

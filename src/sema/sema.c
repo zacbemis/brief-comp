@@ -24,7 +24,8 @@ int sema_number(const SemaType *t) {
   return sema_integer(t) || (t && (t->kind == SEMA_FLT || t->kind == SEMA_DUB));
 }
 int sema_reference(const SemaType *t) {
-  return t && (t->kind == SEMA_STR || t->kind == SEMA_STRUCT);
+  return t &&
+         (t->kind == SEMA_STR || t->kind == SEMA_STRUCT || t->kind == SEMA_SYM);
 }
 static SemaStruct *structure(SemaProgram *p, const char *name) {
   for (size_t i = 0; i < p->struct_count; i++)
@@ -52,6 +53,18 @@ SemaSymbol *sema_method(SemaProgram *p, const SemaType *t, const char *name) {
       return &p->functions[i].symbol;
   return NULL;
 }
+static SemaAlias *alias(SemaProgram *p, const char *name) {
+  for (size_t i = 0; i < p->alias_count; i++)
+    if (!strcmp(p->aliases[i].syntax->name, name))
+      return &p->aliases[i];
+  return NULL;
+}
+static SemaTag *tag(Resolver *r, const char *name, Span span) {
+  SemaTag *result = sema_tag(r->program, name);
+  if (!result)
+    diagnostics_error(r->errors, span, "Too many symbol tags.");
+  return result;
+}
 static const SemaType *type(Resolver *r, const Type *syntax) {
   if (!syntax)
     return &r->program->types[SEMA_UNKNOWN];
@@ -66,10 +79,152 @@ static const SemaType *type(Resolver *r, const Type *syntax) {
     SemaStruct *s = structure(r->program, syntax->as.name);
     if (s)
       return &s->type;
+    SemaAlias *a = alias(r->program, syntax->as.name);
+    if (a)
+      return a->type ? a->type : &r->program->types[SEMA_ERROR];
+  }
+  if (syntax->kind == TYPE_SYM) {
+    const SemaType *result = NULL;
+    int valid = 1;
+    for (size_t i = 0; i < syntax->as.sym.count; i++) {
+      SymEntry entry = syntax->as.sym.items[i];
+      const SemaType *part;
+      if (entry.tag) {
+        SemaTag *name = tag(r, entry.tag, entry.span);
+        const SemaType *payload = entry.type ? type(r, entry.type) : NULL;
+        if (!name || (payload && payload->kind == SEMA_ERROR)) {
+          valid = 0;
+          continue;
+        }
+        SemaVariant variant = {name, payload};
+        part = sema_symbol_set(r->program, &variant, 1);
+      } else if (entry.type->kind == TYPE_INFER) {
+        diagnostics_error(
+            r->errors, entry.span,
+            "Partial symbol sets are only allowed as function return types.");
+        valid = 0;
+        continue;
+      } else {
+        part = type(r, entry.type);
+        if (part->kind != SEMA_SYM) {
+          if (part->kind != SEMA_ERROR)
+            diagnostics_error(r->errors, entry.span,
+                              "A symbol-set inclusion requires a symbol set.");
+          valid = 0;
+          continue;
+        }
+      }
+      result = result ? sema_symbol_union(r->program, result, part) : part;
+      if (!result) {
+        diagnostics_error(r->errors, entry.span,
+                          "Symbol tag has conflicting payload types.");
+        return &r->program->types[SEMA_ERROR];
+      }
+    }
+    return valid && result ? result : &r->program->types[SEMA_ERROR];
   }
   diagnostics_error(r->errors, syntax->span,
                     "This type is unknown or not implemented yet.");
   return &r->program->types[SEMA_ERROR];
+}
+typedef struct AliasEdge AliasEdge;
+struct AliasEdge {
+  SemaAlias *target;
+  Span span;
+  AliasEdge *next;
+};
+static void alias_dependencies(Resolver *r, const Type *syntax,
+                               AliasEdge **head) {
+  // Syntax depth is parser-limited. Alias chains themselves use no C recursion.
+  if (syntax->kind == TYPE_NAME) {
+    SemaAlias *a = alias(r->program, syntax->as.name);
+    if (a) {
+      AliasEdge *edge = arena_alloc(r->arena, sizeof(*edge));
+      *edge = (AliasEdge){a, syntax->span, *head};
+      *head = edge;
+    }
+  } else if (syntax->kind == TYPE_SYM) {
+    for (size_t i = 0; i < syntax->as.sym.count; i++)
+      if (syntax->as.sym.items[i].type)
+        alias_dependencies(r, syntax->as.sym.items[i].type, head);
+  }
+}
+static void resolve_aliases(Resolver *r) {
+  SemaProgram *p = r->program;
+  AliasEdge **edges = arena_calloc(r->arena, p->alias_count, sizeof(*edges));
+  unsigned char *state = arena_calloc(r->arena, p->alias_count, 1);
+  typedef struct {
+    SemaAlias *alias;
+    AliasEdge *edge;
+  } Frame;
+  Frame *stack = arena_calloc(r->arena, p->alias_count, sizeof(*stack));
+  for (size_t i = 0; i < p->alias_count; i++)
+    alias_dependencies(r, p->aliases[i].syntax->as.alias, &edges[i]);
+  for (size_t i = 0; i < p->alias_count; i++) {
+    if (state[i])
+      continue;
+    size_t top = 0;
+    state[i] = 1;
+    stack[top++] = (Frame){&p->aliases[i], edges[i]};
+    while (top) {
+      Frame *frame = &stack[top - 1];
+      if (frame->edge) {
+        AliasEdge *edge = frame->edge;
+        frame->edge = edge->next;
+        size_t id = (size_t)(edge->target - p->aliases);
+        if (!state[id]) {
+          state[id] = 1;
+          stack[top++] = (Frame){edge->target, edges[id]};
+        } else if (state[id] == 1) {
+          diagnostics_error(
+              r->errors, edge->span,
+              "Recursive named types require a struct indirection.");
+          edge->target->type = &p->types[SEMA_ERROR];
+        }
+      } else {
+        SemaAlias *a = frame->alias;
+        if (!a->type)
+          a->type = type(r, a->syntax->as.alias);
+        if (a->type->kind != SEMA_SYM && a->type->kind != SEMA_ERROR) {
+          diagnostics_error(r->errors, a->syntax->span,
+                            "Named types currently require a symbol set.");
+          a->type = &p->types[SEMA_ERROR];
+        }
+        state[a - p->aliases] = 2;
+        top--;
+      }
+    }
+  }
+}
+static const SemaType *return_type(Resolver *r, const Type *syntax,
+                                   SemaFunction *f) {
+  if (!syntax || syntax->kind != TYPE_SYM)
+    return type(r, syntax);
+  Type copy = *syntax;
+  copy.as.sym.items =
+      arena_calloc(r->arena, syntax->as.sym.count, sizeof(SymEntry));
+  copy.as.sym.count = 0;
+  for (size_t i = 0; i < syntax->as.sym.count; i++) {
+    SymEntry e = syntax->as.sym.items[i];
+    if (!e.tag && e.type->kind == TYPE_INFER) {
+      if (f->partial)
+        diagnostics_error(r->errors, e.span,
+                          "Duplicate partial return marker.");
+      f->partial = 1;
+    } else
+      copy.as.sym.items[copy.as.sym.count++] = e;
+  }
+  const SemaType *result = type(r, &copy);
+  if (f->partial && result->kind != SEMA_ERROR && !sema_ok(result))
+    diagnostics_error(r->errors, syntax->span,
+                      "A partial return type must declare :ok.");
+  return result;
+}
+static void handled(SemaExpr *e) {
+  if (e->kind == SEMA_EXPR_CALL)
+    e->as.call.handled = 1;
+  else if (e->kind == SEMA_EXPR_BLOCK && e->as.block.pipeline)
+    handled(e->as.block.items[e->as.block.count - 1]);
 }
 static SemaSymbol *lookup(SemaProgram *p, const char *name) {
   if (!strcmp(name, "print"))
@@ -297,11 +452,21 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
       e->as.call.args[i + (receiver != NULL)] =
           resolve_expr(r, s->as.call.args[i]);
     return e;
+  case EXPR_TRY:
+  case EXPR_PANIC:
+    e = node(r, s->kind == EXPR_TRY ? SEMA_EXPR_TRY : SEMA_EXPR_PANIC, s->span);
+    e->as.value = resolve_expr(r, s->as.postfix);
+    handled(e->as.value);
+    return e;
   case EXPR_PIPE: {
     const Expr *stage = s->as.pipe.stage;
+    const Expr *postfix = NULL;
+    if (stage->kind == EXPR_TRY || stage->kind == EXPR_PANIC) {
+      postfix = stage;
+      stage = stage->as.postfix;
+    }
     if (stage->kind != EXPR_CALL && stage->kind != EXPR_MATCH)
-      return unsupported(r, stage->span,
-                         "Fallible pipeline stages are not implemented yet.");
+      return unsupported(r, stage->span, "Unsupported pipeline stage.");
     // A hidden lexical owner sequences the input before the stage's callee
     // and other arguments, and snapshots its access permission at that point.
     Local *saved = r->locals;
@@ -327,6 +492,7 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
       result = resolve_expr(r, &call);
       bind->as.binding.stage = result;
     } else {
+      handled(input);
       result = node(r, SEMA_EXPR_MATCH, s->span);
       SemaExpr *read = node(r, SEMA_EXPR_VAR, input->span);
       read->as.variable = v;
@@ -338,14 +504,39 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
         MatchArm source = stage->as.match.arms[i];
         const Pattern *p = source.pattern;
         SemaArm *a = &result->as.match.arms[i];
+        if (p->kind == PAT_SYMBOL || p->kind == PAT_SET ||
+            (p->kind == PAT_BIND && alias(r->program, p->as.name)))
+          bind->as.binding.outcome = 1;
         a->kind = p->kind;
         a->span = p->span;
         Local *arm_scope = r->locals;
         r->depth++;
-        if (p->kind == PAT_BIND)
+        SemaAlias *named = (p->kind == PAT_BIND || p->kind == PAT_SET)
+                               ? alias(r->program, p->as.name)
+                               : NULL;
+        if (named) {
+          a->kind = PAT_SET;
+          a->set = named->type;
+        } else if (p->kind == PAT_BIND)
           a->binding = variable(r, p->as.name, p->span,
                                 &r->program->types[SEMA_UNKNOWN], 0);
-        else if (p->kind == PAT_LITERAL)
+        else if (p->kind == PAT_SYMBOL) {
+          a->tag = tag(r, p->as.symbol.tag, p->span);
+          const Pattern *payload = p->as.symbol.payload;
+          a->payload = payload != NULL;
+          if (!a->tag)
+            a->invalid = 1;
+          if (payload && payload->kind == PAT_BIND &&
+              !alias(r->program, payload->as.name))
+            a->binding = variable(r, payload->as.name, payload->span,
+                                  &r->program->types[SEMA_UNKNOWN], 0);
+          else if (payload && payload->kind != PAT_WILDCARD) {
+            a->invalid = 1;
+            diagnostics_error(
+                r->errors, payload->span,
+                "Refutable symbol payload patterns are not implemented yet.");
+          }
+        } else if (p->kind == PAT_LITERAL)
           a->lower = resolve_expr(r, p->as.literal);
         else if (p->kind == PAT_RANGE) {
           a->lower = resolve_expr(r, p->as.range.lower);
@@ -355,15 +546,23 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
           a->lower = resolve_expr(r, p->as.compare.value);
         } else if (p->kind != PAT_WILDCARD) {
           a->invalid = 1;
-          diagnostics_error(r->errors, p->span,
-                            "Symbol patterns are not implemented yet.");
+          diagnostics_error(r->errors, p->span, "Unknown named symbol set.");
         }
         a->body = resolve_expr(r, source.value);
         r->locals = arm_scope;
         r->depth--;
       }
     }
+    if (postfix) {
+      handled(result);
+      SemaExpr *unwrap =
+          node(r, postfix->kind == EXPR_TRY ? SEMA_EXPR_TRY : SEMA_EXPR_PANIC,
+               postfix->span);
+      unwrap->as.value = result;
+      result = unwrap;
+    }
     e = node(r, SEMA_EXPR_BLOCK, s->span);
+    e->as.block.pipeline = 1;
     e->as.block.count = 2;
     e->as.block.items = arena_calloc(r->arena, 2, sizeof(SemaExpr *));
     e->as.block.items[0] = bind;
@@ -372,6 +571,12 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     r->depth--;
     return e;
   }
+  case EXPR_SYMBOL:
+    e = node(r, SEMA_EXPR_SYMBOL, s->span);
+    e->as.symbol.tag = tag(r, s->as.symbol.tag, s->span);
+    if (s->as.symbol.payload)
+      e->as.symbol.payload = resolve_expr(r, s->as.symbol.payload);
+    return e;
   case EXPR_FIELD:
     e = node(r, SEMA_EXPR_FIELD, s->span);
     e->as.field.object = resolve_expr(r, s->as.field.object);
@@ -502,6 +707,11 @@ static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
       diagnostic_note(r->errors, error, previous->span, "First declared here.");
     return;
   }
+  if (!owner && alias(p, d->name)) {
+    diagnostics_error(r->errors, d->span,
+                      "A function and a named type cannot share a name.");
+    return;
+  }
   if (!owner && structure(p, d->name)) {
     diagnostics_error(r->errors, d->span,
                       "A function and a struct cannot share a name.");
@@ -518,17 +728,23 @@ static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
                            .span = d->span,
                            .id = p->count++,
                            .arity = d->as.function.count,
-                           .owner = owner,
-                           .return_type = type(r, d->as.function.return_type)};
+                           .owner = owner};
+  f->written_type = return_type(r, d->as.function.return_type, f);
+  f->symbol.outcome_type =
+      f->written_type->kind == SEMA_SYM || f->written_type->kind <= SEMA_ERROR
+          ? f->written_type
+          : sema_success(p, f->written_type);
+  f->symbol.return_type = sema_result(p, f->symbol.outcome_type);
   f->symbol.params = arena_calloc(r->arena, f->symbol.arity, sizeof(SemaVar *));
   for (size_t j = 0; j < f->symbol.arity; j++) {
     Parameter param = d->as.function.params[j];
     SemaVar *v = variable(r, param.name, param.span, type(r, param.type), 0);
     v->data_mutable = param.borrow == BORROW_MUT;
     if (v->data_mutable && v->type->kind != SEMA_STRUCT &&
-        v->type->kind != SEMA_ERROR)
-      diagnostics_error(r->errors, param.span,
-                        "Mutable borrowing currently requires a struct type.");
+        v->type->kind != SEMA_SYM && v->type->kind != SEMA_ERROR)
+      diagnostics_error(
+          r->errors, param.span,
+          "Mutable borrowing currently requires a struct or symbol type.");
     f->symbol.params[j] = v;
   }
   if (!owner && !strcmp(d->name, "main")) {
@@ -541,16 +757,17 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
                           Diagnostics *errors) {
   SemaProgram *p = arena_calloc(a, 1, sizeof(*p));
   p->arena = a;
-  const char *names[] = {"unknown", "never", "error", "()",    "bool", "chr",
-                         "shrt",    "ushrt", "int",   "uint",  "lng",  "ulng",
-                         "flt",     "dub",   "str",   "struct"};
-  unsigned bits[] = {0, 0, 0, 0, 1, 8, 16, 16, 32, 32, 64, 64, 32, 64, 0, 0};
+  const char *names[] = {"unknown", "never", "error", "()",     "bool", "chr",
+                         "shrt",    "ushrt", "int",   "uint",   "lng",  "ulng",
+                         "flt",     "dub",   "str",   "struct", "Sym"};
+  unsigned bits[] = {0, 0, 0, 0, 1, 8, 16, 16, 32, 32, 64, 64, 32, 64, 0, 0, 0};
   for (size_t i = 0; i < SEMA_TYPE_COUNT; i++)
     p->types[i] = (SemaType){.kind = (SemaTypeKind)i,
                              .name = names[i],
                              .bits = bits[i],
                              .is_signed = i == SEMA_SHRT || i == SEMA_INT ||
                                           i == SEMA_LNG};
+  p->ok = sema_tag(p, "ok");
   p->print = (SemaSymbol){.name = "print",
                           .arity = 1,
                           .builtin = SEMA_BUILTIN_PRINT,
@@ -559,6 +776,8 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
                               .arity = 1,
                               .builtin = SEMA_BUILTIN_STR,
                               .return_type = &p->types[SEMA_STR]};
+  p->print.outcome_type = sema_success(p, p->print.return_type);
+  p->stringify.outcome_type = sema_success(p, p->stringify.return_type);
   p->print.params = arena_calloc(a, 1, sizeof(SemaVar *));
   p->print.params[0] = arena_calloc(a, 1, sizeof(SemaVar));
   p->print.params[0]->type = &p->types[SEMA_STR];
@@ -585,6 +804,22 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
     s->count = d->as.structure.count;
     s->fields = arena_calloc(a, s->count, sizeof(SemaField));
   }
+  p->aliases = arena_calloc(a, syntax->count, sizeof(*p->aliases));
+  for (size_t i = 0; i < syntax->count; i++) {
+    const Decl *d = syntax->items[i];
+    if (d->kind != DECL_TYPE)
+      continue;
+    int reserved = structure(p, d->name) || lookup(p, d->name) ||
+                   alias(p, d->name) || !strcmp(d->name, "Self");
+    for (size_t j = SEMA_BOOL; j < SEMA_STRUCT; j++)
+      reserved |= !strcmp(d->name, p->types[j].name);
+    if (reserved) {
+      diagnostics_error(errors, d->span, "Duplicate or reserved named type.");
+      continue;
+    }
+    p->aliases[p->alias_count++].syntax = d;
+  }
+  resolve_aliases(&r);
   // Named types exist before resolving fields, including forward references.
   for (size_t i = 0; i < p->struct_count; i++) {
     SemaStruct *s = &p->structs[i];
@@ -601,26 +836,7 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
           .name = f.name, .span = f.span, .id = j, .type = type(&r, f.type)};
     }
   }
-  // A bottom-up fixpoint marks exactly the finite, nonrecursive shapes.
-  // Recursive equality is intentionally unavailable; no recursive C traversal.
-  int changed;
-  do {
-    changed = 0;
-    for (size_t i = 0; i < p->struct_count; i++) {
-      SemaStruct *s = &p->structs[i];
-      if (s->equatable)
-        continue;
-      int ready = 1;
-      for (size_t j = 0; j < s->count; j++)
-        if (s->fields[j].type->kind == SEMA_STRUCT &&
-            !s->fields[j].type->structure->equatable)
-          ready = 0;
-      if (ready) {
-        s->equatable = 1;
-        changed = 1;
-      }
-    }
-  } while (changed);
+  sema_update_equatable(p);
   p->functions = arena_calloc(a, capacity, sizeof(SemaFunction));
   for (size_t i = 0; i < syntax->count; i++) {
     const Decl *d = syntax->items[i];
@@ -637,7 +853,7 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
       }
       for (size_t j = 0; j < d->as.impl.count; j++)
         collect_function(&r, d->as.impl.methods[j], target->structure);
-    } else if (d->kind != DECL_STRUCT)
+    } else if (d->kind != DECL_STRUCT && d->kind != DECL_TYPE)
       diagnostics_error(errors, d->span,
                         "This top-level declaration is not implemented yet.");
   }

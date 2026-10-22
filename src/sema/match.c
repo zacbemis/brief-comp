@@ -128,6 +128,10 @@ static void add(Interval *covered, size_t *count, Interval x) {
 void sema_match_coverage(SemaProgram *p, SemaExpr *match, Diagnostics *errors) {
   const SemaType *t = match->as.match.input->type;
   size_t count = match->as.match.count;
+  if (t && t->kind == SEMA_SYM) {
+    sema_symbol_coverage(p, match, errors);
+    return;
+  }
   for (size_t i = 0; i < count; i++) {
     SemaArm *a = &match->as.match.arms[i];
     a->any = a->kind == PAT_BIND || a->kind == PAT_WILDCARD;

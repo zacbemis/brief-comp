@@ -30,6 +30,24 @@ int main(int argc, char **argv) {
         break;
       }
   }
+  TEST("merged capture uses a shared descriptor and preserves binary bytes") {
+    const char *command[] = {argv[1], "--helper", "large", NULL};
+    ProcessOptions options = {.merge_stderr = 1};
+    ProcessResult r = process_run(&a, command, &options);
+    ASSERT_TRUE(r.ok);
+    ASSERT_EQ_INT(0, r.status);
+    ASSERT_EQ_INT(0, r.err.length);
+    ASSERT_EQ_INT(128 * 4096, r.out.length);
+    size_t zeros = 0, outs = 0, errs = 0;
+    for (size_t i = 0; i < r.out.length; i++) {
+      zeros += r.out.data[i] == 0;
+      outs += r.out.data[i] == 'o';
+      errs += r.out.data[i] == 'e';
+    }
+    ASSERT_EQ_INT(128, zeros);
+    ASSERT_EQ_INT(64 * 4095, outs);
+    ASSERT_EQ_INT(64 * 4095, errs);
+  }
   TEST("observed exits are collected after group cleanup, without zombies") {
     const char *command[] = {argv[1], NULL};
     TestEnv env[] = {{"FAKE_EXIT_STATUS", "23"}, {"FAKE_GROUP_SIGINT", NULL}};

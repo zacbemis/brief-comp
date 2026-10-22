@@ -1,0 +1,11 @@
+// expect: before
+// stderr: error: :notFound("a\\0b\\n")
+// exit: 1
+Report { before: str
+  value: str }
+read(): Sym<:ok(str), :notFound(str)> { :notFound("a\0" + "b\n") }
+main() {
+  let alive = "before" + ""
+  print(alive)
+  Report { before: alive + "!", value: read()? }
+}

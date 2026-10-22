@@ -58,17 +58,16 @@ int main(void) {
     invalid(&a, "main() {}\nprint() {}", "reserved");
   }
   TEST("unsupported features are rejected rather than ignored") {
-    invalid(&a, "main() { :nope }", "expression is not implemented");
+    invalid(&a, "main() { :nope? }", "require a symbol outcome");
     invalid(&a, "main() { const a = \"x\" }", "const bindings");
     invalid(&a, "main(x: str) {}", "cannot have parameters");
     invalid(&a, "main() {}\nf(x: &int) {}", "Mutable borrow");
     invalid(&a, "main(): Thing { () }", "type is unknown");
-    invalid(&a, "type Error = Sym<:bad>\nmain() {}", "top-level declaration");
+    invalid(&a, "type Error = Sym<:ok, _>\nmain() {}", "Partial symbol sets");
     invalid(&a, "main() { main<int>() }", "Generic calls");
     invalid(&a, "main() { Module.f() }", "Unknown binding");
     invalid(&a, "main() { print(\"x\") |> f() }", "Unknown function");
-    invalid(&a, "main() { print(\"x\") |> f()? }",
-            "Fallible pipeline stages are not implemented");
+    invalid(&a, "main() { print(\"x\") |> f()? }", "Unknown function");
   }
   TEST("prior frontend errors prevent lowering a surviving partial tree") {
     invalid(&a, "main() { @ }", "Unexpected character");

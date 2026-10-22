@@ -1,0 +1,5 @@
+// Ordinary data returned from main is discarded, including owned payloads.
+classify(n: int): Sym<:adult(str), :minor> {
+  if n < 0 { :minor } else { :adult("ad" + "ult") }
+}
+main() { classify(1) }

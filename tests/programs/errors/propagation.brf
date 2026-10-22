@@ -1,0 +1,15 @@
+f(): Sym<:ok(int), :bad> { :bad }
+plain(): int {
+  f()? // error: Propagated variants are not in the written return type.
+}
+wrong(): Sym<:ok(str), :bad> { // error: Function body does not match the written return type.
+  f()?
+}
+missingOk() {
+  :data? // error: ? and ! require a symbol outcome with an :ok variant.
+}
+wrongReturn(): Sym<:ok(int)> {
+  ret :bad // error: Return value does not match the written return type.
+}
+partial(): Sym<:data, _> { :data } // error: A partial return type must declare :ok.
+main() {}

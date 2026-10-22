@@ -9,6 +9,9 @@ or third-party packages are required.
   order, so put them together at the top when execution order differs from
   source order. `\0`, `\n`, `\t`, `\r`, and `\\` represent bytes; other text
   is UTF-8. An empty expectation represents a blank output line.
+- `// stderr: text`: one exact stderr line, with the same byte escapes as
+  `expect`. Use `// exit: 1` for an error-valued entry point. Cannot be combined
+  with compile-error or panic expectations.
 - `// error: message`: compilation must fail with this exact diagnostic on
   this source line. Every diagnostic must be listed; ordering does not matter.
   No executable may be published. Do not combine these with runtime expectations.
@@ -19,7 +22,7 @@ or third-party packages are required.
   panic unless specified). Only one exit expectation is allowed.
 
 Successful compilation must be silent; stdout must match exactly, and stderr
-must be empty unless a panic is expected. Sanitizer reports always fail a test,
+must be empty unless exact stderr or a panic is expected. Sanitizer reports always fail a test,
 including reports after an expected compilation error. Compilations and programs
 have 30-second and 10-second timeouts respectively. The shared POSIX process
 helper captures binary stdout/stderr without pipe deadlocks, and kills the
@@ -62,7 +65,20 @@ The first M5 slice adds `pipelines.brf`, `scalar-matches.brf`,
 They check method-first lookup, numeric argument contexts, input/callee/argument
 order, interval overlap and boundaries, all shrt/ushrt values, signed zero,
 NaN/infinities, match results and nonlocal jumps, and read-only propagation.
-Symbol patterns and fallible calls are still unsupported; M5 is not complete.
+The next slice adds `symbols.brf`, `symbol-groups.brf`, `symbol-ownership.brf`
+and two negative symbol fixtures (68 total fixtures). They cover data-symbol
+payloads, aliases/composition, subset transfers, recursive set inference, group
+matches and narrowed catch-alls, payload-aware equality including NaN, contextual
+numeric payloads, active-payload ARC, argument snapshots, loop/jump cleanup and
+read-only propagation through symbols. The outcome slice adds nine fixtures
+(77 total): pure-success ABI erasure, explicit/implicit successes, recursive
+error inference, partial annotations, stage handlers, early-return ownership,
+propagation from initializers/conditions, argument pinning, exact entry error
+formatting/status/cleanup, ordinary data-only symbol entry results (discarded with
+exit 0), symbol-valued successful entry results, symbol panics
+and their original source location, and exact handled-call/propagation errors.
+Fallible conversions, refutable payload patterns and symbol ordering remain
+unsupported; M5 is not complete.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

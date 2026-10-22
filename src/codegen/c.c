@@ -55,8 +55,98 @@ static void ctype(FILE *out, const SemaType *type) {
       "int64_t", "uint64_t", "float",    "double",  "const brt_string *"};
   if (type->kind == SEMA_STRUCT)
     fprintf(out, "brs_%s *", type->name);
+  else if (type->kind == SEMA_SYM)
+    fprintf(out, "bry_%zu", type->symbols->id);
   else
     fputs(names[type->kind], out);
+}
+static void ref_prefix(FILE *out, const SemaType *type, int retain) {
+  if (type->kind == SEMA_SYM)
+    fprintf(out, "brt_sym_%zu_%s(", type->symbols->id,
+            retain ? "retain" : "release");
+  else
+    fputs(retain ? "brt_retain(" : "brt_release(", out);
+}
+static void zero(FILE *out, const SemaType *type) {
+  if (type->kind == SEMA_SYM) {
+    fputc('(', out);
+    ctype(out, type);
+    fputs("){0}", out);
+  } else
+    fputs("NULL", out);
+}
+static void equal(FILE *out, const SemaType *type, const char *a,
+                  const char *b) {
+  if (type->kind == SEMA_STR)
+    fprintf(out, "brt_compare(%s, %s) == 0", a, b);
+  else if (type->kind == SEMA_STRUCT)
+    fprintf(out, "brt_struct_%s_equal(%s, %s)", type->name, a, b);
+  else if (type->kind == SEMA_SYM)
+    fprintf(out, "brt_sym_%zu_equal(%s, %s)", type->symbols->id, a, b);
+  else
+    fprintf(out, "%s == %s", a, b);
+}
+static void symbol_declarations(FILE *out, const IrProgram *p) {
+  for (const SemaSymSet *s = p->symbol_sets; s; s = s->next) {
+    fprintf(
+        out,
+        "typedef struct {\n  uint32_t tag;\n  union {\n    uint8_t empty;\n");
+    for (size_t i = 0; i < s->count; i++) {
+      const SemaVariant *v = &s->variants[i];
+      if (!v->payload || v->payload->kind == SEMA_UNIT)
+        continue;
+      fputs("    ", out);
+      ctype(out, v->payload);
+      fprintf(out, " v%zu;\n", v->tag->id);
+    }
+    fprintf(out, "  } payload;\n} bry_%zu;\n", s->id);
+    fprintf(out, "void brt_sym_%zu_retain(bry_%zu);\n", s->id, s->id);
+    fprintf(out, "void brt_sym_%zu_release(bry_%zu);\n", s->id, s->id);
+    fprintf(out,
+            "void brt_sym_%zu_write(FILE *, bry_%zu, unsigned, size_t *);\n",
+            s->id, s->id);
+    if (s->equatable)
+      fprintf(out, "_Bool brt_sym_%zu_equal(bry_%zu, bry_%zu);\n", s->id, s->id,
+              s->id);
+  }
+}
+static void symbol_helpers(FILE *out, const IrProgram *p) {
+  for (const SemaSymSet *s = p->symbol_sets; s; s = s->next) {
+    for (int retain = 0; retain <= 1; retain++) {
+      fprintf(out,
+              "void brt_sym_%zu_%s(bry_%zu value) {\n  switch (value.tag) {\n",
+              s->id, retain ? "retain" : "release", s->id);
+      for (size_t i = 0; i < s->count; i++) {
+        const SemaVariant *v = &s->variants[i];
+        if (!sema_reference(v->payload))
+          continue;
+        fprintf(out, "  case %zu: ", v->tag->id);
+        ref_prefix(out, v->payload, retain);
+        fprintf(out, "value.payload.v%zu); break;\n", v->tag->id);
+      }
+      fputs("  default: break;\n  }\n}\n", out);
+    }
+    if (!s->equatable)
+      continue;
+    fprintf(out,
+            "_Bool brt_sym_%zu_equal(bry_%zu a, bry_%zu b) {\n"
+            "  if (a.tag != b.tag) return 0;\n  switch (a.tag) {\n",
+            s->id, s->id, s->id);
+    for (size_t i = 0; i < s->count; i++) {
+      const SemaVariant *v = &s->variants[i];
+      fprintf(out, "  case %zu: return ", v->tag->id);
+      if (!v->payload || v->payload->kind == SEMA_UNIT)
+        fputs("1", out);
+      else {
+        char a[96], b[96];
+        snprintf(a, sizeof(a), "a.payload.v%zu", v->tag->id);
+        snprintf(b, sizeof(b), "b.payload.v%zu", v->tag->id);
+        equal(out, v->payload, a, b);
+      }
+      fputs(";\n", out);
+    }
+    fputs("  default: return 1;\n  }\n}\n", out);
+  }
 }
 static void function_name(FILE *out, const IrFunction *f) {
   fprintf(out, "%s%s", f->method ? "brm_" : "brf_", f->name);
@@ -86,10 +176,82 @@ static void signature(FILE *out, const IrFunction *f) {
     fputs("void", out);
   fputc(')', out);
 }
+static void write_value(FILE *out, const SemaType *t, const char *value) {
+  if (t->kind == SEMA_UNIT)
+    fputs("fputs(\"()\", out)", out);
+  else if (t->kind == SEMA_SYM)
+    fprintf(out, "brt_sym_%zu_write(out, %s, depth + 1, budget)",
+            t->symbols->id, value);
+  else if (t->kind == SEMA_STRUCT)
+    fprintf(out, "brt_struct_%s_write(out, %s, depth + 1, budget)", t->name,
+            value);
+  else if (t->kind == SEMA_STR)
+    fprintf(out, "brt_write_quoted(out, %s->bytes, %s->length, '\"')", value,
+            value);
+  else if (t->kind == SEMA_CHR)
+    fprintf(out, "brt_write_quoted(out, &%s, 1, 39)", value);
+  else {
+    const char *suffix = t->kind == SEMA_BOOL  ? "bool"
+                         : t->kind == SEMA_FLT ? "flt"
+                         : t->kind == SEMA_DUB ? "dub"
+                         : t->is_signed        ? "s"
+                                               : "u";
+    fprintf(out, "brt_write_number(out, brt_str_%s(%s))", suffix, value);
+  }
+}
+static void formatters(FILE *out, const IrProgram *p) {
+  for (size_t i = 0; i < p->struct_count; i++) {
+    const SemaStruct *s = &p->structs[i];
+    fprintf(out,
+            "void brt_struct_%s_write(FILE *out, brs_%s *value, unsigned "
+            "depth, size_t *budget) {\n"
+            "  (void)value; if (depth >= 32 || !*budget) { fputs(\"...\", "
+            "out); return; }\n"
+            "  --*budget;\n"
+            "  fputs(\"%s {\", out);\n",
+            s->type.name, s->type.name, s->type.name);
+    for (size_t j = 0; j < s->count; j++) {
+      const SemaField *f = &s->fields[j];
+      fprintf(out,
+              "  if (!*budget) { fputs(\"%s... }\", out); return; }\n"
+              "  --*budget; fputs(\"%s%s: \", out); ",
+              j ? ", " : " ", j ? ", " : " ", f->name);
+      char value[96];
+      snprintf(value, sizeof(value), "value->brt_field_%zu", j);
+      write_value(out, f->type, value);
+      fputs(";\n", out);
+    }
+    fprintf(out, "  fputs(\"%s}\", out);\n}\n", s->count ? " " : "");
+  }
+  for (const SemaSymSet *s = p->symbol_sets; s; s = s->next) {
+    fprintf(out,
+            "void brt_sym_%zu_write(FILE *out, bry_%zu value, unsigned depth, "
+            "size_t *budget) {\n"
+            "  if (depth >= 32 || !*budget) { fputs(\"...\", out); return; }\n"
+            "  --*budget;\n"
+            "  switch (value.tag) {\n",
+            s->id, s->id);
+    for (size_t i = 0; i < s->count; i++) {
+      const SemaVariant *v = &s->variants[i];
+      fprintf(out, "  case %zu: fputs(\":%s\", out);", v->tag->id,
+              v->tag->name);
+      if (v->payload) {
+        fputs(" fputc('(', out); ", out);
+        char value[96];
+        snprintf(value, sizeof(value), "value.payload.v%zu", v->tag->id);
+        write_value(out, v->payload, value);
+        fputs("; fputc(')', out);", out);
+      }
+      fputs(" break;\n", out);
+    }
+    fputs("  default: fputs(\"<invalid symbol>\", out); break;\n  }\n}\n", out);
+  }
+}
 static void structures(FILE *out, const IrProgram *p) {
   for (size_t i = 0; i < p->struct_count; i++)
     fprintf(out, "typedef struct brs_%s brs_%s;\n", p->structs[i].type.name,
             p->structs[i].type.name);
+  symbol_declarations(out, p);
   for (size_t i = 0; i < p->struct_count; i++) {
     const SemaStruct *s = &p->structs[i];
     fprintf(out, "struct brs_%s {\n  brt_object brt_header;\n", s->type.name);
@@ -101,10 +263,15 @@ static void structures(FILE *out, const IrProgram *p) {
       fprintf(out, " brt_field_%zu;\n", j);
     }
     fputs("};\n", out);
+    fprintf(out,
+            "void brt_struct_%s_write(FILE *, brs_%s *, unsigned, size_t *);\n",
+            s->type.name, s->type.name);
     if (s->equatable)
       fprintf(out, "_Bool brt_struct_%s_equal(brs_%s *, brs_%s *);\n",
               s->type.name, s->type.name, s->type.name);
   }
+  symbol_helpers(out, p);
+  formatters(out, p);
   for (size_t i = 0; i < p->struct_count; i++) {
     const SemaStruct *s = &p->structs[i];
     const char *name = s->type.name;
@@ -113,8 +280,11 @@ static void structures(FILE *out, const IrProgram *p) {
             "= (brs_%s *)object;\n  (void)value;\n",
             name, name, name);
     for (size_t j = 0; j < s->count; j++)
-      if (sema_reference(s->fields[j].type))
-        fprintf(out, "  brt_release(value->brt_field_%zu);\n", j);
+      if (sema_reference(s->fields[j].type)) {
+        fputs("  ", out);
+        ref_prefix(out, s->fields[j].type, 0);
+        fprintf(out, "value->brt_field_%zu);\n", j);
+      }
     fprintf(out, "}\nbrs_%s *brt_struct_%s_new(", name, name);
     int comma = 0;
     for (size_t j = 0; j < s->count; j++) {
@@ -135,8 +305,11 @@ static void structures(FILE *out, const IrProgram *p) {
     for (size_t j = 0; j < s->count; j++) {
       if (s->fields[j].type->kind == SEMA_UNIT)
         continue;
-      if (sema_reference(s->fields[j].type))
-        fprintf(out, "  brt_retain(f%zu);\n", j);
+      if (sema_reference(s->fields[j].type)) {
+        fputs("  ", out);
+        ref_prefix(out, s->fields[j].type, 1);
+        fprintf(out, "f%zu);\n", j);
+      }
       fprintf(out, "  value->brt_field_%zu = f%zu;\n", j, j);
     }
     fputs("  return value;\n}\n", out);
@@ -150,17 +323,11 @@ static void structures(FILE *out, const IrProgram *p) {
       const SemaType *t = s->fields[j].type;
       if (t->kind == SEMA_UNIT)
         continue;
-      if (t->kind == SEMA_STR)
-        fprintf(out,
-                "\n    && brt_compare(a->brt_field_%zu, b->brt_field_%zu) == 0",
-                j, j);
-      else if (t->kind == SEMA_STRUCT)
-        fprintf(
-            out,
-            "\n    && brt_struct_%s_equal(a->brt_field_%zu, b->brt_field_%zu)",
-            t->name, j, j);
-      else
-        fprintf(out, "\n    && a->brt_field_%zu == b->brt_field_%zu", j, j);
+      char a[96], b[96];
+      snprintf(a, sizeof(a), "a->brt_field_%zu", j);
+      snprintf(b, sizeof(b), "b->brt_field_%zu", j);
+      fputs("\n    && ", out);
+      equal(out, t, a, b);
     }
     fputs(";\n}\n", out);
   }
@@ -186,9 +353,13 @@ static void binary(FILE *out, const IrInstruction *in) {
     else
       fprintf(out, "brt_compare(brt_tmp_%zu, brt_tmp_%zu) %s 0", in->a, in->b,
               operators[op]);
-  } else if (kind == SEMA_STRUCT) {
-    fprintf(out, "%sbrt_struct_%s_equal(brt_tmp_%zu, brt_tmp_%zu)",
-            op == BINARY_NE ? "!" : "", in->type->name, in->a, in->b);
+  } else if (kind == SEMA_STRUCT || kind == SEMA_SYM) {
+    char a[96], b[96];
+    snprintf(a, sizeof(a), "brt_tmp_%zu", in->a);
+    snprintf(b, sizeof(b), "brt_tmp_%zu", in->b);
+    if (op == BINARY_NE)
+      fputc('!', out);
+    equal(out, in->type, a, b);
   } else if (kind >= SEMA_SHRT && kind <= SEMA_ULNG && helpers[op]) {
     fputc('(', out);
     ctype(out, in->type);
@@ -322,25 +493,64 @@ int emit_c(FILE *out, const IrProgram *p) {
         fprintf(out, "  brt_tmp_%zu->brt_field_%zu = brt_tmp_%zu;\n", in->a,
                 in->field->id, in->b);
         break;
-      case IR_RETAIN:
+      case IR_SYMBOL:
+        fprintf(out, "  brt_tmp_%zu = (bry_%zu){.tag = %zu};\n", in->result,
+                in->type->symbols->id, in->tag->id);
+        if (in->a != IR_NO_VALUE)
+          fprintf(out, "  brt_tmp_%zu.payload.v%zu = brt_tmp_%zu;\n",
+                  in->result, in->tag->id, in->a);
+        break;
+      case IR_SYMBOL_CAST: {
         fprintf(out,
-                "  brt_locate(__FILE__, __LINE__); brt_retain(brt_tmp_%zu);\n",
-                in->a);
+                "  brt_tmp_%zu = (bry_%zu){.tag = brt_tmp_%zu.tag};\n"
+                "  switch (brt_tmp_%zu.tag) {\n",
+                in->result, in->type->symbols->id, in->a, in->a);
+        const SemaType *source = f->temporary_types[in->a];
+        for (size_t k = 0; k < in->type->symbols->count; k++) {
+          const SemaVariant *v = &in->type->symbols->variants[k];
+          if (v->payload && v->payload->kind != SEMA_UNIT &&
+              sema_variant(source, v->tag))
+            fprintf(out,
+                    "  case %zu: brt_tmp_%zu.payload.v%zu = "
+                    "brt_tmp_%zu.payload.v%zu; break;\n",
+                    v->tag->id, in->result, v->tag->id, in->a, v->tag->id);
+        }
+        fputs("  default: break;\n  }\n", out);
+        break;
+      }
+      case IR_SYMBOL_TAG:
+        fprintf(out, "  brt_tmp_%zu = brt_tmp_%zu.tag;\n", in->result, in->a);
+        break;
+      case IR_SYMBOL_PAYLOAD:
+        fprintf(out, "  brt_tmp_%zu = brt_tmp_%zu.payload.v%zu;\n", in->result,
+                in->a, in->tag->id);
+        break;
+      case IR_RETAIN:
+        fputs("  brt_locate(__FILE__, __LINE__); ", out);
+        ref_prefix(out, f->temporary_types[in->a], 1);
+        fprintf(out, "brt_tmp_%zu);\n", in->a);
         break;
       case IR_DROP_TEMP:
-        fprintf(out, "  brt_release(brt_tmp_%zu); brt_tmp_%zu = NULL;\n", in->a,
-                in->a);
-        break;
       case IR_DROP_VAR:
-        fprintf(out, "  brt_release(brt_var_%zu); brt_var_%zu = NULL;\n", in->a,
-                in->a);
+      case IR_DROP_FIELD: {
+        const SemaType *type = in->op == IR_DROP_VAR ? f->variables[in->a]
+                               : in->op == IR_DROP_FIELD
+                                   ? in->field->type
+                                   : f->temporary_types[in->a];
+        char name[128];
+        if (in->op == IR_DROP_FIELD)
+          snprintf(name, sizeof(name), "brt_tmp_%zu->brt_field_%zu", in->a,
+                   in->field->id);
+        else
+          snprintf(name, sizeof(name), "brt_%s_%zu",
+                   in->op == IR_DROP_VAR ? "var" : "tmp", in->a);
+        fputs("  ", out);
+        ref_prefix(out, type, 0);
+        fprintf(out, "%s); %s = ", name, name);
+        zero(out, type);
+        fputs(";\n", out);
         break;
-      case IR_DROP_FIELD:
-        fprintf(out,
-                "  brt_release(brt_tmp_%zu->brt_field_%zu); "
-                "brt_tmp_%zu->brt_field_%zu = NULL;\n",
-                in->a, in->field->id, in->a, in->field->id);
-        break;
+      }
       case IR_BINARY:
         binary(out, in);
         break;
@@ -378,6 +588,16 @@ int emit_c(FILE *out, const IrProgram *p) {
         fprintf(out, "  if (!brt_tmp_%zu) goto brt_label_%zu;\n", in->a,
                 in->label);
         break;
+      case IR_PANIC_SYMBOL:
+        fprintf(
+            out,
+            "  { brt_locate(__FILE__, __LINE__); size_t brt_format_budget = "
+            "1024;\n"
+            "  brt_panic_begin();\n"
+            "  brt_sym_%zu_write(stderr, brt_tmp_%zu, 0, &brt_format_budget);\n"
+            "  fputc('\\n', stderr); brt_panic_end(); }\n",
+            in->type->symbols->id, in->a);
+        break;
       case IR_UNREACHABLE:
         fputs("  brt_locate(__FILE__, __LINE__); brt_panic(\"unreachable "
               "control flow\");\n",
@@ -387,16 +607,39 @@ int emit_c(FILE *out, const IrProgram *p) {
     }
     fputs("}\n\n", out);
   }
-  fputs("#line 1 \"<brief entry>\"\nint main(void) {\n  ", out);
-  if (sema_reference(p->functions[p->entry].return_type))
-    fputs("brt_release(", out);
+  const SemaType *entry = p->functions[p->entry].return_type;
+  int symbol = entry->kind == SEMA_SYM;
+  fputs("#line 1 \"<brief entry>\"\nint main(void) {\n  int status = 0;\n  ",
+        out);
+  if (symbol) {
+    ctype(out, entry);
+    fputs(" result = ", out);
+  } else if (sema_reference(entry))
+    ref_prefix(out, entry, 0);
   function_name(out, &p->functions[p->entry]);
   fputs("()", out);
-  if (sema_reference(p->functions[p->entry].return_type))
+  if (!symbol && sema_reference(entry))
     fputc(')', out);
-  fputs(";\n  brt_finish();\n  if (fflush(stdout) == EOF) {\n    "
+  fputs(";\n", out);
+  if (symbol) {
+    const SemaVariant *ok = sema_ok(p->entry_outcome);
+    // Data-only sets are ordinary results; only a fallible outcome is an error.
+    if (ok && p->entry_outcome->symbols->count > 1) {
+      fprintf(
+          out,
+          "  if (result.tag != %zu) {\n    size_t brt_format_budget = 1024;\n"
+          "    (void)fflush(stdout); fputs(\"error: \", stderr);\n"
+          "    brt_sym_%zu_write(stderr, result, 0, &brt_format_budget);\n"
+          "    fputc('\\n', stderr); status = 1;\n  }\n",
+          p->ok->id, entry->symbols->id);
+    }
+    fputs("  ", out);
+    ref_prefix(out, entry, 0);
+    fputs("result);\n", out);
+  }
+  fputs("  brt_finish();\n  if (fflush(stdout) == EOF) {\n    "
         "fputs(\"error: cannot flush standard output\\n\", stderr);\n    "
-        "return 1;\n  }\n  return 0;\n}\n",
+        "return 1;\n  }\n  return status;\n}\n",
         out);
   return !ferror(out);
 }

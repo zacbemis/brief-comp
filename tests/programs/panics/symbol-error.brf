@@ -1,0 +1,8 @@
+// expect: before
+// panic: panic: :bad("heap")
+// panic: symbol-error.brf:7
+fail(): Sym<:ok(int), :bad(str)> { :bad("he" + "ap") }
+main() {
+  print("before")
+  fail()!
+}

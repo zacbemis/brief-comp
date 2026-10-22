@@ -1,4 +1,4 @@
 main() {
   const x = "not yet" // error: const bindings are not implemented yet.
-  :unsupported // error: This expression is not implemented yet.
+  0[0] // error: This expression is not implemented yet.
 }

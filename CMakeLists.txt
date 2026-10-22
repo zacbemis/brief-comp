@@ -49,6 +49,7 @@ add_library(brief_core STATIC
     src/sema/graph.c
     src/sema/permissions.c
     src/sema/match.c
+    src/sema/symbols.c
     src/ir/lower.c
     src/ir/rc.c
     src/codegen/c.c

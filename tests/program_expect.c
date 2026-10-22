@@ -36,16 +36,18 @@ static void append(Arena *a, ExpectedMessage **head, ExpectedMessage **tail,
 const char *parse_expectations(Arena *a, TestBytes source, Expectations *e) {
   memset(e, 0, sizeof(*e));
   unsigned char *output = arena_alloc(a, source.length + 1);
-  size_t used = 0, offset = 0, number = 0;
+  unsigned char *standard_error = arena_alloc(a, source.length + 1);
+  size_t used = 0, err_used = 0, offset = 0, number = 0;
   ExpectedMessage *error_tail = NULL, *panic_tail = NULL;
-  const char *markers[] = {"// expect:", "// error:", "// panic:", "// exit:"};
+  const char *markers[] = {
+      "// expect:", "// error:", "// panic:", "// exit:", "// stderr:"};
   while (offset < source.length) {
     TestBytes line = next_line(source, &offset);
     number++;
     int kind = -1;
     size_t pos = 0;
     for (; pos < line.length && kind < 0; pos++)
-      for (int k = 0; k < 4; k++)
+      for (int k = 0; k < 5; k++)
         if (starts((TestBytes){line.data + pos, line.length - pos},
                    markers[k])) {
           kind = k;
@@ -57,7 +59,9 @@ const char *parse_expectations(Arena *a, TestBytes source, Expectations *e) {
     if (begin < line.length && line.data[begin] == ' ')
       begin++;
     TestBytes value = {line.data + begin, line.length - begin};
-    if (kind == 0) {
+    if (kind == 0 || kind == 4) {
+      unsigned char *bytes = kind == 0 ? output : standard_error;
+      size_t *length = kind == 0 ? &used : &err_used;
       for (size_t i = 0; i < value.length; i++) {
         unsigned char c = value.data[i];
         if (c == '\\' && i + 1 < value.length) {
@@ -71,9 +75,9 @@ const char *parse_expectations(Arena *a, TestBytes source, Expectations *e) {
             i++;
           }
         }
-        output[used++] = c;
+        bytes[(*length)++] = c;
       }
-      output[used++] = '\n';
+      bytes[(*length)++] = '\n';
     } else if (kind == 1) {
       append(a, &e->errors, &error_tail, number, value);
       e->error_count++;
@@ -100,7 +104,11 @@ const char *parse_expectations(Arena *a, TestBytes source, Expectations *e) {
   }
   output[used] = 0;
   e->output = (TestBytes){output, used};
-  if (e->error_count && (used || e->panic_count || e->has_exit))
+  standard_error[err_used] = 0;
+  e->standard_error = (TestBytes){standard_error, err_used};
+  if (e->panic_count && err_used)
+    return "panic tests cannot also expect exact standard error";
+  if (e->error_count && (used || err_used || e->panic_count || e->has_exit))
     return "compile-error tests cannot also expect output, panics, or exit "
            "status";
   return NULL;
@@ -195,8 +203,8 @@ const char *check_result(Arena *a, const Expectations *e,
     for (ExpectedMessage *m = e->panics; m; m = m->next)
       if (!bytes_contains(ran->err, m->text))
         return "missing expected panic message";
-  } else if (ran->err.length)
-    return "unexpected program standard error";
+  } else if (!bytes_equal(e->standard_error, ran->err))
+    return "program standard error differs (byte comparison)";
   if ((e->has_exit || !e->panic_count) &&
       ran->status != (e->has_exit ? e->exit_status : 0))
     return "unexpected program exit status";

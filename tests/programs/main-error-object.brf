@@ -1,0 +1,22 @@
+// stderr: error: :invalid(Report { code: -9223372036854775808, count: 18446744073709551615, marker: '\\0', ready: true, real: nan, empty: (), detail: :note("heap") })
+// exit: 1
+Report {
+  code: lng
+  count: ulng
+  marker: chr
+  ready: bool
+  real: dub
+  empty: ()
+  detail: Sym<:note(str)>
+}
+main(): Sym<:ok, :invalid(Report)> {
+  :invalid(Report {
+    code: -9223372036854775808
+    count: 18446744073709551615
+    marker: '\0'
+    ready: true
+    real: 0.0 / 0.0
+    empty: ()
+    detail: :note("he" + "ap")
+  })
+}

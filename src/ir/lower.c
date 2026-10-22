@@ -98,6 +98,49 @@ static size_t binary(Lower *l, BinaryOp op, const SemaType *type,
   emit(l, in);
   return result;
 }
+static size_t convert(Lower *l, size_t value, const SemaType *target,
+                      Span span) {
+  if (!target)
+    return value;
+  const SemaType *source = value == IR_NO_VALUE
+                               ? &l->program->types[SEMA_UNIT]
+                               : l->function->temporary_types[value];
+  if (source == target)
+    return value;
+  if (target->kind == SEMA_SYM && source->kind != SEMA_SYM) {
+    size_t result = temporary(l, target);
+    emit(l, (IrInstruction){.op = IR_SYMBOL,
+                            .span = span,
+                            .type = target,
+                            .result = result,
+                            .a = value,
+                            .tag = l->program->ok});
+    return result;
+  }
+  const SemaVariant *success = sema_ok(source);
+  if (success && source->symbols->count == 1 &&
+      (target->kind != SEMA_SYM || success->payload == target)) {
+    size_t result = temporary(l, target);
+    if (result != IR_NO_VALUE)
+      emit(l, (IrInstruction){.op = IR_SYMBOL_PAYLOAD,
+                              .span = span,
+                              .result = result,
+                              .a = value,
+                              .tag = l->program->ok});
+    return result;
+  }
+  // Ordinary contexts widen; guarded catch-alls and propagation also narrow.
+  if (target->kind == SEMA_SYM) {
+    size_t result = temporary(l, target);
+    emit(l, (IrInstruction){.op = IR_SYMBOL_CAST,
+                            .span = span,
+                            .type = target,
+                            .result = result,
+                            .a = value});
+    return result;
+  }
+  return value;
+}
 static size_t load(Lower *l, SemaVar *v, size_t object, SemaField *field,
                    Span span) {
   size_t result = temporary(l, field ? field->type : v->type);
@@ -111,6 +154,7 @@ static size_t load(Lower *l, SemaVar *v, size_t object, SemaField *field,
 }
 static void store(Lower *l, SemaVar *v, size_t object, SemaField *field,
                   size_t value, Span span) {
+  value = convert(l, value, field ? field->type : v->type, span);
   if (value != IR_NO_VALUE)
     emit(l, (IrInstruction){.op = field ? IR_FIELD_STORE : IR_STORE,
                             .span = span,
@@ -118,7 +162,8 @@ static void store(Lower *l, SemaVar *v, size_t object, SemaField *field,
                             .b = value,
                             .field = field});
 }
-static size_t lower(Lower *l, const SemaExpr *e) {
+static size_t lower(Lower *l, const SemaExpr *e);
+static size_t lower_raw(Lower *l, const SemaExpr *e) {
   switch (e->kind) {
   case SEMA_EXPR_UNIT:
     return IR_NO_VALUE;
@@ -160,6 +205,22 @@ static size_t lower(Lower *l, const SemaExpr *e) {
       return IR_NO_VALUE;
     return load(l, NULL, object, e->as.field.field, e->span);
   }
+  case SEMA_EXPR_SYMBOL: {
+    size_t payload =
+        e->as.symbol.payload ? lower(l, e->as.symbol.payload) : IR_NO_VALUE;
+    if (l->returned)
+      return IR_NO_VALUE;
+    const SemaVariant *variant = sema_variant(e->type, e->as.symbol.tag);
+    payload = convert(l, payload, variant->payload, e->span);
+    size_t result = temporary(l, e->type);
+    emit(l, (IrInstruction){.op = IR_SYMBOL,
+                            .span = e->span,
+                            .type = e->type,
+                            .result = result,
+                            .a = payload,
+                            .tag = e->as.symbol.tag});
+    return result;
+  }
   case SEMA_EXPR_STRUCT: {
     SemaStruct *s = e->as.structure.type;
     size_t *args = arena_calloc(l->arena, s->count, sizeof(*args));
@@ -167,7 +228,8 @@ static size_t lower(Lower *l, const SemaExpr *e) {
       size_t value = lower(l, e->as.structure.values[i]);
       if (l->returned)
         return IR_NO_VALUE;
-      args[e->as.structure.fields[i]->id] = value;
+      SemaField *field = e->as.structure.fields[i];
+      args[field->id] = convert(l, value, field->type, e->span);
     }
     IrInstruction in = {.op = IR_NEW,
                         .span = e->span,
@@ -246,7 +308,11 @@ static size_t lower(Lower *l, const SemaExpr *e) {
     size_t b = lower(l, e->as.binary.right);
     if (l->returned)
       return IR_NO_VALUE;
-    return binary(l, op, e->as.binary.left->type, e->type, a, b, e->span);
+    const SemaType *type =
+        e->as.binary.common ? e->as.binary.common : e->as.binary.left->type;
+    a = convert(l, a, type, e->span);
+    b = convert(l, b, type, e->span);
+    return binary(l, op, type, e->type, a, b, e->span);
   }
   case SEMA_EXPR_CALL: {
     size_t *args = arena_calloc(l->arena, e->as.call.count, sizeof(*args));
@@ -254,6 +320,8 @@ static size_t lower(Lower *l, const SemaExpr *e) {
       args[i] = lower(l, e->as.call.args[i]);
       if (l->returned)
         return IR_NO_VALUE;
+      args[i] =
+          convert(l, args[i], e->as.call.target->params[i]->type, e->span);
     }
     IrInstruction in = {
         .op = IR_CALL, .span = e->span, .result = temporary(l, e->type)};
@@ -285,9 +353,54 @@ static size_t lower(Lower *l, const SemaExpr *e) {
     l->owned = saved;
     return escaped != IR_NO_VALUE ? escaped : value;
   }
+  case SEMA_EXPR_TRY:
+  case SEMA_EXPR_PANIC: {
+    size_t input = lower(l, e->as.value);
+    if (l->returned)
+      return IR_NO_VALUE;
+    if (e->failures) {
+      size_t tag = temporary(l, &l->program->types[SEMA_UINT]);
+      emit(l, (IrInstruction){.op = IR_SYMBOL_TAG,
+                              .span = e->span,
+                              .result = tag,
+                              .a = input});
+      size_t ok = constant(l, &l->program->types[SEMA_UINT], l->program->ok->id,
+                           0, 0, e->span);
+      size_t failed = binary(l, BINARY_NE, &l->program->types[SEMA_UINT],
+                             &l->program->types[SEMA_BOOL], tag, ok, e->span);
+      size_t success = l->function->labels++;
+      emit(l, (IrInstruction){.op = IR_BRANCH_FALSE,
+                              .span = e->span,
+                              .a = failed,
+                              .label = success});
+      Owned *saved = l->owned;
+      if (e->kind == SEMA_EXPR_PANIC)
+        emit(l, (IrInstruction){.op = IR_PANIC_SYMBOL,
+                                .span = e->span,
+                                .type = e->as.value->type,
+                                .a = input});
+      else {
+        size_t value = convert(l, input, e->failures, e->span);
+        value = convert(l, value, l->function->return_type, e->span);
+        cleanup(l, NULL, value, e->span);
+        emit(l, (IrInstruction){.op = IR_RETURN, .span = e->span, .a = value});
+      }
+      l->owned = saved;
+      label(l, success, e->span);
+    }
+    size_t result = temporary(l, e->type);
+    if (result != IR_NO_VALUE)
+      emit(l, (IrInstruction){.op = IR_SYMBOL_PAYLOAD,
+                              .span = e->span,
+                              .result = result,
+                              .a = input,
+                              .tag = l->program->ok});
+    return result;
+  }
   case SEMA_EXPR_RETURN: {
     size_t value = e->as.value ? lower(l, e->as.value) : IR_NO_VALUE;
     if (!l->returned) {
+      value = convert(l, value, l->function->return_type, e->span);
       cleanup(l, NULL, value, e->span);
       emit(l, (IrInstruction){.op = IR_RETURN, .span = e->span, .a = value});
     }
@@ -299,6 +412,14 @@ static size_t lower(Lower *l, const SemaExpr *e) {
     size_t input = lower(l, e->as.match.input);
     if (l->returned)
       return IR_NO_VALUE;
+    size_t tag = IR_NO_VALUE;
+    if (e->as.match.input->type->kind == SEMA_SYM) {
+      tag = temporary(l, &l->program->types[SEMA_UINT]);
+      emit(l, (IrInstruction){.op = IR_SYMBOL_TAG,
+                              .span = e->span,
+                              .result = tag,
+                              .a = input});
+    }
     size_t end = l->function->labels++;
     int falls = 0;
     Owned *saved = l->owned;
@@ -307,7 +428,26 @@ static size_t lower(Lower *l, const SemaExpr *e) {
       if (!a->useful)
         continue;
       size_t next = IR_NO_VALUE;
-      if (!a->any) {
+      if (!a->any && tag != IR_NO_VALUE) {
+        next = l->function->labels++;
+        size_t test = IR_NO_VALUE;
+        for (size_t j = 0; j < a->cases->symbols->count; j++) {
+          size_t id =
+              constant(l, &l->program->types[SEMA_UINT],
+                       a->cases->symbols->variants[j].tag->id, 0, 0, a->span);
+          size_t one = binary(l, BINARY_EQ, &l->program->types[SEMA_UINT],
+                              &l->program->types[SEMA_BOOL], tag, id, a->span);
+          test =
+              test == IR_NO_VALUE
+                  ? one
+                  : binary(l, BINARY_BIT_OR, &l->program->types[SEMA_BOOL],
+                           &l->program->types[SEMA_BOOL], test, one, a->span);
+        }
+        emit(l, (IrInstruction){.op = IR_BRANCH_FALSE,
+                                .span = a->span,
+                                .a = test,
+                                .label = next});
+      } else if (!a->any) {
         next = l->function->labels++;
         const SemaType *type = e->as.match.input->type;
         size_t first = lower(l, a->first_value);
@@ -326,12 +466,23 @@ static size_t lower(Lower *l, const SemaExpr *e) {
                                 .label = next});
       }
       if (a->binding) {
-        store(l, a->binding, IR_NO_VALUE, NULL, input, a->span);
+        size_t bound = input;
+        if (tag != IR_NO_VALUE && a->kind == PAT_SYMBOL) {
+          bound = temporary(l, a->binding->type);
+          if (bound != IR_NO_VALUE)
+            emit(l, (IrInstruction){.op = IR_SYMBOL_PAYLOAD,
+                                    .span = a->span,
+                                    .result = bound,
+                                    .a = input,
+                                    .tag = a->tag});
+        }
+        store(l, a->binding, IR_NO_VALUE, NULL, bound, a->span);
         if (sema_reference(a->binding->type))
           own(l, a->binding->id, 1);
       }
       size_t value = lower(l, a->body);
       if (!l->returned) {
+        value = convert(l, value, e->type, a->span);
         if (result != IR_NO_VALUE)
           emit(l, (IrInstruction){.op = IR_COPY,
                                   .span = a->span,
@@ -365,6 +516,8 @@ static size_t lower(Lower *l, const SemaExpr *e) {
     size_t yes = lower(l, e->as.conditional.yes);
     int yes_falls = !l->returned;
     if (yes_falls && result != IR_NO_VALUE)
+      yes = convert(l, yes, e->type, e->span);
+    if (yes_falls && result != IR_NO_VALUE)
       emit(l, (IrInstruction){
                   .op = IR_COPY, .span = e->span, .result = result, .a = yes});
     if (yes_falls && has_else)
@@ -372,6 +525,8 @@ static size_t lower(Lower *l, const SemaExpr *e) {
     label(l, other, e->span);
     if (has_else) {
       size_t no = lower(l, e->as.conditional.no);
+      if (!l->returned && result != IR_NO_VALUE)
+        no = convert(l, no, e->type, e->span);
       if (!l->returned && result != IR_NO_VALUE)
         emit(l, (IrInstruction){
                     .op = IR_COPY, .span = e->span, .result = result, .a = no});
@@ -458,6 +613,29 @@ static size_t lower(Lower *l, const SemaExpr *e) {
   }
   return IR_NO_VALUE;
 }
+static size_t lower(Lower *l, const SemaExpr *e) {
+  SemaExpr raw = *e;
+  if (e->raw_type)
+    raw.type = e->raw_type;
+  size_t value = lower_raw(l, &raw);
+  if (l->returned || !e->adapt)
+    return value;
+  size_t result = temporary(l, e->type);
+  if (e->adapt == 1)
+    emit(l, (IrInstruction){.op = IR_SYMBOL,
+                            .span = e->span,
+                            .type = e->type,
+                            .result = result,
+                            .a = value,
+                            .tag = l->program->ok});
+  else if (result != IR_NO_VALUE)
+    emit(l, (IrInstruction){.op = IR_SYMBOL_PAYLOAD,
+                            .span = e->span,
+                            .result = result,
+                            .a = value,
+                            .tag = l->program->ok});
+  return result;
+}
 IrProgram *ir_lower(Arena *arena, const SemaProgram *program) {
   if (!program->checked)
     return NULL;
@@ -466,6 +644,9 @@ IrProgram *ir_lower(Arena *arena, const SemaProgram *program) {
   p->entry = program->entry->id;
   p->structs = program->structs;
   p->struct_count = program->struct_count;
+  p->symbol_sets = program->symbol_sets;
+  p->ok = program->ok;
+  p->entry_outcome = program->entry->outcome_type;
   p->functions = arena_calloc(arena, p->count, sizeof(IrFunction));
   for (size_t i = 0; i < p->count; i++) {
     const SemaFunction *source = &program->functions[i];
@@ -492,6 +673,7 @@ IrProgram *ir_lower(Arena *arena, const SemaProgram *program) {
     size_t value = lower(&l, source->body);
     if (!l.returned) {
       size_t result = f->return_type->kind == SEMA_UNIT ? IR_NO_VALUE : value;
+      result = convert(&l, result, f->return_type, f->span);
       cleanup(&l, NULL, result, f->span);
       emit(&l, (IrInstruction){.op = IR_RETURN, .span = f->span, .a = result});
     }

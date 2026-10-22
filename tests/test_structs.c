@@ -121,7 +121,7 @@ int main(void) {
     invalid(&a, "A {}\nB { a: A }\nf(a: &A) {}\ng(b: B) { f(b.a) }\nmain() {}",
             "mutable argument");
     invalid(&a, "A {}\nf(a: &A) { a = A {} }\nmain() {}", "immutable binding");
-    invalid(&a, "main() {}\nf(a: &str) {}", "requires a struct type");
+    invalid(&a, "main() {}\nf(a: &str) {}", "requires a struct or symbol type");
     valid(&a, "A { n: int }\nimpl A { bump(a: &Self) { a.n++ } }\ng(a: &A) { "
               "a.bump() }\nmain() { g(A { n: 1 }) }");
     invalid(&a,

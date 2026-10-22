@@ -1,0 +1,53 @@
+// expect: 1500
+// expect: ok!
+// expect: bad
+// expect: before
+// expect: ok
+// expect: 3
+Node { text: str }
+Pair { first: Node
+  second: Node }
+Holder { value: Sym<:ok(str), :bad(str)> }
+fault(n: int): Sym<:ok(str), :bad(str)> {
+  if n % 2 == 0 { ret :bad("b" + "ad") }
+  "o" + "k"
+}
+work(n: int) {
+  let scratch = Node { text: "scratch" + str(n) }
+  Pair {
+    first: scratch
+    second: Node { text: fault(n)? + "!" }
+  }.second
+}
+partial(n: int): Sym<:ok(Node), _> { work(n)? }
+replace(h: &Holder) { h.value = :bad("after") }
+first(a: Sym<:ok(str), :bad(str)>, b: ()) { a |> {
+  :ok(s) => s
+  :bad(s) => s
+} }
+ready(n: int): Sym<:ok(bool), :bad(str)> { n < 3 }
+start(): Sym<:ok(int), :bad(str)> { 0 }
+main() {
+  var total = 0
+  for i in 0..1000 {
+    partial(i) |> {
+      :ok(node) => { total += 1
+        if i % 4 == 1 { continue }
+        let copy = :ok(node) }
+      :bad(message) => { total += 2
+        let copy = :ok(message) }
+    }
+  }
+  print(str(total))
+  print(work(1)!.text)
+  work(0) |> { :ok(_) => ()
+    other => other |> { :bad(message) => print(message) } }
+  let h = Holder { value: :ok("be" + "fore") }
+  h.value |> first(replace(h)) |> print()
+  // Propagation from an initializer must release the unfinished scope too.
+  let node = Node { text: fault(1)? }
+  print(node.text)
+  var n = start()?
+  while ready(n)? { n++ }
+  print(str(n))
+}

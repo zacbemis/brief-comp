@@ -22,16 +22,40 @@ typedef enum {
   SEMA_DUB,
   SEMA_STR,
   SEMA_STRUCT,
+  SEMA_SYM,
   SEMA_TYPE_COUNT
 } SemaTypeKind;
 typedef struct SemaStruct SemaStruct;
+typedef struct SemaSymSet SemaSymSet;
 typedef struct {
   SemaTypeKind kind;
   const char *name;
   unsigned bits;
   int is_signed;
   SemaStruct *structure;
+  SemaSymSet *symbols;
 } SemaType;
+typedef struct SemaTag SemaTag;
+struct SemaTag {
+  const char *name;
+  size_t id; // Program-global; zero is reserved for empty ownership slots.
+  SemaTag *next;
+};
+typedef struct {
+  SemaTag *tag;
+  const SemaType *payload; // NULL means no payload; () is distinct.
+} SemaVariant;
+struct SemaSymSet {
+  SemaType type;
+  SemaVariant *variants; // Canonical, sorted by global tag ID.
+  size_t count, id;
+  int equatable;
+  SemaSymSet *next; // Creation order: nested value types precede their users.
+};
+typedef struct {
+  const Decl *syntax;
+  const SemaType *type;
+} SemaAlias;
 typedef struct {
   const char *name;
   Span span;
@@ -62,7 +86,7 @@ typedef struct {
   size_t id, arity;
   int builtin;
   SemaVar **params;
-  const SemaType *return_type;
+  const SemaType *return_type, *outcome_type; // ABI type and full outcome set.
   SemaStruct *owner; // NULL for a top-level function/builtin.
 } SemaSymbol;
 typedef enum {
@@ -89,7 +113,10 @@ typedef enum {
   SEMA_EXPR_CONTINUE,
   SEMA_EXPR_FIELD,
   SEMA_EXPR_STRUCT,
-  SEMA_EXPR_MATCH
+  SEMA_EXPR_MATCH,
+  SEMA_EXPR_SYMBOL,
+  SEMA_EXPR_TRY,
+  SEMA_EXPR_PANIC
 } SemaExprKind;
 enum { SEMA_NEXT = 1, SEMA_RETURN = 2, SEMA_BREAK = 4, SEMA_CONTINUE = 8 };
 typedef struct SemaExpr SemaExpr;
@@ -103,11 +130,17 @@ typedef struct {
   uint64_t first, last;
   SemaExpr *first_value, *last_value;
   int any, useful, invalid;
+  SemaTag *tag;
+  int payload;
+  const SemaType *set; // Named-set pattern, or narrowed catch-all binding type.
+  const SemaType *cases; // Useful symbol cases; shared with lowering.
 } SemaArm;
 struct SemaExpr {
   SemaExprKind kind;
   Span span;
-  const SemaType *type;
+  const SemaType *type, *raw_type, *failures;
+  int outcome; // A direct call (or its pipeline result) has implicit :ok.
+  int adapt;   // 1 packs implicit success, 2 extracts an only-:ok payload.
   unsigned flow;
   int reachable;
   int returns;      // No fallthrough (including break/continue).
@@ -124,12 +157,13 @@ struct SemaExpr {
       const char *method; // Instance calls include the receiver as args[0].
       int pipeline;       // Unqualified pipeline lookup: method before module
                           // function.
-      int shadowed;
+      int shadowed, handled;
       SemaSymbol *fallback;
     } call;
     struct {
       SemaExpr **items;
       size_t count;
+      int pipeline;
     } block;
     struct {
       SemaVar *variable;
@@ -137,6 +171,7 @@ struct SemaExpr {
       AssignOp op;
       SemaExpr *target; // Field lvalue; NULL for binding/local assignment.
       SemaExpr *stage;  // Hidden pipeline binding: supplies argument context.
+      int outcome;      // Preserve symbol input for a match/postfix handler.
     } binding;
     struct {
       SemaExpr *object;
@@ -156,6 +191,7 @@ struct SemaExpr {
     struct {
       BinaryOp op;
       SemaExpr *left, *right;
+      const SemaType *common; // Symbol equality may widen both operands.
     } binary;
     struct {
       SemaExpr *condition, *yes, *no;
@@ -172,6 +208,10 @@ struct SemaExpr {
       SemaArm *arms;
       size_t count;
     } match;
+    struct {
+      SemaTag *tag;
+      SemaExpr *payload;
+    } symbol;
     SemaExpr *value;
   } as;
 };
@@ -186,7 +226,8 @@ typedef struct {
   SemaExpr *body;
   SemaVar **variables;
   size_t variable_count, variable_capacity;
-  int written;
+  int written, partial;
+  const SemaType *written_type;
   int inference_conflict; // An intrinsic conflict, not a propagated error type.
   int inference_reported; // A specific/fallback inference diagnostic was
                           // emitted.
@@ -195,11 +236,17 @@ typedef struct {
 } SemaFunction;
 typedef struct {
   Arena *arena;
-  SemaType types[SEMA_TYPE_COUNT]; // Primitive singletons; structs use their
-                                   // own type.
+  SemaType types[SEMA_TYPE_COUNT]; // Primitive singletons; structs and symbol
+                                   // sets use their own canonical types.
   SemaSymbol print, stringify;
   SemaStruct *structs;
   size_t struct_count;
+  SemaAlias *aliases;
+  size_t alias_count;
+  SemaTag *tags, *ok;
+  size_t tag_count;
+  SemaSymSet *symbol_sets, *last_symbol_set;
+  size_t symbol_set_count;
   SemaFunction *functions;
   size_t count;
   SemaSymbol *entry;
@@ -208,7 +255,24 @@ typedef struct {
 
 int sema_integer(const SemaType *type); // Excludes chr.
 int sema_number(const SemaType *type);
+// Includes value-represented symbols: their active payload needs ARC handling.
 int sema_reference(const SemaType *type);
+const SemaVariant *sema_ok(const SemaType *type);
+const SemaType *sema_success(SemaProgram *program, const SemaType *payload);
+const SemaType *sema_result(SemaProgram *program, const SemaType *type);
+const SemaType *sema_failures(SemaProgram *program, const SemaType *type);
+int sema_equatable(const SemaType *type);
+void sema_update_equatable(SemaProgram *program);
+int sema_assignable(const SemaType *actual, const SemaType *wanted);
+SemaTag *sema_tag(SemaProgram *program, const char *name);
+const SemaVariant *sema_variant(const SemaType *type, const SemaTag *tag);
+// Interns a set; NULL indicates conflicting payloads. No empty sets are made.
+const SemaType *sema_symbol_set(SemaProgram *program,
+                                const SemaVariant *variants, size_t count);
+const SemaType *sema_symbol_union(SemaProgram *program, const SemaType *a,
+                                  const SemaType *b);
+void sema_symbol_coverage(SemaProgram *program, SemaExpr *match,
+                          Diagnostics *errors);
 SemaField *sema_field(const SemaType *type, const char *name);
 SemaSymbol *sema_method(SemaProgram *program, const SemaType *type,
                         const char *name);
@@ -218,7 +282,7 @@ void sema_check(SemaProgram *program, Diagnostics *errors);
 // Intraprocedural read-only alias propagation, after types/flow stabilize.
 // Called by sema_check; does not alter canonical types or ownership.
 void sema_check_permissions(SemaProgram *program, Diagnostics *errors);
-// Scalar pattern normalization/coverage after endpoint and input typing.
+// Scalar normalization / symbol coverage after endpoint and input typing.
 // NULL diagnostics probes coverage without emitting errors.
 void sema_match_coverage(SemaProgram *program, SemaExpr *match,
                          Diagnostics *errors);

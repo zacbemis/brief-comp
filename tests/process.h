@@ -17,6 +17,7 @@ typedef struct {
   const TestEnv *env; // Child-only overrides; NULL value unsets a variable.
   size_t env_count;
   unsigned timeout_ms;
+  int merge_stderr; // dup stderr onto stdout's shared capture; err stays empty.
 } ProcessOptions;
 typedef struct {
   int ok;

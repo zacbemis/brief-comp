@@ -13,5 +13,5 @@ nested(value: Holder) {
 replace(value: &Box) {
   value = Box { n: 0 } // error: Cannot reassign an immutable binding.
 }
-primitive(value: &int) {} // error: Mutable borrowing currently requires a struct type.
+primitive(value: &int) {} // error: Mutable borrowing currently requires a struct or symbol type.
 main() {}

@@ -22,7 +22,12 @@ typedef enum {
   IR_RETAIN,
   IR_DROP_TEMP,
   IR_DROP_VAR,
-  IR_DROP_FIELD
+  IR_DROP_FIELD,
+  IR_SYMBOL,      // Pack tag/payload a, then pin through the ownership pass.
+  IR_SYMBOL_CAST, // Repack a symbol set without changing its global tag.
+  IR_SYMBOL_TAG,
+  IR_SYMBOL_PAYLOAD,
+  IR_PANIC_SYMBOL
 } IrOp;
 typedef struct {
   IrOp op;
@@ -34,6 +39,7 @@ typedef struct {
   // use object temporary a and field metadata; FIELD_STORE stores b.
   size_t result, a, b, label;
   SemaField *field;
+  SemaTag *tag;
   union {
     struct {
       const unsigned char *bytes;
@@ -68,6 +74,9 @@ typedef struct {
   size_t count, entry;
   const SemaStruct *structs;
   size_t struct_count;
+  const SemaSymSet *symbol_sets;
+  SemaTag *ok;
+  const SemaType *entry_outcome;
   int ownership_inserted;
 } IrProgram;
 // Requires successful resolution and checking. NULL for unchecked input.

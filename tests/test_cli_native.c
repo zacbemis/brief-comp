@@ -145,6 +145,69 @@ int main(int argc, char **argv) {
     ASSERT_EQ_INT(0, compiled.err.length);
     expect_binary(&c, binary);
   }
+  TEST("merged output keeps stdout before entry errors and all panic headers") {
+    const char *texts[] = {
+        "f(): Sym<:ok, :bad(str)> { :bad(\"he\" + \"ap\") }\n"
+        "main() { print(\"before\")\nf()? }\n",
+        "f(): Sym<:ok, :bad(str)> { :bad(\"he\" + \"ap\") }\n"
+        "main() { print(\"before\")\nf()! }\n",
+        "main() { print(\"before\")\n2147483647 + 1 }\n",
+        "main() { print(\"before\")\n:bad }\n"};
+    TestBytes prefixes[] = {
+        TEST_BYTES("before\nerror: :bad(\"heap\")\n"),
+        TEST_BYTES("before\npanic: :bad(\"heap\")\n  --> "),
+        TEST_BYTES("before\npanic: integer overflow\n  --> "),
+        TEST_BYTES("before\n")};
+    char *input = test_path(&a, root, "ordered.brf");
+    char *binary = test_path(&a, root, "ordered");
+    for (int debug = 0; debug < (argc == 5 ? 2 : 1); debug++)
+      for (size_t i = 0; i < 4; i++) {
+        ASSERT_TRUE(
+            test_write_file(input, (TestBytes){(const unsigned char *)texts[i],
+                                               strlen(texts[i])}));
+        call(&c,
+             (const char *[]){"build", input, "-o", binary,
+                              debug ? "--debug" : NULL, NULL},
+             0, NULL, 0);
+        ProcessOptions options = {.cwd = root, .merge_stderr = 1};
+        ProcessResult r =
+            process_run(&a, (const char *[]){binary, NULL}, &options);
+        ASSERT_TRUE(r.ok);
+        ASSERT_EQ_INT(i == 3 ? 0 : 1, r.status);
+        ASSERT_EQ_INT(0, r.err.length);
+        ASSERT_TRUE(!sanitizer_report(r.out));
+        ASSERT_TRUE(r.out.length >= prefixes[i].length &&
+                    !memcmp(r.out.data, prefixes[i].data, prefixes[i].length));
+        if (i == 0 || i == 3)
+          ASSERT_TRUE(bytes_equal(r.out, prefixes[i]));
+        else
+          ASSERT_TRUE(
+              bytes_contains(r.out, i == 1 ? TEST_BYTES("ordered.brf:3\n")
+                                           : TEST_BYTES("ordered.brf:2\n")));
+      }
+  }
+  TEST("shared diagnostic payloads have a total traversal budget and release "
+       "owners") {
+    char *input = test_path(&a, root, "shared.brf");
+    ASSERT_TRUE(test_write_file(
+        input, TEST_BYTES("type Link = Sym<:none, :child(Node)>\n"
+                          "Node { left: Link\nright: Link }\n"
+                          "main(): Sym<:ok, :bad(Node)> {\n"
+                          "var node = Node { left: :none, right: :none }\n"
+                          "for i in 0..24 { node = Node { left: :child(node), "
+                          "right: :child(node) } }\n"
+                          ":bad(node) }\n")));
+    for (int debug = 0; debug < (argc == 5 ? 2 : 1); debug++) {
+      ProcessResult r = call(
+          &c, (const char *[]){"run", input, debug ? "--debug" : NULL, NULL}, 1,
+          NULL, 0);
+      ASSERT_EQ_INT(0, r.out.length);
+      ASSERT_TRUE(r.err.length < 65536);
+      ASSERT_TRUE(bytes_contains(r.err, TEST_BYTES("error: :bad(Node {")));
+      ASSERT_TRUE(bytes_contains(r.err, TEST_BYTES("...")));
+      ASSERT_TRUE(!bytes_contains(r.err, TEST_BYTES("debug:")));
+    }
+  }
   TEST("arithmetic panics name the original Brief file and line") {
     char *panic = test_path(&a, root, "panic input.brf");
     ASSERT_TRUE(

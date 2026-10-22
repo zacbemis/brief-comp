@@ -3,10 +3,10 @@
 
 // Access permission is separate from ownership: retaining a reference does not
 // upgrade it. State bits mean "may hold a read-only struct reference". Direct
-// copies propagate the bit, as do struct literals with read-only children and
-// struct call results whose type can reach a read-only argument's objects.
-// A read-only struct cannot be stored in a field. These are local access
-// rules, not deep const or a function purity guarantee.
+// copies propagate the bit, as do struct/symbol literals with read-only
+// children and call results whose type can reach a read-only argument's
+// objects. A read-only struct cannot be stored in a field. These are local
+// access rules, not deep const or a function purity guarantee.
 typedef unsigned char *State;
 typedef struct Loop Loop;
 struct Loop {
@@ -23,8 +23,9 @@ struct Header {
 typedef struct {
   Arena *arena;
   Diagnostics *errors;
-  // reach[a * structs + b]: a value of struct a can lead, through fields, to a
-  // value of struct b (including a == b). Strings are immutable and ignored.
+  // Rows are structs followed by symbol sets. reach[a * structs + b] means
+  // type a can reach struct b through fields/payloads (including identity).
+  // Strings are immutable and ignored.
   const unsigned char *reach;
   size_t structs;
   size_t count;
@@ -46,8 +47,19 @@ static void replace(Permissions *p, State into, State from) {
   if (p->count)
     memcpy(into, from, p->count);
 }
-static int structure(const SemaExpr *e) {
-  return e->type && e->type->kind == SEMA_STRUCT;
+static const unsigned char *row(const Permissions *p, const SemaType *type) {
+  if (!type || (type->kind != SEMA_STRUCT && type->kind != SEMA_SYM))
+    return NULL;
+  size_t id = type->kind == SEMA_STRUCT ? type->structure->id
+                                        : p->structs + type->symbols->id;
+  return p->reach + id * p->structs;
+}
+static int structure(const Permissions *p, const SemaType *type) {
+  const unsigned char *r = row(p, type);
+  for (size_t i = 0; r && i < p->structs; i++)
+    if (r[i])
+      return 1;
+  return 0;
 }
 static void error(Permissions *p, Span span, const char *message) {
   if (!p->probe)
@@ -59,10 +71,9 @@ static int visit(Permissions *p, SemaExpr *e, State state);
 // field are caught, while a constructor building a User from a Json is not.
 static int may_share(const Permissions *p, const SemaType *a,
                      const SemaType *b) {
-  if (!a || !b || a->kind != SEMA_STRUCT || b->kind != SEMA_STRUCT)
+  const unsigned char *x = row(p, a), *y = row(p, b);
+  if (!x || !y)
     return 0;
-  const unsigned char *x = p->reach + a->structure->id * p->structs;
-  const unsigned char *y = p->reach + b->structure->id * p->structs;
   for (size_t i = 0; i < p->structs; i++)
     if (x[i] && y[i])
       return 1;
@@ -70,20 +81,38 @@ static int may_share(const Permissions *p, const SemaType *a,
 }
 static const unsigned char *reachability(SemaProgram *program) {
   size_t n = program->struct_count;
-  unsigned char *reach = arena_calloc(program->arena, n * n, 1);
-  size_t *work = arena_calloc(program->arena, n, sizeof(*work));
-  for (size_t from = 0; from < n; from++) {
-    unsigned char *row = reach + from * n;
+  size_t total = n + program->symbol_set_count;
+  unsigned char *reach = arena_calloc(program->arena, total, n);
+  size_t *work = arena_calloc(program->arena, total, sizeof(*work));
+  unsigned char *seen = arena_calloc(program->arena, total, 1);
+  const SemaType **types = arena_calloc(program->arena, total, sizeof(*types));
+  for (size_t i = 0; i < n; i++)
+    types[i] = &program->structs[i].type;
+  for (SemaSymSet *s = program->symbol_sets; s; s = s->next)
+    types[n + s->id] = &s->type;
+  for (size_t from = 0; from < total; from++) {
+    unsigned char *r = reach + from * n;
+    memset(seen, 0, total);
     size_t top = 0;
-    row[from] = 1;
+    seen[from] = 1;
     work[top++] = from;
     while (top) {
-      const SemaStruct *s = &program->structs[work[--top]];
-      for (size_t f = 0; f < s->count; f++) {
-        const SemaType *type = s->fields[f].type;
-        if (type && type->kind == SEMA_STRUCT && !row[type->structure->id]) {
-          row[type->structure->id] = 1;
-          work[top++] = type->structure->id;
+      const SemaType *current = types[work[--top]];
+      size_t count = current->kind == SEMA_STRUCT ? current->structure->count
+                                                  : current->symbols->count;
+      if (current->kind == SEMA_STRUCT)
+        r[current->structure->id] = 1;
+      for (size_t f = 0; f < count; f++) {
+        const SemaType *type = current->kind == SEMA_STRUCT
+                                   ? current->structure->fields[f].type
+                                   : current->symbols->variants[f].payload;
+        if (!type || (type->kind != SEMA_STRUCT && type->kind != SEMA_SYM))
+          continue;
+        size_t id = type->kind == SEMA_STRUCT ? type->structure->id
+                                              : n + type->symbols->id;
+        if (!seen[id]) {
+          seen[id] = 1;
+          work[top++] = id;
         }
       }
     }
@@ -192,13 +221,17 @@ static int visit(Permissions *p, SemaExpr *e, State state) {
       readonly |= value && may_share(p, e->type, arg->type);
       SemaSymbol *s = e->as.call.target;
       if (value && s && i < s->arity && s->params[i]->data_mutable &&
-          arg->type == s->params[i]->type)
+          sema_assignable(arg->type, s->params[i]->type))
         error(p, arg->span,
               "A mutable argument cannot be borrowed through an ordinary "
               "parameter.");
       p->active = p->active && (arg->flow & SEMA_NEXT);
     }
     break; // Ownership does not upgrade access; primitive results stay values.
+  case SEMA_EXPR_SYMBOL:
+    if (e->as.symbol.payload)
+      readonly = visit(p, e->as.symbol.payload, state);
+    break;
   case SEMA_EXPR_STRUCT:
     for (size_t i = 0; i < e->as.structure.count; i++) {
       SemaExpr *value = e->as.structure.values[i];
@@ -206,6 +239,10 @@ static int visit(Permissions *p, SemaExpr *e, State state) {
       p->active = p->active && (value->flow & SEMA_NEXT);
     }
     break; // Conservatively restrict the whole object, not individual fields.
+  case SEMA_EXPR_TRY:
+  case SEMA_EXPR_PANIC:
+    readonly = visit(p, e->as.value, state);
+    break;
   case SEMA_EXPR_RETURN:
     if (e->as.value)
       visit(p, e->as.value, state);
@@ -306,9 +343,11 @@ static int visit(Permissions *p, SemaExpr *e, State state) {
     break;
   }
   p->active = active;
-  return structure(e) && readonly;
+  return structure(p, e->type) && readonly;
 }
 void sema_check_permissions(SemaProgram *program, Diagnostics *errors) {
+  if (!program->struct_count)
+    return; // Symbols containing only scalar/immutable data carry no access.
   const unsigned char *reach = reachability(program);
   for (size_t i = 0; i < program->count; i++) {
     SemaFunction *f = &program->functions[i];
@@ -322,7 +361,7 @@ void sema_check_permissions(SemaProgram *program, Diagnostics *errors) {
     int has_readonly = 0;
     for (size_t j = 0; j < f->symbol.arity; j++) {
       SemaVar *v = f->symbol.params[j];
-      entry[v->id] = v->type->kind == SEMA_STRUCT && !v->data_mutable;
+      entry[v->id] = structure(&p, v->type) && !v->data_mutable;
       has_readonly |= entry[v->id];
     }
     if (!has_readonly)

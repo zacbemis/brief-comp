@@ -1,0 +1,11 @@
+type Result = Sym<:ok(int), :bad>
+f(): Result { 1 }
+take(r: Result) {}
+unhandled() {
+  f() // error: A call that can fail must be handled with ?, !, or a match.
+  let x = f() // error: A call that can fail must be handled with ?, !, or a match.
+  take(f()) // error: A call that can fail must be handled with ?, !, or a match.
+  :outer(f()) // error: A call that can fail must be handled with ?, !, or a match.
+  ret f() // error: A call that can fail must be handled with ?, !, or a match.
+}
+main() {}

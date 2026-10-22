@@ -153,7 +153,7 @@ ProcessResult process_run(Arena *a, const char *const argv[],
   }
   if (!pid) {
     if (setpgid(0, 0) != 0 || dup2(outfd, STDOUT_FILENO) < 0 ||
-        dup2(errfd, STDERR_FILENO) < 0)
+        dup2(options->merge_stderr ? outfd : errfd, STDERR_FILENO) < 0)
       _exit(126);
     close(outfd);
     close(errfd);

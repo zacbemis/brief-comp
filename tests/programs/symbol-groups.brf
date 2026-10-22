@@ -1,0 +1,55 @@
+// expect: B
+// expect: handled
+// expect: C
+// expect: D
+// expect: data
+// expect: left
+// expect: right
+// expect: 4294967296
+// expect: 7
+type First = Sym<:a, :b(str)>
+type All = Sym<Last, First>
+type Last = Sym<:c, :d>
+make(n: int): All {
+  if n == 0 { ret :a }
+  if n == 1 { ret :b("B") }
+  if n == 2 { :c } else { :d }
+}
+removeA(x: All) {
+  x |> {
+    :a => :handled
+    other => other
+  }
+}
+left(n: int) {
+  if n == 0 { :left } else { right(n - 1) }
+}
+right(n: int) {
+  if n == 0 { :right } else { left(n - 1) }
+}
+inferred(b: bool) {
+  if b { ret :value(7) }
+  :value(wide())
+}
+wide(): lng { 4294967296 }
+main(): () {
+  make(1) |> { :b(text) => print(text)
+    First => print("wrong")
+    Last => print("wrong") }
+  for i in 0..4 {
+    make(i) |> removeA() |> {
+      :handled => print("handled")
+      :b(_) => ()
+      :c => print("C")
+      remaining => remaining |> { :d => print("D") }
+    }
+  }
+  // A group can contain tags outside the input. Only the intersection matches.
+  :b("data") |> { First => print("data") }
+  left(2) |> { :left => print("left")
+    :right => print("wrong") }
+  right(2) |> { :left => print("wrong")
+    :right => print("right") }
+  inferred(false) |> { :value(n) => print(str(n)) }
+  inferred(true) |> { :value(n) => print(str(n)) }
+}
