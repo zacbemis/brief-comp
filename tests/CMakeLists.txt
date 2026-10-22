@@ -84,8 +84,10 @@ function(add_doc_acceptance_test name script label debug)
     set_tests_properties(${name} PROPERTIES LABELS "doc-acceptance;${label}" TIMEOUT 120)
 endfunction()
 add_doc_acceptance_test(test_doc_errors test_doc_errors.cmake doc-errors OFF)
+add_doc_acceptance_test(test_doc_pipelines test_doc_pipelines.cmake doc-pipelines OFF)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
     add_doc_acceptance_test(test_doc_errors_sanitized test_doc_errors.cmake doc-errors ON)
+    add_doc_acceptance_test(test_doc_pipelines_sanitized test_doc_pipelines.cmake doc-pipelines ON)
 endif()
 
 add_test(NAME test_doc_examples_support
