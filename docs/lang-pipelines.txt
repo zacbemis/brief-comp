@@ -179,6 +179,9 @@ Every match block must cover every possible value, whether or not its result is 
 For symbols, every variant of the input type must have an arm, or a catch-all arm must follow.
 
 For numbers, the arms' ranges and comparisons must together cover every value of the type.
+Floating comparisons and ranges do not match NaN, so a floating match also needs
+a wildcard or name-binding arm. Positive and negative zero compare equally and
+match the same literal pattern; a second zero-only arm is unreachable.
 
 ```
 age |> {
@@ -199,6 +202,15 @@ age |> {
   _ => "Other"
 }
 // allowed: _ covers everything else
+
+age |> {
+  0..10 => "Child"
+  5 => "Five"
+  _ => "Other"
+}
+// Compiler error: the arm for 5 is unreachable, because 0..10 already covers it
 ```
 
 Arms are tried in order and the first that matches is used. There is no fallthrough from one arm to the next.
+
+An arm that can never be chosen is a compile error: either earlier arms already cover every value it matches, or its pattern matches nothing, as in `5..5`. A catch-all after arms that already cover every value is also unreachable. This applies whether or not the match's result is used. The language has no warnings, so an arm that could only be a mistake is an error.
