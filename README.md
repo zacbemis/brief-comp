@@ -6,7 +6,8 @@ produce a native program.
 
 **Current state: milestones 0–4 are implemented**, including native compilation,
 numbers, control flow, heap strings, structs, methods, and reference counting.
-**M5 is in progress:** pipeline calls and exhaustive scalar match blocks now compile.
+**M5 is in progress:** pipelines, scalar/symbol matching, named symbol sets,
+implicit success returns, error-set inference, and `?`/`!` handling now compile.
 Compilation supports the subset below; the parser
 accepts much more syntax. Most examples in the design docs still describe future
 features, not programs that can currently be compiled.
@@ -92,8 +93,19 @@ Compilation supports:
   current types; bindings are immutable and scoped to their arm. Floating matches
   require a catch-all for NaN, and `-0` and `0` match the same values.
   Match results can be values, and arms support `ret`, `break`, and `continue`.
-- Typed parameters, forward calls, recursion, written or inferred plain
-  return types (including structs), `ret`, and implicit tail returns. Unanchored recursive return
+- Data symbols such as `:missing` and `:found(user)`, canonical `Sym<...>` types,
+  forward named-set aliases and composition, and subset assignment/arguments/returns.
+  Symbol matches support tags, payload bindings/wildcards and named groups;
+  catch-all bindings receive only the remaining variants. Data-symbol return sets
+  grow across recursive function groups. Finite symbol shapes have payload-aware
+  equality; payload-free symbol ordering is not implemented yet.
+- Implicit `:ok` success returns, explicit outcomes, `?` propagation and `!` panics.
+  Error sets accumulate through recursive calls; partial return annotations such as
+  `Sym<:ok(User), _>` fix the success type and infer additional errors. Success-only
+  functions retain plain-value C ABIs. Calls with both success and error variants
+  must be handled directly with `?`, `!`, or a match, even when discarded or returned.
+- Typed parameters, forward calls, recursion, written or inferred
+  return types (including structs and symbols), `ret`, and implicit tail returns. Unanchored recursive return
   types need annotations; call-graph analysis uses explicit work stacks, not
   the old 128-function depth limit. Runtime recursion still uses the host C
   stack and may exhaust it rather than panic; tail-call elimination is not
@@ -104,7 +116,8 @@ Compilation supports:
 - Nominal structs, complete named field initialization, field reads/writes and
   numeric field updates, `impl`, associated/receiver calls, and `Self`.
   Ordinary parameters and their direct local/field aliases are read-only; `&`
-  struct parameters permit mutation. Permissions propagate through rebinding and
+  struct or symbol parameters permit mutation of reachable objects. Permissions
+  propagate through symbol payloads, rebinding and
   control flow. A struct call result is read-only when its type can reach a
   read-only argument's objects, and a literal is read-only when built from a
   read-only struct. A read-only struct cannot be stored in a field, so a
@@ -114,17 +127,24 @@ Compilation supports:
   temporaries, fields and returns; parameters borrow. Every scope exit and early
   return releases owners, and loop temporary slots release previous values.
 
-`main()` is required and cannot have parameters. Its plain result is discarded;
-success exits 0. An explicit `: ()` discards a function's tail value, but not an
+`main()` is required and cannot have parameters. Its successful result is discarded;
+success exits 0, including data-only symbol results without `:ok`. Only a fallible
+result type (both `:ok` and other variants) produces an entry error: an active
+non-`:ok` variant prints `error: :tag(payload)` to stderr, releases its payload and
+exits 1. Prior stdout is flushed before error/panic output. String/character payloads are quoted and
+escaped; structs and nested symbols have bounded diagnostic representations. An explicit `: ()` discards a function's tail value, but not an
 explicit non-unit `ret`. `print` remains a reserved top-level builtin taking exactly one
 `str`; it writes bytes plus a newline, including embedded zero bytes. `str` is
 also reserved as a top-level builtin and accepts exactly one number or `bool`.
 
-`const`, numeric-target conversions, character/object/string-to-string conversions,
-symbols and named-set patterns, `?`/postfix `!`, string literal patterns,
-indexing, function values, cloning, identity comparison, and
-other later features remain unsupported. Equality of recursive struct shapes
-(including structs containing them) is not supported. `dump-ast` remains syntax-only.
+Partial `Sym<..., _>` annotations are return-only and must declare `:ok`; they are
+not general open symbol-set types. Fallible conversions and string literal
+patterns remain unimplemented, so M5 is not complete. Symbol payload patterns must be a binding or `_`;
+refutable/nested patterns and symbol ordering remain future work. `const`, numeric-target conversions,
+character/object/string-to-string conversions, indexing,
+function values, cloning, identity comparison, and other later features also
+remain unsupported. Recursive struct/symbol shapes do not have equality.
+`dump-ast` remains syntax-only.
 
 `CC` names a **single executable** (default `cc`), not a shell command with
 flags. Paths containing spaces work; use an executable wrapper for extra flags
@@ -138,7 +158,8 @@ original disposition, so terminal Ctrl-C stops the child and cleanup still runs.
 before an input filename starting with `-` for `build` or `run`.
 
 The generated C uses readable `brf_main`/`brf_greet` function names, a distinct
-`brm_` namespace for length-qualified methods, `brs_` for struct types, and `brt_`
+`brm_` namespace for length-qualified methods, `brs_` for struct types, `bry_` for
+value-represented symbol sets, and `brt_`
 for runtime helpers and generated locals. Strings have explicit byte lengths.
 It includes its runtime and needs no project headers or libraries; link with
 system `libm` (`-lm`) for floating-point power. Generated C checks that the host
@@ -200,5 +221,6 @@ Wide and combining characters do not yet have special display-width handling.
 - [First compiler plan](docs/plans/first-version.txt)
 
 The overview links the remaining topic documents. Milestone 5 is in progress:
-pipeline calls and scalar matching are implemented; symbol sets, fallible
-conversions, propagation/panic, and fallible-return inference are next.
+pipelines, scalar/symbol matching, named sets and success/error handling are
+implemented. Fallible conversions and string literal patterns remain, as do
+deferred symbol ordering and refutable/nested payload patterns.
