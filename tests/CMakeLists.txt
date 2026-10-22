@@ -71,6 +71,23 @@ add_test(NAME test_doc_parser
         -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_parser.cmake
 )
 
+function(add_error_doc_test name debug)
+    add_test(NAME ${name}
+        COMMAND ${CMAKE_COMMAND}
+            -DBRIEF=$<TARGET_FILE:brief>
+            -DRUNNER=$<TARGET_FILE:run_programs>
+            -DCC=${CMAKE_C_COMPILER}
+            -DROOT=${CMAKE_SOURCE_DIR}
+            -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/${name}-fixtures
+            -DDEBUG=${debug}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_errors.cmake)
+    set_tests_properties(${name} PROPERTIES LABELS doc-errors TIMEOUT 120)
+endfunction()
+add_error_doc_test(test_doc_errors OFF)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
+    add_error_doc_test(test_doc_errors_sanitized ON)
+endif()
+
 # Run alone with `ctest -L parse-examples`, or skip with `-LE parse-examples`.
 add_test(NAME test_parse_examples
     COMMAND ${CMAKE_COMMAND}
