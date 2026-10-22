@@ -125,6 +125,61 @@ static void add(Interval *covered, size_t *count, Interval x) {
   }
   *count = n;
 }
+typedef struct StringCase StringCase;
+struct StringCase {
+  const SemaExpr *literal;
+  uint64_t hash;
+  StringCase *next;
+};
+static void string_coverage(SemaProgram *p, SemaExpr *match,
+                            Diagnostics *errors) {
+  size_t count = match->as.match.count;
+  StringCase **seen = arena_calloc(p->arena, count, sizeof(*seen));
+  StringCase *cases = arena_calloc(p->arena, count, sizeof(*cases));
+  int all = 0, valid = 1;
+  for (size_t i = 0; i < match->as.match.count; i++) {
+    SemaArm *a = &match->as.match.arms[i];
+    if (a->invalid ||
+        (!a->any && (a->kind != PAT_LITERAL || !a->lower ||
+                     a->lower->kind != SEMA_EXPR_STRING ||
+                     a->lower->type != match->as.match.input->type))) {
+      valid = 0; // Pattern checking owns shape/type diagnostics.
+      continue;
+    }
+    a->useful = !all;
+    if (!a->any && !all) {
+      const SemaExpr *literal = a->lower;
+      uint64_t hash = UINT64_C(14695981039346656037);
+      for (size_t j = 0; j < literal->as.text.length; j++) {
+        hash ^= literal->as.text.bytes[j];
+        hash *= UINT64_C(1099511628211);
+      }
+      size_t bucket = hash % count;
+      for (StringCase *prior = seen[bucket]; prior; prior = prior->next)
+        if (prior->hash == hash &&
+            prior->literal->as.text.length == literal->as.text.length &&
+            !memcmp(prior->literal->as.text.bytes, literal->as.text.bytes,
+                    literal->as.text.length)) {
+          a->useful = 0;
+          break;
+        }
+      if (a->useful) {
+        // Borrow immutable decoded bytes instead of copying every literal on
+        // each SCC probe; coverage owns only its hash-table metadata.
+        cases[i] = (StringCase){literal, hash, seen[bucket]};
+        seen[bucket] = &cases[i];
+      }
+    }
+    if (!a->useful) {
+      if (errors)
+        diagnostics_error(errors, a->span, "Unreachable match arm.");
+    } else if (a->any)
+      all = 1;
+  }
+  // Any finite list of literals leaves other byte strings uncovered.
+  if (valid && !all && errors)
+    diagnostics_error(errors, match->span, "Match is not exhaustive.");
+}
 void sema_match_coverage(SemaProgram *p, SemaExpr *match, Diagnostics *errors) {
   const SemaType *t = match->as.match.input->type;
   size_t count = match->as.match.count;
@@ -140,6 +195,10 @@ void sema_match_coverage(SemaProgram *p, SemaExpr *match, Diagnostics *errors) {
   }
   if (!t || t->kind <= SEMA_ERROR)
     return;
+  if (t->kind == SEMA_STR) {
+    string_coverage(p, match, errors);
+    return;
+  }
   int numeric = sema_number(t) || t->kind == SEMA_BOOL || t->kind == SEMA_CHR;
   uint64_t min = 0, max = numeric ? mask(t) : 0;
   if (floating(t)) {

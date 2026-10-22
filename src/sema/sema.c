@@ -351,7 +351,23 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
              : s->kind == EXPR_BOOL  ? SEMA_EXPR_BOOL
                                      : SEMA_EXPR_CHAR,
              s->span);
-    e->as.string = s->as.literal;
+    if (s->kind == EXPR_STRING) {
+      Token token = s->as.literal;
+      unsigned char *bytes = arena_alloc(r->arena, token.length);
+      size_t length = 0;
+      for (size_t i = 1; i + 1 < token.length; i++) {
+        unsigned char c = (unsigned char)token.start[i];
+        if (c == '\\') {
+          c = (unsigned char)token.start[++i];
+          c = c == 'n' ? '\n' : c == 't' ? '\t' : c == '0' ? 0 : c;
+        }
+        bytes[length++] = c;
+      }
+      bytes[length] = 0;
+      e->as.text.bytes = bytes;
+      e->as.text.length = length;
+    } else
+      e->as.string = s->as.literal;
     return e;
   case EXPR_NAME:
     e = node(r, SEMA_EXPR_VAR, s->span);

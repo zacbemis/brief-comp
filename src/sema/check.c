@@ -657,6 +657,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     const SemaType *it = check(c, input, NULL, OUTCOME);
     int scalar =
         sema_number(it) || it->kind == SEMA_BOOL || it->kind == SEMA_CHR;
+    int string_literal = it->kind == SEMA_STR;
     for (size_t i = 0; i < e->as.match.count; i++) {
       SemaArm *a = &e->as.match.arms[i];
       if (a->binding)
@@ -667,7 +668,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
         error(c, a->span, "Symbol patterns require a symbol input.");
       if (a->lower) {
         check(c, a->lower, it, VALUE);
-        if (scalar)
+        if (scalar || (string_literal && a->kind == PAT_LITERAL))
           expect(c, a->lower, it, "Pattern value has the wrong type.");
       }
       if (a->upper) {
@@ -675,10 +676,10 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
         if (scalar)
           expect(c, a->upper, it, "Pattern value has the wrong type.");
       }
-      if (!special(it) && !scalar && !a->invalid && a->lower)
+      if (!special(it) && !scalar && !string_literal && !a->invalid && a->lower)
         error(c, a->span,
               "Literal, range, and comparison patterns require a scalar type.");
-      if (it->kind == SEMA_BOOL &&
+      if ((it->kind == SEMA_BOOL || string_literal) &&
           (a->kind == PAT_RANGE || a->kind == PAT_COMPARE)) {
         error(c, a->span,
               "Range and comparison patterns require numbers or chr.");

@@ -148,7 +148,12 @@ struct SemaExpr {
   double real;
   int negative;
   union {
-    Token string; // Also the spelling of number/character/bool literals.
+    Token string; // Spelling of number/character/bool literals.
+    struct {
+      // Decoded bytes; embedded NULs count toward length.
+      const unsigned char *bytes;
+      size_t length;
+    } text;
     SemaVar *variable;
     struct {
       SemaSymbol *target;

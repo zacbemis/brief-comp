@@ -104,8 +104,117 @@ int main(void) {
     r = check(&a, "main() { true |> { < false => ()\n_ => () } }");
     ASSERT_EQ_INT(1,
                   r.errors.count); // No empty-range cascade after type error.
-    invalid(&a, "main() { \"x\" |> { \"x\" => ()\n_ => () } }",
-            "require a scalar");
+    valid(&a, "main() { \"x\" |> { \"x\" => ()\n_ => () } }");
+  }
+  TEST("string literals use decoded bytes and need a catch-all") {
+    valid(&a, "f(s: str) { s |> { \"a\\0b\" => 1\n\"a\" => 2\nrest => 3 } "
+              "}\nmain() {}");
+    valid(&a,
+          "f(s: str) { s |> { \"é\" => 1\n\"é\" => 2\n_ => 3 } }\nmain() {}");
+    valid(&a, "f(s: str) { s |> { \"\" => \"e\" + \"mpty\"\nrest => rest } "
+              "}\nmain() {}");
+    valid(&a,
+          "f(s: str) { s |> { \"end\" => ret 1\nrest => g(rest) } }\n"
+          "g(s: str) { s |> { \"end\" => 2\nrest => f(rest) } }\nmain() {}");
+    invalid(&a, "main() { \"x\" |> { \"x\" => () } }", "not exhaustive");
+    invalid(&a, "main() { \"x\" |> {} }", "not exhaustive");
+    invalid(&a, "main() { \"x\" |> { \"x\" => ()\n\"x\" => ()\n_ => () } }",
+            "Unreachable");
+    invalid(&a, "main() { \"x\" |> { _ => ()\n\"x\" => () } }", "Unreachable");
+    invalid(&a, "main() { \"x\" |> { \"'\" => ()\n\"\\'\" => ()\n_ => () } }",
+            "Unreachable");
+    invalid(&a,
+            "main() { \"x\" |> { \"a\\0b\" => ()\n\"a\\0b\" => ()\n_ => () } }",
+            "Unreachable");
+    invalid(&a, "main() { \"x\" |> { true => ()\n_ => () } }", "wrong type");
+    invalid(&a, "main() { \"x\" |> { 1 => ()\n_ => () } }", "wrong type");
+    invalid(&a, "main() { \"x\" |> { :a => ()\n_ => () } }",
+            "require a symbol");
+    invalid(&a, "main() { \"x\" |> { rest => { rest = \"new\" } } }",
+            "immutable");
+    const char *bad[] = {"main() { \"x\" |> { < \"a\" => ()\n_ => () } }",
+                         "main() { \"x\" |> { \"a\"..\"z\" => ()\n_ => () } }",
+                         "main() { \"x\" |> { 1 => () } }"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
+      Result r = check(&a, bad[i]);
+      ASSERT_EQ_INT(
+          1, r.errors.count); // No coverage cascades for invalid patterns.
+    }
+    Result r =
+        valid(&a, "f(s: str) { s |> { \"a\\0b\" => 1\n_ => 2 } }\nmain() {}");
+    Diagnostics again;
+    diagnostics_init(&again, &a);
+    sema_check(r.program, &again);
+    ASSERT_EQ_INT(0, again.count);
+    IrProgram *ir = ir_lower(&a, r.program);
+    ASSERT_TRUE(ir != NULL);
+    if (ir) {
+      int literal = 0, equality = 0;
+      for (size_t i = 0; i < ir->functions[0].count; i++) {
+        IrInstruction *in = &ir->functions[0].instructions[i];
+        if (in->op == IR_STRING) {
+          ASSERT_EQ_INT(3, in->as.string.length);
+          ASSERT_TRUE(!memcmp(in->as.string.bytes, "a\0b", 3));
+          literal++;
+        }
+        if (in->op == IR_BINARY && in->type->kind == SEMA_STR) {
+          ASSERT_EQ_INT(BINARY_EQ, in->as.binary);
+          equality++;
+        }
+      }
+      ASSERT_EQ_INT(1, literal);
+      ASSERT_EQ_INT(1, equality);
+      ir_insert_rc(&a, ir);
+      size_t count = ir->functions[0].count;
+      ir_insert_rc(&a, ir);
+      ASSERT_EQ_INT(count, ir->functions[0].count);
+    }
+  }
+  TEST("string usefulness agrees with an independent finite-atom oracle") {
+    Result r = check(&a, "main() {}");
+    const SemaType *type = &r.program->types[SEMA_STR];
+    const char *values[] = {"",  "a",   "a\0", "a\0b", "a\0c", "\0",
+                            "b", "\\n", "\n",  "é",    "é",    "\xff"};
+    const size_t lengths[] = {0, 1, 2, 3, 3, 1, 1, 2, 1, 2, 3, 1};
+    uint32_t random = 12345;
+    for (size_t trial = 0; trial < 500; trial++) {
+      SemaExpr input = {.type = type}, match = {.kind = SEMA_EXPR_MATCH};
+      SemaArm arms[9] = {0};
+      SemaExpr literals[9] = {0};
+      unsigned seen = 0;
+      int all = 0, expected_errors = 0, useful[9];
+      for (size_t i = 0; i < 9; i++) {
+        random = random * UINT32_C(1664525) + UINT32_C(1013904223);
+        unsigned atom = (random >> 16) % 12;
+        int any = (random % 11) == 0;
+        arms[i].kind = any ? PAT_WILDCARD : PAT_LITERAL;
+        if (!any) {
+          literals[i].kind = SEMA_EXPR_STRING;
+          literals[i].type = type;
+          literals[i].as.text.bytes = (const unsigned char *)values[atom];
+          literals[i].as.text.length = lengths[atom];
+          arms[i].lower = &literals[i];
+        }
+        useful[i] = !all && (any || !(seen & (1u << atom)));
+        expected_errors += !useful[i];
+        if (any)
+          all = 1;
+        else
+          seen |= 1u << atom;
+      }
+      expected_errors += !all;
+      match.as.match.input = &input;
+      match.as.match.arms = arms;
+      match.as.match.count = 9;
+      for (int repeat = 0; repeat < 2; repeat++) {
+        Diagnostics errors;
+        diagnostics_init(&errors, &a);
+        sema_match_coverage(r.program, &match, &errors);
+        ASSERT_EQ_INT(expected_errors, errors.count);
+        for (size_t i = 0; i < 9; i++)
+          ASSERT_EQ_INT(useful[i], arms[i].useful);
+      }
+    }
   }
   TEST("all integer widths and both IEEE widths normalize extrema") {
     const char *types[] = {"shrt", "ushrt", "int", "uint", "lng", "ulng"};

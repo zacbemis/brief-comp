@@ -173,27 +173,10 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
   case SEMA_EXPR_CHAR:
     return constant(l, e->type, e->integer, e->real, e->negative, e->span);
   case SEMA_EXPR_STRING: {
-    Token t = e->as.string;
-    unsigned char *bytes = arena_alloc(l->arena, t.length);
-    size_t length = 0;
-    for (size_t i = 1; i + 1 < t.length; i++) {
-      unsigned char c = (unsigned char)t.start[i];
-      if (c == '\\') {
-        c = (unsigned char)t.start[++i];
-        if (c == 'n')
-          c = '\n';
-        else if (c == 't')
-          c = '\t';
-        else if (c == '0')
-          c = 0;
-      }
-      bytes[length++] = c;
-    }
-    bytes[length] = 0;
     size_t result = temporary(l, e->type);
     IrInstruction in = {.op = IR_STRING, .span = e->span, .result = result};
-    in.as.string.bytes = bytes;
-    in.as.string.length = length;
+    in.as.string.bytes = e->as.text.bytes;
+    in.as.string.length = e->as.text.length;
     emit(l, in);
     return result;
   }
@@ -434,6 +417,17 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
                               .result = tag,
                               .a = input});
     }
+    size_t *strings = NULL;
+    if (e->as.match.input->type->kind == SEMA_STR) {
+      // Literal loads have no effects. Keep their immortal owners in the match
+      // scope so both taken and failed tests get ordinary exit/jump cleanup.
+      strings = arena_calloc(l->arena, e->as.match.count, sizeof(*strings));
+      for (size_t i = 0; i < e->as.match.count; i++) {
+        const SemaArm *a = &e->as.match.arms[i];
+        if (a->useful && !a->any)
+          strings[i] = lower(l, a->lower);
+      }
+    }
     size_t end = l->function->labels++;
     int falls = 0;
     Owned *saved = l->owned;
@@ -457,6 +451,15 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
                   : binary(l, BINARY_BIT_OR, &l->program->types[SEMA_BOOL],
                            &l->program->types[SEMA_BOOL], test, one, a->span);
         }
+        emit(l, (IrInstruction){.op = IR_BRANCH_FALSE,
+                                .span = a->span,
+                                .a = test,
+                                .label = next});
+      } else if (!a->any && strings) {
+        next = l->function->labels++;
+        size_t test =
+            binary(l, BINARY_EQ, e->as.match.input->type,
+                   &l->program->types[SEMA_BOOL], input, strings[i], a->span);
         emit(l, (IrInstruction){.op = IR_BRANCH_FALSE,
                                 .span = a->span,
                                 .a = test,

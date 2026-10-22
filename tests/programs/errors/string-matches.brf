@@ -1,0 +1,47 @@
+missing(s: str) {
+  s |> { "a" => () } // error: Match is not exhaustive.
+}
+duplicate(s: str) {
+  s |> {
+    "a\0b" => ()
+    "a\0b" => () // error: Unreachable match arm.
+    _ => ()
+  }
+}
+escaped(s: str) {
+  s |> {
+    "'" => ()
+    "\'" => () // error: Unreachable match arm.
+    _ => ()
+  }
+}
+afterAll(s: str) {
+  s |> {
+    rest => ()
+    "x" => () // error: Unreachable match arm.
+  }
+}
+wrongType(s: str) {
+  s |> {
+    true => () // error: Pattern value has the wrong type.
+    _ => ()
+  }
+}
+range(s: str) {
+  s |> {
+    "a".."z" => () // error: Range and comparison patterns require numbers or chr.
+    _ => ()
+  }
+}
+compare(s: str) {
+  s |> {
+    < "a" => () // error: Range and comparison patterns require numbers or chr.
+    _ => ()
+  }
+}
+immutable(s: str) {
+  s |> { rest => {
+    rest = "new" // error: Cannot reassign an immutable binding.
+  } }
+}
+main() {}

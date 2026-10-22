@@ -1,0 +1,46 @@
+// expect: 0
+// expect: 1
+// expect: 2
+// expect: 4
+// expect: 4
+// expect: 4
+// expect: 3
+// expect: 4
+// expect: 5
+// expect: 6
+// expect: 7
+// expect: input
+// expect: hit
+// expect: other!
+classify(s: str): int {
+  s |> {
+    "" => 0
+    "a\0b" => 1
+    "a" => 2
+    "é" => 3
+    "\n" => 5
+    "\\n" => 6
+    "??/" => 7
+    _ => 4
+  }
+}
+input() { print("input")
+  "a" + "b" }
+main() {
+  print(str(classify("" + "")))
+  print(str(classify("a" + "\0b")))
+  print(str(classify("a")))
+  print(str(classify("A")))
+  print(str(classify("a\0c")))
+  print(str(classify("a\0")))
+  print(str(classify("é")))
+  print(str(classify("é")))
+  print(str(classify("\n")))
+  print(str(classify("\\n")))
+  print(str(classify("??/")))
+  input() |> { "ab" => print("hit")
+    _ => print("wrong") }
+  let last = "other" |> { "x" => "wrong"
+    tail => tail + "!" }
+  print(last)
+}

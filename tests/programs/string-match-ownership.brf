@@ -1,0 +1,53 @@
+// expect: before
+// expect: changed
+// expect: return
+// expect: unknown!
+// expect: 499
+// expect: invalid
+Holder { text: str }
+Node { text: str }
+replace(h: &Holder) { h.text = "changed" }
+first(s: str, ignored: ()) { s }
+snapshot(h: &Holder) {
+  h.text |> {
+    "skip" => "wrong"
+    old => first(old, replace(h))
+  }
+}
+choose(s: str) { s |> {
+  "ret" => ret "re" + "turn"
+  other => other + "!"
+} }
+parse(s: str) {
+  let scratch = Node { text: "scratch" + " space" }
+  s |> {
+    "none" => ret :none
+    other => int(other)?
+  }
+}
+main() {
+  let h = Holder { text: "be" + "fore" }
+  print(snapshot(h))
+  print(h.text)
+  print(choose("r" + "et"))
+  print(choose("un" + "known"))
+  var count = 0
+  for i in 0..1000 {
+    let source = "v" + str(i)
+    source |> {
+      "v0" => continue
+      "v500" => break
+      rest => { let copy = rest + ""
+        count++ }
+    }
+  }
+  print(str(count))
+  parse("bad" + "input") |> {
+    :ok(_) => print("wrong")
+    :none => print("wrong")
+    :invalid(text) => text |> {
+      "badinput" => print("invalid")
+      _ => print("wrong")
+    }
+  }
+}
