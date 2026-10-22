@@ -121,4 +121,15 @@ Inside `Sym<...>`, an entry that starts with `:` is one variant. An entry that i
 
 This composes error variants without repeatedly listing every possible JSON error.
 
+Named sets are transparent aliases and may refer forward to other sets or structs.
+Recursive value shapes require a struct indirection rather than a direct cycle
+through aliases and payload types.
+
+A tag's payload type must match exactly wherever sets are combined; an absent
+payload and a `()` payload are different. Disjoint sets may use the same tag with
+different payload types, but their union is invalid. Payload expressions receive
+the variant's contextual type, which can widen a nested symbol payload. Inferred
+nested payload types do not themselves grow covariantly: write a common payload
+type when branches construct different nested sets.
+
 The full rules for the success tag, accumulation, and duplicate symbols are in `lang-errors.txt`. They are accepted for now and may be refined.

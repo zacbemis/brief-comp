@@ -154,14 +154,21 @@ read from it have read-only access. A `&` parameter grants writable access.
 
 Other references to the same object may exist while it is borrowed.
 
-In the current compiler, `&` parameters require a struct type. The caller writes
-an ordinary argument; `&` appears only in the parameter declaration. The parameter
-binding itself remains immutable. Field paths rooted in an ordinary parameter
+For struct and symbol parameters, `&` grants writable access to reachable objects,
+including objects in symbol payloads. The parameter binding itself remains
+immutable. The caller writes an ordinary argument; `&` appears only in the
+parameter declaration. Field paths rooted in an ordinary parameter
 cannot be written or forwarded to an `&` parameter. Reading a struct reference
 from that parameter, or from its fields, preserves read-only access when bound
 to `let` or `var`, copied again, selected by a branch, or assigned to a local.
-Retaining a reference does not upgrade its permission. Copied primitive values
-are independent and do not carry this restriction.
+Retaining a reference does not upgrade its permission. Symbol copies, payload
+bindings, narrowed catch-alls, implicit success projections and `?`/`!` payload
+extraction preserve the same access rule. Error propagation retains the active
+payload before cleaning up the returning scope; it never upgrades permission.
+An ordinary symbol parameter containing an object cannot be
+forwarded to an `&` parameter or stored in a writable field. Copied primitive
+values and symbols containing only immutable/value payloads do not carry this
+restriction.
 
 A `var` binding can be rebound; its current reference's permission follows the
 new value. Rebinding restores writable access only when the new value has no

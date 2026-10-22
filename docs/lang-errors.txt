@@ -136,6 +136,12 @@ loadJson(path: str): Sym<:ok(Json), _> {
 
 All three forms are allowed on any function. A written type is always checked against the body.
 
+`_` is allowed only in function return types and must accompany a written `:ok`
+variant fixing the success type. It adds inferred error variants to any written
+ones; it is not an open set usable in aliases, fields, parameters or local annotations.
+Only reachable returns and propagation paths contribute to inference; unreachable
+syntax is still checked.
+
 ---
 
 ## 3. Named sets
@@ -196,7 +202,10 @@ fetch(source: str): Sym<:ok(str), :notFound(str)> {
 
 `fetch` has a single `:notFound(str)`. The caller cannot tell which call produced it.
 
-The same tag with a different payload is a compile error.
+Payload types must match exactly when sets are combined. No payload and a `()`
+payload are different: `:missing` and `:missing(())` cannot be combined as one
+variant. Different payload types for the same tag may exist in disjoint sets,
+but combining them is a compile error.
 
 ```
 parse(text: str): Sym<:ok(Json), :invalid(int)>
@@ -410,6 +419,23 @@ User.fromJson(json) |> {
 ```
 
 Exhaustiveness still applies. Leaving out `:invalidAge(age)` above is a compile error.
+
+---
+
+## 12. Entry results
+
+`main()` takes no parameters. Its ordinary result is released and discarded, and
+execution exits 0. This includes a data-only `Sym` with no `:ok` variant: ending
+with `classify(1)` or `:adult` does not turn ordinary data into an error.
+
+When `main()` has a fallible result type, containing both `:ok` and other variants,
+`:ok` exits 0. An active non-`:ok` variant prints `error: :tag(payload)` to standard
+error, releases the result and exits 1. Prior standard output is flushed before
+error or panic output. A panic does not unwind owners.
+
+Error diagnostics quote and escape string/character payloads and show fields of
+structs and nested symbols. Diagnostic formatting may abbreviate large or deeply
+nested values with `...`; it is not a serialization API or a general `str` conversion.
 
 ---
 

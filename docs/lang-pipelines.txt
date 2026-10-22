@@ -15,7 +15,10 @@ The right-hand side takes one of two forms:
 - A function call. The value becomes the call's first argument, as in Elixir.
 - A block of pattern arms. The value is matched against the arms.
 
-The pipeline itself does not automatically unwrap symbols.
+The pipeline itself does not automatically unwrap fallible symbols. Success-only
+function calls can use their plain success value, just as ordinary calls do.
+A stage returning both `:ok` and errors must use `?`, `!`, or a following match;
+for example, `input |> read()? |> parse()!`.
 
 ## Function calls
 
