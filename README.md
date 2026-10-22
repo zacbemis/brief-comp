@@ -4,11 +4,11 @@ Brief is an experimental statically typed language. The first compiler is
 written in C and emits readable C, then invokes an existing C compiler to
 produce a native program.
 
-**Current state: milestones 0–4 are implemented**, including native compilation,
+**Current state: milestones 0–5 are implemented**, including native compilation,
 numbers, control flow, heap strings, structs, methods, and reference counting.
-**M5 is in progress:** pipelines, scalar/symbol matching, named symbol sets,
-implicit success returns, error-set inference, `?`/`!` handling and numeric/string
-conversions now compile.
+**M5 is complete for the first-version scope:** pipelines, scalar/symbol matching, named symbol sets,
+implicit success returns, error-set inference, `?`/`!` handling, numeric/string
+conversions and string literal patterns now compile.
 Compilation supports the subset below; the parser
 accepts much more syntax. Most examples in the design docs still describe future
 features, not programs that can currently be compiled.
@@ -93,6 +93,9 @@ Compilation supports:
   literal/range/comparison arms. `_` and whole-value binding arms work for all
   current types; bindings are immutable and scoped to their arm. Floating matches
   require a catch-all for NaN, and `-0` and `0` match the same values.
+  String literal patterns compare complete decoded bytes, including embedded NULs;
+  string matches require a wildcard or binding catch-all. Duplicate literals and
+  arms after a catch-all are rejected.
   Match results can be values, and arms support `ret`, `break`, and `continue`.
 - Data symbols such as `:missing` and `:found(user)`, canonical `Sym<...>` types,
   forward named-set aliases and composition, and subset assignment/arguments/returns.
@@ -147,9 +150,9 @@ explicit non-unit `ret`. `print` remains a reserved top-level builtin taking exa
 also reserved as a top-level builtin and accepts exactly one number or `bool`.
 
 Partial `Sym<..., _>` annotations are return-only and must declare `:ok`; they are
-not general open symbol-set types. String literal patterns remain unimplemented,
-so M5 is not complete. Symbol payload patterns must be a binding or `_`;
-refutable/nested patterns and symbol ordering remain future work. `const`,
+not general open symbol-set types. Symbol payload patterns currently must be a
+binding or `_`; refutable/nested patterns and symbol ordering remain deferred
+features outside M5's acceptance scope. `const`,
 character/object/string-to-string conversions, indexing,
 function values, cloning, identity comparison, and other later features also
 remain unsupported. Recursive struct/symbol shapes do not have equality.
@@ -229,7 +232,10 @@ Wide and combining characters do not yet have special display-width handling.
 - [Error handling](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
 
-The overview links the remaining topic documents. Milestone 5 is in progress:
-pipelines, scalar/symbol matching, named sets, success/error handling and fallible
-numeric/string conversions are implemented. String literal patterns remain, as do
-deferred symbol ordering and refutable/nested payload patterns.
+The overview links the remaining topic documents. Milestone 5 is complete for the
+first-version scope: pipelines, scalar/symbol matching, named sets, success/error
+handling, numeric/string conversions and string literal patterns are implemented.
+The [error-example acceptance audit](tests/doc-errors.md) checks the in-scope
+`lang-errors.txt` examples, including their compile errors. Milestone 6's broader
+documentation/diagnostic finish remains planned. Symbol ordering and
+refutable/nested payload patterns remain deferred, not M5 blockers.

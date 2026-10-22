@@ -83,8 +83,22 @@ program. The others cover exact integer narrowing, rounded floating conversions,
 numeric/text range errors, contextual literal arguments (including pipeline
 inputs), direct-precision floating parsing, original binary invalid payloads,
 propagation/panic/entry handling, argument snapshots and loop/return cleanup.
-String literal patterns, refutable payload patterns and symbol ordering remain
-unsupported; M5 is not complete.
+The string-pattern slice adds `string-matches.brf`,
+`string-match-ownership.brf` and `errors/string-matches.brf` (86 total). They cover
+byte-exact literal/heap equality, empty strings and embedded NULs, prefixes,
+escapes and byte-distinct Unicode spellings, input evaluation order, pinned
+binding snapshots, owned results, return/break/continue/propagation cleanup, and
+exact coverage/type/immutability diagnostics. Refutable/nested payload patterns
+and symbol ordering remain deferred outside M5's first-version acceptance scope.
+
+M5 is complete against its definition of done. The separate
+[`lang-errors.txt` acceptance audit](../doc-errors.md) reads every code fence,
+checks 28 in-scope fences in 49 generated native/diagnostic cases (normal and
+sanitized), and explicitly excludes eight later-version module/collection
+examples. These generated cases are separate from the 86 source fixtures here;
+section 12's entry-result prose is also covered by the existing fixtures and
+native/stage-level tests. M6's broader documentation/diagnostic finish is still
+planned.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.
