@@ -1,0 +1,36 @@
+Box { n: int }
+impl Box {
+  value(box: Self) { box.n }
+  add(box: &Self, n: int) { box.n += n }
+  make(n: int): Self { Self { n: n } }
+  small(box: Self, n: flt): flt { n }
+}
+value(box: Box) { -1 }
+double(n: int) { n * 2 }
+plus(a: int, b: int) { a + b }
+wide(n: lng): lng { n }
+small(n: flt): flt { n }
+unit(u: ()) { print("unit") }
+input(): int { print("input")
+  2 }
+argument(): int { print("argument")
+  3 }
+main() {
+  print(str(1 + 2 |> double() |> plus(4))) // expect: 10
+  print(str(Box { n: 8 } |> value())) // expect: 8
+  print(str(7 |> Box.make() |> value())) // expect: 7
+  let box = Box { n: 1 }
+  box |> add(2)
+  print(str(box.n)) // expect: 3
+  print(str(4294967296 |> wide())) // expect: 4294967296
+  print(str(-9223372036854775808 |> wide())) // expect: -9223372036854775808
+  print(str(0.1 |> small())) // expect: 0.1
+  print(str(0.1 |> box.small())) // expect: 0.1
+  print(str(input() |> plus(argument())))
+  // expect: input
+  // expect: argument
+  // expect: 5
+  print("before unit") |> unit()
+  // expect: before unit
+  // expect: unit
+}

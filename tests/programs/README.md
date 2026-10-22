@@ -57,5 +57,12 @@ fixture check that a read-only struct is never stored in a field. Every
 executable fixture runs in
 normal and sanitizer configurations, and normal debug exit reports remaining owners.
 
+The first M5 slice adds `pipelines.brf`, `scalar-matches.brf`,
+`integer-matches.brf`, `match-ownership.brf`, and two negative match fixtures.
+They check method-first lookup, numeric argument contexts, input/callee/argument
+order, interval overlap and boundaries, all shrt/ushrt values, signed zero,
+NaN/infinities, match results and nonlocal jumps, and read-only propagation.
+Symbol patterns and fallible calls are still unsupported; M5 is not complete.
+
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

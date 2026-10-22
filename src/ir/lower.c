@@ -294,6 +294,63 @@ static size_t lower(Lower *l, const SemaExpr *e) {
     l->returned = 1;
     return IR_NO_VALUE;
   }
+  case SEMA_EXPR_MATCH: {
+    size_t result = temporary(l, e->type);
+    size_t input = lower(l, e->as.match.input);
+    if (l->returned)
+      return IR_NO_VALUE;
+    size_t end = l->function->labels++;
+    int falls = 0;
+    Owned *saved = l->owned;
+    for (size_t i = 0; i < e->as.match.count; i++) {
+      const SemaArm *a = &e->as.match.arms[i];
+      if (!a->useful)
+        continue;
+      size_t next = IR_NO_VALUE;
+      if (!a->any) {
+        next = l->function->labels++;
+        const SemaType *type = e->as.match.input->type;
+        size_t first = lower(l, a->first_value);
+        size_t test = binary(l, BINARY_GE, type, &l->program->types[SEMA_BOOL],
+                             input, first, a->span);
+        emit(l, (IrInstruction){.op = IR_BRANCH_FALSE,
+                                .span = a->span,
+                                .a = test,
+                                .label = next});
+        size_t last = lower(l, a->last_value);
+        test = binary(l, BINARY_LE, type, &l->program->types[SEMA_BOOL], input,
+                      last, a->span);
+        emit(l, (IrInstruction){.op = IR_BRANCH_FALSE,
+                                .span = a->span,
+                                .a = test,
+                                .label = next});
+      }
+      if (a->binding) {
+        store(l, a->binding, IR_NO_VALUE, NULL, input, a->span);
+        if (sema_reference(a->binding->type))
+          own(l, a->binding->id, 1);
+      }
+      size_t value = lower(l, a->body);
+      if (!l->returned) {
+        if (result != IR_NO_VALUE)
+          emit(l, (IrInstruction){.op = IR_COPY,
+                                  .span = a->span,
+                                  .result = result,
+                                  .a = value});
+        cleanup(l, saved, IR_NO_VALUE, a->span);
+        jump(l, end, a->span);
+        falls = 1;
+      }
+      l->owned = saved;
+      if (next != IR_NO_VALUE)
+        label(l, next, a->span);
+    }
+    emit(l, (IrInstruction){.op = IR_UNREACHABLE, .span = e->span});
+    if (falls)
+      label(l, end, e->span);
+    l->returned = e->returns;
+    return result;
+  }
   case SEMA_EXPR_IF: {
     size_t condition = lower(l, e->as.conditional.condition);
     if (l->returned)

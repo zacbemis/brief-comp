@@ -88,10 +88,22 @@ typedef enum {
   SEMA_EXPR_BREAK,
   SEMA_EXPR_CONTINUE,
   SEMA_EXPR_FIELD,
-  SEMA_EXPR_STRUCT
+  SEMA_EXPR_STRUCT,
+  SEMA_EXPR_MATCH
 } SemaExprKind;
 enum { SEMA_NEXT = 1, SEMA_RETURN = 2, SEMA_BREAK = 4, SEMA_CONTINUE = 8 };
 typedef struct SemaExpr SemaExpr;
+typedef struct {
+  PatternKind kind;
+  Span span;
+  SemaVar *binding;
+  SemaExpr *lower, *upper, *body;
+  BinaryOp comparison;
+  // Inclusive, order-preserving scalar ranks, shared by coverage and lowering.
+  uint64_t first, last;
+  SemaExpr *first_value, *last_value;
+  int any, useful, invalid;
+} SemaArm;
 struct SemaExpr {
   SemaExprKind kind;
   Span span;
@@ -110,6 +122,10 @@ struct SemaExpr {
       SemaExpr **args;
       size_t count;
       const char *method; // Instance calls include the receiver as args[0].
+      int pipeline;       // Unqualified pipeline lookup: method before module
+                          // function.
+      int shadowed;
+      SemaSymbol *fallback;
     } call;
     struct {
       SemaExpr **items;
@@ -120,6 +136,7 @@ struct SemaExpr {
       SemaExpr *value;
       AssignOp op;
       SemaExpr *target; // Field lvalue; NULL for binding/local assignment.
+      SemaExpr *stage;  // Hidden pipeline binding: supplies argument context.
     } binding;
     struct {
       SemaExpr *object;
@@ -150,6 +167,11 @@ struct SemaExpr {
       SemaVar *variable;
       SemaExpr *lower, *upper, *body;
     } for_loop;
+    struct {
+      SemaExpr *input;
+      SemaArm *arms;
+      size_t count;
+    } match;
     SemaExpr *value;
   } as;
 };
@@ -196,6 +218,10 @@ void sema_check(SemaProgram *program, Diagnostics *errors);
 // Intraprocedural read-only alias propagation, after types/flow stabilize.
 // Called by sema_check; does not alter canonical types or ownership.
 void sema_check_permissions(SemaProgram *program, Diagnostics *errors);
+// Scalar pattern normalization/coverage after endpoint and input typing.
+// NULL diagnostics probes coverage without emitting errors.
+void sema_match_coverage(SemaProgram *program, SemaExpr *match,
+                         Diagnostics *errors);
 // Iterative Tarjan; components are numbered in callee-first order.
 size_t sema_components(SemaProgram *program);
 

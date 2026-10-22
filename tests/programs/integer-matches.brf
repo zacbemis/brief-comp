@@ -1,0 +1,33 @@
+signed(n: shrt): int {
+  n |> { < -100 => 1
+    -100..100 => 2
+    50..200 => 3
+    >= 200 => 4 }
+}
+unsigned(n: ushrt): int {
+  n |> { 0..10 => 0
+    10..256 => 1
+    >= 256 => 2 }
+}
+main() {
+  let low: shrt = -32768
+  let high: shrt = 32767
+  var count = 0
+  for n in low..high {
+    let expected = if n < -100 { 1 } else if n < 100 { 2 } else if n < 200 { 3 } else { 4 }
+    if signed(n) != expected { print("bad signed match") }
+    count++
+  }
+  if signed(high) != 4 { print("bad signed max") }
+  count++
+  let start: ushrt = 0
+  let end: ushrt = 65535
+  for n in start..end {
+    let expected = if n < 10 { 0 } else if n < 256 { 1 } else { 2 }
+    if unsigned(n) != expected { print("bad unsigned match") }
+    count++
+  }
+  if unsigned(end) != 2 { print("bad unsigned max") }
+  count++
+  print(str(count)) // expect: 131072
+}

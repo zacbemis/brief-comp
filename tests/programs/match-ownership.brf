@@ -1,0 +1,44 @@
+Child { name: str }
+Holder { child: Child }
+impl Child {
+  combine(c: &Self, other: Self): str { c.name + ":" + other.name }
+}
+swap(h: &Holder): Child {
+  let old = h.child
+  h.child = Child { name: "new" }
+  old
+}
+use(c: Child, u: ()) { print(c.name) }
+choose(b: bool): Child {
+  b |> { true => Child { name: "left" }
+    false => Child { name: "right" } }
+}
+early(c: Child): str {
+  c |> { x => ret x.name + " returned" }
+}
+main() {
+  let holder = Holder { child: Child { name: "old" } }
+  print(swap(holder) |> holder.child.combine()) // expect: new:old
+  holder.child |> use(if true { holder.child = Child { name: "later" } } else {})
+  // expect: new
+  let copied = choose(true) |> { x => x }
+  copied.name += "!"
+  print(copied.name) // expect: left!
+  print(early(copied)) // expect: left! returned
+  var i = 0
+  while i < 5 {
+    i++
+    i |> {
+      1 => { let s = "continue" + str(i)
+        continue }
+      2 => { let s = "heap" + str(i)
+        print(s) }
+      _ => { let s = "break" + str(i)
+        break }
+    }
+    print("tail")
+  }
+  // expect: heap2
+  // expect: tail
+  print(str(i)) // expect: 3
+}

@@ -66,8 +66,9 @@ int main(void) {
     invalid(&a, "type Error = Sym<:bad>\nmain() {}", "top-level declaration");
     invalid(&a, "main() { main<int>() }", "Generic calls");
     invalid(&a, "main() { Module.f() }", "Unknown binding");
-    invalid(&a, "main() { print(\"x\") |> f() }",
-            "expression is not implemented");
+    invalid(&a, "main() { print(\"x\") |> f() }", "Unknown function");
+    invalid(&a, "main() { print(\"x\") |> f()? }",
+            "Fallible pipeline stages are not implemented");
   }
   TEST("prior frontend errors prevent lowering a surviving partial tree") {
     invalid(&a, "main() { @ }", "Unexpected character");
@@ -202,7 +203,8 @@ int main(void) {
       ASSERT_TRUE(strstr(text, "int main(void)") != NULL);
       ASSERT_TRUE(strstr(text, "quote\\\"and\\\\slash.brf") != NULL);
       ASSERT_TRUE(strstr(text, "brt_bytes_0[] = \"Hi\";") != NULL);
-      ASSERT_TRUE(strstr(text, "brt_literal_0 = {{0, NULL}, 2, brt_bytes_0};") != NULL);
+      ASSERT_TRUE(
+          strstr(text, "brt_literal_0 = {{0, NULL}, 2, brt_bytes_0};") != NULL);
       ASSERT_TRUE(strstr(text, "brf_fn_0") == NULL);
       fclose(out);
     } else if (out)

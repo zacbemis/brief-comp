@@ -1,0 +1,28 @@
+A { n: int }
+mut(a: &A) {}
+read(a: A) {
+  a |> { x => x.n++ } // error: Cannot mutate through an ordinary parameter; use &.
+}
+value(a: A) {
+  let x = a |> { x => x }
+  x.n++ // error: Cannot mutate through an ordinary parameter; use &.
+}
+join(a: A, flag: bool) {
+  var x = A { n: 0 }
+  flag |> { true => x = a
+    false => () }
+  x.n++ // error: Cannot mutate through an ordinary parameter; use &.
+}
+borrow(a: A) {
+  a |> mut() // error: A mutable argument cannot be borrowed through an ordinary parameter.
+}
+backedge(a: A, flag: bool) {
+  var x = A { n: 0 }
+  while flag {
+    mut(x) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+    flag |> { true => { x = a
+      continue }
+      false => break }
+  }
+}
+main() {}

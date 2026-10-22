@@ -1,6 +1,7 @@
 #include "codegen/c.h"
 #include "runtime_text.h"
 #include <inttypes.h>
+#include <math.h>
 
 static void string_literal(FILE *out, const unsigned char *bytes,
                            size_t length) {
@@ -252,10 +253,14 @@ int emit_c(FILE *out, const IrProgram *p) {
       }
       case IR_CONSTANT:
         fprintf(out, "  brt_tmp_%zu = ", in->result);
-        if (in->type->kind == SEMA_FLT || in->type->kind == SEMA_DUB)
-          fprintf(out, "%a%s", in->as.constant.real,
-                  in->type->kind == SEMA_FLT ? "f" : "");
-        else if (in->as.constant.negative && in->as.constant.integer)
+        if (in->type->kind == SEMA_FLT || in->type->kind == SEMA_DUB) {
+          if (isinf(in->as.constant.real))
+            fputs(signbit(in->as.constant.real) ? "-INFINITY" : "INFINITY",
+                  out);
+          else
+            fprintf(out, "%a%s", in->as.constant.real,
+                    in->type->kind == SEMA_FLT ? "f" : "");
+        } else if (in->as.constant.negative && in->as.constant.integer)
           fprintf(out, "(-INT64_C(%" PRIu64 ") - INT64_C(1))",
                   in->as.constant.integer - 1);
         else

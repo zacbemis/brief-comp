@@ -1,0 +1,55 @@
+classify(n: int): str {
+  n |> {
+    < 18 => "minor"
+    18..100 => "adult"
+    >= 100 => "senior"
+  }
+}
+unsigned(n: ulng): str {
+  n |> {
+    0..18446744073709551615 => "not max"
+    18446744073709551615 => "max"
+  }
+}
+signed(n: lng) {
+  n |> {
+    -9223372036854775808 => "min"
+    < 9223372036854775807 => "middle"
+    9223372036854775807 => "max"
+  }
+}
+floatClass(n: dub) {
+  n |> { < 0 => "negative"
+    -0.0 => "zero"
+    > 0 => "positive"
+    _ => "nan" }
+}
+smallFloat(n: flt) {
+  n |> { < -340282350000000000000000000000000000000.0 => "negative infinity"
+    > 340282350000000000000000000000000000000.0 => "positive infinity"
+    _ => "other" }
+}
+main() {
+  print(classify(-1)) // expect: minor
+  print(classify(18)) // expect: adult
+  print(classify(99)) // expect: adult
+  print(classify(100)) // expect: senior
+  print(unsigned(0)) // expect: not max
+  print(unsigned(18446744073709551615)) // expect: max
+  print(signed(-9223372036854775808)) // expect: min
+  print(signed(0)) // expect: middle
+  print(signed(9223372036854775807)) // expect: max
+  print(true |> { true => "yes"
+    false => "no" }) // expect: yes
+  print('x' |> { < 'm' => "first"
+    'm'..'z' => "middle"
+    >= 'z' => "last" }) // expect: middle
+  print(9 |> { x => str(x * 2) }) // expect: 18
+  print(floatClass(-1)) // expect: negative
+  print(floatClass(-0.0)) // expect: zero
+  print(floatClass(0.0)) // expect: zero
+  print(floatClass(1)) // expect: positive
+  print(floatClass(0.0 / 0.0)) // expect: nan
+  print(smallFloat(-1.0 / 0.0)) // expect: negative infinity
+  print(smallFloat(1.0 / 0.0)) // expect: positive infinity
+}

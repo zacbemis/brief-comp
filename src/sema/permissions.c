@@ -219,6 +219,27 @@ static int visit(Permissions *p, SemaExpr *e, State state) {
       p->active = p->active && (item->flow & SEMA_NEXT);
     }
     break;
+  case SEMA_EXPR_MATCH: {
+    SemaExpr *input = e->as.match.input;
+    int value = visit(p, input, state), has_next = 0;
+    State joined = copy(p, NULL);
+    for (size_t i = 0; i < e->as.match.count; i++) {
+      SemaArm *a = &e->as.match.arms[i];
+      State arm_state = copy(p, state);
+      if (a->binding)
+        arm_state[a->binding->id] = (unsigned char)value;
+      p->active = active && (input->flow & SEMA_NEXT) && a->useful;
+      int result = visit(p, a->body, arm_state);
+      if (a->useful && (a->body->flow & SEMA_NEXT)) {
+        merge(p, joined, arm_state);
+        readonly |= result;
+        has_next = 1;
+      }
+    }
+    if (has_next)
+      replace(p, state, joined);
+    break;
+  }
   case SEMA_EXPR_IF: {
     SemaExpr *condition = e->as.conditional.condition;
     SemaExpr *yes = e->as.conditional.yes, *no = e->as.conditional.no;

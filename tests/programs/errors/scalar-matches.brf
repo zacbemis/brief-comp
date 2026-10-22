@@ -1,0 +1,27 @@
+missing(n: int) {
+  n |> { 0..10 => () // error: Match is not exhaustive.
+    >= 10 => () }
+}
+unreachable(n: int) {
+  n |> { < 10 => ()
+    < 5 => () // error: Unreachable match arm.
+    _ => () }
+}
+empty(n: ulng) {
+  n |> { > 18446744073709551615 => () // error: Unreachable match arm.
+    _ => () }
+}
+floatMissing(n: dub) {
+  n |> { < 0 => () // error: Match is not exhaustive; add a catch-all for NaN.
+    >= 0 => () }
+}
+zeroes(n: flt) {
+  n |> { -0.0 => ()
+    0.0 => () // error: Unreachable match arm.
+    _ => () }
+}
+types(b: bool) {
+  let n = b |> { true => 1
+    false => "no" } // error: Value-producing match arms must have compatible types.
+}
+main() {}

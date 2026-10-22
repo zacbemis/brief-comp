@@ -69,6 +69,13 @@ static const SemaType *hint(SemaExpr *e) {
         a = hint(e->as.binary.right);
       return special(a) ? e->type : a;
     }
+  case SEMA_EXPR_MATCH:
+    for (size_t i = 0; i < e->as.match.count; i++) {
+      const SemaType *h = hint(e->as.match.arms[i].body);
+      if (!special(h))
+        return h;
+    }
+    return e->type;
   case SEMA_EXPR_IF: {
     const SemaType *a = hint(e->as.conditional.yes);
     if (special(a))
@@ -93,6 +100,27 @@ static const SemaType *hint(SemaExpr *e) {
     return e->type;
   }
 }
+// Pipeline input evaluation is sequenced through a hidden binding, but its
+// literals still receive the same parameter context as an ordinary call.
+static const SemaType *pipeline_hint(Checker *c, SemaExpr *binding) {
+  SemaExpr *call = binding->as.binding.stage;
+  if (!call)
+    return NULL;
+  SemaSymbol *s = call->as.call.target;
+  size_t arg = 0;
+  if (call->as.call.method) {
+    const SemaType *receiver =
+        hint(call->as.call.pipeline ? binding->as.binding.value
+                                    : call->as.call.args[0]);
+    s = sema_method(c->p, receiver, call->as.call.method);
+    if (call->as.call.pipeline) {
+      if (!s && !call->as.call.shadowed)
+        s = call->as.call.fallback;
+    } else
+      arg = 1;
+  }
+  return s && arg < s->arity ? s->params[arg]->type : NULL;
+}
 // Only reachable returns contribute anchors. Flow is established in a first
 // non-defaulting pass, before using these hints to contextualize literals.
 static const SemaType *return_hint(SemaExpr *e) {
@@ -115,6 +143,17 @@ static const SemaType *return_hint(SemaExpr *e) {
       return h;
     h = return_hint(e->as.conditional.yes);
     return special(h) ? return_hint(e->as.conditional.no) : h;
+  } else if (e->kind == SEMA_EXPR_MATCH) {
+    const SemaType *h = return_hint(e->as.match.input);
+    if (!special(h))
+      return h;
+    for (size_t i = 0; i < e->as.match.count; i++) {
+      if (!e->as.match.arms[i].useful)
+        continue;
+      h = return_hint(e->as.match.arms[i].body);
+      if (!special(h))
+        return h;
+    }
   } else if (e->kind == SEMA_EXPR_WHILE)
     return return_hint(e->as.while_loop.body);
   else if (e->kind == SEMA_EXPR_FOR)
@@ -242,7 +281,9 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   case SEMA_EXPR_BIND: {
     SemaVar *v = e->as.binding.variable;
     SemaExpr *value = e->as.binding.value;
-    v->type = check(c, value, v->annotation, VALUE);
+    v->type =
+        check(c, value,
+              e->as.binding.stage ? pipeline_hint(c, e) : v->annotation, VALUE);
     expect(c, value, v->annotation,
            "Binding value does not match its annotation.");
     if (!unknown(v->annotation))
@@ -348,11 +389,19 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     SemaSymbol *s = e->as.call.target;
     if (e->as.call.method) {
       const SemaType *receiver = check(c, e->as.call.args[0], NULL, VALUE);
-      s = e->as.call.target = sema_method(c->p, receiver, e->as.call.method);
+      SemaSymbol *method = sema_method(c->p, receiver, e->as.call.method);
+      s = method;
+      if (e->as.call.pipeline && !special(receiver) && !method)
+        s = e->as.call.shadowed ? NULL : e->as.call.fallback;
+      e->as.call.target = s;
       if (!special(receiver)) {
         if (!s)
-          error(c, e->span, "Unknown method for this type.");
-        else if (!s->arity || s->params[0]->type != receiver)
+          error(c, e->span,
+                e->as.call.pipeline
+                    ? (e->as.call.shadowed ? "A local binding is not callable."
+                                           : "Unknown function.")
+                    : "Unknown method for this type.");
+        else if (method && (!s->arity || s->params[0]->type != receiver))
           error(c, e->span,
                 "A method requires a first parameter of the receiver type.");
       }
@@ -441,6 +490,59 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
               integer ? "This operator requires integers."
                       : "Arithmetic requires numbers.");
     }
+    break;
+  }
+  case SEMA_EXPR_MATCH: {
+    SemaExpr *input = e->as.match.input;
+    const SemaType *it = check(c, input, NULL, VALUE);
+    int scalar =
+        sema_number(it) || it->kind == SEMA_BOOL || it->kind == SEMA_CHR;
+    for (size_t i = 0; i < e->as.match.count; i++) {
+      SemaArm *a = &e->as.match.arms[i];
+      if (a->binding)
+        a->binding->type = it;
+      if (a->lower) {
+        check(c, a->lower, it, VALUE);
+        if (scalar)
+          expect(c, a->lower, it, "Pattern value has the wrong type.");
+      }
+      if (a->upper) {
+        check(c, a->upper, it, VALUE);
+        if (scalar)
+          expect(c, a->upper, it, "Pattern value has the wrong type.");
+      }
+      if (!special(it) && !scalar && !a->invalid && a->lower)
+        error(c, a->span,
+              "Literal, range, and comparison patterns require a scalar type.");
+      if (it->kind == SEMA_BOOL &&
+          (a->kind == PAT_RANGE || a->kind == PAT_COMPARE)) {
+        error(c, a->span,
+              "Range and comparison patterns require numbers or chr.");
+      }
+    }
+    sema_match_coverage(c->p, e, c->probe ? NULL : c->errors);
+    const SemaType *context = expected;
+    if (special(context))
+      context = hint(e);
+    if (special(context) && sema_number(e->type))
+      context = e->type;
+    result = t(c, SEMA_NEVER);
+    unsigned arms_flow = 0;
+    for (size_t i = 0; i < e->as.match.count; i++) {
+      SemaArm *a = &e->as.match.arms[i];
+      c->reachable = reachable && (input->flow & SEMA_NEXT) && a->useful;
+      const SemaType *at = check(c, a->body, context, use);
+      if (a->useful) {
+        arms_flow |= a->body->flow;
+        if (use != DISCARD)
+          result =
+              join(c, result, at, a->span,
+                   "Value-producing match arms must have compatible types.");
+      }
+    }
+    flow = sequence(input->flow, arms_flow);
+    if (use == DISCARD)
+      result = t(c, SEMA_UNIT);
     break;
   }
   case SEMA_EXPR_IF: {

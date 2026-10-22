@@ -15,6 +15,7 @@ typedef struct {
   Diagnostics *errors;
   Local *locals;
   unsigned depth, loops;
+  int pipeline_call;
 } Resolver;
 int sema_integer(const SemaType *t) {
   return t && t->kind >= SEMA_SHRT && t->kind <= SEMA_ULNG;
@@ -227,6 +228,8 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     return e;
   case EXPR_CALL:
     e = node(r, SEMA_EXPR_CALL, s->span);
+    int pipeline = r->pipeline_call;
+    r->pipeline_call = 0;
     if (s->as.call.type_count)
       diagnostics_error(r->errors, s->span,
                         "Generic calls are not implemented yet.");
@@ -251,12 +254,12 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     } else if (callee->kind != EXPR_NAME)
       diagnostics_error(r->errors, callee->span,
                         "Function values are not implemented yet.");
-    else if (local(r, s->as.call.callee->as.name))
+    else if (!pipeline && local(r, s->as.call.callee->as.name))
       diagnostics_error(r->errors, s->as.call.callee->span,
                         "A local binding is not callable.");
     else {
       e->as.call.target = lookup(r->program, s->as.call.callee->as.name);
-      if (!e->as.call.target) {
+      if (!e->as.call.target && !pipeline) {
         int conversion = 0;
         for (size_t i = SEMA_SHRT; i <= SEMA_DUB; i++)
           if (!strcmp(callee->as.name, r->program->types[i].name))
@@ -266,6 +269,12 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
                               ? "Numeric conversions are not implemented yet."
                               : "Unknown function.");
       }
+    }
+    if (pipeline && callee->kind == EXPR_NAME) {
+      e->as.call.pipeline = 1;
+      e->as.call.method = callee->as.name;
+      e->as.call.fallback = e->as.call.target;
+      e->as.call.shadowed = local(r, callee->as.name) != NULL;
     }
     // Instance receiver types may be inferred later. Conservative edges to
     // matching methods keep every possible callee in the SCC schedule.
@@ -288,6 +297,81 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
       e->as.call.args[i + (receiver != NULL)] =
           resolve_expr(r, s->as.call.args[i]);
     return e;
+  case EXPR_PIPE: {
+    const Expr *stage = s->as.pipe.stage;
+    if (stage->kind != EXPR_CALL && stage->kind != EXPR_MATCH)
+      return unsupported(r, stage->span,
+                         "Fallible pipeline stages are not implemented yet.");
+    // A hidden lexical owner sequences the input before the stage's callee
+    // and other arguments, and snapshots its access permission at that point.
+    Local *saved = r->locals;
+    r->depth++;
+    SemaExpr *input = resolve_expr(r, s->as.pipe.value);
+    SemaVar *v = variable(r, "$pipe", s->as.pipe.value->span,
+                          &r->program->types[SEMA_UNKNOWN], 0);
+    SemaExpr *bind = node(r, SEMA_EXPR_BIND, input->span);
+    bind->as.binding.variable = v;
+    bind->as.binding.value = input;
+    SemaExpr *result;
+    if (stage->kind == EXPR_CALL) {
+      Expr arg = {.kind = EXPR_NAME, .span = input->span};
+      arg.as.name = "$pipe";
+      Expr call = *stage;
+      call.as.call.count++;
+      call.as.call.args =
+          arena_calloc(r->arena, call.as.call.count, sizeof(Expr *));
+      call.as.call.args[0] = &arg;
+      for (size_t i = 0; i < stage->as.call.count; i++)
+        call.as.call.args[i + 1] = stage->as.call.args[i];
+      r->pipeline_call = stage->as.call.callee->kind == EXPR_NAME;
+      result = resolve_expr(r, &call);
+      bind->as.binding.stage = result;
+    } else {
+      result = node(r, SEMA_EXPR_MATCH, s->span);
+      SemaExpr *read = node(r, SEMA_EXPR_VAR, input->span);
+      read->as.variable = v;
+      result->as.match.input = read;
+      result->as.match.count = stage->as.match.count;
+      result->as.match.arms =
+          arena_calloc(r->arena, stage->as.match.count, sizeof(SemaArm));
+      for (size_t i = 0; i < stage->as.match.count; i++) {
+        MatchArm source = stage->as.match.arms[i];
+        const Pattern *p = source.pattern;
+        SemaArm *a = &result->as.match.arms[i];
+        a->kind = p->kind;
+        a->span = p->span;
+        Local *arm_scope = r->locals;
+        r->depth++;
+        if (p->kind == PAT_BIND)
+          a->binding = variable(r, p->as.name, p->span,
+                                &r->program->types[SEMA_UNKNOWN], 0);
+        else if (p->kind == PAT_LITERAL)
+          a->lower = resolve_expr(r, p->as.literal);
+        else if (p->kind == PAT_RANGE) {
+          a->lower = resolve_expr(r, p->as.range.lower);
+          a->upper = resolve_expr(r, p->as.range.upper);
+        } else if (p->kind == PAT_COMPARE) {
+          a->comparison = p->as.compare.op;
+          a->lower = resolve_expr(r, p->as.compare.value);
+        } else if (p->kind != PAT_WILDCARD) {
+          a->invalid = 1;
+          diagnostics_error(r->errors, p->span,
+                            "Symbol patterns are not implemented yet.");
+        }
+        a->body = resolve_expr(r, source.value);
+        r->locals = arm_scope;
+        r->depth--;
+      }
+    }
+    e = node(r, SEMA_EXPR_BLOCK, s->span);
+    e->as.block.count = 2;
+    e->as.block.items = arena_calloc(r->arena, 2, sizeof(SemaExpr *));
+    e->as.block.items[0] = bind;
+    e->as.block.items[1] = result;
+    r->locals = saved;
+    r->depth--;
+    return e;
+  }
   case EXPR_FIELD:
     e = node(r, SEMA_EXPR_FIELD, s->span);
     e->as.field.object = resolve_expr(r, s->as.field.object);
