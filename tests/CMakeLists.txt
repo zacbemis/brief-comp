@@ -71,7 +71,7 @@ add_test(NAME test_doc_parser
         -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_parser.cmake
 )
 
-function(add_error_doc_test name debug)
+function(add_doc_acceptance_test name script label debug)
     add_test(NAME ${name}
         COMMAND ${CMAKE_COMMAND}
             -DBRIEF=$<TARGET_FILE:brief>
@@ -80,13 +80,19 @@ function(add_error_doc_test name debug)
             -DROOT=${CMAKE_SOURCE_DIR}
             -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/${name}-fixtures
             -DDEBUG=${debug}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_errors.cmake)
-    set_tests_properties(${name} PROPERTIES LABELS doc-errors TIMEOUT 120)
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/${script})
+    set_tests_properties(${name} PROPERTIES LABELS "doc-acceptance;${label}" TIMEOUT 120)
 endfunction()
-add_error_doc_test(test_doc_errors OFF)
+add_doc_acceptance_test(test_doc_errors test_doc_errors.cmake doc-errors OFF)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
-    add_error_doc_test(test_doc_errors_sanitized ON)
+    add_doc_acceptance_test(test_doc_errors_sanitized test_doc_errors.cmake doc-errors ON)
 endif()
+
+add_test(NAME test_doc_examples_support
+    COMMAND ${CMAKE_COMMAND}
+        -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/doc-example-support-fixtures
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_examples_support.cmake)
+set_tests_properties(test_doc_examples_support PROPERTIES LABELS doc-acceptance TIMEOUT 15)
 
 # Run alone with `ctest -L parse-examples`, or skip with `-LE parse-examples`.
 add_test(NAME test_parse_examples
