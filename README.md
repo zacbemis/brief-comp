@@ -5,8 +5,9 @@ written in C and emits readable C, then invokes an existing C compiler to
 produce a native program.
 
 **Current state: milestones 0–4 are implemented**, including native compilation,
-numbers, control flow, heap strings, structs, methods, and reference counting. Compilation
-supports the subset below; the parser
+numbers, control flow, heap strings, structs, methods, and reference counting.
+**M5 is in progress:** pipeline calls and exhaustive scalar match blocks now compile.
+Compilation supports the subset below; the parser
 accepts much more syntax. Most examples in the design docs still describe future
 features, not programs that can currently be compiled.
 
@@ -84,6 +85,13 @@ Compilation supports:
   assignments, and standalone `x++`/`x--` statements (no update expressions).
 - Value-producing `if`/`else`, `while`, half-open ascending range `for` loops,
   and innermost-loop `break`/`continue`.
+- Pipeline calls with method-first lookup and left-to-right evaluation; contextual
+  numeric literals receive the same parameter type as in ordinary calls.
+- Exhaustive match blocks over numeric, bool and character values, with ordered
+  literal/range/comparison arms. `_` and whole-value binding arms work for all
+  current types; bindings are immutable and scoped to their arm. Floating matches
+  require a catch-all for NaN, and `-0` and `0` match the same values.
+  Match results can be values, and arms support `ret`, `break`, and `continue`.
 - Typed parameters, forward calls, recursion, written or inferred plain
   return types (including structs), `ret`, and implicit tail returns. Unanchored recursive return
   types need annotations; call-graph analysis uses explicit work stacks, not
@@ -113,7 +121,8 @@ explicit non-unit `ret`. `print` remains a reserved top-level builtin taking exa
 also reserved as a top-level builtin and accepts exactly one number or `bool`.
 
 `const`, numeric-target conversions, character/object/string-to-string conversions,
-symbols, pipelines, indexing, function values, cloning, identity comparison, and
+symbols and named-set patterns, `?`/postfix `!`, string literal patterns,
+indexing, function values, cloning, identity comparison, and
 other later features remain unsupported. Equality of recursive struct shapes
 (including structs containing them) is not supported. `dump-ast` remains syntax-only.
 
@@ -155,8 +164,8 @@ exhaust it rather than panic. Panics terminate the process without unwinding own
 - `src/lexer/newline.c`: continuation and nested-delimiter newline filtering.
 - `include/sema/`, `src/sema/`: separate name resolution and type checking,
   with canonical primitive/nominal types, lexical scopes, flow checks, read-only
-  alias analysis, and iterative
-  SCC-based recursive return inference.
+  alias analysis, scalar pattern normalization/coverage/usefulness checks, and
+  iterative SCC-based recursive return inference.
 - `include/ir/`, `src/ir/`: typed temporaries, sequenced calls, explicit control
   flow/returns, loop targets, value-producing branches, field operations, and a
   separately testable reference-count insertion pass.
@@ -190,5 +199,6 @@ Wide and combining characters do not yet have special display-width handling.
 - [Error handling](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
 
-The overview links the remaining topic documents. Next is milestone 5:
-symbols, fallible conversions, error handling, pipelines, and exhaustive matching.
+The overview links the remaining topic documents. Milestone 5 is in progress:
+pipeline calls and scalar matching are implemented; symbol sets, fallible
+conversions, propagation/panic, and fallible-return inference are next.
