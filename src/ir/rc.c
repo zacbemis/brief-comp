@@ -30,7 +30,8 @@ void ir_insert_rc(Arena *arena, IrProgram *p) {
                     in.op == IR_CALL || in.op == IR_NEW || in.op == IR_BINARY ||
                     in.op == IR_UNARY || in.op == IR_CONSTANT ||
                     in.op == IR_SYMBOL || in.op == IR_SYMBOL_CAST ||
-                    in.op == IR_SYMBOL_TAG || in.op == IR_SYMBOL_PAYLOAD;
+                    in.op == IR_SYMBOL_TAG || in.op == IR_SYMBOL_PAYLOAD ||
+                    in.op == IR_CONVERT;
       int reference = defines && in.result != IR_NO_VALUE &&
                       sema_reference(f->temporary_types[in.result]);
       // Every temporary slot is owned and may be reused on a loop backedge.
@@ -40,9 +41,10 @@ void ir_insert_rc(Arena *arena, IrProgram *p) {
         out[count++] = (IrInstruction){
             .op = IR_DROP_TEMP, .span = in.span, .a = in.result};
       out[count++] = in;
-      if (reference && (in.op == IR_LOAD || in.op == IR_COPY ||
-                        in.op == IR_FIELD_LOAD || in.op == IR_SYMBOL ||
-                        in.op == IR_SYMBOL_CAST || in.op == IR_SYMBOL_PAYLOAD))
+      if (reference &&
+          (in.op == IR_LOAD || in.op == IR_COPY || in.op == IR_FIELD_LOAD ||
+           in.op == IR_SYMBOL || in.op == IR_SYMBOL_CAST ||
+           in.op == IR_SYMBOL_PAYLOAD || in.op == IR_CONVERT))
         out[count++] =
             (IrInstruction){.op = IR_RETAIN, .span = in.span, .a = in.result};
     }

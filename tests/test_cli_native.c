@@ -136,8 +136,9 @@ int main(int argc, char **argv) {
     char *file = test_path(&a, root, "standalone.c"),
          *binary = test_path(&a, root, "standalone");
     ASSERT_TRUE(test_write_file(file, r.out));
-    const char *cc[] = {argv[2],   "-std=c11", "-Wall", "-Wextra", "-Wpedantic",
-                        "-Werror", file,       "-o",    binary,    NULL};
+    const char *cc[] = {argv[2],      "-std=c11", "-Wall", "-Wextra",
+                        "-Wpedantic", "-Werror",  file,    "-o",
+                        binary,       "-lm",      NULL};
     ProcessResult compiled = process_run(&a, cc, NULL);
     ASSERT_TRUE(compiled.ok);
     ASSERT_EQ_INT(0, compiled.status);

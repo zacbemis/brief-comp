@@ -1,0 +1,78 @@
+// expect: 12
+// expect: 0.5
+// expect: 42
+// expect: 18446744073709551615
+// expect: -9223372036854775808
+// expect: 65535
+// expect: 32767
+// expect: 4294967295
+// expect: 16777216
+// expect: 16777216
+// expect: fraction
+// expect: negative
+// expect: -0
+// expect: 1.0000001
+// expect: bad\0text
+// expect: wide
+// expect: minimum
+// expect: 9007199254740992
+// expect: 9007199254740992
+// expect: 0.1
+// expect: 0.1
+// expect: 0.1
+// expect: 1
+// expect: 1
+// expect: 4294967296
+// expect: 0
+// expect: range
+// expect: -0
+// expect: edge
+main() {
+  print(str(lng(12)))
+  let half: flt = 0.5
+  print(str(dub(half)))
+  "42" |> int()? |> lng() |> str() |> print()
+  print(str(ulng("18446744073709551615")!))
+  print(str(lng("-9223372036854775808")?))
+  print(str(ushrt("65535")!))
+  print(str(shrt("32767")!))
+  print(str(uint("4294967295")!))
+  print(str(flt(16777216)!))
+  let integer = 16777217
+  print(str(flt(integer)))
+  int(0.5) |> { :ok(_) => print("wrong")
+    :overflow => print("fraction") }
+  let negative = -1
+  uint(negative) |> { :ok(_) => print("wrong")
+    :overflow => print("negative") }
+  print(str(flt(-0.0)!))
+  print(str(flt("1.000000059604644830901776231257827021181583404541015625")!))
+  int("bad\0" + "text") |> { :ok(_) => print("wrong")
+    :invalid(original) => print(original) }
+  let big: ulng = 18446744073709551615
+  lng(big) |> { :ok(_) => print("wrong")
+    :overflow => print("wide") }
+  let minimum: lng = -9223372036854775808
+  ulng(minimum) |> { :ok(_) => print("wrong")
+    :overflow => print("minimum") }
+  let exact: ulng = 9007199254740992
+  print(str(ulng(dub(exact)!)!))
+  let inexact: lng = 9007199254740993
+  print(str(dub(inexact)))
+  let decimal = 0.1
+  print(str(flt(decimal)!))
+  print(str(flt(0.1)))
+  print(str(flt("0.1")!))
+  print(str(shrt(1)))
+  1 |> shrt() |> str() |> print()
+  print(str(lng(4294967296)))
+  print(str(uint(-0)))
+  let tooBig = dub("3.5e38")!
+  flt(tooBig) |> { :ok(_) => print("wrong")
+    :overflow => print("range") }
+  let tiny = dub("-1e-300")!
+  print(str(flt(tiny)!))
+  let edge = dub("3.402823466385289e38")!
+  if flt(edge)! == flt("3.4028234663852886e38")! { print("edge") }
+  else { print("wrong") }
+}

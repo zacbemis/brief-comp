@@ -27,7 +27,8 @@ typedef enum {
   IR_SYMBOL_CAST, // Repack a symbol set without changing its global tag.
   IR_SYMBOL_TAG,
   IR_SYMBOL_PAYLOAD,
-  IR_PANIC_SYMBOL
+  IR_PANIC_SYMBOL,
+  IR_CONVERT // Numeric target conversion; type is source, tag is failure tag.
 } IrOp;
 typedef struct {
   IrOp op;
@@ -55,6 +56,7 @@ typedef struct {
       size_t function, count;
       size_t *args; // Unit arguments have no representation; effects remain.
     } call; // NEW uses type->structure and declaration-ordered field args.
+    const SemaType *conversion; // IR_CONVERT target number type.
     UnaryOp unary;
     BinaryOp binary;
   } as;

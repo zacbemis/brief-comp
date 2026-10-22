@@ -231,6 +231,9 @@ static SemaSymbol *lookup(SemaProgram *p, const char *name) {
     return &p->print;
   if (!strcmp(name, "str"))
     return &p->stringify;
+  for (size_t i = 0; i < sizeof(p->converters) / sizeof(*p->converters); i++)
+    if (!strcmp(name, p->converters[i].name))
+      return &p->converters[i];
   for (size_t i = 0; i < p->count; i++)
     if (!p->functions[i].symbol.owner &&
         !strcmp(name, p->functions[i].symbol.name))
@@ -414,16 +417,8 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
                         "A local binding is not callable.");
     else {
       e->as.call.target = lookup(r->program, s->as.call.callee->as.name);
-      if (!e->as.call.target && !pipeline) {
-        int conversion = 0;
-        for (size_t i = SEMA_SHRT; i <= SEMA_DUB; i++)
-          if (!strcmp(callee->as.name, r->program->types[i].name))
-            conversion = 1;
-        diagnostics_error(r->errors, callee->span,
-                          conversion
-                              ? "Numeric conversions are not implemented yet."
-                              : "Unknown function.");
-      }
+      if (!e->as.call.target && !pipeline)
+        diagnostics_error(r->errors, callee->span, "Unknown function.");
     }
     if (pipeline && callee->kind == EXPR_NAME) {
       e->as.call.pipeline = 1;
@@ -701,8 +696,11 @@ static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
         r->errors, d->span,
         previous->builtin == SEMA_BUILTIN_PRINT
             ? "The name 'print' is reserved for the builtin."
-        : previous->builtin ? "The name 'str' is reserved for the builtin."
-                            : "Duplicate function name.");
+        : previous->builtin == SEMA_BUILTIN_STR
+            ? "The name 'str' is reserved for the builtin."
+        : previous->builtin == SEMA_BUILTIN_CONVERT
+            ? "Numeric type names are reserved for builtin conversions."
+            : "Duplicate function name.");
     if (!previous->builtin)
       diagnostic_note(r->errors, error, previous->span, "First declared here.");
     return;
@@ -784,6 +782,16 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
   p->stringify.params = arena_calloc(a, 1, sizeof(SemaVar *));
   p->stringify.params[0] = arena_calloc(a, 1, sizeof(SemaVar));
   p->stringify.params[0]->type = &p->types[SEMA_UNKNOWN];
+  for (size_t i = SEMA_SHRT; i <= SEMA_DUB; i++) {
+    SemaSymbol *s = &p->converters[i - SEMA_SHRT];
+    *s = (SemaSymbol){.name = p->types[i].name,
+                      .arity = 1,
+                      .builtin = SEMA_BUILTIN_CONVERT,
+                      .return_type = &p->types[i]};
+    s->params = arena_calloc(a, 1, sizeof(*s->params));
+    s->params[0] = arena_calloc(a, 1, sizeof(**s->params));
+    s->params[0]->type = &p->types[SEMA_UNKNOWN];
+  }
   p->structs = arena_calloc(a, syntax->count, sizeof(SemaStruct));
   size_t capacity = syntax->count;
   Resolver r = {.arena = a, .program = p, .errors = errors};

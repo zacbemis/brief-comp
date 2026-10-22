@@ -50,6 +50,7 @@ add_library(brief_core STATIC
     src/sema/permissions.c
     src/sema/match.c
     src/sema/symbols.c
+    src/sema/conversions.c
     src/ir/lower.c
     src/ir/rc.c
     src/codegen/c.c

@@ -77,7 +77,13 @@ propagation from initializers/conditions, argument pinning, exact entry error
 formatting/status/cleanup, ordinary data-only symbol entry results (discarded with
 exit 0), symbol-valued successful entry results, symbol panics
 and their original source location, and exact handled-call/propagation errors.
-Fallible conversions, refutable payload patterns and symbol ordering remain
+The conversion slice adds six fixtures (83 total). `conversion-matrix.brf`
+executes every numeric source/target pair and all eight text targets in one
+program. The others cover exact integer narrowing, rounded floating conversions,
+numeric/text range errors, contextual literal arguments (including pipeline
+inputs), direct-precision floating parsing, original binary invalid payloads,
+propagation/panic/entry handling, argument snapshots and loop/return cleanup.
+String literal patterns, refutable payload patterns and symbol ordering remain
 unsupported; M5 is not complete.
 
 These are compilation/execution tests for the current subset, not the much

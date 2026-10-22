@@ -69,7 +69,7 @@ struct SemaStruct {
   size_t count, id;
   int equatable;
 };
-enum { SEMA_BUILTIN_PRINT = 1, SEMA_BUILTIN_STR = 2 };
+enum { SEMA_BUILTIN_PRINT = 1, SEMA_BUILTIN_STR = 2, SEMA_BUILTIN_CONVERT = 3 };
 typedef struct SemaVar SemaVar;
 struct SemaVar {
   const char *name;
@@ -238,7 +238,7 @@ typedef struct {
   Arena *arena;
   SemaType types[SEMA_TYPE_COUNT]; // Primitive singletons; structs and symbol
                                    // sets use their own canonical types.
-  SemaSymbol print, stringify;
+  SemaSymbol print, stringify, converters[SEMA_DUB - SEMA_SHRT + 1];
   SemaStruct *structs;
   size_t struct_count;
   SemaAlias *aliases;
@@ -255,6 +255,9 @@ typedef struct {
 
 int sema_integer(const SemaType *type); // Excludes chr.
 int sema_number(const SemaType *type);
+// Outcome depends on source/target domains, never on a particular value.
+const SemaType *sema_conversion(SemaProgram *program, const SemaType *source,
+                                const SemaType *target);
 // Includes value-represented symbols: their active payload needs ARC handling.
 int sema_reference(const SemaType *type);
 const SemaVariant *sema_ok(const SemaType *type);

@@ -141,6 +141,15 @@ static const SemaType *hint(SemaExpr *e) {
     return e->type;
   }
 }
+// Only direct numeric literals adopt a converter's target. Typed expressions
+// keep their source domain; decimal literals still require flt/dub context.
+static const SemaType *conversion_context(SemaSymbol *s, SemaExpr *arg,
+                                          const SemaType *fallback) {
+  return s && s->builtin == SEMA_BUILTIN_CONVERT &&
+                 (arg->kind == SEMA_EXPR_INT || arg->kind == SEMA_EXPR_FLOAT)
+             ? s->return_type
+             : fallback;
+}
 // Pipeline input evaluation is sequenced through a hidden binding, but its
 // literals still receive the same parameter context as an ordinary call.
 static const SemaType *pipeline_hint(Checker *c, SemaExpr *binding) {
@@ -160,7 +169,8 @@ static const SemaType *pipeline_hint(Checker *c, SemaExpr *binding) {
     } else
       arg = 1;
   }
-  return s && arg < s->arity ? s->params[arg]->type : NULL;
+  const SemaType *wanted = s && arg < s->arity ? s->params[arg]->type : NULL;
+  return conversion_context(s, binding->as.binding.value, wanted);
 }
 // Only reachable returns contribute anchors. Flow is established in a first
 // non-defaulting pass, before using these hints to contextualize literals.
@@ -491,7 +501,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       SemaExpr *arg = e->as.call.args[i];
       const SemaType *wanted = s && i < s->arity ? s->params[i]->type : NULL;
       if (!(e->as.call.method && i == 0))
-        check(c, arg, wanted, VALUE);
+        check(c, arg, conversion_context(s, arg, wanted), VALUE);
       expect(c, arg, wanted,
              s && s->builtin == SEMA_BUILTIN_PRINT
                  ? "print expects a str argument."
@@ -499,21 +509,35 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       if (s && s->builtin == SEMA_BUILTIN_STR && !special(arg->type) &&
           !sema_number(arg->type) && arg->type->kind != SEMA_BOOL)
         error(c, arg->span, "str expects a number or bool argument.");
+      if (s && s->builtin == SEMA_BUILTIN_CONVERT && !special(arg->type) &&
+          !sema_number(arg->type) && arg->type->kind != SEMA_STR)
+        error(c, arg->span,
+              "Numeric conversion expects a number or str argument.");
       flow = sequence(flow, arg->flow);
     }
     if (s && e->as.call.count != s->arity)
-      error(c, e->span,
-            s->builtin == SEMA_BUILTIN_PRINT
-                ? "print expects exactly one str argument."
-            : s->builtin == SEMA_BUILTIN_STR
-                ? "str expects exactly one number or bool argument."
-                : "Wrong number of function arguments.");
+      error(
+          c, e->span,
+          s->builtin == SEMA_BUILTIN_PRINT
+              ? "print expects exactly one str argument."
+          : s->builtin == SEMA_BUILTIN_STR
+              ? "str expects exactly one number or bool argument."
+          : s->builtin == SEMA_BUILTIN_CONVERT
+              ? "Numeric conversion expects exactly one number or str argument."
+              : "Wrong number of function arguments.");
     result = s ? s->return_type
              : e->as.call.method && unknown(e->as.call.args[0]->type)
                  ? t(c, SEMA_UNKNOWN)
                  : t(c, SEMA_ERROR);
     e->outcome = 1;
     const SemaType *outcome = s ? s->outcome_type : NULL;
+    if (s && s->builtin == SEMA_BUILTIN_CONVERT) {
+      outcome =
+          e->as.call.count == 1
+              ? sema_conversion(c->p, e->as.call.args[0]->type, s->return_type)
+              : t(c, SEMA_ERROR);
+      result = sema_result(c->p, outcome);
+    }
     const SemaVariant *ok = sema_ok(outcome);
     if (ok && outcome->symbols->count > 1 && !e->as.call.handled)
       error(c, e->span,

@@ -352,3 +352,152 @@ uint64_t brt_not_u(uint64_t a, unsigned bits) { return a ^ brt_max_u(bits); }
 BRT_FLOAT_DIV(float, flt)
 BRT_FLOAT_DIV(double, dub)
 #undef BRT_FLOAT_DIV
+
+/* Integer targets require exact integral values. Floating targets round to
+ * their requested width, like source literals and decimal text parsing. */
+enum { BRT_SIGNED, BRT_UNSIGNED, BRT_FLOAT, BRT_DOUBLE };
+typedef struct {
+  int64_t s;
+  uint64_t u;
+  double f;
+} brt_number;
+// Integer sources reach the runtime only for integer targets: every
+// integer-to-floating conversion succeeds and is emitted as a direct C cast.
+int brt_convert_s(int64_t value, int kind, unsigned bits, brt_number *out) {
+  if (kind == BRT_SIGNED) {
+    if (value < brt_min_s(bits) || value > brt_max_s(bits))
+      return 0;
+    out->s = value;
+  } else if (kind == BRT_UNSIGNED) {
+    if (value < 0 || (uint64_t)value > brt_max_u(bits))
+      return 0;
+    out->u = (uint64_t)value;
+  } else
+    return 0;
+  return 1;
+}
+int brt_convert_u(uint64_t value, int kind, unsigned bits, brt_number *out) {
+  if (kind == BRT_SIGNED) {
+    if (value > (uint64_t)brt_max_s(bits))
+      return 0;
+    out->s = (int64_t)value;
+  } else if (kind == BRT_UNSIGNED) {
+    if (value > brt_max_u(bits))
+      return 0;
+    out->u = value;
+  } else
+    return 0;
+  return 1;
+}
+int brt_convert_f(double value, int kind, unsigned bits, brt_number *out) {
+  if (kind == BRT_FLOAT || kind == BRT_DOUBLE) {
+    if (kind == BRT_DOUBLE) {
+      out->f = value;
+      return 1;
+    }
+    // Check before narrowing: out-of-range C floating casts are not portable.
+    // Values just beyond FLT_MAX still round to it, as literals/text do. Handle
+    // that interval explicitly; at the half-ULP overflow tie, round to
+    // infinity.
+    if (isfinite(value) && (value > FLT_MAX || value < -FLT_MAX)) {
+      double overflow = (double)FLT_MAX + 0x1p103;
+      if (value >= overflow || value <= -overflow)
+        return 0;
+      out->f = value < 0 ? -(double)FLT_MAX : (double)FLT_MAX;
+      return 1;
+    }
+    out->f = (float)value;
+    return 1;
+  }
+  if (!isfinite(value) || trunc(value) != value)
+    return 0;
+  // Half-open powers-of-two bounds avoid rounding INT64_MAX/UINT64_MAX up
+  // before the guard, and ensure the following C casts are always defined.
+  double limit = ldexp(1.0, kind == BRT_SIGNED ? (int)bits - 1 : (int)bits);
+  if (value >= limit || value < (kind == BRT_SIGNED ? -limit : 0.0))
+    return 0;
+  if (kind == BRT_SIGNED)
+    out->s = (int64_t)value;
+  else
+    out->u = (uint64_t)value;
+  return 1;
+}
+static int brt_decimal_digit(unsigned char c) { return c >= '0' && c <= '9'; }
+int brt_convert_text(const brt_string *value, int kind, unsigned bits,
+                     brt_number *out) {
+  const unsigned char *bytes = value->bytes;
+  size_t length = value->length, pos = 0;
+  int negative = 0;
+  if (pos < length && (bytes[pos] == '+' || bytes[pos] == '-'))
+    negative = bytes[pos++] == '-';
+  if (pos == length)
+    return 0;
+  if (kind == BRT_SIGNED || kind == BRT_UNSIGNED) {
+    uint64_t limit = kind == BRT_UNSIGNED
+                         ? brt_max_u(bits)
+                         : (uint64_t)brt_max_s(bits) + (unsigned)negative;
+    uint64_t magnitude = 0;
+    for (; pos < length; pos++) {
+      if (!brt_decimal_digit(bytes[pos]))
+        return 0;
+      unsigned digit = (unsigned)(bytes[pos] - '0');
+      if (magnitude > limit / 10 ||
+          (magnitude == limit / 10 && digit > limit % 10))
+        return 0;
+      magnitude = magnitude * 10 + digit;
+    }
+    if (kind == BRT_UNSIGNED) {
+      if (negative && magnitude)
+        return 0;
+      out->u = magnitude;
+    } else
+      out->s = negative && magnitude ? -(int64_t)(magnitude - 1) - 1
+                                     : (int64_t)magnitude;
+    return 1;
+  }
+  int special = length - pos == 3 && (!memcmp(bytes + pos, "inf", 3) ||
+                                      !memcmp(bytes + pos, "nan", 3));
+  if (!special) {
+    size_t digits = 0;
+    while (pos < length && brt_decimal_digit(bytes[pos])) {
+      pos++;
+      digits++;
+    }
+    if (pos < length && bytes[pos] == '.') {
+      pos++;
+      while (pos < length && brt_decimal_digit(bytes[pos])) {
+        pos++;
+        digits++;
+      }
+    }
+    if (!digits)
+      return 0;
+    if (pos < length && (bytes[pos] == 'e' || bytes[pos] == 'E')) {
+      pos++;
+      if (pos < length && (bytes[pos] == '+' || bytes[pos] == '-'))
+        pos++;
+      size_t start = pos;
+      while (pos < length && brt_decimal_digit(bytes[pos]))
+        pos++;
+      if (start == pos)
+        return 0;
+    }
+    if (pos != length)
+      return 0;
+  }
+  if (length == SIZE_MAX)
+    brt_panic("string too large");
+  char *text = malloc(length + 1);
+  if (!text)
+    brt_panic("out of memory");
+  memcpy(text, bytes, length);
+  text[length] = 0;
+  char *end;
+  double result =
+      kind == BRT_FLOAT ? (double)strtof(text, &end) : strtod(text, &end);
+  int valid = end == text + length && (special || isfinite(result));
+  free(text);
+  if (valid)
+    out->f = result;
+  return valid;
+}

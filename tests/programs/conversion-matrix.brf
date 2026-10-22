@@ -1,0 +1,103 @@
+// expect: ok
+fromShrt(x: shrt) {
+  shrt(x)!
+  ushrt(x)!
+  int(x)!
+  uint(x)!
+  lng(x)!
+  ulng(x)!
+  flt(x)!
+  dub(x)!
+}
+fromUshrt(x: ushrt) {
+  shrt(x)!
+  ushrt(x)!
+  int(x)!
+  uint(x)!
+  lng(x)!
+  ulng(x)!
+  flt(x)!
+  dub(x)!
+}
+fromInt(x: int) {
+  shrt(x)!
+  ushrt(x)!
+  int(x)!
+  uint(x)!
+  lng(x)!
+  ulng(x)!
+  flt(x)!
+  dub(x)!
+}
+fromUint(x: uint) {
+  shrt(x)!
+  ushrt(x)!
+  int(x)!
+  uint(x)!
+  lng(x)!
+  ulng(x)!
+  flt(x)!
+  dub(x)!
+}
+fromLng(x: lng) {
+  shrt(x)!
+  ushrt(x)!
+  int(x)!
+  uint(x)!
+  lng(x)!
+  ulng(x)!
+  flt(x)!
+  dub(x)!
+}
+fromUlng(x: ulng) {
+  shrt(x)!
+  ushrt(x)!
+  int(x)!
+  uint(x)!
+  lng(x)!
+  ulng(x)!
+  flt(x)!
+  dub(x)!
+}
+fromFlt(x: flt) {
+  shrt(x)!
+  ushrt(x)!
+  int(x)!
+  uint(x)!
+  lng(x)!
+  ulng(x)!
+  flt(x)!
+  dub(x)!
+}
+fromDub(x: dub) {
+  shrt(x)!
+  ushrt(x)!
+  int(x)!
+  uint(x)!
+  lng(x)!
+  ulng(x)!
+  flt(x)!
+  dub(x)!
+}
+fromStr(x: str) {
+  shrt(x)!
+  ushrt(x)!
+  int(x)!
+  uint(x)!
+  lng(x)!
+  ulng(x)!
+  flt(x)!
+  dub(x)!
+}
+main() {
+  fromShrt(1)
+  fromUshrt(1)
+  fromInt(1)
+  fromUint(1)
+  fromLng(1)
+  fromUlng(1)
+  fromFlt(1)
+  fromDub(1)
+  fromStr("1")
+  print("ok")
+}

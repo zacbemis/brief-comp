@@ -1,0 +1,8 @@
+// expect: before
+// stderr: error: :invalid("bad\\0text")
+// exit: 1
+main() {
+  let alive = "be" + "fore"
+  print(alive)
+  int("bad\0" + "text")?
+}

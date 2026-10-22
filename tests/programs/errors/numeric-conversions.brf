@@ -1,0 +1,17 @@
+Box {}
+f(): int {
+  int("1")? // error: Propagated variants are not in the written return type.
+}
+main() {
+  int("12") // error: A call that can fail must be handled with ?, !, or a match.
+  let n = 1
+  shrt(n) // error: A call that can fail must be handled with ?, !, or a match.
+  shrt(70000) // error: Number literal is outside the range of its type.
+  70000 |> shrt() // error: Number literal is outside the range of its type.
+  uint(-1) // error: Number literal is outside the range of its type.
+  int(true) // error: Numeric conversion expects a number or str argument.
+  int('1') // error: Numeric conversion expects a number or str argument.
+  int(Box {}) // error: Numeric conversion expects a number or str argument.
+  lng() // error: Numeric conversion expects exactly one number or str argument.
+  dub(1, 2) // error: Numeric conversion expects exactly one number or str argument.
+}

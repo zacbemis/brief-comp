@@ -470,6 +470,44 @@ int emit_c(FILE *out, const IrProgram *p) {
         fputs(");\n", out);
         break;
       }
+      case IR_CONVERT: {
+        const SemaType *target = in->as.conversion;
+        if (!in->tag) {
+          fprintf(out, "  brt_tmp_%zu = (", in->result);
+          ctype(out, target);
+          fprintf(out, ")brt_tmp_%zu;\n", in->a);
+          break;
+        }
+        const char *source = in->type->kind == SEMA_STR ? "text"
+                             : !sema_integer(in->type)  ? "f"
+                             : in->type->is_signed      ? "s"
+                                                        : "u";
+        const char *kind = target->kind == SEMA_FLT   ? "BRT_FLOAT"
+                           : target->kind == SEMA_DUB ? "BRT_DOUBLE"
+                           : target->is_signed        ? "BRT_SIGNED"
+                                                      : "BRT_UNSIGNED";
+        const char *member = !sema_integer(target) ? "f"
+                             : target->is_signed   ? "s"
+                                                   : "u";
+        fprintf(
+            out,
+            "  { brt_locate(__FILE__, __LINE__); brt_number brt_converted = "
+            "{0};\n"
+            "    if (brt_convert_%s(brt_tmp_%zu, %s, %u, &brt_converted)) {\n"
+            "      brt_tmp_%zu.tag = %zu; brt_tmp_%zu.payload.v%zu = (",
+            source, in->a, kind, target->bits, in->result, p->ok->id,
+            in->result, p->ok->id);
+        ctype(out, target);
+        fprintf(
+            out,
+            ")brt_converted.%s;\n    } else {\n      brt_tmp_%zu.tag = %zu;\n",
+            member, in->result, in->tag->id);
+        if (in->type->kind == SEMA_STR)
+          fprintf(out, "      brt_tmp_%zu.payload.v%zu = brt_tmp_%zu;\n",
+                  in->result, in->tag->id, in->a);
+        fputs("    }\n  }\n", out);
+        break;
+      }
       case IR_RETURN:
         if (in->a == IR_NO_VALUE)
           fputs("  return;\n", out);

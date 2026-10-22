@@ -323,6 +323,20 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
       args[i] =
           convert(l, args[i], e->as.call.target->params[i]->type, e->span);
     }
+    if (e->as.call.target->builtin == SEMA_BUILTIN_CONVERT) {
+      IrInstruction in = {.op = IR_CONVERT,
+                          .span = e->span,
+                          .result = temporary(l, e->type),
+                          .a = args[0],
+                          .type = e->as.call.args[0]->type};
+      in.as.conversion = e->as.call.target->return_type;
+      if (e->type->kind == SEMA_SYM)
+        for (size_t i = 0; i < e->type->symbols->count; i++)
+          if (e->type->symbols->variants[i].tag != l->program->ok)
+            in.tag = e->type->symbols->variants[i].tag;
+      emit(l, in);
+      return in.result;
+    }
     IrInstruction in = {
         .op = IR_CALL, .span = e->span, .result = temporary(l, e->type)};
     in.as.call.builtin = e->as.call.target->builtin;

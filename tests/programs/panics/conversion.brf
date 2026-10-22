@@ -1,0 +1,8 @@
+// expect: before
+// panic: panic: :invalid("bad\0text")
+// panic: conversion.brf:7
+main() {
+  let text = "bad\0" + "text"
+  print("before")
+  int(text)!
+}
