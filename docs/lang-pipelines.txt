@@ -151,7 +151,15 @@ age |> {
 }
 ```
 
-A range `a..b` includes `a` and excludes `b`.
+A range `a..b` includes `a` and excludes `b`. Range and comparison patterns
+apply to numbers and `chr`, not strings or `bool`.
+
+String literal patterns compare the complete decoded byte sequence, including
+embedded zero bytes. Matching is case-sensitive and performs no Unicode
+normalization. A heap string matches a literal with the same bytes and length;
+a prefix does not match a longer string. Different escape spellings that decode
+to the same bytes match the same values, so repeating them makes an arm
+unreachable.
 
 ## Symbol matching
 
@@ -180,6 +188,9 @@ Patterns are evaluated in order, and the first applicable pattern is selected.
 Every match block must cover every possible value, whether or not its result is used. A match that misses a case is a compile error.
 
 For symbols, every variant of the input type must have an arm, or a catch-all arm must follow.
+
+For strings, a finite list of literal patterns cannot cover every value. A
+wildcard `_` or name-binding catch-all arm is required.
 
 For numbers, the arms' ranges and comparisons must together cover every value of the type.
 Floating comparisons and ranges do not match NaN, so a floating match also needs

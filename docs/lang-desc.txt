@@ -159,7 +159,7 @@ The first version of the compiler handles a single source file and this part of 
 - Structs, `impl` blocks, struct literals, method calls with `.`, and `&` parameters.
 - `Sym` with named sets, `?`, `!`, `|>` match blocks, exhaustiveness checking, error accumulation, and the rule that a call that can fail is handled where it is made.
 - `|>` calls.
-- `print` and the `str(...)` converter.
+- `print`, the `str(...)` converter, and the numeric converters such as `int(...)` and `dub(...)`.
 - Reference counting for structs and strings, without the cycle collector.
 
 These come in later versions: `const`, lambdas and `Fn`, `Vec` and the collection functions, named tuples, maps, traits, generics written by the programmer, modules and finding them by name, and the cycle collector.
