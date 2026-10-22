@@ -97,8 +97,48 @@ print(str(count))                 // always succeeds
 
 Converting a value of your own type, as in `str(user)`, will need a way for the type to say how it converts. That is planned as a trait.
 
-M4 currently implements `str(number)` and `str(bool)`, with exactly one argument.
-Other conversions, including `str(str)` and `str(chr)`, are not implemented yet.
+Numeric converters (`shrt`, `ushrt`, `int`, `uint`, `lng`, `ulng`, `flt`, `dub`)
+accept exactly one number or string. Their outcome depends on the source and
+target types, not the particular argument value. A direct numeric literal argument
+(including parentheses or a leading minus) takes the converter's target type when
+that literal can use it. Thus `shrt(1)` succeeds directly, `shrt(70000)` is a compile
+error, and `lng(4294967296)` does not first need to fit an `int`. Pipeline inputs
+follow the same rule: `1 |> shrt()` succeeds directly. Typed values and computed
+expressions keep their source type; `let n = 1` followed by `shrt(n)` is fallible.
+Decimal-point literals still require a floating type, so `int(2.5)` converts a
+`dub` and returns `:overflow` rather than truncating.
+
+Integer widening succeeds when the target contains the entire source range.
+Unsigned-to-signed widening requires a strictly wider target; signed-to-unsigned
+conversion is fallible. Every integer-to-floating conversion always succeeds,
+rounding to the nearest destination value when necessary. `flt` to `dub` and
+same-type conversions also always succeed and can use their success value directly.
+
+Other numeric conversions return `Sym<:ok(Target), :overflow>`. Integer targets
+require finite integral input in range: no wrapping or fractional truncation;
+signed floating zero becomes integer zero. `dub` to `flt` rounds to nearest,
+including subnormals and underflow to signed zero, and fails only if a finite
+input would round to infinity. Values just beyond the largest finite `flt` may
+still round to it. Floating targets preserve signed zero and admit infinities
+and NaNs, without promising preservation of NaN payload bits. Ties round to even,
+matching literals and floating text parsing.
+
+String-to-number conversions return `Sym<:ok(Target), :invalid(str)>`; failure
+carries the original immutable string, including any embedded zero bytes.
+Parsing consumes the whole byte string, with no whitespace trimming. Integer
+text is an optional `+`/`-` followed by ASCII decimal digits; leading zeroes are
+allowed, and unsigned targets accept `-0` but not negative nonzero values.
+Malformed and out-of-range text both produce `:invalid`.
+
+Floating text accepts an optional sign, decimal digits with an optional decimal
+point (at least one digit total), and an optional `e`/`E` exponent with an optional
+sign and required digits. Lowercase `inf` and `nan`, with an optional sign, are
+also accepted. Hexadecimal forms, separators, whitespace and embedded zero bytes
+are invalid. Decimal text rounds directly to the target precision, allowing
+subnormal values and underflow to signed zero; overflow to infinity is invalid.
+This text grammar does not add exponent syntax to source number literals.
+
+Numbers and `bool` convert to `str` with exactly one argument.
 Integers use ordinary decimal notation; bools produce `true` or `false`.
 Floating formatting is an explicit initial implementation choice: use the first
 C-locale `%g` precision (1–9 significant digits for `flt`, 1–17 for `dub`) that
