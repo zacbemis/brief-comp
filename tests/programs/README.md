@@ -97,8 +97,14 @@ checks 28 in-scope fences in 49 generated native/diagnostic cases (normal and
 sanitized), and explicitly excludes eight later-version module/collection
 examples. These generated cases are separate from the 86 source fixtures here;
 section 12's entry-result prose is also covered by the existing fixtures and
-native/stage-level tests. M6's broader documentation/diagnostic finish is still
-planned.
+native/stage-level tests.
+
+M6 is in progress. Its first slice adds 20 generated pipeline/matching doc cases
+and shared acceptance helpers with eleven failure-guard checks. The
+[acceptance tracker](../doc-acceptance.md) and [pipeline audit](../doc-pipelines.md)
+record exact scope, including partial coverage and later-version exclusions.
+These generated cases also remain separate from the 86 source fixtures here;
+other document audits and diagnostic improvements are still outstanding.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

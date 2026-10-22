@@ -210,7 +210,10 @@ exhaust it rather than panic. Panics terminate the process without unwinding own
   native driver tests; program tests in normal and sanitizer configurations;
   and 146 doc-example parsing cases, with wrappers for fragments and expected
   failures for syntax-error examples. Later-version syntax and incomplete
-  API notation are excluded explicitly in the doc-test manifest.
+  API notation are excluded explicitly in the doc-test manifest. Native document
+  acceptance adds 49 error-handling cases and 20 pipeline/matching cases, with
+  explicit partial/deferred classifications and tested audit guards; run them
+  with `ctest --test-dir build -L doc-acceptance --output-on-failure`.
 - `tests/parse/`: 106 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
@@ -236,6 +239,8 @@ The overview links the remaining topic documents. Milestone 5 is complete for th
 first-version scope: pipelines, scalar/symbol matching, named sets, success/error
 handling, numeric/string conversions and string literal patterns are implemented.
 The [error-example acceptance audit](tests/doc-errors.md) checks the in-scope
-`lang-errors.txt` examples, including their compile errors. Milestone 6's broader
-documentation/diagnostic finish remains planned. Symbol ordering and
-refutable/nested payload patterns remain deferred, not M5 blockers.
+`lang-errors.txt` examples, including their compile errors. **Milestone 6 is in
+progress:** its first slice adds executable pipeline/matching doc examples and
+shared acceptance guards. The [document acceptance tracker](tests/doc-acceptance.md)
+records partial coverage and the remaining audits/diagnostic finish. Symbol
+ordering and refutable/nested payload patterns remain deferred, not M5 blockers.
