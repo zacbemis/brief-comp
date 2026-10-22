@@ -7,7 +7,8 @@ produce a native program.
 **Current state: milestones 0–4 are implemented**, including native compilation,
 numbers, control flow, heap strings, structs, methods, and reference counting.
 **M5 is in progress:** pipelines, scalar/symbol matching, named symbol sets,
-implicit success returns, error-set inference, and `?`/`!` handling now compile.
+implicit success returns, error-set inference, `?`/`!` handling and numeric/string
+conversions now compile.
 Compilation supports the subset below; the parser
 accepts much more syntax. Most examples in the design docs still describe future
 features, not programs that can currently be compiled.
@@ -110,7 +111,15 @@ Compilation supports:
   the old 128-function depth limit. Runtime recursion still uses the host C
   stack and may exhaust it rather than panic; tail-call elimination is not
   guaranteed.
-
+- Numeric-target converters accept numbers or strings. Integer targets require
+  exact integral values in range; floating targets round, with every integer-to-float
+  conversion succeeding. `dub` to `flt` fails only on finite overflow. Numeric
+  literals take the converter's target type, so `shrt(1)` succeeds directly and
+  `shrt(70000)` is a compile error. Other numeric failures return `:overflow`.
+  Parsing text returns `:invalid(original)` on bad syntax or range, with binary-safe
+  full-input validation. Floating decimal text rounds directly to its destination
+  width. Conversions work with pipelines, matching,
+  `?` and `!`; see `docs/lang-types.txt` for the exact rules.
 - Immutable heap strings, `+`/`+=`, bytewise comparisons, and `str(number)` /
   `str(bool)` conversions. See `docs/lang-types.txt` for formatting choices.
 - Nominal structs, complete named field initialization, field reads/writes and
@@ -138,9 +147,9 @@ explicit non-unit `ret`. `print` remains a reserved top-level builtin taking exa
 also reserved as a top-level builtin and accepts exactly one number or `bool`.
 
 Partial `Sym<..., _>` annotations are return-only and must declare `:ok`; they are
-not general open symbol-set types. Fallible conversions and string literal
-patterns remain unimplemented, so M5 is not complete. Symbol payload patterns must be a binding or `_`;
-refutable/nested patterns and symbol ordering remain future work. `const`, numeric-target conversions,
+not general open symbol-set types. String literal patterns remain unimplemented,
+so M5 is not complete. Symbol payload patterns must be a binding or `_`;
+refutable/nested patterns and symbol ordering remain future work. `const`,
 character/object/string-to-string conversions, indexing,
 function values, cloning, identity comparison, and other later features also
 remain unsupported. Recursive struct/symbol shapes do not have equality.
@@ -221,6 +230,6 @@ Wide and combining characters do not yet have special display-width handling.
 - [First compiler plan](docs/plans/first-version.txt)
 
 The overview links the remaining topic documents. Milestone 5 is in progress:
-pipelines, scalar/symbol matching, named sets and success/error handling are
-implemented. Fallible conversions and string literal patterns remain, as do
+pipelines, scalar/symbol matching, named sets, success/error handling and fallible
+numeric/string conversions are implemented. String literal patterns remain, as do
 deferred symbol ordering and refutable/nested payload patterns.
