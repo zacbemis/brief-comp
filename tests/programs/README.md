@@ -128,9 +128,13 @@ source-exponent diagnostics are an explicit limitation. The overview slice adds
 overview has no code fences. It guards first-version/deferred scope, checks the
 document/open-question inventories, and exercises representative entry, typing,
 control-flow, permission, outcome and ownership contracts. The shared harness
-now handles prose-only manifests, with fourteen failure-guard checks. These
-generated cases remain separate from the 86 source fixtures here; other document
-audits and diagnostic improvements are still outstanding.
+now handles prose-only manifests, with fourteen failure-guard checks. The raw
+[running-sample audit](../doc-base.md) adds 38 cases from 38 completely classified
+source spans, including preserved arithmetic/control flow and localized
+User/Admin/retaining/handler bodies. Module, trait, const, JSON, vector and clone
+limitations are explicit; adapted bodies are not acceptance of those features.
+These generated cases remain separate from the 86 source fixtures here; other
+document audits and diagnostic improvements are still outstanding.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.
