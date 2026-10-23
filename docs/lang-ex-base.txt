@@ -147,10 +147,10 @@ impl User: HasUser {
     :ok(User {
       name: name
       age: age
-      userVer: VERSION 
+      userVer: VERSION
     })
   }
-  
+
   pub fromJson(json: Json): Sym<:ok(User), Json.Error, :err(str)> {
     let name = json.getStr("name")?
     let age = json.getInt("age")?
@@ -256,7 +256,7 @@ main() {
 }
 
 // in a function in another file
-const user = User.new("Bob", 20)? // shorthand for error matching and propigates errors
+const user = User.new("Bob", 20)? // shorthand for error matching and propagates errors
 // or
 const user = User.new("Bob", 20)! // panic
 // or
