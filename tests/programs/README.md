@@ -114,8 +114,13 @@ explicitly deferred. The memory slice adds 48
 flow joins, symbol/handler permissions, argument snapshots, retained/returned
 owners and scope/jump cleanup. Count elimination, collector claims, cloning,
 `const` and real resource APIs have explicit partial/deferred classifications.
-These generated cases remain separate from the 86 source fixtures here; other
-document audits and diagnostic improvements are still outstanding.
+The syntax slice adds 65 [syntax-document cases](../doc-syntax.md), observing
+operators/precedence, bindings, control flow and continuations, and checking
+exact syntax/type errors. Deferred fragments and the token-preserving
+struct-condition diagnostic adapter are explicit; its generic parser messages
+remain a diagnostic-finish opportunity. These generated cases remain separate
+from the 86 source fixtures here; other document audits and diagnostic
+improvements are still outstanding.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.
