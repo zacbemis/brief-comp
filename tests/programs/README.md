@@ -106,8 +106,12 @@ record exact scope, including partial coverage and later-version exclusions.
 The next slice adds 33 [function-document cases](../doc-functions.md), covering
 return typing, owned/unit results, call forms and selected prose rules, plus
 regression coverage for a misleading partial-return payload-collision cascade.
-These generated cases remain separate from the 86 source fixtures here; other
-document audits and diagnostic improvements are still outstanding.
+The symbol slice adds 32 [symbol-document cases](../doc-symbols.md), covering
+constructors/handlers, named sets, forward/recursive aliases, exact payload
+identity and contextual payload widening, with module-qualified sets and ordering
+explicitly deferred. These generated cases remain separate from the 86 source
+fixtures here; other document audits and diagnostic improvements are still
+outstanding.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.
