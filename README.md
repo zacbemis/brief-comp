@@ -9,9 +9,10 @@ numbers, control flow, heap strings, structs, methods, and reference counting.
 **M5 is complete for the first-version scope:** pipelines, scalar/symbol matching, named symbol sets,
 implicit success returns, error-set inference, `?`/`!` handling, numeric/string
 conversions and string literal patterns now compile.
-Compilation supports the subset below; the parser
-accepts much more syntax. Most examples in the design docs still describe future
-features, not programs that can currently be compiled.
+Compilation supports the subset below; the parser accepts much more syntax.
+The design docs also include deferred features and fragments needing context.
+The [document audits](tests/doc-acceptance.md) record executable coverage,
+scaffolding and exclusions.
 
 ## Build and test
 
@@ -213,8 +214,8 @@ exhaust it rather than panic. Panics terminate the process without unwinding own
   failures for syntax-error examples. Later-version syntax and incomplete
   API notation are excluded explicitly in the doc-test manifest. Native document
   acceptance adds 49 error-handling, 20 pipeline/matching, 33 function, 32 symbol,
-  48 memory/permission and 65 syntax cases, with explicit partial/deferred
-  classifications and tested audit guards; run them with
+  48 memory/permission, 65 syntax and 64 type cases, with explicit
+  partial/deferred classifications and tested audit guards; run them with
   `ctest --test-dir build -L doc-acceptance --output-on-failure`.
 - `tests/parse/`: 106 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
@@ -242,9 +243,9 @@ first-version scope: pipelines, scalar/symbol matching, named sets, success/erro
 handling, numeric/string conversions and string literal patterns are implemented.
 The [error-example acceptance audit](tests/doc-errors.md) checks the in-scope
 `lang-errors.txt` examples, including their compile errors. **Milestone 6 is in
-progress:** executable pipeline/matching, function, symbol, memory and syntax doc
-examples now use shared acceptance guards. Function-contract mismatches no longer
-cause a misleading partial-set payload-collision diagnostic. The
+progress:** executable pipeline/matching, function, symbol, memory, syntax and
+type doc examples now use shared acceptance guards. Function-contract mismatches
+no longer cause a misleading partial-set payload-collision diagnostic. The
 [document acceptance tracker](tests/doc-acceptance.md) records partial coverage
 and the remaining audits/diagnostic finish. Symbol ordering and refutable/nested
 payload patterns remain deferred, not M5 blockers.

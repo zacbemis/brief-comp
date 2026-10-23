@@ -15,7 +15,7 @@ not being added to that scope by these tests.
 | `lang-pipelines.txt` | [First M6 slice](doc-pipelines.md): 17 fences classified; ten represented in 20 cases (fence 11 is partial), six later-version exclusions and one syntax reference. Selected inline syntax examples are also checked. |
 | `lang-desc.txt` | Pending overview/example acceptance audit. |
 | `lang-syntax.txt` | [Syntax audit](doc-syntax.md): 33 fences classified, 30 represented in 65 cases, three collection-only exclusions. Fences 3, 4, 6, 17, 26, 32 and 33 are partial. Inline/prose cases check rejected expression updates/assignments, scope, continuations, control flow and range rules. Struct-condition parser messages still need a more actionable hint; parser acceptance remains separate. |
-| `lang-types.txt` | Pending document audit; arithmetic/conversion/struct runtime tests do not replace it. |
+| `lang-types.txt` | [Type audit](doc-types.md): 24 fences classified, 15 represented in 64 cases, nine deferred feature/library exclusions. Equality fences 20/21 are partial (identity calls deferred). Guarded prose cases cover primitive/literal domains, arithmetic panics, numeric/text conversions, IEEE behavior, binary strings, unit and nominal equality. The audit added `chr`-to-number conversion to the chapter and compiler and a specific recursive-equality error; source-exponent errors still use a generic message. |
 | `lang-functions.txt` | [Function audit](doc-functions.md): 27 fences classified, 20 represented in 33 cases (fences 9 and 27 are partial), seven later-version exclusions. Selected parameter, inference and evaluation-order prose rules are also checked; a partial-return diagnostic cascade is fixed. |
 | `lang-symbols.txt` | [Symbol audit](doc-symbols.md): ten fences classified, nine represented in 32 cases, one module-qualified type exclusion. Guarded prose cases cover local composition, transparent/recursive aliases and exact/contextual payload types; payload-free ordering prose remains deferred. |
 | `lang-memory.txt` | [Memory audit](doc-memory.md): 17 fences classified, ten represented in 48 cases, seven later-version/API exclusions. Fences 4, 6 and 7 are partial: exact count-elimination and collector claims are not tested. Guarded prose cases check access-path/flow permissions, symbol handlers, pinning and owned cleanup. |
@@ -31,10 +31,10 @@ Run all current native document acceptance tests and their support guards:
 ctest --test-dir build -L doc-acceptance --output-on-failure
 ```
 
-The `doc-errors`, `doc-pipelines`, `doc-functions`, `doc-symbols`, `doc-memory`
-and `doc-syntax` labels select individual audits. Each has normal and, when
-enabled, sanitized runs, using the C program runner without interpreter or shell
-dependencies. Generated cases live in separate build-tree directories per
+The `doc-errors`, `doc-pipelines`, `doc-functions`, `doc-symbols`, `doc-memory`,
+`doc-syntax` and `doc-types` labels select individual audits. Each has normal and,
+when enabled, sanitized runs, using the C program runner without interpreter or
+shell dependencies. Generated cases live in separate build-tree directories per
 test/configuration; they are not included in the 86 checked-in program-fixture
 count.
 

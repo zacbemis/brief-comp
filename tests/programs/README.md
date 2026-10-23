@@ -118,9 +118,14 @@ The syntax slice adds 65 [syntax-document cases](../doc-syntax.md), observing
 operators/precedence, bindings, control flow and continuations, and checking
 exact syntax/type errors. Deferred fragments and the token-preserving
 struct-condition diagnostic adapter are explicit; its generic parser messages
-remain a diagnostic-finish opportunity. These generated cases remain separate
-from the 86 source fixtures here; other document audits and diagnostic
-improvements are still outstanding.
+remain a diagnostic-finish opportunity. The type slice adds 64
+[type-document cases](../doc-types.md): primitive/literal domains, checked
+arithmetic, numeric/text conversion rules including `chr` sources, IEEE
+behavior, binary strings, content equality and unit effects. Identity calls in
+two equality fences and nine feature/library fences remain deferred; generic
+source-exponent diagnostics are an explicit limitation. These generated cases
+remain separate from the 86 source fixtures here; other document audits and
+diagnostic improvements are still outstanding.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.
