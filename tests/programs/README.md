@@ -103,8 +103,11 @@ M6 is in progress. Its first slice adds 20 generated pipeline/matching doc cases
 and shared acceptance helpers with eleven failure-guard checks. The
 [acceptance tracker](../doc-acceptance.md) and [pipeline audit](../doc-pipelines.md)
 record exact scope, including partial coverage and later-version exclusions.
-These generated cases also remain separate from the 86 source fixtures here;
-other document audits and diagnostic improvements are still outstanding.
+The next slice adds 33 [function-document cases](../doc-functions.md), covering
+return typing, owned/unit results, call forms and selected prose rules, plus
+regression coverage for a misleading partial-return payload-collision cascade.
+These generated cases remain separate from the 86 source fixtures here; other
+document audits and diagnostic improvements are still outstanding.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

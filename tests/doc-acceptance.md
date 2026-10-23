@@ -16,7 +16,7 @@ not being added to that scope by these tests.
 | `lang-desc.txt` | Pending overview/example acceptance audit. |
 | `lang-syntax.txt` | Pending native/diagnostic audit; existing parser acceptance remains in place. |
 | `lang-types.txt` | Pending document audit; arithmetic/conversion/struct runtime tests do not replace it. |
-| `lang-functions.txt` | Pending native/diagnostic audit. |
+| `lang-functions.txt` | [Function audit](doc-functions.md): 27 fences classified, 20 represented in 33 cases (fences 9 and 27 are partial), seven later-version exclusions. Selected parameter, inference and evaluation-order prose rules are also checked; a partial-return diagnostic cascade is fixed. |
 | `lang-symbols.txt` | Pending audit with explicit first-version/deferred classification. |
 | `lang-memory.txt` | Pending audit, including exact first-version permission errors. |
 | `lang-ex-base.txt` | Pending in-scope example audit. |
@@ -31,7 +31,7 @@ Run all current native document acceptance tests and their support guards:
 ctest --test-dir build -L doc-acceptance --output-on-failure
 ```
 
-The `doc-errors` and `doc-pipelines` labels select individual audits. Each has
+The `doc-errors`, `doc-pipelines` and `doc-functions` labels select individual audits. Each has
 normal and, when enabled, sanitized runs, using the C program runner without
 interpreter or shell dependencies. Generated cases live in separate build-tree
 directories per test/configuration; they are not included in the 86 checked-in
