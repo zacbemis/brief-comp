@@ -138,6 +138,13 @@ JSON fence, preserving constructor/propagation bodies with deterministic field
 access. It tests local error compatibility, handling, ownership and coverage,
 not JSON parsing/serialization or module privacy; an unhandled-getter diagnostic
 cascade remains tracked. The chapter contains no builtin examples.
+The [modules-chapter audit](../doc-modules.md) adds 30 cases covering eight of its
+17 fences and guarded prose contracts. It checks local structs/literals, explicit
+receivers and `Self`, constructors and entry ownership/results in one file.
+Nine fences are deferred; three represented fences are partial. Neither local
+`File.read` outcomes nor local public declarations establish filesystem APIs,
+module loading or cross-file privacy. The top-level-call parser message remains
+a tracked diagnostic gap.
 
 These generated cases remain separate from the 86 source fixtures here; other
 document audits and diagnostic improvements are still outstanding.
