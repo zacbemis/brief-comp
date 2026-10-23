@@ -89,6 +89,7 @@ add_doc_acceptance_test(test_doc_functions test_doc_functions.cmake doc-function
 add_doc_acceptance_test(test_doc_symbols test_doc_symbols.cmake doc-symbols OFF)
 add_doc_acceptance_test(test_doc_memory test_doc_memory.cmake doc-memory OFF)
 add_doc_acceptance_test(test_doc_syntax test_doc_syntax.cmake doc-syntax OFF)
+add_doc_acceptance_test(test_doc_types test_doc_types.cmake doc-types OFF)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
     add_doc_acceptance_test(test_doc_errors_sanitized test_doc_errors.cmake doc-errors ON)
     add_doc_acceptance_test(test_doc_pipelines_sanitized test_doc_pipelines.cmake doc-pipelines ON)
@@ -96,6 +97,7 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
     add_doc_acceptance_test(test_doc_symbols_sanitized test_doc_symbols.cmake doc-symbols ON)
     add_doc_acceptance_test(test_doc_memory_sanitized test_doc_memory.cmake doc-memory ON)
     add_doc_acceptance_test(test_doc_syntax_sanitized test_doc_syntax.cmake doc-syntax ON)
+    add_doc_acceptance_test(test_doc_types_sanitized test_doc_types.cmake doc-types ON)
 endif()
 
 add_test(NAME test_doc_examples_support
