@@ -60,7 +60,13 @@ int main(void) {
     valid(&a, "A { b: B }\nB { a: A }\nmain() {}");
     invalid(&a,
             "Node { next: Node }\nmain() {}\nf(a: Node, b: Node) { a == b }",
-            "Comparison");
+            "can contain a reference cycle have no == or !=");
+    invalid(&a,
+            "Node { next: Node }\nHolder { node: Node }\nmain() {}\n"
+            "f(a: Holder, b: Holder) { a != b }",
+            "can contain a reference cycle have no == or !=");
+    invalid(&a, "A {}\nmain() { A {} < A {} }",
+            "Comparison of this type is not implemented yet.");
   }
   TEST("fields and struct literal initialization are complete and typed") {
     invalid(&a, "A { x: int\nx: int }\nmain() {}", "Duplicate struct field");

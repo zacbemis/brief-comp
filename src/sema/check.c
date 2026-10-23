@@ -646,14 +646,20 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       expect(c, b, t(c, SEMA_BOOL), "Logical operators require bool.");
       result = t(c, SEMA_BOOL);
     } else if (comparison) {
+      int equality = op == BINARY_EQ || op == BINARY_NE;
+      int shaped = result->kind == SEMA_STRUCT || result->kind == SEMA_SYM;
       if (!special(result) &&
           !(sema_number(result) || result->kind == SEMA_CHR ||
             result->kind == SEMA_STR ||
-            ((op == BINARY_EQ || op == BINARY_NE) &&
+            (equality &&
              (result->kind == SEMA_BOOL || result->kind == SEMA_UNIT ||
-              ((result->kind == SEMA_STRUCT || result->kind == SEMA_SYM) &&
-               sema_equatable(result))))))
-        error(c, e->span, "Comparison of this type is not implemented yet.");
+              (shaped && sema_equatable(result))))))
+        // Only recursive shapes make a struct or symbol non-equatable. That is
+        // a language rule, unlike ordering, which is not implemented yet.
+        error(c, e->span,
+              equality && shaped
+                  ? "Types that can contain a reference cycle have no == or !=."
+                  : "Comparison of this type is not implemented yet.");
       result = t(c, SEMA_BOOL);
     } else if (!special(result)) {
       int integer = op == BINARY_REM || op >= BINARY_BIT_AND;

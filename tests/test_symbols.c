@@ -249,7 +249,7 @@ int main(void) {
     invalid(&a,
             "type Link = Sym<:none, :next(Node)>\nNode { link: Link }\n"
             "f(x: Link, y: Link) { x == y }\nmain() {}",
-            "Comparison of this type");
+            "can contain a reference cycle have no == or !=");
     invalid(&a, "main() { :a < :b }", "Comparison of this type");
     invalid(&a, "main() { :a(1) == :a(false) }", "conflicting payload");
   }
