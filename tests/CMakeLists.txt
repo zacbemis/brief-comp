@@ -85,9 +85,11 @@ function(add_doc_acceptance_test name script label debug)
 endfunction()
 add_doc_acceptance_test(test_doc_errors test_doc_errors.cmake doc-errors OFF)
 add_doc_acceptance_test(test_doc_pipelines test_doc_pipelines.cmake doc-pipelines OFF)
+add_doc_acceptance_test(test_doc_functions test_doc_functions.cmake doc-functions OFF)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
     add_doc_acceptance_test(test_doc_errors_sanitized test_doc_errors.cmake doc-errors ON)
     add_doc_acceptance_test(test_doc_pipelines_sanitized test_doc_pipelines.cmake doc-pipelines ON)
+    add_doc_acceptance_test(test_doc_functions_sanitized test_doc_functions.cmake doc-functions ON)
 endif()
 
 add_test(NAME test_doc_examples_support
