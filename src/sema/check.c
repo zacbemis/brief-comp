@@ -77,6 +77,17 @@ static int return_fits(Checker *c, const SemaType *actual) {
   const SemaVariant *ok = sema_ok(actual), *wok = sema_ok(wanted);
   return !ok || (wok && ok->payload == wok->payload);
 }
+static const SemaType *checked_return(Checker *c, const SemaType *actual,
+                                      Span span, const char *message) {
+  if (c->function->written && !return_fits(c, actual)) {
+    error(c, span, message);
+    // A value rejected by the written contract contributes nothing: it must
+    // not collide with a partial annotation's :ok payload, and the function
+    // keeps its written contract so callers are still checked against it.
+    return t(c, SEMA_NEVER);
+  }
+  return actual;
+}
 static const SemaType *hint(SemaExpr *e) {
   if (!e)
     return NULL;
@@ -439,9 +450,9 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       flow = e->as.value->flow;
     }
     if (flow & SEMA_NEXT) {
-      if (c->function->written && !return_fits(c, value))
-        error(c, e->span,
-              "Return value does not match the written return type.");
+      value = checked_return(
+          c, value, e->span,
+          "Return value does not match the written return type.");
       if (reachable) {
         c->saw_return = 1;
         if (!c->function->written || c->function->partial)
@@ -827,12 +838,12 @@ static const SemaType *check_function(SemaProgram *p, SemaFunction *f,
   if (f->body->flow & SEMA_NEXT) {
     if (discard)
       body = &p->types[SEMA_UNIT];
+    body =
+        checked_return(&c, body, f->body->span,
+                       "Function body does not match the written return type.");
     if (!f->written || f->partial)
       c.candidate = return_join(&c, c.candidate, body, f->body->span,
                                 "Incompatible return types.");
-    if (f->written && !return_fits(&c, body))
-      error(&c, f->body->span,
-            "Function body does not match the written return type.");
   } else if (!c.saw_return)
     c.candidate = &p->types[SEMA_UNIT];
   const SemaType *result = full(&c, c.candidate);

@@ -155,6 +155,75 @@ int main(void) {
     invalid(&a, "f(): Sym<:ok, _, _> {}\nmain() {}", "Duplicate partial");
     invalid(&a, "type A = Sym<:ok, _>\nmain() {}", "Partial symbol sets");
   }
+  TEST("written return mismatches do not become partial-set collisions") {
+    struct {
+      const char *text;
+      size_t returns, bodies;
+    } cases[] = {
+        {"f(): Sym<:ok(int), _> { false }", 0, 1},
+        {"f(): Sym<:ok(A), _> { B {} }", 0, 1},
+        {"f(): Sym<:ok(int), _> { ret false }", 1, 0},
+        {"f(b: bool): Sym<:ok(int), _> { if b { ret false }\n1 }", 1, 0},
+        {"f(): Sym<:ok(int), _> { :ok(false) }", 0, 1},
+        {"f(): Sym<:ok(int), _> { ret :ok }", 1, 0},
+        {"f(b: bool): Sym<:ok(int), _> { if b { ret false }\n\"bad\" }", 1, 1},
+        {"f(): Sym<:ok(int), _> { ret 1\nret false }", 1, 0},
+        {"f(): Sym<:ok(A), _> { B {} }\ng() { f()! }", 0, 1},
+        {"f(): Sym<:ok(A), _> { B {} }\ng(): Sym<:ok(int), _> { false }", 0, 2},
+    };
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      char text[1024];
+      snprintf(text, sizeof(text), "A {}\nB {}\n%s\nmain() {}", cases[i].text);
+      Result r = check(&a, text);
+      for (int repeat = 0; repeat < 2; repeat++) {
+        if (repeat) {
+          diagnostics_init(&r.errors, &a);
+          sema_check(r.program, &r.errors);
+        }
+        ASSERT_EQ_INT(cases[i].returns + cases[i].bodies, r.errors.count);
+        size_t returns = 0, bodies = 0;
+        for (size_t j = 0; j < r.errors.count; j++) {
+          returns +=
+              strcmp(r.errors.items[j]->message,
+                     "Return value does not match the written return type.") ==
+              0;
+          bodies +=
+              strcmp(r.errors.items[j]->message,
+                     "Function body does not match the written return type.") ==
+              0;
+        }
+        ASSERT_EQ_INT(cases[i].returns, returns);
+        ASSERT_EQ_INT(cases[i].bodies, bodies);
+        ASSERT_TRUE(!r.program->functions[0].inference_conflict);
+        ASSERT_TRUE(!r.program->checked);
+        ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+        // Rejected returns contribute nothing: the written :ok remains the
+        // function's success type, so callers are still checked against it.
+        const SemaFunction *f = &r.program->functions[0];
+        ASSERT_EQ_INT(SEMA_SYM, f->symbol.outcome_type->kind);
+        const SemaVariant *ok = sema_ok(f->symbol.outcome_type);
+        ASSERT_TRUE(ok && ok->payload == sema_ok(f->written_type)->payload);
+      }
+    }
+    Result callers = check(&a, "f(b: bool): Sym<:ok(int), :bad, _> {\n"
+                               "if b { ret :bad }\nfalse }\n"
+                               "g() { f(true)\nlet s: str = f(true)! }\n"
+                               "main() {}");
+    const char *caller_messages[] = {
+        "Function body does not match the written return type.",
+        "A call that can fail must be handled with ?, !, or a match.",
+        "Binding value does not match its annotation."};
+    ASSERT_EQ_INT(3, callers.errors.count);
+    for (size_t i = 0; i < 3; i++)
+      ASSERT_TRUE(!strcmp(caller_messages[i], callers.errors.items[i]->message));
+    Result collision =
+        invalid(&a,
+                "a(): Sym<:ok(int), :bad(int)> { 1 }\n"
+                "b(): Sym<:ok(int), :bad(str)> { 1 }\n"
+                "f(): Sym<:ok(int), _> { a()?\nb()? }\nmain() {}",
+                "Symbol tag has conflicting payload types.");
+    ASSERT_EQ_INT(1, collision.errors.count);
+  }
   TEST("recursive success anchors and accumulated error sets reach a fixed "
        "point") {
     Result r = valid(&a, "f(n: int) { if n == 0 { ret :first }\ng(n - 1)? }\n"
