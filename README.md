@@ -214,9 +214,9 @@ exhaust it rather than panic. Panics terminate the process without unwinding own
   failures for syntax-error examples. Later-version syntax and incomplete
   API notation are excluded explicitly in the doc-test manifest. Native document
   acceptance adds 49 error-handling, 20 pipeline/matching, 33 function, 32 symbol,
-  48 memory/permission, 65 syntax, 64 type, 24 overview prose-contract and
-  38 raw running-sample cases, with explicit partial/deferred classifications and
-  tested audit guards; run them with
+  48 memory/permission, 65 syntax, 64 type, 24 overview prose-contract,
+  38 raw running-sample and 17 standard-library cases, with explicit
+  partial/deferred classifications and tested audit guards; run them with
   `ctest --test-dir build -L doc-acceptance --output-on-failure`.
 - `tests/parse/`: 106 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
@@ -245,9 +245,9 @@ handling, numeric/string conversions and string literal patterns are implemented
 The [error-example acceptance audit](tests/doc-errors.md) checks the in-scope
 `lang-errors.txt` examples, including their compile errors. **Milestone 6 is in
 progress:** executable pipeline/matching, function, symbol, memory, syntax and
-type doc examples, plus overview prose-contract and raw running-sample scenarios,
-now use shared acceptance guards. Function-contract mismatches no longer cause a
-misleading partial-set payload-collision diagnostic. The
-[document acceptance tracker](tests/doc-acceptance.md) records partial coverage
-and the remaining audits/diagnostic finish. Symbol ordering and refutable/nested
+type doc examples, plus overview prose-contract, raw running-sample and localized
+standard-library scenarios, now use shared acceptance guards. Function-contract
+mismatches no longer cause a misleading partial-set payload-collision diagnostic.
+The [document acceptance tracker](tests/doc-acceptance.md) records partial
+coverage and the remaining audits/diagnostic finish. Symbol ordering and refutable/nested
 payload patterns remain deferred, not M5 blockers.
