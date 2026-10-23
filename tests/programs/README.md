@@ -109,9 +109,13 @@ regression coverage for a misleading partial-return payload-collision cascade.
 The symbol slice adds 32 [symbol-document cases](../doc-symbols.md), covering
 constructors/handlers, named sets, forward/recursive aliases, exact payload
 identity and contextual payload widening, with module-qualified sets and ordering
-explicitly deferred. These generated cases remain separate from the 86 source
-fixtures here; other document audits and diagnostic improvements are still
-outstanding.
+explicitly deferred. The memory slice adds 48
+[memory/permission cases](../doc-memory.md), including exact access-path errors,
+flow joins, symbol/handler permissions, argument snapshots, retained/returned
+owners and scope/jump cleanup. Count elimination, collector claims, cloning,
+`const` and real resource APIs have explicit partial/deferred classifications.
+These generated cases remain separate from the 86 source fixtures here; other
+document audits and diagnostic improvements are still outstanding.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.
