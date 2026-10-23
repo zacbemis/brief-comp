@@ -295,7 +295,7 @@ int main(void) {
     invalid(&a, "main() { str(\"x\") }", "expects a number or bool");
     invalid(&a, "main() { str('x') }", "expects a number or bool");
     invalid(&a, "main() { int(\"1\") }", "must be handled");
-    invalid(&a, "main() { int(true) }", "expects a number or str");
+    invalid(&a, "main() { int(true) }", "expects a number, chr or str");
     invalid(&a, "A {}\nmain() { str(A {}) }", "expects a number or bool");
   }
   TEST("long field dependency chains use no compiler C recursion") {

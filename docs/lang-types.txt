@@ -98,7 +98,7 @@ print(str(count))                 // always succeeds
 Converting a value of your own type, as in `str(user)`, will need a way for the type to say how it converts. That is planned as a trait.
 
 Numeric converters (`shrt`, `ushrt`, `int`, `uint`, `lng`, `ulng`, `flt`, `dub`)
-accept exactly one number or string. Their outcome depends on the source and
+accept exactly one number, `chr`, or string. Their outcome depends on the source and
 target types, not the particular argument value. A direct numeric literal argument
 (including parentheses or a leading minus) takes the converter's target type when
 that literal can use it. Thus `shrt(1)` succeeds directly, `shrt(70000)` is a compile
@@ -113,6 +113,8 @@ Unsigned-to-signed widening requires a strictly wider target; signed-to-unsigned
 conversion is fallible. Every integer-to-floating conversion always succeeds,
 rounding to the nearest destination value when necessary. `flt` to `dub` and
 same-type conversions also always succeed and can use their success value directly.
+A `chr` converts to its unsigned byte value, 0 to 255, which every numeric type
+holds, so `int('a')` always succeeds with `97`.
 
 Other numeric conversions return `Sym<:ok(Target), :overflow>`. Integer targets
 require finite integral input in range: no wrapping or fractional truncation;
@@ -265,7 +267,7 @@ let message = "first\nsecond"   // one source line, a newline in the value
 
 A `chr` is one byte. A character outside ASCII takes more than one `chr`.
 Characters compare by their unsigned byte values; arithmetic on characters
-requires an explicit numeric conversion.
+requires an explicit numeric conversion, as in `int(letter) - int('a')`.
 
 ```
 let letter: chr = 'a'

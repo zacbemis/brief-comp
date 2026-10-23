@@ -81,6 +81,32 @@ int main(void) {
         ASSERT_TRUE(p->functions[0].symbol.return_type == to);
       }
   }
+  TEST("chr converts to every numeric target with a plain success ABI") {
+    const char *names[] = {"shrt", "ushrt", "int", "uint",
+                           "lng",  "ulng",  "flt", "dub"};
+    for (size_t j = 0; j < 8; j++) {
+      char source[256];
+      snprintf(source, sizeof(source), "f(x: chr) { %s(x) }\nmain() {}",
+               names[j]);
+      SemaProgram *p = check(&a, source, NULL);
+      const SemaType *to = &p->types[SEMA_SHRT + j];
+      const SemaType *outcome = sema_conversion(p, &p->types[SEMA_CHR], to);
+      ASSERT_EQ_INT(1, outcome->symbols->count);
+      ASSERT_TRUE(sema_ok(outcome)->payload == to);
+      ASSERT_TRUE(p->functions[0].symbol.return_type == to);
+      IrProgram *ir = ir_lower(&a, p);
+      ASSERT_TRUE(ir != NULL);
+      if (!ir)
+        continue;
+      ir_insert_rc(&a, ir);
+      FILE *out = tmpfile();
+      ASSERT_TRUE(out != NULL);
+      if (out) {
+        ASSERT_TRUE(emit_c(out, ir));
+        fclose(out);
+      }
+    }
+  }
   TEST(
       "typed sources retain their domain; literal arguments adopt the target") {
     check(&a, "main() { shrt(1)\nflt(16777217)\n lng(4294967296) }", NULL);
@@ -95,10 +121,10 @@ int main(void) {
     check(&a, "main() { int(\"1\") }", "must be handled");
     check(&a, "main() { int() }", "exactly one");
     check(&a, "main() { int(1, 2) }", "exactly one");
-    check(&a, "main() { int(true) }", "number or str");
+    check(&a, "main() { int(true) }", "number, chr or str");
     check(&a, "int() {}\nmain() {}", "Expected a declaration");
-    check(&a, "main() { int('1') }", "number or str");
-    check(&a, "Box {}\nmain() { int(Box {}) }", "number or str");
+    check(&a, "main() { let c: chr = '1'\nint(c) + 1 }", NULL);
+    check(&a, "Box {}\nmain() { int(Box {}) }", "number, chr or str");
     check(&a, "f(): int { int(\"1\")? }\nmain() {}", "Propagated variants");
     SemaProgram *literal_types =
         check(&a,

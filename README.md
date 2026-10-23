@@ -114,9 +114,10 @@ Compilation supports:
   the old 128-function depth limit. Runtime recursion still uses the host C
   stack and may exhaust it rather than panic; tail-call elimination is not
   guaranteed.
-- Numeric-target converters accept numbers or strings. Integer targets require
-  exact integral values in range; floating targets round, with every integer-to-float
-  conversion succeeding. `dub` to `flt` fails only on finite overflow. Numeric
+- Numeric-target converters accept numbers, `chr` or strings; a `chr` always
+  converts to its byte value. Integer targets require exact integral values in
+  range; floating targets round, with every integer-to-float conversion
+  succeeding. `dub` to `flt` fails only on finite overflow. Numeric
   literals take the converter's target type, so `shrt(1)` succeeds directly and
   `shrt(70000)` is a compile error. Other numeric failures return `:overflow`.
   Parsing text returns `:invalid(original)` on bad syntax or range, with binary-safe

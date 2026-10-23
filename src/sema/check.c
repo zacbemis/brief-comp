@@ -521,9 +521,10 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
           !sema_number(arg->type) && arg->type->kind != SEMA_BOOL)
         error(c, arg->span, "str expects a number or bool argument.");
       if (s && s->builtin == SEMA_BUILTIN_CONVERT && !special(arg->type) &&
-          !sema_number(arg->type) && arg->type->kind != SEMA_STR)
+          !sema_number(arg->type) && arg->type->kind != SEMA_STR &&
+          arg->type->kind != SEMA_CHR)
         error(c, arg->span,
-              "Numeric conversion expects a number or str argument.");
+              "Numeric conversion expects a number, chr or str argument.");
       flow = sequence(flow, arg->flow);
     }
     if (s && e->as.call.count != s->arity)
@@ -534,7 +535,8 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
           : s->builtin == SEMA_BUILTIN_STR
               ? "str expects exactly one number or bool argument."
           : s->builtin == SEMA_BUILTIN_CONVERT
-              ? "Numeric conversion expects exactly one number or str argument."
+              ? "Numeric conversion expects exactly one number, chr or str "
+                "argument."
               : "Wrong number of function arguments.");
     result = s ? s->return_type
              : e->as.call.method && unknown(e->as.call.args[0]->type)

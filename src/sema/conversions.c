@@ -10,10 +10,13 @@ const SemaType *sema_conversion(SemaProgram *p, const SemaType *source,
   // Subsequent SCC passes add failures once the source domain becomes known.
   if (source->kind == SEMA_UNKNOWN)
     return sema_success(p, target);
-  if (!sema_number(source) && source->kind != SEMA_STR)
+  if (!sema_number(source) && source->kind != SEMA_STR &&
+      source->kind != SEMA_CHR)
     return &p->types[SEMA_ERROR];
   int infallible = source == target;
-  if (sema_integer(source) && sema_integer(target))
+  if (source->kind == SEMA_CHR)
+    infallible = 1; // An unsigned byte, 0-255, fits every numeric target.
+  else if (sema_integer(source) && sema_integer(target))
     infallible = source->is_signed == target->is_signed
                      ? source->bits <= target->bits
                      : !source->is_signed && target->is_signed &&
