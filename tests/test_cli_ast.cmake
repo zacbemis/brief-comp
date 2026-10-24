@@ -106,6 +106,38 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR tokens STREQUAL "")
     message(FATAL_ERROR "operator syntax must not affect lexer-only dumping (${status}):\n${errors}")
 endif()
 
+# Named-field literals in control headers require parentheses. Check the
+# opening-brace location/highlight exactly, without the old recovery cascade.
+set(hint "Wrap struct literals in conditions or iterables in parentheses.")
+set(code "main() {\r\n")
+set(expected "")
+set(line_number 2)
+foreach(line IN ITEMS
+        "  if Guest { name: name }.isAllowed() {}"
+        "  while Guest { name: name }.ok {}"
+        "  for i in 0..Limit { n: 2 }.n {}")
+    string(APPEND code "${line}\r\n")
+    string(FIND "${line}" "{" brace)
+    math(EXPR column "${brace} + 1")
+    string(REPEAT " " ${brace} indent)
+    string(APPEND expected "error: ${hint}\n  --> ${invalid}:${line_number}:${column}\n  |\n${line_number} | ${line}\n  | ${indent}^\n")
+    math(EXPR line_number "${line_number} + 1")
+endforeach()
+string(APPEND code "  let kept = 1\r\n}\r\nafter() {}\r\n")
+file(WRITE "${invalid}" "${code}")
+foreach(command IN ITEMS dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${invalid}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} struct-header hints (${status}):\n${errors}\nexpected:\n${expected}")
+    endif()
+endforeach()
+execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE tokens ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR tokens STREQUAL "")
+    message(FATAL_ERROR "struct-header syntax must remain lexically valid (${status}):\n${errors}")
+endif()
+
 file(WRITE "${valid}" "")
 execute_process(COMMAND "${BRIEF}" dump-ast "${valid}"
     RESULT_VARIABLE status OUTPUT_VARIABLE tree ERROR_VARIABLE errors)

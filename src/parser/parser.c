@@ -1257,12 +1257,28 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
         left = e;
         continue;
       }
-      if (allow_struct && token.type == TOK_LBRACE &&
+      if (token.type == TOK_LBRACE &&
           (left->kind == EXPR_NAME || left->kind == EXPR_FIELD)) {
-        left = struct_literal(p, left);
-        if (!left)
+        if (allow_struct) {
+          left = struct_literal(p, left);
+          if (!left)
+            return NULL;
+          continue;
+        }
+        // A named field cannot start an ordinary block item. Only diagnose
+        // that unmistakable literal shape; empty blocks and normal bodies
+        // must retain the existing condition/body ambiguity rule.
+        size_t field = p->position + 1;
+        while (field < p->tokens.count &&
+               p->tokens.items[field].type == TOK_NEWLINE)
+          field++;
+        if (field + 1 < p->tokens.count &&
+            p->tokens.items[field].type == TOK_IDENT &&
+            p->tokens.items[field + 1].type == TOK_COLON) {
+          error(p, "Wrap struct literals in conditions or iterables in "
+                   "parentheses.");
           return NULL;
-        continue;
+        }
       }
       if (match(p, TOK_LBRACKET)) {
         Expr *index = expression(p, 0, 1);

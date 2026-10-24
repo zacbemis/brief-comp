@@ -285,12 +285,9 @@ endif()
 list(GET alternatives 0 first)
 list(GET alternatives 1 second)
 list(GET alternatives 2 third)
-# The original has two equal diagnostics on one line. The runner expects one
-# error directive per source line. A newline before '.' is filtered out, so this
-# preserves the token stream and lets both diagnostics be checked independently.
-replace_once(first "}.isAllowed()" "}\n.isAllowed()")
-error_at(first "if Guest" "Expected a newline between items.")
-error_at(first ".isAllowed()" "Expected a newline between items.")
+# Keep the original negative intact: the header's literal now gets one
+# actionable parser error, so no token-preserving line adapter is needed.
+error_at(first "if Guest" "Wrap struct literals in conditions or iterables in parentheses.")
 example(31 struct-condition-unparenthesized "${guest_api}\nmain() { let name = \"Bob\"" "${first}" "}")
 example(31 struct-condition-parenthesized "${guest_api}\nmain() { let name = \"B\" + \"ob\""
     "${second}\n${third}" "print(\"done\")\n}\n// expect: method\n// expect: function\n// expect: done")

@@ -503,10 +503,171 @@ int main(void) {
                     "(if (index (name items) (struct-value (name Guest) (name "
                     "(name name)))) (block) none)");
     invalid(&arena, "main() { if Guest { name: name }.isAllowed() {} }",
-            "Expected");
-    invalid(&arena, "main() { while Guest { name: name }.ok {} }", "Expected");
+            "Wrap struct literals in conditions or iterables in parentheses.");
+    invalid(&arena, "main() { while Guest { name: name }.ok {} }",
+            "Wrap struct literals in conditions or iterables in parentheses.");
     invalid(&arena, "main() { for x in Guest { name: name }.items {} }",
-            "Expected");
+            "Wrap struct literals in conditions or iterables in parentheses.");
+  }
+  TEST("struct header hints have exact spans and recover without token changes") {
+    const char *message =
+        "Wrap struct literals in conditions or iterables in parentheses.";
+    const char *cases[] = {
+        "if Guest { name: name }.isAllowed() {}",
+        "while Guest { name: name }.ok {}",
+        "for x in Guest { name: name }.items {}",
+        "for i in 0..Limit { n: 2 }.n {}",
+        "if ready and Guest { name: name }.ok {}",
+        "if !Guest { name: name }.ok {}",
+        "if module.Guest { name: name }.ok {}",
+        "if (Guest) { name: name }.ok {}",
+        "if Guest { /* comment */ name: name }.ok {}",
+        "if Guest {\n// comment\nname: name, other: P { n: 1 }\n}.ok {}",
+        "let value = if Guest { name: name }.ok {} else {}",
+        "ret if Guest { name: name }.ok {} else {}",
+        "sink(if Guest { name: name }.ok {})",
+        "if outer(if Guest { name: name }.ok {}) {}",
+        "if test<Sym<:ok(Sym<:inner(int)>)>>(0) and Guest { name: name }.ok {}"};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+      char text[1024], crlf[2048];
+      snprintf(text, sizeof(text), "main() {\n%s\nlet kept = 1\n}\nafter() {}\n",
+               cases[i]);
+      size_t n = 0;
+      for (size_t j = 0; text[j]; j++) {
+        if (text[j] == '\n')
+          crlf[n++] = '\r';
+        crlf[n++] = text[j];
+      }
+      crlf[n] = '\0';
+      for (unsigned ending = 0; ending < 2; ending++) {
+        const char *source = ending ? crlf : text;
+        Parsed *v = parse(&arena, source);
+        if (v->diagnostics.count != 1)
+          diagnostics_print(&v->diagnostics, stderr);
+        ASSERT_EQ_INT(1, v->diagnostics.count);
+        const char *brace = strchr(strchr(source, '\n') + 1, '{');
+        size_t start = (size_t)(brace - source);
+        if (v->diagnostics.count) {
+          Diagnostic *d = v->diagnostics.items[0];
+          ASSERT_EQ_STRN(message, d->message, strlen(d->message));
+          ASSERT_EQ_INT(start, d->span.start);
+          ASSERT_EQ_INT(start + 1, d->span.end);
+        }
+        ASSERT_EQ_INT(2, v->program->count);
+        if (v->program->count == 2) {
+          Expr *body = v->program->items[0]->as.function.body;
+          ASSERT_EQ_INT(1, body->as.block.count);
+          if (body->as.block.count == 1) {
+            BlockItem kept = body->as.block.items[0];
+            ASSERT_EQ_INT(BLOCK_ITEM_DECL, kept.kind);
+            if (kept.kind == BLOCK_ITEM_DECL)
+              ASSERT_EQ_STRN("kept", kept.as.decl->name,
+                             strlen(kept.as.decl->name));
+          }
+          ASSERT_EQ_STRN("after", v->program->items[1]->name,
+                         strlen(v->program->items[1]->name));
+        }
+        TokenArray filtered = newline_filter(&arena, v->raw);
+        size_t bytes = filtered.count * sizeof(Token);
+        Token *saved = arena_alloc(&arena, bytes);
+        memcpy(saved, filtered.items, bytes);
+        size_t raw_bytes = v->raw.count * sizeof(Token);
+        Token *raw_saved = arena_alloc(&arena, raw_bytes);
+        memcpy(raw_saved, v->raw.items, raw_bytes);
+        Diagnostics again;
+        diagnostics_init(&again, &arena);
+        Program *program = parse_program(&arena, &v->names, filtered, &again);
+        ASSERT_EQ_INT(1, again.count);
+        if (again.count) {
+          ASSERT_EQ_STRN(message, again.items[0]->message,
+                         strlen(again.items[0]->message));
+          ASSERT_EQ_INT(start, again.items[0]->span.start);
+          ASSERT_EQ_INT(start + 1, again.items[0]->span.end);
+        }
+        ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+        ASSERT_TRUE(memcmp(raw_saved, v->raw.items, raw_bytes) == 0);
+        char *first = dump(&arena, v->program), *second = dump(&arena, program);
+        ASSERT_TRUE(first && second);
+        if (first && second)
+          ASSERT_EQ_STRN(first, second, strlen(second));
+      }
+    }
+    Parsed *v = parse(&arena,
+        "main() {\nif Guest { name: name }.ok {}\nlet broken 1\n"
+        "let kept = 1\n}\nafter() {}\n");
+    ASSERT_EQ_INT(2, v->diagnostics.count);
+    if (v->diagnostics.count == 2) {
+      ASSERT_EQ_STRN(message, v->diagnostics.items[0]->message,
+                     strlen(v->diagnostics.items[0]->message));
+      ASSERT_EQ_STRN("Expected '=' in binding.", v->diagnostics.items[1]->message,
+                     strlen(v->diagnostics.items[1]->message));
+    }
+    v = parse(&arena, "main() {\nif Guest { name: @ }.ok {}\nlet kept = 1\n}");
+    ASSERT_EQ_INT(2, v->diagnostics.count);
+    if (v->diagnostics.count == 2) {
+      ASSERT_EQ_STRN("Unexpected character.", v->diagnostics.items[0]->message,
+                     strlen(v->diagnostics.items[0]->message));
+      ASSERT_EQ_STRN(message, v->diagnostics.items[1]->message,
+                     strlen(v->diagnostics.items[1]->message));
+    }
+  }
+  TEST("header hints preserve ordinary blocks and literal escape contexts") {
+    expression_dump(&arena, "if ready {}.field",
+                    "(field (if (name ready) (block) none) field)");
+    expression_dump(&arena, "if Empty {}.ok {}",
+                    "(struct-value (field (if (name Empty) (block) none) ok))");
+    expression_dump(&arena, "if ready {}",
+                    "(if (name ready) (block) none)");
+    expression_dump(&arena, "while ready {}", "(while (name ready) (block))");
+    expression_dump(&arena, "for x in values {}",
+                    "(for x (name values) (block))");
+    const char *valid[] = {
+        "if ready { field }", "if ready { :tag }",
+        "if ready { let field: int = 1\nfield }",
+        "if ready { Guest { name: name } }",
+        "if (Guest { name: name }).ok {}",
+        "while (Guest { name: name }).ok {}",
+        "for i in 0..(Limit { n: 2 }).n {}",
+        "if check(Guest { name: name }) {}",
+        "while check(Guest { name: name }) {}",
+        "for i in bounds(Limit { n: 2 }) {}",
+        "if items[Guest { name: name }] {}",
+        "while items[Guest { name: name }] {}",
+        "for x in items[Guest { name: name }] {}",
+        "if check<Sym<:ok(Sym<:inner(int)>)>>(Guest { name: name }) {}"};
+    for (size_t i = 0; i < sizeof(valid) / sizeof(valid[0]); i++) {
+      char source[512];
+      snprintf(source, sizeof(source), "main() { %s }", valid[i]);
+      Parsed *v = parse(&arena, source);
+      if (v->diagnostics.count)
+        diagnostics_print(&v->diagnostics, stderr);
+      ASSERT_EQ_INT(0, v->diagnostics.count);
+    }
+    const char *other_errors[] = {
+        "main() { if true { field: value } }",
+        "main() { if check() { field: value } }",
+        "main() { if ready { field() : value } }",
+        "main() { if ready { true: value } }",
+        "main() { if ready", "main() { if ready {",
+        "main() { if ready {\n", "main() { if ready { field"};
+    for (size_t i = 0; i < sizeof(other_errors) / sizeof(other_errors[0]); i++) {
+      Parsed *v = parse(&arena, other_errors[i]);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      for (size_t j = 0; j < v->diagnostics.count; j++)
+        ASSERT_TRUE(strstr(v->diagnostics.items[j]->message,
+                           "Wrap struct literals") == NULL);
+    }
+    Parsed *v = parse(&arena, "main() { if Guest { name:");
+    ASSERT_EQ_INT(2, v->diagnostics.count);
+    if (v->diagnostics.count == 2) {
+      ASSERT_TRUE(strstr(v->diagnostics.items[0]->message,
+                         "Wrap struct literals") != NULL);
+      ASSERT_EQ_STRN("Expected '}' to close block.",
+                     v->diagnostics.items[1]->message,
+                     strlen(v->diagnostics.items[1]->message));
+    }
+    v = parse(&arena, "main() { if @ {} }");
+    ASSERT_EQ_INT(1, v->diagnostics.count);
   }
   TEST("match patterns include literals, ranges, symbols, sets, and "
        "catch-alls") {

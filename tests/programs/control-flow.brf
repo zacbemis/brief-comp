@@ -10,6 +10,8 @@
 // expect: unit a
 // expect: unit c
 // expect: control ok
+Gate { n: int }
+impl Gate { open(gate: Self): bool { gate.n < 2 } }
 check(ok: bool, message: str): () { if !ok { print(message) } }
 trace(label: str, value: int) { print(label)
   value }
@@ -105,5 +107,12 @@ main() {
   var empty = unused
   empty = ()
   check(empty == (), "unit bindings")
+  var steps = 0
+  while (Gate { n: steps }).open() { steps++ }
+  var sum = 0
+  for i in 0..(Gate { n: 3 }).n { sum += i }
+  if (Gate { n: steps }).n == 2 {
+    check(steps == 2 and sum == 3, "parenthesized header literals")
+  } else { print("parenthesized condition did not run") }
   print("control ok")
 }

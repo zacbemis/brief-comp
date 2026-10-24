@@ -9,5 +9,8 @@ main() {
   for i in 0..1e2 {} // error: Exponent notation is not supported in source number literals.
   1 |> { 1e2 => 0 } // error: Exponent notation is not supported in source number literals.
   1 |> { -1E2 => 0 } // error: Exponent notation is not supported in source number literals.
+  if Guest { name: "Bob" }.isAllowed() {} // error: Wrap struct literals in conditions or iterables in parentheses.
+  while Guest { name: "Bob" }.ok {} // error: Wrap struct literals in conditions or iterables in parentheses.
+  for i in 0..Limit { n: 2 }.n {} // error: Wrap struct literals in conditions or iterables in parentheses.
 }
 take(value: dub) {}
