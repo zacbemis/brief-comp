@@ -251,7 +251,7 @@ A chain of steps builds one intermediate collection per step. The compiler may c
 
 `orderBy` is stable: elements with equal keys keep their original order.
 
-A key can be a number, `chr`, `bool`, `str`, a symbol without a payload, or a named tuple of these. `str` keys compare bytes, so every capital letter comes before every lowercase letter: `"Zoe"` sorts before `"adam"`. Symbols sort in the order their tags are listed in their type, so with `type Tier = Sym<:bronze, :silver, :gold>`, `:bronze` comes first.
+A key can be a number, `chr`, `bool`, `str`, a symbol without a payload, or a named tuple of these. `str` keys compare bytes, so every ASCII capital letter comes before every ASCII lowercase letter: `"Zoe"` sorts before `"adam"`. Symbols sort in the order their tags are listed in their type, so with `type Tier = Sym<:bronze, :silver, :gold>`, `:bronze` comes first.
 
 `desc(key)` sorts a key largest first.
 
@@ -274,8 +274,8 @@ users |> orderBy((user) => (tier: desc(user.getTier()), name: user.getName()))
 `min` and `max` return the element, not the value. When several elements share the smallest or largest value, the first of them is returned.
 
 ```
-let oldest = users |> max((user) => user.getAge())   // Sym<:ok(User), :none>
-let highestAge = oldest!.getAge()
+let oldest = users |> max((user) => user.getAge())!  // User
+let highestAge = oldest.getAge()
 ```
 
 `avg` always returns a `dub`. `sum` returns the type of the value it adds, and integer overflow panics as it does everywhere.
