@@ -27,6 +27,9 @@
 // expect: range
 // expect: -0
 // expect: edge
+// expect: true
+// expect: true
+// expect: true
 main() {
   print(str(lng(12)))
   let half: flt = 0.5
@@ -75,4 +78,8 @@ main() {
   let edge = dub("3.402823466385289e38")!
   if flt(edge)! == flt("3.4028234663852886e38")! { print("edge") }
   else { print("wrong") }
+  // Decimal text still accepts exponent notation; source literals do not.
+  print(str(flt("1e+2")! == 100.0))
+  print(str(dub("-1.25E+2")! == -125.0))
+  print(str(dub("1E-2")! == 0.01))
 }

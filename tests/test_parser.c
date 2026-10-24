@@ -92,6 +92,74 @@ int main(void) {
                  "(program (fn pub add (params (x int) (y int)) int (block (+ "
                  "(name x) (name y)))))\n");
   }
+  TEST("source-exponent lexer errors suppress parser cascades and recover") {
+    const char *message =
+        "Exponent notation is not supported in source number literals.";
+    struct {
+      const char *code, *lexeme;
+    } cases[] = {
+        {"let value = 1e2", "1e2"}, {"let value = 0.5E-2", "0.5E-2"},
+        {"let value = -1e-2", "1e-2"}, {"f(1E+2)", "1E+2"},
+        {"ret -1.25e2", "1.25e2"}, {"if 1e2 > 0 {}", "1e2"},
+        {"while 1E2 > 0 {}", "1E2"},
+        {"for i in 0..1e2 {}", "1e2"}, {"P { n: 1E2 }", "1E2"},
+        {"1 |> {\n1e2 => 0\n_ => 1\n}", "1e2"},
+        {"1 |> {\n-1E2 => 0\n_ => 1\n}", "1E2"},
+        {"let value: int[1e2] = ()", "1e2"},
+        {"let value = 1e", "1e"}, {"let value = 1E+", "1E+"}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+      char text[512], crlf[1024];
+      snprintf(text, sizeof(text), "main() {\n%s\nlet kept = 1\n}\nafter() {}\n",
+               cases[i].code);
+      size_t n = 0;
+      for (size_t j = 0; text[j]; j++) {
+        if (text[j] == '\n')
+          crlf[n++] = '\r';
+        crlf[n++] = text[j];
+      }
+      crlf[n] = '\0';
+      for (unsigned ending = 0; ending < 2; ending++) {
+        const char *source = ending ? crlf : text;
+        Parsed *v = parse(&arena, source);
+        if (v->diagnostics.count != 1)
+          diagnostics_print(&v->diagnostics, stderr);
+        ASSERT_EQ_INT(1, v->diagnostics.count);
+        if (v->diagnostics.count) {
+          size_t start = (size_t)(strstr(source, cases[i].lexeme) - source);
+          ASSERT_EQ_STRN(message, v->diagnostics.items[0]->message,
+                         strlen(v->diagnostics.items[0]->message));
+          ASSERT_EQ_INT(start, v->diagnostics.items[0]->span.start);
+          ASSERT_EQ_INT(start + strlen(cases[i].lexeme),
+                        v->diagnostics.items[0]->span.end);
+        }
+        ASSERT_EQ_INT(2, v->program->count);
+        if (v->program->count == 2) {
+          Expr *body = v->program->items[0]->as.function.body;
+          ASSERT_TRUE(body->as.block.count > 0);
+          if (body->as.block.count) {
+            BlockItem last = body->as.block.items[body->as.block.count - 1];
+            ASSERT_EQ_INT(BLOCK_ITEM_DECL, last.kind);
+            if (last.kind == BLOCK_ITEM_DECL)
+              ASSERT_EQ_STRN("kept", last.as.decl->name,
+                             strlen(last.as.decl->name));
+          }
+          ASSERT_EQ_STRN("after", v->program->items[1]->name,
+                         strlen(v->program->items[1]->name));
+        }
+      }
+    }
+    Parsed *v = parse(&arena, "main() { let value = 1e2 + 2E3\n"
+                              "let = 1\nlet kept = 1\n}\nafter() {}\n");
+    ASSERT_EQ_INT(3, v->diagnostics.count); // Two lexemes and one binding error.
+    for (size_t i = 0; i < v->diagnostics.count; i++)
+      ASSERT_TRUE(strcmp(message, v->diagnostics.items[i]->message) == 0 ||
+                  strcmp("Expected a binding name.",
+                         v->diagnostics.items[i]->message) == 0);
+    expression_dump(&arena, "dub(\"1E+2\")!",
+                    "(panic (call (name dub) (str \"1E+2\")))");
+    expression_dump(&arena, "0.25 + e2", "(+ (float 0.25) (name e2))");
+    expression_dump(&arena, "1 // gap\n", "(int 1)");
+  }
   TEST("arithmetic grouping, right-associative power, and prefix binding") {
     expression_dump(&arena, "a + b * c", "(+ (name a) (* (name b) (name c)))");
     expression_dump(&arena, "a - b - c", "(- (- (name a) (name b)) (name c))");

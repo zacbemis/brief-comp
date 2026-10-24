@@ -352,6 +352,112 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
+  TEST("source exponents are source-backed errors without consuming newlines") {
+    const char *spellings[] = {
+        "1e2", "1E2", "1e+2", "1E-2", "0e0", "0.0e0", "1.25e10",
+        "1.25E+10", "1.25E-10", "01e002", "1e99999999999999999999",
+        "1e", "1E", "1e+", "1E-", "0.5E+", "0.5e"};
+    const char *endings[] = {"\n", "\r\n"};
+    const char *message =
+        "Exponent notation is not supported in source number literals.";
+    for (size_t i = 0; i < sizeof(spellings) / sizeof(spellings[0]); i++) {
+      for (unsigned negative = 0; negative < 2; negative++) {
+        for (size_t j = 0; j < sizeof(endings) / sizeof(endings[0]); j++) {
+          char text[256];
+          snprintf(text, sizeof(text), "%s%s%skept", negative ? "-" : "",
+                   spellings[i], endings[j]);
+          SourceFile *source =
+              source_create(&test_arena, "exponents.brf", text, strlen(text));
+          Diagnostics d;
+          diagnostics_init(&d, &test_arena);
+          Lexer lx;
+          lexer_init(&lx, source, &d);
+          if (negative)
+            expect(&lx, TOK_MINUS, "-");
+          Token t = lexer_next_token(&lx);
+          ASSERT_EQ_INT(TOK_ERR, t.type);
+          ASSERT_EQ_INT(negative, t.span.start);
+          ASSERT_EQ_INT(negative + strlen(spellings[i]), t.span.end);
+          ASSERT_TRUE(t.start == source->text + negative);
+          ASSERT_EQ_STRN(spellings[i], t.start, t.length);
+          ASSERT_TRUE(t.message != NULL);
+          if (t.message)
+            ASSERT_EQ_STRN(message, t.message, strlen(t.message));
+          ASSERT_EQ_INT(1, d.count);
+          if (d.count) {
+            ASSERT_EQ_STRN(message, d.items[0]->message,
+                           strlen(d.items[0]->message));
+            ASSERT_EQ_INT(t.span.start, d.items[0]->span.start);
+            ASSERT_EQ_INT(t.span.end, d.items[0]->span.end);
+          }
+          expect(&lx, TOK_NEWLINE, "\n");
+          Token kept = lexer_next_token(&lx);
+          ASSERT_EQ_INT(TOK_IDENT, kept.type);
+          ASSERT_EQ_STRN("kept", kept.start, kept.length);
+          ASSERT_EQ_INT(2, source_position(source, kept.span.start).line);
+          ASSERT_EQ_INT(1, source_position(source, kept.span.start).column);
+          expect(&lx, TOK_EOF, "");
+          Diagnostics bulk_errors;
+          diagnostics_init(&bulk_errors, &test_arena);
+          TokenArray bulk = lexer_tokenize(&test_arena, source, &bulk_errors);
+          ASSERT_EQ_INT(1, bulk_errors.count);
+          ASSERT_EQ_INT(4 + negative, bulk.count);
+          ASSERT_EQ_INT(TOK_ERR, bulk.items[negative].type);
+          ASSERT_EQ_INT(t.span.start, bulk.items[negative].span.start);
+          ASSERT_EQ_INT(t.span.end, bulk.items[negative].span.end);
+        }
+      }
+    }
+  }
+  TEST("exponent errors preserve identifier-like suffixes, delimiters and text") {
+    Lexer lx;
+    init_lexer(&lx, "1else 1equal 1e2name 1E_2 1e+name 1.0e2name e2 E2");
+    expect(&lx, TOK_INT_LIT, "1");
+    expect(&lx, TOK_ELSE, "else");
+    expect(&lx, TOK_INT_LIT, "1");
+    expect(&lx, TOK_IDENT, "equal");
+    expect(&lx, TOK_INT_LIT, "1");
+    expect(&lx, TOK_IDENT, "e2name");
+    expect(&lx, TOK_INT_LIT, "1");
+    expect(&lx, TOK_IDENT, "E_2");
+    expect(&lx, TOK_INT_LIT, "1");
+    expect(&lx, TOK_IDENT, "e");
+    expect(&lx, TOK_PLUS, "+");
+    expect(&lx, TOK_IDENT, "name");
+    expect(&lx, TOK_FLOAT_LIT, "1.0");
+    expect(&lx, TOK_IDENT, "e2name");
+    expect(&lx, TOK_IDENT, "e2");
+    expect(&lx, TOK_IDENT, "E2");
+    expect(&lx, TOK_EOF, "");
+    init_lexer(&lx, "1e2+3 1E-2..4 0.5e+2.foo(1e2)");
+    expect(&lx, TOK_ERR, "1e2");
+    expect(&lx, TOK_PLUS, "+");
+    expect(&lx, TOK_INT_LIT, "3");
+    expect(&lx, TOK_ERR, "1E-2");
+    expect(&lx, TOK_DOT_DOT, "..");
+    expect(&lx, TOK_INT_LIT, "4");
+    expect(&lx, TOK_ERR, "0.5e+2");
+    expect(&lx, TOK_PERIOD, ".");
+    expect(&lx, TOK_IDENT, "foo");
+    expect(&lx, TOK_LPAREN, "(");
+    expect(&lx, TOK_ERR, "1e2");
+    expect(&lx, TOK_RPAREN, ")");
+    expect(&lx, TOK_EOF, "");
+    init_lexer(&lx, "\"1e2\" \"1E-2\" 'e' 'E' 1.25 1..2 1.e2");
+    expect(&lx, TOK_STR_LIT, "\"1e2\"");
+    expect(&lx, TOK_STR_LIT, "\"1E-2\"");
+    expect(&lx, TOK_CHAR_LIT, "'e'");
+    expect(&lx, TOK_CHAR_LIT, "'E'");
+    expect(&lx, TOK_FLOAT_LIT, "1.25");
+    expect(&lx, TOK_INT_LIT, "1");
+    expect(&lx, TOK_DOT_DOT, "..");
+    expect(&lx, TOK_INT_LIT, "2");
+    expect(&lx, TOK_INT_LIT, "1");
+    expect(&lx, TOK_PERIOD, ".");
+    expect(&lx, TOK_IDENT, "e2");
+    expect(&lx, TOK_EOF, "");
+  }
+
   TEST("range operator from docs") {
     Lexer lx;
     init_lexer(&lx, "18..100 0..len(arr)");

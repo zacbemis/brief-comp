@@ -491,7 +491,7 @@ main() {
 ]=] "")
 require_prose("This text grammar does not add exponent syntax to source number literals.")
 set(code "let value = 1e2")
-error_at(code "let value" "Expected a newline between items.")
+error_at(code "let value" "Exponent notation is not supported in source number literals.")
 example(0 source-exponent "main() {" "${code}" "}")
 require_prose("A direct numeric literal argument (including parentheses or a leading minus) takes the converter's target type")
 example(0 conversion-literals "" [=[

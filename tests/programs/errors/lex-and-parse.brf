@@ -1,4 +1,13 @@
 main() {
   let x = @ // error: Unexpected character.
   let = 1 // error: Expected a binding name.
+  let value = 1e2 // error: Exponent notation is not supported in source number literals.
+  let fraction = 0.5E-2 // error: Exponent notation is not supported in source number literals.
+  take(1E+2) // error: Exponent notation is not supported in source number literals.
+  let negative = -1e-2 // error: Exponent notation is not supported in source number literals.
+  let unfinished = 1e+ // error: Exponent notation is not supported in source number literals.
+  for i in 0..1e2 {} // error: Exponent notation is not supported in source number literals.
+  1 |> { 1e2 => 0 } // error: Exponent notation is not supported in source number literals.
+  1 |> { -1E2 => 0 } // error: Exponent notation is not supported in source number literals.
 }
+take(value: dub) {}

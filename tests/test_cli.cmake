@@ -56,6 +56,21 @@ foreach(line_ending IN ITEMS "\n" "\r\n")
     endforeach()
 endforeach()
 
+# Unsupported source exponents are lexical errors, with the same single
+# source-backed diagnostic in token, AST and emission commands. Strings used
+# by numeric conversions keep their independent decimal/exponent grammar.
+set(exponent "${TEST_DIR}/exponent.brf")
+file(WRITE "${exponent}" "main() {\r\n  let value = -1.25E+2\r\n  print(\"kept\")\r\n}\r\n")
+string(REPEAT " " 15 indent)
+set(expected "error: Exponent notation is not supported in source number literals.\n  --> ${exponent}:2:16\n  |\n2 |   let value = -1.25E+2\n  | ${indent}^~~~~~~\n")
+foreach(command IN ITEMS dump-tokens dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${exponent}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} exponent diagnostic (${status}):\n${errors}\nexpected:\n${expected}")
+    endif()
+endforeach()
+
 execute_process(COMMAND "${BRIEF}" dump-tokens "${TEST_DIR}/missing.brf"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 if(NOT status EQUAL 1 OR NOT errors MATCHES "error: cannot read")

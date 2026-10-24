@@ -211,14 +211,31 @@ static Token number(Lexer *lexer) {
   while (is_digit(peek(lexer)))
     advance(lexer);
 
+  TokenType type = TOK_INT_LIT;
   if (peek(lexer) == '.' && is_digit(peek_next(lexer))) {
     advance(lexer);
     while (is_digit(peek(lexer)))
       advance(lexer);
-    return make_token(lexer, TOK_FLOAT_LIT);
+    type = TOK_FLOAT_LIT;
   }
 
-  return make_token(lexer, TOK_INT_LIT);
+  if (peek(lexer) == 'e' || peek(lexer) == 'E') {
+    const char *end = lexer->current + 1;
+    if (end < lexer->end && (*end == '+' || *end == '-'))
+      end++;
+    while (end < lexer->end && is_digit(*end))
+      end++;
+    // Diagnose exponent-shaped suffixes (including an unfinished marker/sign)
+    // as one source-backed error, without swallowing a following line/operator.
+    // Identifier-like suffixes such as 1else or 1e2name keep their old tokens.
+    if (end == lexer->end || !is_alpha(*end)) {
+      lexer->current = end;
+      return err_token(
+          lexer, "Exponent notation is not supported in source number literals.");
+    }
+  }
+
+  return make_token(lexer, type);
 }
 
 static int valid_escape(char c) {
