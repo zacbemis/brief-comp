@@ -94,6 +94,7 @@ add_doc_acceptance_test(test_doc_overview test_doc_overview.cmake doc-overview O
 add_doc_acceptance_test(test_doc_base test_doc_base.cmake doc-base OFF)
 add_doc_acceptance_test(test_doc_stdlib test_doc_stdlib.cmake doc-stdlib OFF)
 add_doc_acceptance_test(test_doc_modules test_doc_modules.cmake doc-modules OFF)
+add_doc_acceptance_test(test_doc_collections test_doc_collections.cmake doc-collections OFF)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
     add_doc_acceptance_test(test_doc_errors_sanitized test_doc_errors.cmake doc-errors ON)
     add_doc_acceptance_test(test_doc_pipelines_sanitized test_doc_pipelines.cmake doc-pipelines ON)
@@ -106,6 +107,7 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
     add_doc_acceptance_test(test_doc_base_sanitized test_doc_base.cmake doc-base ON)
     add_doc_acceptance_test(test_doc_stdlib_sanitized test_doc_stdlib.cmake doc-stdlib ON)
     add_doc_acceptance_test(test_doc_modules_sanitized test_doc_modules.cmake doc-modules ON)
+    add_doc_acceptance_test(test_doc_collections_sanitized test_doc_collections.cmake doc-collections ON)
 endif()
 
 add_test(NAME test_doc_examples_support
