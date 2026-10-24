@@ -4,7 +4,7 @@ mutate(p: &P) { p.name = "changed" }
 sneaky(q: Q) {
   let inner = q.p
   inner.name = "changed" // error: Cannot mutate through an ordinary parameter; use &.
-  mutate(inner) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+  mutate(inner) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
 rebind(q: Q) {
   var inner = P { name: "fresh" }
@@ -13,17 +13,17 @@ rebind(q: Q) {
 }
 branch(q: Q, flag: bool) {
   let inner = if flag { q.p } else { P { name: "fresh" } }
-  mutate(inner) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+  mutate(inner) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
 branchAssignment(q: Q, flag: bool) {
   var inner = P { name: "fresh" }
   if flag { inner = q.p }
-  mutate(inner) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+  mutate(inner) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
 backedge(q: Q, flag: bool) {
   var inner = P { name: "fresh" }
   while flag {
-    mutate(inner) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+    mutate(inner) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
     inner = q.p
     continue
   }
@@ -32,18 +32,18 @@ loopExit(q: Q) {
   var inner = P { name: "fresh" }
   while true { inner = q.p
     break }
-  mutate(inner) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+  mutate(inner) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
 same(p: P): P { p }
 viaCall(q: Q) {
   let inner = same(q.p)
   inner.name = "changed through an identity call" // error: Cannot mutate through an ordinary parameter; use &.
-  mutate(inner) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+  mutate(inner) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
 viaLiteral(q: Q) {
   let wrapper = Q { p: q.p }
   wrapper.p.name = "changed through a new struct literal" // error: Cannot mutate through an ordinary parameter; use &.
-  mutate(wrapper.p) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+  mutate(wrapper.p) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
 // A result type that can reach the argument's types may hold its objects.
 Holder { p: P }

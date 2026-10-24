@@ -7,6 +7,7 @@
 // expect: result
 // expect: nested
 // expect: 9
+// expect: copied text
 type Choice = Sym<:text(str), :node(Node), :empty>
 Node { name: str }
 Holder { value: Choice }
@@ -67,8 +68,22 @@ main(): () {
   let object = Counter { count: 0 }
   bump(:counter(object))
   print(str(object.count))
+  // Ordinary immutable-only symbols may be retained and passed to & parameters.
+  let atoms = AtomHolder { value: :number(0) }
+  copyImmutable(atoms, :text("copied" + " text"))
+  atoms.value |> {
+    :text(text) => print(text)
+    :number(n) => print(str(n))
+  }
 }
 Counter { count: int }
 bump(s: &Sym<:counter(Counter)>) {
   s |> { :counter(c) => c.count = 9 }
+}
+type Atom = Sym<:text(str), :number(int)>
+AtomHolder { value: Atom }
+mutImmutable(value: &Atom) {}
+copyImmutable(holder: &AtomHolder, source: Atom) {
+  holder.value = source
+  mutImmutable(source)
 }

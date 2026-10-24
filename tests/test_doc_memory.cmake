@@ -110,9 +110,9 @@ impl Report {
   get(report: Report): User { report.owner }
 }
 ]=])
-set(store_error "A read-only struct cannot be stored in a field; take the parameter it comes from as &.")
+set(store_error "A read-only value cannot be stored in a field; take the parameter it comes from as &.")
 set(mutate_error "Cannot mutate through an ordinary parameter; use &.")
-set(forward_error "A mutable argument cannot be borrowed through an ordinary parameter.")
+set(forward_error "A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.")
 string(STRIP "${block_10}" alternatives)
 # Validate one blank-line boundary without making a CMake list: the original
 # error comment contains a semicolon that must stay part of its source line.

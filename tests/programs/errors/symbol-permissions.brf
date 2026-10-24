@@ -11,15 +11,15 @@ ordinary(s: Choice) {
     :none => ()
   }
   get(s).x = 1 // error: Cannot mutate through an ordinary parameter; use &.
-  write(s) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+  write(s) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
 wrapped(p: P) {
   wrap(p) |> { :some(q) => q.x = 1 } // error: Cannot mutate through an ordinary parameter; use &.
-  write(:some(p)) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+  write(:some(p)) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
 store(h: &Holder, s: Choice, p: P) {
-  h.value = s // error: A read-only struct cannot be stored in a field; take the parameter it comes from as &.
-  h.value = :some(p) // error: A read-only struct cannot be stored in a field; take the parameter it comes from as &.
+  h.value = s // error: A read-only value cannot be stored in a field; take the parameter it comes from as &.
+  h.value = :some(p) // error: A read-only value cannot be stored in a field; take the parameter it comes from as &.
 }
 narrow(s: Choice) {
   s |> { :none => ()

@@ -14,12 +14,12 @@ join(a: A, flag: bool) {
   x.n++ // error: Cannot mutate through an ordinary parameter; use &.
 }
 borrow(a: A) {
-  a |> mut() // error: A mutable argument cannot be borrowed through an ordinary parameter.
+  a |> mut() // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
 backedge(a: A, flag: bool) {
   var x = A { n: 0 }
   while flag {
-    mut(x) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+    mut(x) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
     flag |> { true => { x = a
       continue }
       false => break }

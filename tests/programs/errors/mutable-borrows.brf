@@ -4,11 +4,11 @@ mutate(value: &Box) { value.n++ }
 readOnly(value: Box) {
   value.n = 2 // error: Cannot mutate through an ordinary parameter; use &.
   value.n++ // error: Cannot mutate through an ordinary parameter; use &.
-  mutate(value) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+  mutate(value) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
 nested(value: Holder) {
   value.child.n += 1 // error: Cannot mutate through an ordinary parameter; use &.
-  mutate(value.child) // error: A mutable argument cannot be borrowed through an ordinary parameter.
+  mutate(value.child) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
 replace(value: &Box) {
   value = Box { n: 0 } // error: Cannot reassign an immutable binding.

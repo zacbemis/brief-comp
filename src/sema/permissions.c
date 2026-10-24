@@ -2,10 +2,10 @@
 #include <string.h>
 
 // Access permission is separate from ownership: retaining a reference does not
-// upgrade it. State bits mean "may hold a read-only struct reference". Direct
+// upgrade it. State bits mean "may reach read-only objects". Direct
 // copies propagate the bit, as do struct/symbol literals with read-only
 // children and call results whose type can reach a read-only argument's
-// objects. A read-only struct cannot be stored in a field. These are local
+// objects. A read-only value cannot be stored in a field. These are local
 // access rules, not deep const or a function purity guarantee.
 typedef unsigned char *State;
 typedef struct Loop Loop;
@@ -208,7 +208,7 @@ static int visit(Permissions *p, SemaExpr *e, State state) {
       // needs an & parameter. A read-only holder was already reported above.
       if (target && target->as.field.field && value && !parent)
         error(p, e->as.binding.value->span,
-              "A read-only struct cannot be stored in a field; take the "
+              "A read-only value cannot be stored in a field; take the "
               "parameter it comes from as &.");
     }
     break;
@@ -223,8 +223,8 @@ static int visit(Permissions *p, SemaExpr *e, State state) {
       if (value && s && i < s->arity && s->params[i]->data_mutable &&
           sema_assignable(arg->type, s->params[i]->type))
         error(p, arg->span,
-              "A mutable argument cannot be borrowed through an ordinary "
-              "parameter.");
+              "A read-only value cannot be passed to an & parameter; take the "
+              "parameter it comes from as &.");
       p->active = p->active && (arg->flow & SEMA_NEXT);
     }
     break; // Ownership does not upgrade access; primitive results stay values.

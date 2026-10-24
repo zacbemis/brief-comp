@@ -55,6 +55,44 @@ static Result invalid(Arena *a, const char *text, const char *message) {
   ASSERT_TRUE(ir_lower(a, r.program) == NULL);
   return r;
 }
+// Permission diagnostics must identify the argument/RHS, not the call or
+// destination field, and report once after a loop fixpoint on every check.
+static void permission_diagnostic(Arena *a, const char *text, const char *site,
+                                  const char *value, const char *message) {
+  const char *at = strstr(text, site), *within = strstr(site, value);
+  ASSERT_TRUE(at != NULL && within != NULL);
+  if (!at || !within)
+    return;
+  ASSERT_TRUE(strstr(at + strlen(site), site) == NULL);
+  size_t start = (size_t)(at - text) + (size_t)(within - site);
+  Result r = check(a, text);
+  ASSERT_TRUE(r.program->resolved);
+  for (unsigned pass = 0; pass < 3; pass++) {
+    Diagnostics again;
+    diagnostics_init(&again, a);
+    const Diagnostics *errors = &r.errors;
+    if (pass == 1) {
+      sema_check_permissions(r.program, &again);
+      errors = &again;
+    } else if (pass == 2) {
+      sema_check(r.program, &again);
+      errors = &again;
+    }
+    if (errors->count != 1) {
+      fprintf(stderr, "permission case: %s\n", text);
+      diagnostics_print(errors, stderr);
+    }
+    ASSERT_EQ_INT(1, errors->count);
+    if (errors->count) {
+      ASSERT_EQ_STRN(message, errors->items[0]->message,
+                     strlen(errors->items[0]->message));
+      ASSERT_EQ_INT(start, errors->items[0]->span.start);
+      ASSERT_EQ_INT(start + strlen(value), errors->items[0]->span.end);
+    }
+    ASSERT_TRUE(!r.program->checked);
+    ASSERT_TRUE(ir_lower(a, r.program) == NULL);
+  }
+}
 int main(void) {
   Arena a;
   arena_init(&a);
@@ -275,9 +313,9 @@ int main(void) {
                  "f(p: P) { wrap(p) |> { :some(q) => q.x = 1 } }"),
             "Cannot mutate");
     invalid(&a, CASE("set(s: &Choice) {}\nf(s: Choice) { set(s) }"),
-            "mutable argument");
+            "read-only value cannot be passed");
     invalid(&a, CASE("set(s: &Choice) {}\nf(p: P) { set(:some(p)) }"),
-            "mutable argument");
+            "read-only value cannot be passed");
     invalid(&a, CASE("H { s: Choice }\nf(h: &H, p: P) { h.s = :some(p) }"),
             "cannot be stored in a field");
     valid(&a, CASE("H { s: Choice }\nf(h: &H, p: &P) { h.s = :some(p) }"));
@@ -288,6 +326,89 @@ int main(void) {
     valid(&a, CASE("f(s: Choice) { var x = s\nx = :some(P { x: 1 })\n"
                    "x |> { :some(p) => p.x = 2\n:none => () } }"));
 #undef CASE
+  }
+  TEST("permission messages distinguish read-only values from mutable targets") {
+    const char *prefix =
+        "P { n: int }\n"
+        "type Choice = Sym<:some(P), :none>\n"
+        "type Nested = Sym<:outer(Choice), :empty>\n"
+        "type Scalar = Sym<:text(str), :number(int)>\n"
+        "Wrapper { part: P\nmarker: int }\n"
+        "Holder { item: P\nchoice: Choice\nnested: Nested\nwrapper: Wrapper\n"
+        "text: str\ncount: int\nscalar: Scalar }\n"
+        "mut(p: &P) { p.n++ }\n"
+        "mutChoice(s: &Choice) {}\nmutNested(s: &Nested) {}\n"
+        "mutScalar(s: &Scalar) {}\n"
+        "sameChoice(s: Choice): Choice { s }\n"
+        "impl P { bump(p: &Self) { p.n++ } }\n";
+    const char *borrow = "A read-only value cannot be passed to an & parameter; "
+                         "take the parameter it comes from as &.";
+    const char *store = "A read-only value cannot be stored in a field; take "
+                         "the parameter it comes from as &.";
+    struct {
+      const char *type, *body, *site, *value;
+      int storing;
+    } cases[] = {
+        {"P", "mut(value)", "mut(value)", "value", 0},
+        {"P", "value.bump()", "value.bump()", "value", 0},
+        {"P", "value |> mut()", "value |> mut()", "value", 0},
+        {"P", "let alias = value\nmut(alias)", "mut(alias)", "alias", 0},
+        {"P", "mutChoice(:some(value))", "mutChoice(:some(value))",
+         ":some(value)", 0},
+        {"P", "mutNested(:outer(:some(value)))",
+         "mutNested(:outer(:some(value)))", ":outer(:some(value))", 0},
+        {"Choice", "mutChoice(value)", "mutChoice(value)", "value", 0},
+        {"Choice", "mutChoice(sameChoice(value))",
+         "mutChoice(sameChoice(value))", "sameChoice(value)", 0},
+        {"Choice", "value |> { :none => ()\nrest => mutChoice(rest) }",
+         "mutChoice(rest)", "rest", 0},
+        {"Choice", "value |> { :some(p) => mut(p)\n:none => () }",
+         "mut(p)", "p", 0},
+        {"P", "holder.item = value", "holder.item = value", "value", 1},
+        {"Choice", "holder.choice = value", "holder.choice = value", "value", 1},
+        {"P", "holder.choice = :some(value)", "holder.choice = :some(value)",
+         ":some(value)", 1},
+        {"P", "holder.nested = :outer(:some(value))",
+         "holder.nested = :outer(:some(value))", ":outer(:some(value))", 1},
+        {"Choice", "holder.choice = sameChoice(value)",
+         "holder.choice = sameChoice(value)", "sameChoice(value)", 1},
+        {"P", "holder.wrapper = Wrapper { part: value, marker: 1 }",
+         "holder.wrapper = Wrapper { part: value, marker: 1 }",
+         "Wrapper { part: value, marker: 1 }", 1},
+        {"P", "var alias = P { n: 0 }\nwhile flag { holder.item = alias\n"
+              "alias = value }", "holder.item = alias", "alias", 1},
+        {"P", "var alias = P { n: 0 }\nwhile flag { mut(alias)\nalias = value }",
+         "mut(alias)", "alias", 0}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+      char text[4096];
+      snprintf(text, sizeof(text),
+               "%sf(value: %s, holder: &Holder, flag: bool) {\n%s\n}\nmain() {}",
+               prefix, cases[i].type, cases[i].body);
+      permission_diagnostic(&a, text, cases[i].site, cases[i].value,
+                            cases[i].storing ? store : borrow);
+      // Changing the source permission, not its ownership or active tag,
+      // makes the same operations legal. The parameter binding stays immutable.
+      snprintf(text, sizeof(text),
+               "%sf(value: &%s, holder: &Holder, flag: bool) {\n%s\n}\nmain() {}",
+               prefix, cases[i].type, cases[i].body);
+      valid(&a, text);
+    }
+    char text[4096];
+    snprintf(text, sizeof(text), "%s%s", prefix,
+             "f(value: P, holder: &Holder, text: str, scalar: Scalar) {\n"
+             "holder.count = value.n\nholder.text = text\n"
+             "holder.scalar = scalar\nmutScalar(scalar)\n"
+             "var alias = value\nalias = P { n: 1 }\nmut(alias)\n"
+             "holder.item = alias\n}\nmain() {}");
+    valid(&a, text); // Copied scalars/immutable data and fresh rebinding stay legal.
+    snprintf(text, sizeof(text), "%s%s", prefix,
+             "f(value: Choice) { mut(value) }\nmain() {}");
+    Result wrong_type = invalid(&a, text, "Function argument has the wrong type.");
+    ASSERT_EQ_INT(1, wrong_type.errors.count);
+    Diagnostics permissions_only;
+    diagnostics_init(&permissions_only, &a);
+    sema_check_permissions(wrong_type.program, &permissions_only);
+    ASSERT_EQ_INT(0, permissions_only.count); // Do not add a borrow cascade.
   }
   TEST("alias dependencies are iterative, cycles diagnosed, struct indirection "
        "allowed") {

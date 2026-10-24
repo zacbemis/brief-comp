@@ -123,9 +123,9 @@ int main(void) {
     invalid(&a, "A { n: int }\nB { a: A }\nf(b: B) { b.a.n += 1 }\nmain() {}",
             "Cannot mutate through");
     invalid(&a, "A {}\nf(a: &A) {}\ng(a: A) { f(a) }\nmain() {}",
-            "mutable argument");
+            "read-only value cannot be passed");
     invalid(&a, "A {}\nB { a: A }\nf(a: &A) {}\ng(b: B) { f(b.a) }\nmain() {}",
-            "mutable argument");
+            "read-only value cannot be passed");
     invalid(&a, "A {}\nf(a: &A) { a = A {} }\nmain() {}", "immutable binding");
     invalid(&a, "main() {}\nf(a: &str) {}", "requires a struct or symbol type");
     valid(&a, "A { n: int }\nimpl A { bump(a: &Self) { a.n++ } }\ng(a: &A) { "
@@ -133,7 +133,7 @@ int main(void) {
     invalid(&a,
             "A { n: int }\nimpl A { bump(a: &Self) { a.n++ } }\ng(a: A) { "
             "a.bump() }\nmain() {}",
-            "mutable argument");
+            "read-only value cannot be passed");
     invalid(&a, "A { n: int }\nf(a: A) { let alias = a\nalias.n++ }\nmain() {}",
             "Cannot mutate through");
   }
@@ -160,7 +160,8 @@ int main(void) {
     for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
       char text[2048];
       snprintf(text, sizeof(text), "%s%s", prefix, bad[i]);
-      invalid(&a, text, i < 2 ? "Cannot mutate through" : "mutable argument");
+      invalid(&a, text, i < 2 ? "Cannot mutate through"
+                              : "read-only value cannot be passed");
     }
     invalid(&a, "A { n: int }\nf(a: A) { while true {}\na.n++ }\nmain() {}",
             "Cannot mutate through");
@@ -216,7 +217,7 @@ int main(void) {
     for (size_t i = 0; i < sizeof(borrow) / sizeof(*borrow); i++) {
       char text[4096];
       snprintf(text, sizeof(text), "%s%s", prefix, borrow[i]);
-      invalid(&a, text, "mutable argument");
+      invalid(&a, text, "read-only value cannot be passed");
     }
     const char *good[] = {
         "f(q: &Q) { identity(q.p).n++\nQ { p: q.p }.p.n++ }",
@@ -262,8 +263,8 @@ int main(void) {
       Result r = check(&a, text);
       ASSERT_EQ_INT(1, r.errors.count); // No repeated fixpoint diagnostics.
       if (r.errors.count)
-        ASSERT_TRUE(strstr(r.errors.items[0]->message, "mutable argument") !=
-                    NULL);
+        ASSERT_TRUE(strstr(r.errors.items[0]->message,
+                           "read-only value cannot be passed") != NULL);
       ASSERT_TRUE(!r.program->checked);
       Diagnostics again;
       diagnostics_init(&again, &a);
