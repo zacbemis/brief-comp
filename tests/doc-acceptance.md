@@ -79,6 +79,17 @@ review.
   Copied scalars/strings, immutable-only symbols, fresh rebinding and unrelated
   argument-type errors retain their prior behavior. Updated native/document
   expectations and an immutable-symbol ownership case cover the integration.
+- Expression diagnostics now suggest `and`/`or` for contiguous `&&`/`||` and
+  require postfix standalone updates for prefix `++`/`--`. Logical hints cover
+  the full two-byte operator; whitespace, comments or removed newlines cannot
+  manufacture a pair. Lexer tokens, valid single `&`/`|`, mutable parameter
+  annotations, keyword logical operators and postfix update rules are unchanged.
+  Parser cases assert exact messages/spans in LF and CRLF expression contexts,
+  recovery of later items/declarations, unchanged tokens on reparse and no
+  duplicate lexer diagnostics. CLI checks require all four hints at exact CRLF
+  columns with no AST, while lexer-only dumping still succeeds. Native and
+  `doc-syntax` expectations pin rejection; positive native checks preserve
+  short-circuiting, RHS effects, single bitwise operators and postfix updates.
 
 ## Audit requirements
 
@@ -103,8 +114,6 @@ cases that name it. Known gaps found so far:
 
 | Input | Current diagnostic | Problem | Pinned by |
 |---|---|---|---|
-| `a && b`, `a \|\| b` | `Expected an expression.` | No hint to use `and`/`or`. | `doc-syntax` |
-| `++x`, `--x` | `Expected an expression.` | No hint that updates are postfix statements. | `doc-syntax` |
 | `if Guest { name: name }.isAllowed() {` | Two `Expected a newline between items.` | No hint to wrap the struct literal in `( )`. | `doc-syntax` |
 | `check(a < b, c > (d))` | `Generic calls are not implemented yet.` then `A local binding is not callable.` | The second error is a misleading cascade. | Not pinned (deferred line) |
 | `let value = 1e2` | `Expected a newline between items.` | Does not say source literals have no exponent syntax. | `doc-types` |

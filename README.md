@@ -257,8 +257,10 @@ gets a direct inside-a-function hint instead of misleading declaration or
 parameter advice; specific malformed-declaration errors are preserved.
 Permission errors now identify a read-only argument passed to an `&` parameter
 and use type-neutral wording for read-only field stores, without changing the
-rules. Modules, cross-file privacy and collection/lambda/trait behavior remain
-deferred.
+rules. Invalid `&&`/`||` now suggest `and`/`or`, and prefix `++`/`--` errors
+explain postfix standalone updates; valid operators and tokenization are
+unchanged. Modules, cross-file privacy and collection/lambda/trait behavior
+remain deferred.
 Function-contract mismatches no longer cause a misleading partial-set
 payload-collision diagnostic. The [document acceptance
 tracker](tests/doc-acceptance.md) records partial coverage and the remaining

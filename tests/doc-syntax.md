@@ -88,20 +88,19 @@ document tests also retain the original unadapted fence.
 These generic parser messages do not explain the required struct-literal
 parentheses particularly well. An actionable condition-literal hint remains a
 **diagnostic-finish opportunity**; the audit records current exact behavior and
-does not claim that all M6 diagnostic work is done. The same applies to the
-generic errors for `&&`, `||` and prefix `++`/`--` below, and to the follow-on
-`A local binding is not callable.` after fence 33's deferred generic-call line
-reports `Generic calls are not implemented yet.`. Fence 19 similarly records
-all errors from its documented unparenthesized parse, rather than weakening the
-runner to accept an arbitrary failure.
+does not claim that all M6 diagnostic work is done. Another open gap is the
+follow-on `A local binding is not callable.` after fence 33's deferred
+generic-call line reports `Generic calls are not implemented yet.`. Fence 19
+similarly records all errors from its documented unparenthesized parse, rather
+than weakening the runner to accept an arbitrary failure.
 
 ## Guarded inline and prose cases
 
 - Reject the original update initializer/argument and a condition counterpart
   with the specific update-statement error. The condition's illustrative `...`
   is replaced only with an empty body, so the error must be the update rule.
-  Unsupported prefix `++x`/`--x` are rejected, but only with the generic
-  `Expected an expression.`.
+  Prefix `++x`/`--x` now require `Increment and decrement must be postfix
+  standalone statements (x++ or x--).`, following a later M6 diagnostic update.
 - Reject chained assignment, assignment in a condition/argument, and a bare block
   argument. Observe binding/field assignment and field increment/decrement.
 - Reject self-initialization, duplicate names, parameter/iteration reassignment
@@ -115,9 +114,9 @@ runner to accept an arbitrary failure.
   bounds, floating bounds and chained ranges.
 - Observe nearest-loop break/continue behavior in nested integer loops and
   continued induction-variable advancement; reject `continue` outside loops.
-- Reject `&&` and `||` with valid boolean operands. The current error is the
-  generic `Expected an expression.` at the second character, not a hint to use
-  `and`/`or`.
+- Reject `&&` and `||` with valid boolean operands. The updated diagnostics
+  suggest `and`/`or` and highlight both operator bytes, rather than a generic
+  expression error at the second character.
 - Exercise newline continuation after all in-scope listed declaration/control
   keywords (`let`, `var`, `type`, `impl`, `pub`, `if`, `else`, `for`, `in`,
   `while`), operators, colon, `=`, `=>`, `|>` and `.`, including before a line
@@ -129,5 +128,9 @@ runner to accept an arbitrary failure.
 user-written generic calls remain deferred. First-version ranges are loop bounds,
 not collections. Existing parser/newline, semantic, arithmetic, matching and
 ownership suites remain independent stage-level checks; their broader grammar
-coverage is not represented as native support. No compiler/runtime changes were
-needed for this slice.
+coverage is not represented as native support. The original audit needed no
+compiler/runtime changes. The later operator-diagnostic slice changes only
+parser errors, leaving tokenization, accepted grammar and runtime semantics
+unchanged. Stage tests additionally check LF/CRLF spans, item/declaration
+recovery, reparsing unchanged tokens, lexer-only independence, and separated
+single bitwise operators (including intervening comments/newlines).

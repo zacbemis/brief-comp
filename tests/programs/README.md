@@ -175,6 +175,13 @@ cover argument/RHS spans, loop report counts, repeat checking and valid mutable
 counterparts. `symbol-ownership.brf` also checks retaining an ordinary
 immutable-only symbol and forwarding it to an `&` parameter with heap cleanup.
 
+The operator-diagnostic follow-up extends `errors/update-values.brf` with
+prefix update and C-style logical spelling errors. `control-flow.brf` checks
+unchanged short-circuit/RHS effects, single bitwise operators and postfix
+updates. Parser and CRLF CLI checks verify full operator spans, exact messages,
+later-item recovery and unchanged lexer tokens; no new language syntax is
+accepted.
+
 These generated cases remain separate from the 87 source fixtures here. Every
 tracked chapter now has a scope/acceptance audit, but diagnostic improvements,
 in-scope review and the final README/status check still remain M6 work.
