@@ -109,6 +109,19 @@ int main(void) {
     ASSERT_TRUE(updates.program->functions[0].body->as.block.items[1]->type ==
                 &updates.program->types[SEMA_UNIT]);
   }
+  TEST("global const still parses but is rejected as an unimplemented declaration") {
+    const char *sources[] = {"const VALUE = 1\nmain() {}",
+                             "pub const VALUE = 1\nmain() {}"};
+    for (size_t i = 0; i < sizeof(sources) / sizeof(sources[0]); i++) {
+      Result r = check(&a, sources[i]);
+      ASSERT_EQ_INT(1, r.errors.count);
+      if (r.errors.count)
+        ASSERT_EQ_STRN("This top-level declaration is not implemented yet.",
+                       r.errors.items[0]->message,
+                       strlen(r.errors.items[0]->message));
+      ASSERT_TRUE(!r.program->checked);
+    }
+  }
   TEST("numeric literals use context but typed values never convert "
        "implicitly") {
     valid(&a, "main() { let x: lng = 2\nlet y: lng = 1 + x\nf(3) }\nf(x: "

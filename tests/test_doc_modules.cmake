@@ -149,7 +149,7 @@ replace_once(code "User.new(\"Bob\", 20)" "let user = User.new(\"Bob\", 20)")
 example(4 associated-item-call "${block_3}\nmain() {" "${code}"
     "print(user.name + \":\" + str(user.age))\n}\n// expect: Bob:20")
 set(code "${block_14}")
-error_at(code "print(\"Hello\")               // Compiler error:" "Expected a parameter name.")
+error_at(code "print(\"Hello\")               // Compiler error:" "Statements are only allowed inside a function.")
 example(14 top-level-statement "" "${code}" "")
 set(code "${block_14}")
 replace_once(code "print(\"Hello\")               // Compiler error: a statement at the top level\n" "")

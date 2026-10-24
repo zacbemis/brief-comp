@@ -53,6 +53,29 @@ if(NOT status EQUAL 1 OR NOT tree STREQUAL "" OR NOT count EQUAL 2)
     message(FATAL_ERROR "dump-tokens should report only the two lexer errors (${status}):\n${errors}")
 endif()
 
+# Top-level calls/bindings point at the statement, not a fictitious parameter.
+file(WRITE "${invalid}" "print(\"Hello\")\r\n  let value = 1\r\ntick()\r\nmain() {}\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${invalid}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE tree ERROR_VARIABLE errors)
+string(REGEX MATCHALL "error:" messages "${errors}")
+list(LENGTH messages count)
+string(REGEX MATCHALL "Statements are only allowed inside a function\\." hints "${errors}")
+list(LENGTH hints hint_count)
+if(NOT status EQUAL 1 OR NOT tree STREQUAL "" OR NOT count EQUAL 3 OR NOT hint_count EQUAL 3)
+    message(FATAL_ERROR "expected three top-level statement hints (${status}):\n${errors}\n${tree}")
+endif()
+foreach(location IN ITEMS "1:1" "2:3" "3:1")
+    string(FIND "${errors}" "${invalid}:${location}\n" found)
+    if(found LESS 0)
+        message(FATAL_ERROR "missing top-level source location ${location}:\n${errors}")
+    endif()
+endforeach()
+execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE tokens ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR tokens STREQUAL "")
+    message(FATAL_ERROR "statement syntax must not affect lexer-only dumping (${status}):\n${errors}")
+endif()
+
 file(WRITE "${valid}" "")
 execute_process(COMMAND "${BRIEF}" dump-ast "${valid}"
     RESULT_VARIABLE status OUTPUT_VARIABLE tree ERROR_VARIABLE errors)

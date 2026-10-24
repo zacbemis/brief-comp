@@ -566,6 +566,83 @@ static int parameter(Parser *p, Parameter *param, int field) {
   return 1;
 }
 
+static const char *top_level_statement_message =
+    "Statements are only allowed inside a function.";
+
+// Only diagnose statement-shaped input. Typed parameters, a following body or
+// return annotation still select declaration parsing, including its specific
+// malformed-header errors. This lookahead never consumes or splits tokens.
+static int top_level_statement(Parser *p) {
+  TokenType first = peek(p).type;
+  if (first >= TOK_INT_LIT && first <= TOK_BOOL_LIT)
+    return 1;
+  int type_keyword = first >= TOK_BOOL && first <= TOK_STR;
+  switch (first) {
+  case TOK_LET:
+  case TOK_VAR:
+  case TOK_RET:
+  case TOK_BREAK:
+  case TOK_CONTINUE:
+  case TOK_IF:
+  case TOK_WHILE:
+  case TOK_FOR:
+  case TOK_LPAREN:
+  case TOK_COLON:
+  case TOK_MINUS:
+  case TOK_BANG:
+  case TOK_TILDE:
+    return 1;
+  case TOK_IDENT:
+    break;
+  default:
+    if (!type_keyword)
+      return 0;
+    break;
+  }
+  TokenType next = p->tokens.items[p->position + 1].type;
+  // `Name<` starts a (later-version) generic declaration, not a comparison.
+  if (next != TOK_LPAREN)
+    return !type_keyword && next != TOK_LESS_THAN &&
+           (next == TOK_NEWLINE || next == TOK_EOF || next == TOK_PERIOD ||
+            next == TOK_LBRACKET || next == TOK_QUESTION || next == TOK_PIPE ||
+            (next >= TOK_EQUAL && next <= TOK_RSHIFT));
+  size_t parens = 0, braces = 0, brackets = 0;
+  for (size_t i = p->position + 1; i < p->tokens.count; i++) {
+    TokenType t = p->tokens.items[i].type;
+    if (t == TOK_EOF || t == TOK_ERR)
+      return 0;
+    if (t == TOK_COLON && parens == 1 && !braces && !brackets &&
+        p->tokens.items[i - 1].type == TOK_IDENT)
+      return 0;
+    if (t == TOK_LPAREN)
+      parens++;
+    else if (t == TOK_RPAREN) {
+      if (!--parens) {
+        if (braces || brackets)
+          return 0;
+        // A body/annotation on the wrong line is still a declaration error.
+        do {
+          next = p->tokens.items[++i].type;
+        } while (next == TOK_NEWLINE);
+        return next != TOK_LBRACE && next != TOK_COLON;
+      }
+    } else if (t == TOK_LBRACE)
+      braces++;
+    else if (t == TOK_RBRACE) {
+      if (!braces)
+        return 0;
+      braces--;
+    } else if (t == TOK_LBRACKET)
+      brackets++;
+    else if (t == TOK_RBRACKET) {
+      if (!brackets)
+        return 0;
+      brackets--;
+    }
+  }
+  return 0;
+}
+
 static Decl *declaration(Parser *p, int in_impl) {
   Token start = peek(p);
   Visibility visibility = match(p, TOK_PUB) ? VISIBILITY_PUB : VISIBILITY_PRIV;
@@ -613,9 +690,14 @@ static Decl *declaration(Parser *p, int in_impl) {
     d->span = through(start.span, p->previous.span);
     return d;
   }
+  if (!in_impl && visibility == VISIBILITY_PRIV && top_level_statement(p)) {
+    error(p, top_level_statement_message);
+    return NULL;
+  }
   if (!expect(p, TOK_IDENT,
-              "Expected a declaration (function, struct, named type, const, or "
-              "impl)."))
+              in_impl ? "Expected a method declaration."
+                      : "Expected a declaration (function, struct, named "
+                        "type, or impl)."))
     return NULL;
   const char *decl_name = name(p, p->previous);
   if (!in_impl && match(p, TOK_LBRACE)) {

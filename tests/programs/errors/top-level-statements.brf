@@ -1,0 +1,22 @@
+// File-level statements must not be mistaken for malformed declarations.
+let value = 1 // error: Statements are only allowed inside a function.
+var count = 0 // error: Statements are only allowed inside a function.
+print("Hello") // error: Statements are only allowed inside a function.
+tick() // error: Statements are only allowed inside a function.
+User.new("Bob", 20) // error: Statements are only allowed inside a function.
+str(1) // error: Statements are only allowed inside a function.
+print(User { name: "Bob", age: 20 }) // error: Statements are only allowed inside a function.
+value = 2 // error: Statements are only allowed inside a function.
+count++ // error: Statements are only allowed inside a function.
+if true { print("if") } // error: Statements are only allowed inside a function.
+while false { tick() } // error: Statements are only allowed inside a function.
+for i in 0..2 { print(str(i)) } // error: Statements are only allowed inside a function.
+ret 1 // error: Statements are only allowed inside a function.
+42 // error: Statements are only allowed inside a function.
+:ok(1) // error: Statements are only allowed inside a function.
+() // error: Statements are only allowed inside a function.
+
+// Explicit declaration evidence must keep its specific parameter diagnostic.
+broken(value) {} // error: Expected ':' before type.
+int() {} // error: Expected a declaration (function, struct, named type, or impl).
+main() {}

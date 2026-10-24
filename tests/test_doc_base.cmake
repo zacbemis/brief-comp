@@ -533,7 +533,7 @@ set(code "let user = User.new(\"Bob\", 20)!")
 # span to guard the complete line before exercising top-level rejection.
 set(alias_source "${part_aliases}")
 replace_once(alias_source "${code}" "${code}")
-error_at(code "let user" "Expected a declaration (function, struct, named type, const, or impl).")
+error_at(code "let user" "Statements are only allowed inside a function.")
 sample(entry top-level-binding "${user_api}" "${code}" "main() {}")
 
 get_property(rest GLOBAL PROPERTY base_remaining)

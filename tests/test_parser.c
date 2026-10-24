@@ -402,7 +402,92 @@ int main(void) {
     invalid(&arena, "f(x: int { x }", "')'");
     invalid(&arena, "type E = Sym<:ok(int), :bad(str)\n", "'>'");
     invalid(&arena, "f(): _ {}", "only allowed");
-    invalid(&arena, "print(\"top-level statement\")", "parameter");
+    invalid(&arena, "print(\"top-level statement\")", "inside a function");
+  }
+  TEST("top-level statement hints are exact and preserve later declarations") {
+    const char *statements[] = {
+        "let value = 1", "var value = 1", "print(\"Hello\")", "tick()",
+        "print(value)", "User.new(\"Bob\", 20)", "str(1)",
+        "print(User { name: \"Bob\", age: 20 })", "print(nested(1, (2)))",
+        "value = 1", "value += 1", "value++", "value[0] = 1",
+        "if true { print(\"if\") }", "while false { tick() }",
+        "for i in 0..2 { print(str(i)) }", "ret 1", "break", "continue",
+        "42", "0.5", "true", "'x'", "\"text\"", ":ok(1)", "()", "-1",
+        "!true", "~1", "value", "tick()?", "tick()!", "tick().field",
+        "print(\n\"multiline\"\n)"};
+    for (size_t i = 0; i < sizeof(statements) / sizeof(statements[0]); i++) {
+      char text[512];
+      snprintf(text, sizeof(text), "%s\nmain() {}\n", statements[i]);
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(1, v->diagnostics.count);
+      if (v->diagnostics.count) {
+        ASSERT_EQ_STRN("Statements are only allowed inside a function.",
+                       v->diagnostics.items[0]->message,
+                       strlen(v->diagnostics.items[0]->message));
+        ASSERT_EQ_INT(0, v->diagnostics.items[0]->span.start);
+        ASSERT_EQ_INT(source_position(v->source, 0).line,
+                      source_position(v->source,
+                                      v->diagnostics.items[0]->span.start).line);
+      }
+      ASSERT_EQ_INT(1, v->program->count);
+      if (v->program->count)
+        ASSERT_EQ_STRN("main", v->program->items[0]->name,
+                       strlen(v->program->items[0]->name));
+    }
+    Parsed *v = parse(&arena, "\r\n  print(\r\n\"Hello\"\r\n)\r\nmain() {}\r\n");
+    ASSERT_EQ_INT(1, v->diagnostics.count);
+    ASSERT_EQ_INT(4, v->diagnostics.items[0]->span.start);
+    SourcePosition pos =
+        source_position(v->source, v->diagnostics.items[0]->span.start);
+    ASSERT_EQ_INT(2, pos.line);
+    ASSERT_EQ_INT(3, pos.column);
+    ASSERT_EQ_INT(1, v->program->count);
+  }
+  TEST("declaration evidence keeps specific header errors, not statement hints") {
+    invalid(&arena, "f(x) {}", "Expected ':' before type.");
+    invalid(&arena, "f(1) {}", "Expected a parameter name.");
+    invalid(&arena, "f(x: int)", "Expected '{' to start a block.");
+    invalid(&arena, "f(): int", "Expected '{' to start a block.");
+    invalid(&arena, "f()\n{}", "Expected '{' to start a block.");
+    invalid(&arena, "f()\n: int {}", "Expected '{' to start a block.");
+    invalid(&arena, "pub f(1)", "Expected a parameter name.");
+    invalid(&arena, "f(", "Expected a parameter name.");
+    invalid(&arena, "Box<T> { value: T }", "Expected '(' after function name");
+    invalid(&arena, "first<T>(x: T): T { x }",
+            "Expected '(' after function name");
+    invalid(&arena, "User { name: }", "Expected a type.");
+    invalid(&arena, "import User",
+            "Expected a declaration (function, struct, named type, or impl).");
+    invalid(&arena, "int() {}",
+            "Expected a declaration (function, struct, named type, or impl).");
+    invalid(&arena, "str(x: int) {}",
+            "Expected a declaration (function, struct, named type, or impl).");
+    Parsed *v = parse(&arena, "broken(@)\nmain() {}\n");
+    ASSERT_EQ_INT(1, v->diagnostics.count);
+    ASSERT_EQ_STRN("Unexpected character.", v->diagnostics.items[0]->message,
+                   strlen(v->diagnostics.items[0]->message));
+    ASSERT_EQ_INT(1, v->program->count);
+    v = parse(&arena, "pub f(x: &Self): Sym<:ok(int)> { :ok(1) }\n"
+                      "main() {}\nconst VALUE = 1\n");
+    ASSERT_EQ_INT(0, v->diagnostics.count);
+    ASSERT_EQ_INT(3, v->program->count);
+  }
+  TEST("statement lookahead leaves filtered tokens unchanged and is repeatable") {
+    Parsed *v = parse(&arena,
+                      "tick(make<Vec<Vec<int>>>(User { name: \"Bob\" }))\n"
+                      "main() {}\n");
+    TokenArray filtered = newline_filter(&arena, v->raw);
+    Token *saved = arena_alloc(&arena, filtered.count * sizeof(*saved));
+    memcpy(saved, filtered.items, filtered.count * sizeof(*saved));
+    for (unsigned i = 0; i < 2; i++) {
+      Diagnostics d;
+      diagnostics_init(&d, &arena);
+      Program *program = parse_program(&arena, &v->names, filtered, &d);
+      ASSERT_EQ_INT(1, d.count);
+      ASSERT_EQ_INT(1, program->count);
+      ASSERT_TRUE(memcmp(saved, filtered.items,
+                         filtered.count * sizeof(*saved)) == 0);
+    }
   }
   TEST("recovery retains later statements, arms, fields, methods and "
        "declarations") {
