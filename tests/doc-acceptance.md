@@ -66,6 +66,19 @@ review.
   CRLF CLI checks and `tests/programs/errors/top-level-statements.brf` require
   exact messages/locations and rejection without an executable. `doc-base` and
   `doc-modules` now pin the improved hint.
+- Permission diagnostics now say `A read-only value cannot be passed to an &
+  parameter; take the parameter it comes from as &.` and `A read-only value
+  cannot be stored in a field; take the parameter it comes from as &.`. The
+  argument/parameter roles are correct, both messages give the same fix, and
+  the store message covers structs and object-bearing symbols without calling
+  a symbol a struct. Permissions, fixpoint rules and diagnostic spans are
+  unchanged. Eighteen exact-span semantic cases cover direct/receiver/pipeline
+  calls, aliases, symbol construction/narrowing, stores and loop backedges;
+  each has a valid `&`-source counterpart. Independent permission reruns and
+  full rechecks report once and keep invalid programs out of lowering.
+  Copied scalars/strings, immutable-only symbols, fresh rebinding and unrelated
+  argument-type errors retain their prior behavior. Updated native/document
+  expectations and an immutable-symbol ownership case cover the integration.
 
 ## Audit requirements
 
@@ -95,7 +108,5 @@ cases that name it. Known gaps found so far:
 | `if Guest { name: name }.isAllowed() {` | Two `Expected a newline between items.` | No hint to wrap the struct literal in `( )`. | `doc-syntax` |
 | `check(a < b, c > (d))` | `Generic calls are not implemented yet.` then `A local binding is not callable.` | The second error is a misleading cascade. | Not pinned (deferred line) |
 | `let value = 1e2` | `Expected a newline between items.` | Does not say source literals have no exponent syntax. | `doc-types` |
-| Passing a read-only value to an `&` parameter | `A mutable argument cannot be borrowed through an ordinary parameter.` | Reads backwards: the argument is read-only and the parameter is `&`. | `doc-memory`, `doc-overview`, `tests/programs/errors` |
-| Storing a read-only object-bearing symbol in a field | `A read-only struct cannot be stored in a field; …` | Says "struct" when the value is a symbol. | `doc-memory`, `tests/programs/errors` |
 | `user.save()` where `save` is a function, not a method | `Unknown method for this type.` | No hint to call `save(user)` or `user \|> save()`. | `doc-base` |
 | Missing `?` on a getter, then passing its binding to `User.new` | Required handling error, then `Function argument has the wrong type.` | The invalid binding retains its full outcome type, causing a follow-on argument mismatch. Clarify/suppress this cascade without hiding independent errors. | `doc-stdlib` |

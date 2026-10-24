@@ -168,6 +168,13 @@ Parser/CRLF CLI regressions also check recovery, source columns,
 token-preserving lookahead and lexer-only independence. No accepted language
 feature is added.
 
+A permission-diagnostic follow-up updates existing error fixtures to identify
+read-only arguments passed to `&` parameters and read-only values (including
+symbols) stored in fields. The rules are unchanged. Exact stage-level tests
+cover argument/RHS spans, loop report counts, repeat checking and valid mutable
+counterparts. `symbol-ownership.brf` also checks retaining an ordinary
+immutable-only symbol and forwarding it to an `&` parameter with heap cleanup.
+
 These generated cases remain separate from the 87 source fixtures here. Every
 tracked chapter now has a scope/acceptance audit, but diagnostic improvements,
 in-scope review and the final README/status check still remain M6 work.

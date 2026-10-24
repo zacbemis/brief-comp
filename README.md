@@ -132,10 +132,12 @@ Compilation supports:
   Ordinary parameters and their direct local/field aliases are read-only; `&`
   struct or symbol parameters permit mutation of reachable objects. Permissions
   propagate through symbol payloads, rebinding and
-  control flow. A struct call result is read-only when its type can reach a
-  read-only argument's objects, and a literal is read-only when built from a
-  read-only struct. A read-only struct cannot be stored in a field, so a
-  function that keeps an argument takes it as `&`.
+  control flow. Struct/symbol call results are conservatively read-only when
+  their types can reach a read-only argument's objects; struct/symbol literals
+  built from such values retain the restriction. Read-only object-bearing
+  values cannot be stored in fields, so retaining functions take source
+  parameters as `&`. Copied scalars, immutable strings and immutable-only
+  symbols remain unrestricted.
   References share objects rather than copying them (this is not `const` or purity).
 - Fieldwise equality for nonrecursive structs. Reference counting owns locals,
   temporaries, fields and returns; parameters borrow. Every scope exit and early
@@ -252,8 +254,11 @@ handler/manual-loop and transplanted trait-method scenarios, now use shared
 acceptance guards. All tracked chapters have scope audits, but M6 diagnostic
 finish and final status review remain. File-level statement-shaped input now
 gets a direct inside-a-function hint instead of misleading declaration or
-parameter advice; specific malformed-declaration errors are preserved. Modules,
-cross-file privacy and collection/lambda/trait behavior remain deferred.
+parameter advice; specific malformed-declaration errors are preserved.
+Permission errors now identify a read-only argument passed to an `&` parameter
+and use type-neutral wording for read-only field stores, without changing the
+rules. Modules, cross-file privacy and collection/lambda/trait behavior remain
+deferred.
 Function-contract mismatches no longer cause a misleading partial-set
 payload-collision diagnostic. The [document acceptance
 tracker](tests/doc-acceptance.md) records partial coverage and the remaining

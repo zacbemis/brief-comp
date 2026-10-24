@@ -88,4 +88,14 @@ asserts read pinning, retain-before-release, borrowed-parameter/owned-return
 behavior and idempotence on IR; `test_objects` checks runtime counts; and
 `test_structs`, `test_symbols` and `test_errors` independently check permissions,
 repeat analysis, lowering rejection and ownership integration. Those stage tests
-remain separate. No compiler/runtime changes were needed for this slice.
+remain separate. The original audit needed no compiler/runtime changes.
+
+A later M6 diagnostic-only update replaces the backwards borrowing error with
+`A read-only value cannot be passed to an & parameter; take the parameter it
+comes from as &.` and the struct-specific store wording with `A read-only value
+cannot be stored in a field; take the parameter it comes from as &.`. Both give
+the same fix, and the store message covers object-bearing symbols too.
+The same 48 cases pin the improved messages; all permission rules and scopes are
+unchanged. Additional stage tests assert exact argument/RHS spans, one report
+per loop fixpoint, independent permission/full-check reruns and rejected
+lowering, with writable-source and copied/immutable positive counterparts.
