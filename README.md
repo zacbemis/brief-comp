@@ -258,11 +258,14 @@ parameter advice; specific malformed-declaration errors are preserved.
 Permission errors now identify a read-only argument passed to an `&` parameter
 and use type-neutral wording for read-only field stores, without changing the
 rules. Invalid `&&`/`||` now suggest `and`/`or`, and prefix `++`/`--` errors
-explain postfix standalone updates; valid operators and tokenization are
-unchanged. Modules, cross-file privacy and collection/lambda/trait behavior
-remain deferred.
+explain postfix standalone updates; valid operators and their tokenization are
+unchanged. Source exponent notation now gets a specific lexical error, while
+exponents in numeric text conversions remain supported. Modules, cross-file
+privacy and collection/lambda/trait behavior remain deferred.
 Function-contract mismatches no longer cause a misleading partial-set
-payload-collision diagnostic. The [document acceptance
+payload-collision diagnostic. Unhandled fallible results no longer cause
+dependent argument-type cascades; direct handling is still mandatory and
+independent errors remain checked. The [document acceptance
 tracker](tests/doc-acceptance.md) records partial coverage and the remaining
 audits/diagnostic finish. Symbol ordering and refutable/nested payload patterns
 remain deferred, not M5 blockers.

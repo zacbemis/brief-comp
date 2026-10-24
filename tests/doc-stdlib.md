@@ -70,7 +70,7 @@ changes the single indicated contract/operator/payload.
 | `wrong-validation-payload` | Change only the returned validation payload to the known string parameter; require the specific written-return mismatch, not a payload-union cascade. |
 | `missing-field-error-contract` | Remove only the localized field-error group from the written `fromJson` outcome; require propagation-contract errors at both original getter calls. |
 | `missing-validation-contract` | Remove only validation failure from the written outcome; require the propagation-contract error at the original constructor tail. |
-| `unhandled-name`, `unhandled-age`, `unhandled-constructor` | Remove one original `?` at a time and require mandatory handling. Getter cases also pin the existing argument-type follow-on described below. |
+| `unhandled-name`, `unhandled-age`, `unhandled-constructor` | Remove one original `?` at a time and require mandatory handling. A later diagnostic slice removes the dependent argument-type follow-on; only the primary handling error is required. |
 | `unhandled-constructor-caller`, `unhandled-from-json-caller` | Unhandled calls in tail position still need handling, even for valid runtime inputs. |
 | `missing-missing-arm`, `missing-wrongType-arm`, `missing-invalidAge-arm` | Remove one failure arm from an otherwise complete observer; each requires nonexhaustiveness at the match input. |
 | `field-entry-error`, `validation-entry-error` | Exact getter traces, stderr and exit 1; active error payloads and DTO/name owners are cleaned. |
@@ -82,15 +82,20 @@ claims that the original fence contains those errors.
 
 ## Diagnostic finish and exclusions
 
-Removing `?` from a getter currently leaves the binding with the full outcome
-type. Besides the required handling error, passing that binding into `User.new`
-then reports `Function argument has the wrong type.` on the constructor line.
-Both messages/source lines are required by these tests; the second is not hidden
-or treated as a different successful rejection. Suppressing or clarifying this
-follow-on cascade remains M6 diagnostic finish work, recorded in the tracker.
+The original audit exposed a cascade: removing `?` left the getter binding with
+its full outcome type, then `User.new` reported an argument mismatch as well as
+the required handling error. A subsequent M6 checker slice now defers such
+invalid results as unknown during SCC inference and gives them an error recovery
+type on the final check. Both missing-getter cases therefore require exactly
+the primary handling error, not the constructor follow-on. Calls still require
+direct handling; no `?`, `!`, success projection or failure propagation is
+inserted implicitly. Callee contracts remain intact. Independent type/arity,
+return and permission errors still have separate regression coverage, as do
+recursive components, repeated checking and rejected lowering.
 
 The audit does not establish modules, private fields, library discovery, JSON
 text parsing/serialization, collection APIs, custom trait conversions or finalized
 standard-library error groups. Independent resolver/checker, IR/RC, emitter,
-runtime, conversion and native-driver tests remain in place. No compiler or
-runtime changes were needed for this slice.
+runtime, conversion and native-driver tests remain in place. The original audit
+needed no compiler/runtime changes; the later checker-only diagnostic follow-up
+described above does not alter valid programs or the runtime.

@@ -122,8 +122,9 @@ remain a diagnostic-finish opportunity. The type slice adds 64
 [type-document cases](../doc-types.md): primitive/literal domains, checked
 arithmetic, numeric/text conversion rules including `chr` sources, IEEE
 behavior, binary strings, content equality and unit effects. Identity calls in
-two equality fences and nine feature/library fences remain deferred; generic
-source-exponent diagnostics are an explicit limitation. The overview slice adds
+two equality fences and nine feature/library fences remain deferred. A later
+lexer slice gives source exponents an explicit unsupported-notation diagnostic,
+without changing numeric text conversion. The overview slice adds
 24 [prose-contract scenarios](../doc-overview.md), not extracted programs: the
 overview has no code fences. It guards first-version/deferred scope, checks the
 document/open-question inventories, and exercises representative entry, typing,
@@ -136,8 +137,9 @@ limitations are explicit; adapted bodies are not acceptance of those features.
 The [standard-library audit](../doc-stdlib.md) adds 17 cases for its one partial
 JSON fence, preserving constructor/propagation bodies with deterministic field
 access. It tests local error compatibility, handling, ownership and coverage,
-not JSON parsing/serialization or module privacy; an unhandled-getter diagnostic
-cascade remains tracked. The chapter contains no builtin examples.
+not JSON parsing/serialization or module privacy. A later checker slice removes
+the unhandled-getter argument-type cascade, without weakening direct handling.
+The chapter contains no builtin examples.
 The [modules-chapter audit](../doc-modules.md) adds 30 cases covering eight of its
 17 fences and guarded prose contracts. It checks local structs/literals, explicit
 receivers and `Self`, constructors and entry ownership/results in one file.
@@ -181,6 +183,25 @@ unchanged short-circuit/RHS effects, single bitwise operators and postfix
 updates. Parser and CRLF CLI checks verify full operator spans, exact messages,
 later-item recovery and unchanged lexer tokens; no new language syntax is
 accepted.
+
+The source-exponent diagnostic follow-up extends `errors/lex-and-parse.brf`
+with integer/fraction, signed, unfinished, range-bound and pattern cases, all
+requiring one source-backed lexical diagnostic per literal and no parser
+cascade. `numeric-conversions.brf` preserves lower/uppercase signed text
+exponents. Lexer, parser and CRLF CLI checks cover spans, boundaries, recovery
+and independent stages. No source exponent feature or runtime change is added.
+
+The handling-recovery follow-up extends `errors/handled-calls.brf`: invalid
+getter results no longer cause dependent argument/field/method errors, while a
+wrong sibling argument still fails. Stage tests cover unknown-versus-error
+recovery during SCC/final checking, repeated checks, rejected lowering and
+correctly handled counterparts, without treating forbidden outcomes as valid
+values or suppressing independent errors. The 17-case standard-library audit
+now pins only the primary handling error for each missing getter `?`. A
+recursive conversion negative also guards against losing the primary error to
+poisoned SCC outcomes; `numeric-conversions.brf` exercises the correctly
+double-handled `int(recursiveForward()?)?` counterpart and observes its
+propagated failure.
 
 These generated cases remain separate from the 87 source fixtures here. Every
 tracked chapter now has a scope/acceptance audit, but diagnostic improvements,

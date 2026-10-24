@@ -134,7 +134,15 @@ part of this change. Recursive-shape equality also reported the generic
 `Comparison of this type is not implemented yet.`, implying future support for
 a permanent rule; it now reports `Types that can contain a reference cycle have
 no == or !=.`, while ordering comparisons keep the not-implemented message.
-Source exponent notation still receives a generic newline/separator parser
-error; a more actionable message remains diagnostic finish work. Named tuple
-semantics, identity, custom trait conversions, provisional arithmetic libraries
-and collection/FFI behavior are not established by this audit.
+A later M6 lexer slice replaces the generic separator error for source exponent
+notation with `Exponent notation is not supported in source number literals.`.
+Recognized integer/fraction-plus-`e`/`E` suffixes (including a boundary-ending
+unfinished marker/sign) form one source-backed error token. Identifier-like
+suffixes, separated tokens, ordinary literals, member/range punctuation and
+following line endings are preserved. Lexer/parser/CLI regressions check exact
+spans, LF/CRLF recovery and duplicate suppression; this audit's original source
+negative pins the new message. Numeric text conversions still accept exponents,
+including signed uppercase forms; no source exponent feature is implemented.
+Named tuple semantics, identity, custom trait conversions, provisional
+arithmetic libraries and collection/FFI behavior are not established by this
+audit.
