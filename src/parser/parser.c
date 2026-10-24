@@ -850,6 +850,11 @@ static Expr *conditional(Parser *p) {
 
 static Expr *primary(Parser *p, int allow_struct) {
   Token token = peek(p);
+  if (token.type == TOK_PLUS_PLUS || token.type == TOK_MINUS_MINUS) {
+    error(p, "Increment and decrement must be postfix standalone statements "
+             "(x++ or x--).");
+    return NULL;
+  }
   if (type_name_token(token.type)) {
     take(p);
     Expr *e = new_expr(p, EXPR_NAME, token.span);
@@ -1283,6 +1288,20 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
     const Operator *op = operator_info(token.type);
     if (!op || op->power < minimum)
       break;
+    // The lexer intentionally keeps & and | as single-character bitwise
+    // operators. Recognize C-style pairs only when their source bytes touch;
+    // whitespace/comments/newline filtering must not manufacture && or ||.
+    if ((token.type == TOK_BIT_AND || token.type == TOK_BIT_OR) &&
+        p->position + 1 < p->tokens.count) {
+      Token next = p->tokens.items[p->position + 1];
+      if (next.type == token.type && next.span.file == token.span.file &&
+          next.span.start == token.span.end) {
+        error_at(p, through(token.span, next.span),
+                 token.type == TOK_BIT_AND ? "Use 'and' instead of '&&'."
+                                           : "Use 'or' instead of '||'.");
+        return NULL;
+      }
+    }
     if ((comparison(token.type) && compared) ||
         (token.type == TOK_DOT_DOT && ranged)) {
       error(p,

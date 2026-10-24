@@ -76,6 +76,36 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR tokens STREQUAL "")
     message(FATAL_ERROR "statement syntax must not affect lexer-only dumping (${status}):\n${errors}")
 endif()
 
+# Invalid C-style operators remain lexically valid; parsing highlights the
+# complete operator and gives the Brief spelling/form, including on CRLF input.
+file(WRITE "${invalid}" "main() {\r\n  true && false\r\n  true || false\r\n  ++count\r\n  --count\r\n  let kept = 1\r\n}\r\nafter() {}\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${invalid}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE tree ERROR_VARIABLE errors)
+string(REGEX MATCHALL "error:" messages "${errors}")
+list(LENGTH messages count)
+string(REGEX MATCHALL "Increment and decrement must be postfix standalone statements" updates "${errors}")
+list(LENGTH updates update_count)
+if(NOT status EQUAL 1 OR NOT tree STREQUAL "" OR NOT count EQUAL 4 OR NOT update_count EQUAL 2)
+    message(FATAL_ERROR "expected four operator hints (${status}):\n${errors}\n${tree}")
+endif()
+foreach(hint IN ITEMS "Use 'and' instead of '&&'." "Use 'or' instead of '||'.")
+    string(FIND "${errors}" "${hint}" found)
+    if(found LESS 0)
+        message(FATAL_ERROR "missing operator hint ${hint}:\n${errors}")
+    endif()
+endforeach()
+foreach(location IN ITEMS "2:8" "3:8" "4:3" "5:3")
+    string(FIND "${errors}" "${invalid}:${location}\n" found)
+    if(found LESS 0)
+        message(FATAL_ERROR "missing operator source location ${location}:\n${errors}")
+    endif()
+endforeach()
+execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE tokens ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR tokens STREQUAL "")
+    message(FATAL_ERROR "operator syntax must not affect lexer-only dumping (${status}):\n${errors}")
+endif()
+
 file(WRITE "${valid}" "")
 execute_process(COMMAND "${BRIEF}" dump-ast "${valid}"
     RESULT_VARIABLE status OUTPUT_VARIABLE tree ERROR_VARIABLE errors)

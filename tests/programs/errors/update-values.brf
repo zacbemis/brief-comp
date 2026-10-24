@@ -1,5 +1,13 @@
 main() {
   var count = 0
+  ++count // error: Increment and decrement must be postfix standalone statements (x++ or x--).
+  --count // error: Increment and decrement must be postfix standalone statements (x++ or x--).
+  print(++count) // error: Increment and decrement must be postfix standalone statements (x++ or x--).
+  let prefix = --count // error: Increment and decrement must be postfix standalone statements (x++ or x--).
+  true && false // error: Use 'and' instead of '&&'.
+  true || false // error: Use 'or' instead of '||'.
+  print(true && false) // error: Use 'and' instead of '&&'.
+  if true || false {} // error: Use 'or' instead of '||'.
   let old = count++ // error: Increment and decrement are only allowed as standalone statements.
   while count++ < 3 {} // error: Increment and decrement are only allowed as standalone statements.
   print(count--) // error: Increment and decrement are only allowed as standalone statements.

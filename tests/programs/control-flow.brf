@@ -32,6 +32,18 @@ main() {
   count--
   count--
   check(count == 6, "decrement statements")
+  var hits = 0
+  let skippedAnd = false and if true { hits++
+    true } else { false }
+  let skippedOr = true or if true { hits++
+    false } else { true }
+  check(!skippedAnd and skippedOr and hits == 0, "logical short circuit")
+  let enteredAnd = true and if true { hits++
+    true } else { false }
+  let enteredOr = false or if true { hits++
+    true } else { false }
+  check(enteredAnd and enteredOr and hits == 2, "logical RHS effects")
+  check((6 & 3) == 2 and (6 | 3) == 7, "single bitwise operators")
   var floating: flt = 0.5
   floating++
   check(floating == 1.5, "floating increment")

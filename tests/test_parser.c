@@ -199,13 +199,133 @@ int main(void) {
     invalid(&arena, "main() { 1++ }", "increment/decrement target");
     invalid(&arena, "main() { (x + y)-- }", "increment/decrement target");
     invalid(&arena, "main() { f()++ }", "increment/decrement target");
-    invalid(&arena, "main() { ++x }", "Expected an expression");
-    invalid(&arena, "main() { --x }", "Expected an expression");
+    invalid(&arena, "main() { ++x }", "postfix standalone statements");
+    invalid(&arena, "main() { --x }", "postfix standalone statements");
     Parsed *recovered =
         parse(&arena, "main() {\nlet x = count++\nprint(\"after\")\n}");
     ASSERT_EQ_INT(1, recovered->diagnostics.count);
     ASSERT_EQ_INT(
         1, recovered->program->items[0]->as.function.body->as.block.count);
+  }
+  TEST("C-style logical and prefix update hints have exact spans and recover") {
+    const char *prefix = "Increment and decrement must be postfix standalone "
+                         "statements (x++ or x--).";
+    const char *and_hint = "Use 'and' instead of '&&'.";
+    const char *or_hint = "Use 'or' instead of '||'.";
+    struct {
+      const char *expression, *operator, *message;
+    } cases[] = {
+        {"++x", "++", prefix}, {"--x", "--", prefix},
+        {"++ x", "++", prefix}, {"-- user.age", "--", prefix},
+        {"f(++x)", "++", prefix}, {"let y = --x", "--", prefix},
+        {"ret ++x", "++", prefix}, {"if ++x {}", "++", prefix},
+        {"while --x {}", "--", prefix},
+        {"for i in 0..++x {}", "++", prefix},
+        {"x + --y", "--", prefix}, {"(++x)", "++", prefix},
+        {":ok(--x)", "--", prefix}, {"items[++x]", "++", prefix},
+        {"x |> { _ => ++x }", "++", prefix},
+        {"true && false", "&&", and_hint}, {"true||false", "||", or_hint},
+        {"f(true && false)", "&&", and_hint},
+        {"let y = true || false", "||", or_hint},
+        {"ret true && false", "&&", and_hint},
+        {"if true || false {}", "||", or_hint},
+        {"while true && false {}", "&&", and_hint},
+        {"(true || false)", "||", or_hint},
+        {":ok(true && false)", "&&", and_hint},
+        {"x |> { _ => true || false }", "||", or_hint},
+        {"a < b && c > d", "&&", and_hint},
+        {"a + b||c", "||", or_hint}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+      char text[512], crlf[1024];
+      snprintf(text, sizeof(text), "main() {\n%s\nlet kept = 1\n}\nafter() {}\n",
+               cases[i].expression);
+      size_t n = 0;
+      for (size_t j = 0; text[j]; j++) {
+        if (text[j] == '\n')
+          crlf[n++] = '\r';
+        crlf[n++] = text[j];
+      }
+      crlf[n] = '\0';
+      for (unsigned ending = 0; ending < 2; ending++) {
+        const char *source = ending ? crlf : text;
+        Parsed *v = parse(&arena, source);
+        if (v->diagnostics.count != 1)
+          diagnostics_print(&v->diagnostics, stderr);
+        ASSERT_EQ_INT(1, v->diagnostics.count);
+        if (v->diagnostics.count) {
+          const Diagnostic *d = v->diagnostics.items[0];
+          size_t start = (size_t)(strstr(source, cases[i].operator) - source);
+          ASSERT_EQ_STRN(cases[i].message, d->message, strlen(d->message));
+          ASSERT_EQ_INT(start, d->span.start);
+          ASSERT_EQ_INT(start + 2, d->span.end);
+          ASSERT_EQ_INT(2, source_position(v->source, d->span.start).line);
+        }
+        ASSERT_EQ_INT(2, v->program->count);
+        if (v->program->count == 2) {
+          Expr *body = v->program->items[0]->as.function.body;
+          ASSERT_TRUE(body->as.block.count > 0);
+          if (body->as.block.count) {
+            BlockItem last = body->as.block.items[body->as.block.count - 1];
+            ASSERT_EQ_INT(BLOCK_ITEM_DECL, last.kind);
+            if (last.kind == BLOCK_ITEM_DECL)
+              ASSERT_EQ_STRN("kept", last.as.decl->name,
+                             strlen(last.as.decl->name));
+          }
+          ASSERT_EQ_STRN("after", v->program->items[1]->name,
+                         strlen(v->program->items[1]->name));
+        }
+      }
+    }
+  }
+  TEST("logical hints require adjacent bytes and preserve valid operators") {
+    const char *separated[] = {"a & &b", "a | |b", "a &\n&b", "a |\n|b",
+                               "a & // gap\n&b", "a | // gap\n|b",
+                               "+ +x", "a + +b"};
+    for (size_t i = 0; i < sizeof(separated) / sizeof(separated[0]); i++) {
+      char text[256];
+      snprintf(text, sizeof(text), "main() { %s }", separated[i]);
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(1, v->diagnostics.count);
+      if (v->diagnostics.count)
+        ASSERT_EQ_STRN("Expected an expression.", v->diagnostics.items[0]->message,
+                       strlen(v->diagnostics.items[0]->message));
+    }
+    expression_dump(&arena, "a & b | c", "(| (& (name a) (name b)) (name c))");
+    expression_dump(&arena, "a & // gap\nb", "(& (name a) (name b))");
+    expression_dump(&arena, "a | // gap\nb", "(| (name a) (name b))");
+    expression_dump(&arena, "a or b and !c",
+                    "(or (name a) (and (name b) (! (name c))))");
+    expression_dump(&arena, "- -x", "(- (- (name x)))");
+    program_dump(&arena, "P {}\nf(p: &P) {}",
+                 "(program (struct P) (fn f (params (p & P)) _ (block)))\n");
+    Parsed *v = parse(&arena,
+                      "main() { true && false\ntrue || false\n++x\nlet kept = 1 }\n");
+    TokenArray filtered = newline_filter(&arena, v->raw);
+    Token *saved = arena_alloc(&arena, filtered.count * sizeof(*saved));
+    memcpy(saved, filtered.items, filtered.count * sizeof(*saved));
+    size_t ampersands = 0, bars = 0;
+    for (size_t i = 0; i < v->raw.count; i++)
+      if (v->raw.items[i].type == TOK_BIT_AND ||
+          v->raw.items[i].type == TOK_BIT_OR) {
+        ASSERT_EQ_INT(1, v->raw.items[i].length);
+        ampersands += v->raw.items[i].type == TOK_BIT_AND;
+        bars += v->raw.items[i].type == TOK_BIT_OR;
+      }
+    ASSERT_EQ_INT(2, ampersands); // Lexer still emits ordinary bitwise tokens.
+    ASSERT_EQ_INT(2, bars);
+    for (unsigned i = 0; i < 2; i++) {
+      Diagnostics d;
+      diagnostics_init(&d, &arena);
+      parse_program(&arena, &v->names, filtered, &d);
+      ASSERT_EQ_INT(3, d.count);
+      ASSERT_TRUE(memcmp(saved, filtered.items,
+                         filtered.count * sizeof(*saved)) == 0);
+    }
+    v = parse(&arena, "main() { let value = @\ntrue && @\n--x\nlet kept = 1 }\n");
+    ASSERT_EQ_INT(4, v->diagnostics.count); // Two lexer and two operator errors.
+    for (size_t i = 0; i < v->diagnostics.count; i++)
+      ASSERT_TRUE(strcmp(v->diagnostics.items[i]->message,
+                         "Expected an expression.") != 0);
   }
   TEST("postfix chains distinguish panic, logical not, and !=") {
     expression_dump(
