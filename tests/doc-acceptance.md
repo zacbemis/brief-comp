@@ -22,7 +22,7 @@ not being added to that scope by these tests.
 | `lang-ex-base.txt` | [Raw sample audit](doc-base.md): zero fences; all source consumed into 38 contiguous classified spans (20 tested, six partial, four references, eight deferred), exercised in 38 cases. Exact subfragment/method inventories guard localized first-version bodies; modules/traits/const/JSON/vector/clone claims remain explicitly partial or deferred. |
 | `lang-stdlib.txt` | [Standard-library audit](doc-stdlib.md): one explicitly partial JSON fence, represented in 17 cases; no builtin examples occur in this chapter. Preserve constructor/propagation bodies with a local field-access stand-in and error alias; module privacy, JSON representation/serialization and finalized API contracts remain deferred. Derived negatives pin error compatibility, handling, coverage and an existing unhandled-getter argument-type cascade. |
 | `lang-modules.txt` | [Modules-chapter audit](doc-modules.md): 17 fences classified, eight represented in 30 cases; 3, 4 and 15 partial, nine deferred. Local structs/literals, explicit receivers/`Self`, constructors and entry behavior run in one file; a deterministic `File.read` models selected outcomes, not resource access. Module discovery/imports/paths, privacy, ambiguity/misspelling diagnostics, traits/constants and dependency cycles remain deferred. |
-| `lang-collections.txt` | Pending explicit scope classification; collections/lambdas themselves are later-version work. |
+| `lang-collections.txt` | [Collections scope audit](doc-collections.md): 31 fences classified; only 7, 11, 22 and 29 partially represented, in 14 cases including prose/derived scenarios. Original handlers and the written manual `while` expansion use controlled outcomes/a synthetic concrete cursor. All 26 table operations and 27 whole fences remain deferred; no vectors, lambdas, queries, traits, generic cursor lowering or iteration-invalidation rules are implemented. Corrected delayed `!` handling and qualified uppercase byte-order prose as ASCII. |
 | `lang-traits.txt` | Pending explicit scope classification; traits themselves are later-version work. |
 
 Run all current native document acceptance tests and their support guards:
@@ -32,12 +32,12 @@ ctest --test-dir build -L doc-acceptance --output-on-failure
 ```
 
 The `doc-errors`, `doc-pipelines`, `doc-functions`, `doc-symbols`, `doc-memory`,
-`doc-syntax`, `doc-types`, `doc-overview`, `doc-base`, `doc-stdlib` and
-`doc-modules` labels select individual audits. Each has normal and, when
-enabled, sanitized runs, using the C program runner without interpreter or
-shell dependencies. Generated cases live in separate build-tree directories per
-test/configuration; they are not included in the 86 checked-in program-fixture
-count.
+`doc-syntax`, `doc-types`, `doc-overview`, `doc-base`, `doc-stdlib`,
+`doc-modules` and `doc-collections` labels select individual audits. Each has
+normal and, when enabled, sanitized runs, using the C program runner without
+interpreter or shell dependencies. Generated cases live in separate build-tree
+directories per test/configuration; they are not included in the 86 checked-in
+program-fixture count.
 
 ## Audit requirements
 

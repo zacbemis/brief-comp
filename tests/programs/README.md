@@ -145,6 +145,13 @@ Nine fences are deferred; three represented fences are partial. Neither local
 `File.read` outcomes nor local public declarations establish filesystem APIs,
 module loading or cross-file privacy. The top-level-call parser message remains
 a tracked diagnostic gap.
+The [collections scope audit](../doc-collections.md) classifies all 31 fences:
+only four are partial, represented with prose/derived checks in 14 cases. It runs
+original symbol handlers and the written manual `while` expansion with controlled
+inputs, not vectors, queries, lambdas or compiler-generated cursor iteration.
+All 26 table operations and 27 whole fences are deferred. Direct `!` handling in
+the oldest-user example is corrected and its former delayed shape is rejected;
+ASCII/UTF-8 byte comparisons are tested without claiming sorting support.
 
 These generated cases remain separate from the 86 source fixtures here; other
 document audits and diagnostic improvements are still outstanding.
