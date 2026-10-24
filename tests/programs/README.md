@@ -203,6 +203,14 @@ poisoned SCC outcomes; `numeric-conversions.brf` exercises the correctly
 double-handled `int(recursiveForward()?)?` counterpart and observes its
 propagated failure.
 
+The struct-header diagnostic follow-up extends `errors/lex-and-parse.brf` with
+`if`, `while` and `for` cases requiring an opening-brace parentheses hint rather
+than generic recovery errors. `control-flow.brf` checks parenthesized literals
+in conditions and integer range bounds, with ordinary cleanup. Parser and CRLF
+CLI tests pin spans, preserved grammar/escape contexts, recovery, EOF, unchanged
+tokens and independent errors. The 65-case syntax audit now uses its original
+negative without a newline adapter; no struct-literal syntax is added.
+
 These generated cases remain separate from the 87 source fixtures here. Every
 tracked chapter now has a scope/acceptance audit, but diagnostic improvements,
 in-scope review and the final README/status check still remain M6 work.

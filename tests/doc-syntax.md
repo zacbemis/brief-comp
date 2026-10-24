@@ -56,7 +56,7 @@ the sanitized variant.
 | 28 | `break` outside a loop | `break-outside-loop`: retain the complete program and require its exact loop-context diagnostic. |
 | 29 | Nested collection loops | Deferred: nested collection iteration. The innermost-loop rule is separately tested on integer ranges. |
 | 30 | Collection loop/body braces | Deferred: collection iteration. |
-| 31 | Struct literals in conditions | `struct-condition-unparenthesized` checks both parser recovery diagnostics with the token-preserving line adaptation described below. `struct-condition-parenthesized` retains both corrected alternatives; method/function effects prove both calls run. |
+| 31 | Struct literals in conditions | `struct-condition-unparenthesized` retains the original negative and requires one actionable parentheses hint at the literal's opening brace. `struct-condition-parenthesized` retains both corrected alternatives; method/function effects prove both calls run. |
 | 32 | Generic calls versus comparisons | **Partial:** `generic-versus-comparison` retains both comparison declarations and executes true/false inputs. Both `Vec` calls remain deferred, including the nested generic closer. |
 | 33 | Generic-call ambiguity | **Partial:** `unambiguous-comparison-arguments` retains the two unambiguous comparison-call forms and observes their boolean arguments. The first line is deliberately parsed as a generic call and is deferred, not counted as native acceptance by rejecting unavailable generic support. |
 
@@ -77,22 +77,26 @@ alternative declarations are split at guarded boundaries. No operator grouping
 inside an original expression is changed. `MASK` is an ordinary local binding,
 not a newly supported `const` declaration.
 
-Fence 31 currently emits two identical `Expected a newline between items.`
-diagnostics on its first line. The C runner supports one error expectation per
-source line. The adapter inserts only a newline **before `.`**, which the
-specified newline filter removes, preserving the filtered token stream while
-placing the two diagnostic sites on separate lines. Both are required, not
-suppressed or collapsed. The valid counterparts run unchanged. Existing parser
-document tests also retain the original unadapted fence.
+Fence 31 now requires `Wrap struct literals in conditions or iterables in
+parentheses.` at the literal's opening brace. The later M6 parser slice
+recognizes an initial named field (`name:`) where a header forbids a struct
+literal. That cannot start an ordinary block item, so accepted grammar is
+unchanged. Recovery skips the invalid header/body together instead of producing
+the original two newline-separator errors. The original negative runs without
+the former newline-before-`.` adapter; both valid counterparts still run
+unchanged. Existing parser document tests also retain the original fence.
 
-These generic parser messages do not explain the required struct-literal
-parentheses particularly well. An actionable condition-literal hint remains a
-**diagnostic-finish opportunity**; the audit records current exact behavior and
-does not claim that all M6 diagnostic work is done. Another open gap is the
-follow-on `A local binding is not callable.` after fence 33's deferred
-generic-call line reports `Generic calls are not implemented yet.`. Fence 19
-similarly records all errors from its documented unparenthesized parse, rather
-than weakening the runner to accept an arbitrary failure.
+This is deliberately conservative: empty blocks and ordinary bodies retain the
+existing ambiguity rule. Grouping, call arguments and index expressions still
+allow literals. Stage tests cover exact opening-brace spans, LF/CRLF, later-item
+recovery, immutable tokens/reparse, EOF and independent lexer/parser errors;
+CLI tests also require empty AST/C output on rejection. Parser-only iterable,
+index and qualified-name cases do not establish collections or modules.
+
+M6 diagnostic finish is not complete. The follow-on `A local binding is not
+callable.` after fence 33's deferred generic-call rejection remains open.
+Fence 19 still records all errors from its documented unparenthesized parse,
+rather than weakening the runner to accept an arbitrary failure.
 
 ## Guarded inline and prose cases
 

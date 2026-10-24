@@ -265,7 +265,9 @@ privacy and collection/lambda/trait behavior remain deferred.
 Function-contract mismatches no longer cause a misleading partial-set
 payload-collision diagnostic. Unhandled fallible results no longer cause
 dependent argument-type cascades; direct handling is still mandatory and
-independent errors remain checked. The [document acceptance
+independent errors remain checked. Named-field struct literals in conditions
+or iterables now get a parentheses hint; ordinary/empty block ambiguity and
+valid grouped/call/index forms are unchanged. The [document acceptance
 tracker](tests/doc-acceptance.md) records partial coverage and the remaining
 audits/diagnostic finish. Symbol ordering and refutable/nested payload patterns
 remain deferred, not M5 blockers.

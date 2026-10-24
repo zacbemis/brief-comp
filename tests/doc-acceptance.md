@@ -14,7 +14,7 @@ not being added to that scope by these tests.
 | `lang-errors.txt` | [M5 audit](doc-errors.md): 36 fences classified, 28 tested in 49 cases, eight later-version exclusions; entry-result prose has additional existing coverage. |
 | `lang-pipelines.txt` | [First M6 slice](doc-pipelines.md): 17 fences classified; ten represented in 20 cases (fence 11 is partial), six later-version exclusions and one syntax reference. Selected inline syntax examples are also checked. |
 | `lang-desc.txt` | [Overview audit](doc-overview.md): no code fences; 24 representative prose-contract cases, with the full eleven-bullet first-version/later-version scope guarded. Thirteen document-table links and eleven open-question entries are checked; broad design goals are explicitly distinguished from implemented behavior. The shared harness supports prose-only manifests, with three added regression guards (14 total). |
-| `lang-syntax.txt` | [Syntax audit](doc-syntax.md): 33 fences classified, 30 represented in 65 cases, three collection-only exclusions. Fences 3, 4, 6, 17, 26, 32 and 33 are partial. Inline/prose cases check rejected expression updates/assignments, scope, continuations, control flow and range rules. Struct-condition parser messages still need a more actionable hint; parser acceptance remains separate. |
+| `lang-syntax.txt` | [Syntax audit](doc-syntax.md): 33 fences classified, 30 represented in 65 cases, three collection-only exclusions. Fences 3, 4, 6, 17, 26, 32 and 33 are partial. Inline/prose cases check rejected expression updates/assignments, scope, continuations, control flow and range rules. Named-field header literals now receive an actionable parentheses hint; parser acceptance remains separate. |
 | `lang-types.txt` | [Type audit](doc-types.md): 24 fences classified, 15 represented in 64 cases, nine deferred feature/library exclusions. Equality fences 20/21 are partial (identity calls deferred). Guarded prose cases cover primitive/literal domains, arithmetic panics, numeric/text conversions, IEEE behavior, binary strings, unit and nominal equality. The audit added `chr`-to-number conversion to the chapter and compiler and a specific recursive-equality error; a later lexer slice gives source-exponent notation its own diagnostic while preserving exponent text conversions. |
 | `lang-functions.txt` | [Function audit](doc-functions.md): 27 fences classified, 20 represented in 33 cases (fences 9 and 27 are partial), seven later-version exclusions. Selected parameter, inference and evaluation-order prose rules are also checked; a partial-return diagnostic cascade is fixed. |
 | `lang-symbols.txt` | [Symbol audit](doc-symbols.md): ten fences classified, nine represented in 32 cases, one module-qualified type exclusion. Guarded prose cases cover local composition, transparent/recursive aliases and exact/contextual payload types; payload-free ordering prose remains deferred. |
@@ -121,6 +121,19 @@ review.
   It is now a negative; `int(g()?)?` is the positive counterpart, with verified
   non-error outcomes, lowering/emission and native propagation coverage.
 
+- Named-field struct literals in forbidden `if`/`while` conditions or `for`
+  iterables now report `Wrap struct literals in conditions or iterables in
+  parentheses.` at the opening brace, rather than a pair of newline-separator
+  errors. A non-consuming field-prefix check preserves ordinary/empty blocks
+  and the existing grammar, including literals inside grouping, calls and
+  indexes. Exact LF/CRLF parser tests cover recovery, unchanged tokens/reparse,
+  nested generic closers, EOF and independent lexer/parser errors. CLI AST/C
+  commands require exact locations/highlights and no output; token dumping
+  stays lexer-only. The syntax audit retains its original negative without the
+  old newline adapter; native fixtures check all three headers and valid
+  parenthesized condition/range-bound ownership. Counts remain 450 generated
+  cases and 87 checked-in fixtures; no runtime or language feature is added.
+
 ## Audit requirements
 
 - Read examples from the documents instead of copying an unchecked approximation.
@@ -144,6 +157,5 @@ cases that name it. Known gaps found so far:
 
 | Input | Current diagnostic | Problem | Pinned by |
 |---|---|---|---|
-| `if Guest { name: name }.isAllowed() {` | Two `Expected a newline between items.` | No hint to wrap the struct literal in `( )`. | `doc-syntax` |
 | `check(a < b, c > (d))` | `Generic calls are not implemented yet.` then `A local binding is not callable.` | The second error is a misleading cascade. | Not pinned (deferred line) |
 | `user.save()` where `save` is a function, not a method | `Unknown method for this type.` | No hint to call `save(user)` or `user \|> save()`. | `doc-base` |
