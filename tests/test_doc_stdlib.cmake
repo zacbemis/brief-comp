@@ -170,11 +170,6 @@ foreach(stage IN ITEMS name age constructor)
     endif()
     replace_once(code "${call}?" "${call}")
     error_at(code "${call}" "A call that can fail must be handled with ?, !, or a match.")
-    if(NOT stage STREQUAL "constructor")
-        # The invalid binding retains the full outcome type, so passing it to
-        # the constructor currently adds a follow-on argument-type error.
-        error_at(code "User.new(name, age)?" "Function argument has the wrong type.")
-    endif()
     example(1 "unhandled-${stage}" "${json_api}" "${code}" "main() {}")
 endforeach()
 set(code "User.new(\"Bob\", 18)")

@@ -138,10 +138,50 @@ int main(void) {
       ASSERT_EQ_INT(expected[i],
                     literal_types->functions[i].symbol.return_type->kind);
     check(&a, "f() { int(f())? }\nmain() {}", NULL);
-    check(&a,
-          "f() { if true { ret :bad }\nint(g())? }\ng() { f()? }\nmain() {}",
-          NULL);
     check(&a, "main() { \"12\" |> int()? |> lng() |> str() |> print() }", NULL);
+  }
+  TEST("recursive conversions require direct handling of their input call") {
+    // The outer ? handles int(), not g(). This used to pass only because
+    // poisoned SCC outcomes became SEMA_ERROR and hid g()'s fallibility.
+    SemaProgram *bad = check(&a,
+        "f() { if true { ret :bad }\nint(g())? }\ng() { f()? }\nmain() {}",
+        "must be handled");
+    Diagnostics again;
+    diagnostics_init(&again, &a);
+    sema_check(bad, &again);
+    ASSERT_EQ_INT(1, again.count);
+    ASSERT_TRUE(!bad->checked);
+    ASSERT_TRUE(ir_lower(&a, bad) == NULL);
+    SemaProgram *good = check(&a,
+        "f() { if true { ret :bad }\nint(g()?)? }\ng() { f()? }\nmain() {}",
+        NULL);
+    SemaProgram *programs[] = {bad, good};
+    for (size_t i = 0; i < 2; i++)
+      for (size_t j = 0; j < 2; j++) {
+        SemaSymbol *s = &programs[i]->functions[j].symbol;
+        const SemaVariant *ok = sema_ok(s->outcome_type);
+        ASSERT_TRUE(ok != NULL);
+        if (ok) {
+          ASSERT_EQ_INT(2, s->outcome_type->symbols->count);
+          ASSERT_TRUE(ok->payload == &programs[i]->types[SEMA_INT]);
+          ASSERT_TRUE(s->return_type == s->outcome_type);
+        }
+      }
+    diagnostics_init(&again, &a);
+    sema_check(good, &again);
+    ASSERT_EQ_INT(0, again.count);
+    ASSERT_TRUE(good->checked);
+    IrProgram *ir = ir_lower(&a, good);
+    ASSERT_TRUE(ir != NULL);
+    if (ir) {
+      ir_insert_rc(&a, ir);
+      FILE *out = tmpfile();
+      ASSERT_TRUE(out != NULL);
+      if (out) {
+        ASSERT_TRUE(emit_c(out, ir));
+        fclose(out);
+      }
+    }
   }
   TEST("conversion definitions borrow invalid strings and get standalone "
        "ownership insertion") {

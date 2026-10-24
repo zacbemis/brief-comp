@@ -8,4 +8,26 @@ unhandled() {
   :outer(f()) // error: A call that can fail must be handled with ?, !, or a match.
   ret f() // error: A call that can fail must be handled with ?, !, or a match.
 }
+type TextResult = Sym<:ok(str), :bad>
+readName(): TextResult { "owned" + " name" }
+consumeName(name: str, age: int) {}
+getters() {
+  let name = readName() // error: A call that can fail must be handled with ?, !, or a match.
+  consumeName(name, 20)
+  let other = readName() // error: A call that can fail must be handled with ?, !, or a match.
+  consumeName(other, "wrong") // error: Function argument has the wrong type.
+}
+P { number: int }
+impl P { read(p: Self): int { p.number } }
+readObject(): Sym<:ok(P), :bad> { P { number: 1 } }
+projection() {
+  let value = readObject() // error: A call that can fail must be handled with ?, !, or a match.
+  value.number
+  value.read()
+}
+recursiveConversion() {
+  if true { ret :bad }
+  int(recursiveForward())? // error: A call that can fail must be handled with ?, !, or a match.
+}
+recursiveForward() { recursiveConversion()? }
 main() {}

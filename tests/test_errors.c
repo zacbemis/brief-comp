@@ -51,6 +51,37 @@ static Result invalid(Arena *a, const char *text, const char *message) {
   ASSERT_TRUE(ir_lower(a, r.program) == NULL);
   return r;
 }
+static void handling_errors(Arena *a, const char *text, size_t handling,
+                             const char *other, size_t other_count) {
+  const char *required =
+      "A call that can fail must be handled with ?, !, or a match.";
+  Result r = check(a, text);
+  unsigned repeats = r.program->resolved ? 2u : 1u;
+  for (unsigned repeat = 0; repeat < repeats; repeat++) {
+    if (repeat) {
+      diagnostics_init(&r.errors, a);
+      sema_check(r.program, &r.errors);
+    }
+    if (r.errors.count != handling + other_count) {
+      fprintf(stderr, "handling recovery case: %s\n", text);
+      diagnostics_print(&r.errors, stderr);
+    }
+    ASSERT_EQ_INT(handling + other_count, r.errors.count);
+    size_t actual_handling = 0, actual_other = 0;
+    for (size_t i = 0; i < r.errors.count; i++) {
+      const char *message = r.errors.items[i]->message;
+      actual_handling += strcmp(message, required) == 0;
+      actual_other += other && strcmp(message, other) == 0;
+    }
+    ASSERT_EQ_INT(handling, actual_handling);
+    ASSERT_EQ_INT(other_count, actual_other);
+    if (!other)
+      for (size_t i = 0; i < r.program->count; i++)
+        ASSERT_TRUE(!r.program->functions[i].inference_conflict);
+    ASSERT_TRUE(!r.program->checked);
+    ASSERT_TRUE(ir_lower(a, r.program) == NULL);
+  }
+}
 int main(void) {
   Arena a;
   arena_init(&a);
@@ -115,6 +146,147 @@ int main(void) {
             "f(): Sym<:ok(int), :bad> { 1 }\nmain() { true |> { true => "
             "()\nfalse => f() } }",
             "must be handled");
+  }
+  TEST("unhandled outcomes do not become usable binding or argument types") {
+    const char *prefix =
+        "P { value: int }\nPair { number: int\nflag: bool }\n"
+        "type Result = Sym<:ok(int), :bad>\n"
+        "source(): Result { 1 }\n"
+        "text(): Sym<:ok(str), :bad> { \"owned\" + \" text\" }\n"
+        "object(): Sym<:ok(P), :bad> { P { value: 1 } }\n"
+        "effect(): Sym<:ok, :bad> { :ok }\n"
+        "take(value: int, flag: bool) {}\ntakeFloat(value: flt) {}\n"
+        "takeData(value: Result) {}\n"
+        "impl P { read(value: Self): int { value.value } }\n";
+    struct {
+      const char *bad, *good;
+    } cases[] = {
+        {"f() { let value = source()\ntake(value, true) }",
+         "f() { let value = source()!\ntake(value, true) }"},
+        {"f() { take(source(), true) }", "f() { take(source()!, true) }"},
+        {"f() { take((source()), true) }", "f() { take((source())!, true) }"},
+        {"f() { let value: int = source()\ntake(value, true) }",
+         "f() { let value: int = source()!\ntake(value, true) }"},
+        {"f() { let value = object()\nvalue.value }",
+         "f() { let value = object()!\nvalue.value }"},
+        {"f() { object().value }", "f() { object()!.value }"},
+        {"f() { object().read() }", "f() { object()!.read() }"},
+        {"f() { print(text()) }", "f() { print(text()!) }"},
+        {"f() { str(source()) }", "f() { str(source()!) }"},
+        {"f() { int(source()) }", "f() { int(source()!) }"},
+        {"f() { source() |> str() }", "f() { source()! |> str() }"},
+        {"f() { :outer(source()) }", "f() { :outer(source()!) }"},
+        {"f() { takeData(source()) }",
+         "f() { takeData(source() |> { other => other }) }"},
+        {"f() { let value = source()\nvalue? }",
+         "f() { let value = source() |> { other => other }\nvalue? }"},
+        {"f() { let value = source()\nvalue! }",
+         "f() { let value = source() |> { other => other }\nvalue! }"},
+        {"f() { let value = source()\nvalue |> { :ok(n) => take(n, true)\n"
+         ":bad => () } }",
+         "f() { let value = source() |> { other => other }\n"
+         "value |> { :ok(n) => take(n, true)\n:bad => () } }"},
+        {"f(): int { ret source() }", "f(): int { ret source()! }"},
+        {"f(): Result { source() }", "f(): Result { source()? }"},
+        {"f(): Sym<:ok(int), _> { source() }",
+         "f(): Sym<:ok(int), _> { source()? }"},
+        {"f() { effect() }", "f() { effect()! }"},
+        {"f() { ret 0\nlet value = source()\ntake(value, true) }",
+         "f() { ret 0\nlet value = source()!\ntake(value, true) }"},
+        {"f() { let value = flt(\"1\")\ntakeFloat(value) }",
+         "f() { let value = flt(\"1\")!\ntakeFloat(value) }"}};
+    char code[4096];
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+      snprintf(code, sizeof(code), "%s%s\nmain() {}", prefix, cases[i].bad);
+      handling_errors(&a, code, 1, NULL, 0);
+      snprintf(code, sizeof(code), "%s%s\nmain() {}", prefix, cases[i].good);
+      valid(&a, code);
+    }
+    snprintf(code, sizeof(code), "%s%s", prefix,
+             "f() { let value = source()\ntake(value, true) }\nmain() {}");
+    Result r = check(&a, code);
+    SemaFunction *f = NULL;
+    for (size_t i = 0; i < r.program->count; i++)
+      if (!strcmp(r.program->functions[i].symbol.name, "f"))
+        f = &r.program->functions[i];
+    ASSERT_TRUE(f != NULL);
+    if (f) {
+      SemaExpr *binding = f->body->as.block.items[0];
+      SemaExpr *call = binding->as.binding.value;
+      ASSERT_EQ_INT(SEMA_ERROR, call->type->kind);
+      ASSERT_EQ_INT(SEMA_ERROR, call->raw_type->kind);
+      ASSERT_EQ_INT(SEMA_ERROR, binding->as.binding.variable->type->kind);
+      ASSERT_TRUE(call->flow & SEMA_NEXT); // Bad values do not hide later syntax.
+      ASSERT_TRUE(!f->inference_conflict);
+      const char *site = strstr(code, "= source()");
+      ASSERT_TRUE(site != NULL);
+      if (site && r.errors.count) {
+        size_t start = (size_t)(site - code) + 2;
+        ASSERT_EQ_INT(start, r.errors.items[0]->span.start);
+        ASSERT_EQ_INT(start + strlen("source()"), r.errors.items[0]->span.end);
+      }
+      ASSERT_TRUE(sema_ok(call->as.call.target->outcome_type) != NULL);
+      ASSERT_EQ_INT(2, call->as.call.target->outcome_type->symbols->count);
+    }
+    valid(&a, "data(): Sym<:left, :right> { :left }\n"
+              "only(): Sym<:ok(str)> { :ok(\"owned\" + \" text\") }\n"
+              "main() { let data = data()\nlet text = only()\nprint(text)\n"
+              "data |> { :left => ()\n:right => () } }");
+  }
+  TEST("handling recovery preserves unrelated errors and SCC fallibility") {
+    const char *prefix =
+        "P { value: int }\nPair { number: int\nflag: bool }\n"
+        "source(): Sym<:ok(int), :bad> { 1 }\n"
+        "take(value: int, flag: bool) {}\n"
+        "writable(value: &P): Sym<:ok(P), :bad> { value }\n";
+    struct {
+      const char *body, *message;
+      size_t handling;
+    } cases[] = {
+        {"f() { take(source(), \"wrong\") }",
+         "Function argument has the wrong type.", 1},
+        {"f() { let value = source()\ntake(value, \"wrong\") }",
+         "Function argument has the wrong type.", 1},
+        {"f() { source()\ntake() }", "Wrong number of function arguments.", 1},
+        {"f() { let value = source()\nlet wrong: int = false }",
+         "Binding value does not match its annotation.", 1},
+        {"f() { Pair { number: source(), flag: \"wrong\" } }",
+         "Struct field initializer has the wrong type.", 1},
+        {"f(): int { source()\nfalse }",
+         "Function body does not match the written return type.", 1},
+        {"f(): Sym<:ok(int), _> { source()\nfalse }",
+         "Function body does not match the written return type.", 1},
+        {"f(flag: bool) { if flag { ret 1 }\nif flag { ret true }\nsource() }",
+         "Incompatible return types.", 1},
+        {"f() { take(source(), missing) }", "Unknown binding.", 1},
+        {"f(value: P) { writable(value) }",
+         "A read-only value cannot be passed to an & parameter; take the "
+         "parameter it comes from as &.", 1}};
+    char code[4096];
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+      snprintf(code, sizeof(code), "%s%s\nmain() {}", prefix, cases[i].body);
+      handling_errors(&a, code, cases[i].handling, cases[i].message, 1);
+    }
+    snprintf(code, sizeof(code), "%s%s", prefix,
+             "both(a: int, b: int): Sym<:ok, :other> { :ok }\n"
+             "f() { both(source(), source()) }\nmain() {}");
+    handling_errors(&a, code, 3, NULL, 0);
+    handling_errors(&a,
+        "data(): Sym<:left, :right> { :left }\n"
+        "take(value: int) {}\nf() { take(data()) }\nmain() {}",
+        0, "Function argument has the wrong type.", 1);
+    // Deferring, rather than poisoning, probe results keeps the anchored
+    // component fallible so its illegal recursive calls cannot disappear.
+    handling_errors(&a,
+        "a(n: int) { if n == 0 { ret :bad }\nif n == 1 { ret 1 }\nb(n) }\n"
+        "b(n: int) { a(n) }\nmain() {}", 1, NULL, 0);
+    handling_errors(&a,
+        "a(n: int) { if n == 0 { ret :bad }\nif n == 1 { ret 1 }\nb(n) }\n"
+        "b(n: int) { if n == 0 { ret :bad }\nif n == 1 { ret 1 }\na(n) }\n"
+        "main() {}", 2, NULL, 0);
+    handling_errors(&a,
+        "a() { b() }\nb() { source() }\n"
+        "source(): Sym<:ok(int), :bad> { 1 }\nmain() {}", 1, NULL, 0);
   }
   TEST("return inference accumulates errors and narrows handled variants") {
     Result r = valid(&a, "type Problems = Sym<:a(str), :b(int)>\n"

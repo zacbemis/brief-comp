@@ -30,6 +30,12 @@
 // expect: true
 // expect: true
 // expect: true
+// expect: recursive
+recursiveConversion() {
+  if true { ret :bad }
+  int(recursiveForward()?)?
+}
+recursiveForward() { recursiveConversion()? }
 main() {
   print(str(lng(12)))
   let half: flt = 0.5
@@ -82,4 +88,6 @@ main() {
   print(str(flt("1e+2")! == 100.0))
   print(str(dub("-1.25E+2")! == -125.0))
   print(str(dub("1E-2")! == 0.01))
+  recursiveForward() |> { :ok(_) => print("wrong")
+    :bad => print("recursive") }
 }

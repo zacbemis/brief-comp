@@ -552,9 +552,14 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       result = sema_result(c->p, outcome);
     }
     const SemaVariant *ok = sema_ok(outcome);
-    if (ok && outcome->symbols->count > 1 && !e->as.call.handled)
+    if (ok && outcome->symbols->count > 1 && !e->as.call.handled) {
       error(c, e->span,
             "A call that can fail must be handled with ?, !, or a match.");
+      // A forbidden outcome cannot provide a usable value or return candidate.
+      // Defer during SCC probes rather than poisoning a component: an error
+      // outcome there could erase the very fallibility we need to diagnose.
+      result = t(c, c->probe ? SEMA_UNKNOWN : SEMA_ERROR);
+    }
     if (ok && outcome->symbols->count == 1 &&
         (use == OUTCOME ||
          (use == VALUE && expected && expected->kind == SEMA_SYM))) {
