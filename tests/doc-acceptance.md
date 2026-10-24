@@ -134,6 +134,21 @@ review.
   parenthesized condition/range-bound ownership. Counts remain 450 generated
   cases and 87 checked-in fixtures; no runtime or language feature is added.
 
+- Unknown dotted methods keep their primary error and never fall back to
+  top-level functions. When a visible same-name user function has matching
+  arity and an assignable, known first-parameter type, a declaration note now
+  gives the direct/pipeline call forms using that function's name. Locally
+  shadowed functions, incompatible receivers/arity, builtins and error
+  receivers do not get misleading advice. Other argument, permission and
+  outcome rules still apply; this is call-form guidance, not a promise that
+  the rewritten call is otherwise valid. Exact LF/CRLF stage and CLI
+  regressions cover note spans, independent errors, repeated checks, blocked
+  lowering, forward/inferred/SCC receivers, lexical scope and unchanged
+  method/pipeline precedence. The raw sample audit still pins the primary
+  rejection; stage/CLI tests pin the note.
+  All 450 generated cases and 87 native fixtures remain separate and unchanged
+  in count. No module loading, new call syntax or runtime behavior is added.
+
 ## Audit requirements
 
 - Read examples from the documents instead of copying an unchecked approximation.
@@ -158,4 +173,3 @@ cases that name it. Known gaps found so far:
 | Input | Current diagnostic | Problem | Pinned by |
 |---|---|---|---|
 | `check(a < b, c > (d))` | `Generic calls are not implemented yet.` then `A local binding is not callable.` | The second error is a misleading cascade. | Not pinned (deferred line) |
-| `user.save()` where `save` is a function, not a method | `Unknown method for this type.` | No hint to call `save(user)` or `user \|> save()`. | `doc-base` |

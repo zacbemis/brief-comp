@@ -211,6 +211,15 @@ CLI tests pin spans, preserved grammar/escape contexts, recovery, EOF, unchanged
 tokens and independent errors. The 65-case syntax audit now uses its original
 negative without a newline adapter; no struct-literal syntax is added.
 
+The wrong-method guidance follow-up extends `errors/struct-fields.brf` with a
+top-level-function-as-method rejection. Its primary error is unchanged;
+compatible visible user functions now get a declaration note explaining
+direct/pipeline forms. Stage/CLI tests pin note text/spans, scope/arity/type
+exclusions, repeated checking and blocked lowering. Dotted calls do not gain
+fallback, and actual methods still outrank pipeline top-level functions. The
+raw-sample audit retains its primary rejection and existing direct/pipeline
+execution cases.
+
 These generated cases remain separate from the 87 source fixtures here. Every
 tracked chapter now has a scope/acceptance audit, but diagnostic improvements,
 in-scope review and the final README/status check still remain M6 work.

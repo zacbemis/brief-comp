@@ -267,7 +267,9 @@ payload-collision diagnostic. Unhandled fallible results no longer cause
 dependent argument-type cascades; direct handling is still mandatory and
 independent errors remain checked. Named-field struct literals in conditions
 or iterables now get a parentheses hint; ordinary/empty block ambiguity and
-valid grouped/call/index forms are unchanged. The [document acceptance
+valid grouped/call/index forms are unchanged. Unknown dotted methods can now
+point to a compatible visible top-level function and suggest direct/pipeline
+forms, without accepting dotted fallback. The [document acceptance
 tracker](tests/doc-acceptance.md) records partial coverage and the remaining
 audits/diagnostic finish. Symbol ordering and refutable/nested payload patterns
 remain deferred, not M5 blockers.
