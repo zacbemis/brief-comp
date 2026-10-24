@@ -215,9 +215,9 @@ exhaust it rather than panic. Panics terminate the process without unwinding own
   API notation are excluded explicitly in the doc-test manifest. Native document
   acceptance adds 49 error-handling, 20 pipeline/matching, 33 function, 32 symbol,
   48 memory/permission, 65 syntax, 64 type, 24 overview prose-contract,
-  38 raw running-sample, 17 standard-library, 30 modules-chapter and 14
-  collections-chapter cases, with explicit partial/deferred classifications and
-  tested audit guards; run with
+  38 raw running-sample, 17 standard-library, 30 modules-chapter, 14
+  collections-chapter and 16 traits-chapter cases, with explicit
+  partial/deferred classifications and tested audit guards; run with
   `ctest --test-dir build -L doc-acceptance --output-on-failure`.
 - `tests/parse/`: 106 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
@@ -247,8 +247,12 @@ The [error-example acceptance audit](tests/doc-errors.md) checks the in-scope
 `lang-errors.txt` examples, including their compile errors. **Milestone 6 is in
 progress:** executable pipeline/matching, function, symbol, memory, syntax and
 type doc examples, plus overview prose-contract, raw running-sample, localized
-standard-library, single-file modules-chapter and isolated collections-chapter
-handlers/manual-loop scenarios, now use shared acceptance guards. Modules,
+standard-library, single-file modules-chapter, isolated collections
+handler/manual-loop and transplanted trait-method scenarios, now use shared
+acceptance guards. All tracked chapters have scope audits, but M6 diagnostic
+finish and final status review remain. File-level statement-shaped input now
+gets a direct inside-a-function hint instead of misleading declaration or
+parameter advice; specific malformed-declaration errors are preserved. Modules,
 cross-file privacy and collection/lambda/trait behavior remain deferred.
 Function-contract mismatches no longer cause a misleading partial-set
 payload-collision diagnostic. The [document acceptance

@@ -23,7 +23,7 @@ not being added to that scope by these tests.
 | `lang-stdlib.txt` | [Standard-library audit](doc-stdlib.md): one explicitly partial JSON fence, represented in 17 cases; no builtin examples occur in this chapter. Preserve constructor/propagation bodies with a local field-access stand-in and error alias; module privacy, JSON representation/serialization and finalized API contracts remain deferred. Derived negatives pin error compatibility, handling, coverage and an existing unhandled-getter argument-type cascade. |
 | `lang-modules.txt` | [Modules-chapter audit](doc-modules.md): 17 fences classified, eight represented in 30 cases; 3, 4 and 15 partial, nine deferred. Local structs/literals, explicit receivers/`Self`, constructors and entry behavior run in one file; a deterministic `File.read` models selected outcomes, not resource access. Module discovery/imports/paths, privacy, ambiguity/misspelling diagnostics, traits/constants and dependency cycles remain deferred. |
 | `lang-collections.txt` | [Collections scope audit](doc-collections.md): 31 fences classified; only 7, 11, 22 and 29 partially represented, in 14 cases including prose/derived scenarios. Original handlers and the written manual `while` expansion use controlled outcomes/a synthetic concrete cursor. All 26 table operations and 27 whole fences remain deferred; no vectors, lambdas, queries, traits, generic cursor lowering or iteration-invalidation rules are implemented. Corrected delayed `!` handling and qualified uppercase byte-order prose as ASCII. |
-| `lang-traits.txt` | Pending explicit scope classification; traits themselves are later-version work. |
+| `lang-traits.txt` | [Traits scope audit](doc-traits.md): six fences classified; 1–5 explicitly partial, represented with derived nominal checks in 16 cases; generic fence 6 deferred. Original concrete getters/default bodies and custom-name body run only as manually installed ordinary impl methods. Boundary coverage, explicit composition, caller-sensitive permissions and owned lifetimes are checked; trait requirements/default acquisition, conformance/overrides, conflicts/coherence and generics remain deferred. |
 
 Run all current native document acceptance tests and their support guards:
 
@@ -33,11 +33,39 @@ ctest --test-dir build -L doc-acceptance --output-on-failure
 
 The `doc-errors`, `doc-pipelines`, `doc-functions`, `doc-symbols`, `doc-memory`,
 `doc-syntax`, `doc-types`, `doc-overview`, `doc-base`, `doc-stdlib`,
-`doc-modules` and `doc-collections` labels select individual audits. Each has
-normal and, when enabled, sanitized runs, using the C program runner without
-interpreter or shell dependencies. Generated cases live in separate build-tree
-directories per test/configuration; they are not included in the 86 checked-in
-program-fixture count.
+`doc-modules`, `doc-collections` and `doc-traits` labels select individual
+audits. Each has normal and, when enabled, sanitized runs, using the C program
+runner without interpreter or shell dependencies. Generated cases live in
+separate build-tree directories per test/configuration; they are not included
+in the 87 checked-in program-fixture count.
+
+## Remaining M6 finish
+
+All 13 tracked chapters now have explicit acceptance/scope audits. This
+completes the chapter inventory, **not M6**. Remaining work includes improving
+the pinned diagnostics below with focused regressions, reviewing any in-scope
+gaps exposed by those changes, and a final implementation/README/status
+accuracy check. Partial and deferred claims must stay explicit throughout that
+review.
+
+## Completed diagnostic improvements
+
+- File-level statement-shaped input now reports `Statements are only allowed
+  inside a function.` at the statement's first token, rather than treating a
+  call as a malformed parameter list or listing unsupported `const` as advice.
+  Non-consuming lookahead distinguishes closed calls from declaration evidence;
+  typed parameters, explicit `pub`, and following bodies/return annotations keep
+  their specific declaration diagnostics. Ambiguous struct/literal syntax still
+  follows declaration parsing. A generic name such as `Box<T>` also keeps the
+  declaration path. Remaining generic errors say `Expected a declaration
+  (function, struct, named type, or impl).` (or `Expected a method
+  declaration.` within an impl), no longer listing `const`; global `const`
+  still reaches its existing unimplemented-feature check.
+  Parser regressions cover exact counts/spans, recovery, truncated/malformed
+  headers, lexer-error suppression and repeatable token-preserving lookahead.
+  CRLF CLI checks and `tests/programs/errors/top-level-statements.brf` require
+  exact messages/locations and rejection without an executable. `doc-base` and
+  `doc-modules` now pin the improved hint.
 
 ## Audit requirements
 
@@ -70,5 +98,4 @@ cases that name it. Known gaps found so far:
 | Passing a read-only value to an `&` parameter | `A mutable argument cannot be borrowed through an ordinary parameter.` | Reads backwards: the argument is read-only and the parameter is `&`. | `doc-memory`, `doc-overview`, `tests/programs/errors` |
 | Storing a read-only object-bearing symbol in a field | `A read-only struct cannot be stored in a field; …` | Says "struct" when the value is a symbol. | `doc-memory`, `tests/programs/errors` |
 | `user.save()` where `save` is a function, not a method | `Unknown method for this type.` | No hint to call `save(user)` or `user \|> save()`. | `doc-base` |
-| A statement at the top level of a file: `let user = …`, `print("Hello")` | `Expected a declaration (function, struct, named type, const, or impl).` for `let`; `Expected a parameter name.` for a call, which the parser reads as a function declaration | Neither says statements belong inside a function; the first also lists `const`, which the first version does not support. | `doc-base`, `doc-modules` |
 | Missing `?` on a getter, then passing its binding to `User.new` | Required handling error, then `Function argument has the wrong type.` | The invalid binding retains its full outcome type, causing a follow-on argument mismatch. Clarify/suppress this cascade without hiding independent errors. | `doc-stdlib` |

@@ -95,7 +95,7 @@ M5 is complete against its definition of done. The separate
 [`lang-errors.txt` acceptance audit](../doc-errors.md) reads every code fence,
 checks 28 in-scope fences in 49 generated native/diagnostic cases (normal and
 sanitized), and explicitly excludes eight later-version module/collection
-examples. These generated cases are separate from the 86 source fixtures here;
+examples. These generated cases are separate from the 87 source fixtures here;
 section 12's entry-result prose is also covered by the existing fixtures and
 native/stage-level tests.
 
@@ -143,8 +143,9 @@ The [modules-chapter audit](../doc-modules.md) adds 30 cases covering eight of i
 receivers and `Self`, constructors and entry ownership/results in one file.
 Nine fences are deferred; three represented fences are partial. Neither local
 `File.read` outcomes nor local public declarations establish filesystem APIs,
-module loading or cross-file privacy. The top-level-call parser message remains
-a tracked diagnostic gap.
+module loading or cross-file privacy. A later parser slice gives top-level
+calls/bindings a direct inside-a-function hint, pinned here and by the base
+audit.
 The [collections scope audit](../doc-collections.md) classifies all 31 fences:
 only four are partial, represented with prose/derived checks in 14 cases. It runs
 original symbol handlers and the written manual `while` expansion with controlled
@@ -152,9 +153,24 @@ inputs, not vectors, queries, lambdas or compiler-generated cursor iteration.
 All 26 table operations and 27 whole fences are deferred. Direct `!` handling in
 the oldest-user example is corrected and its former delayed shape is rejected;
 ASCII/UTF-8 byte comparisons are tested without claiming sorting support.
+The [traits scope audit](../doc-traits.md) classifies all six fences: five
+partial fences and derived scenarios run in 16 cases; the generic example is
+deferred.
+Original getters/default/custom bodies run as explicitly installed ordinary
+methods, with nominal composition, permission, coverage and ownership checks.
+No trait conformance, inherited defaults, override dispatch or generics are
+implemented by these fixtures.
 
-These generated cases remain separate from the 86 source fixtures here; other
-document audits and diagnostic improvements are still outstanding.
+`errors/top-level-statements.brf` brings the checked-in fixture count to 87,
+requiring exact statement hints across calls, bindings, assignments, control
+flow and literals, while preserving a malformed declaration's parameter error.
+Parser/CRLF CLI regressions also check recovery, source columns,
+token-preserving lookahead and lexer-only independence. No accepted language
+feature is added.
+
+These generated cases remain separate from the 87 source fixtures here. Every
+tracked chapter now has a scope/acceptance audit, but diagnostic improvements,
+in-scope review and the final README/status check still remain M6 work.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

@@ -74,11 +74,13 @@ Normal and `--debug` sanitizer runs use the C program runner, including its live
 owner checks. They observe behavior and cleanup, not exact transient ARC counts,
 count-elimination optimizations, cycle collection or cross-file visibility.
 
-The top-level `print("Hello")` currently reports **`Expected a parameter name.`**:
-the parser interprets the name and `(` as the start of a function declaration.
-This rejects the intended invalid source but does not explain that statements
-belong inside a function. The audit pins the message and records the actionable
-diagnostic gap; no compiler/runtime changes were needed for this slice.
+The initial audit exposed `Expected a parameter name.` for top-level
+`print("Hello")`. A subsequent M6 diagnostic slice now reports **`Statements
+are only allowed inside a function.`** at `print`, while retaining specific
+parameter/header errors when declaration evidence is present. The audit pins
+the improved message. The original audit needed no compiler changes; this
+follow-up changes only parser diagnostics/recovery selection, not the accepted
+grammar or runtime.
 
 Fence counts, unique adapters, separate literal boundaries, selected local and
 deferred prose rules, deferred-fence subject anchors, generated case names and

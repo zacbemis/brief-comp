@@ -143,10 +143,12 @@ and top-level-binding cases require their specific diagnostics too. Const errors
 at the end remain deferred with their features; parser rejection of unsupported
 syntax is not acceptance of their intended semantics.
 
-The wrong-method and top-level-declaration diagnostics are currently generic
-and are listed in the tracker's diagnostic gaps; there is no claim that all M6
-diagnostic finish is complete. Acyclic native
+The wrong-method diagnostic remains generic and is listed in the tracker's
+diagnostic gaps. A later M6 parser slice improves the top-level binding error
+to `Statements are only allowed inside a function.`, pinned by this audit.
+There is no claim that all M6 diagnostic finish is complete. Acyclic native
 objects and leak-free debug exits do not establish cycle collection, ARC count
 elimination, deep const, identity comparison or clone behavior. Independent
 parser, checker, IR/RC, arithmetic, conversion, matching and ownership tests stay
-in place. No compiler or runtime changes were needed for this slice.
+in place. The original raw-sample audit needed no compiler/runtime changes; the
+later parser-only diagnostic update is described above.
