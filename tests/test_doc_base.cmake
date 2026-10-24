@@ -488,7 +488,9 @@ expressions(part_calls 5 code text)
 sample(calls call-forms "${user_api}\nsave(user: User) { \"saved:\" + user.name }\nmain() { let user = User.new(\"Bob\", 20)!" "${code}"
     "}\n// expect: Bob\n// expect: saved:Bob\n// expect: saved:Bob")
 # getName belongs to User; save is only a module function. Its dotted spelling
-# must not silently use the direct/pipeline fallback.
+# must not silently use the direct/pipeline fallback. Stage/CLI tests also
+# require the declaration note explaining those forms; this runner pins the
+# primary error (notes are not separate error expectations).
 set(code "user.save()")
 error_at(code "user.save" "Unknown method for this type.")
 sample(calls invalid-method "${user_api}\nsave(user: User) { user.name }\nmain() { let user = User.new(\"Bob\", 20)!" "${code}" "}")

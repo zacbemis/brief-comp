@@ -138,6 +138,29 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR tokens STREQUAL "")
     message(FATAL_ERROR "struct-header syntax must remain lexically valid (${status}):\n${errors}")
 endif()
 
+# A dotted call stays invalid even when a same-name top-level function could
+# take the receiver. Emit one primary error plus an exact declaration note;
+# syntax-only commands must remain independent of method lookup.
+set(method "${TEST_DIR}/method-invalid.brf")
+set(declaration "save(value: P) {}")
+file(WRITE "${method}" "P {}\r\n${declaration}\r\nmain() { let p = P {}\r\n  p.save()\r\n}\r\n")
+string(LENGTH "${declaration}" length)
+math(EXPR tail_length "${length} - 1")
+string(REPEAT "~" ${tail_length} tail)
+set(expected "error: Unknown method for this type.\n  --> ${method}:4:3\n  |\n4 |   p.save()\n  |   ^~~~~~~~\nnote: This is a top-level function, not a method; use save(value) or value |> save().\n  --> ${method}:2:1\n  |\n2 | ${declaration}\n  | ^${tail}\n")
+execute_process(COMMAND "${BRIEF}" emit-c "${method}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+    message(FATAL_ERROR "incorrect top-level-function advice (${status}):\n${errors}\nexpected:\n${expected}")
+endif()
+foreach(command IN ITEMS dump-tokens dump-ast)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${method}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")
+        message(FATAL_ERROR "${command} must not perform method lookup (${status}):\n${errors}")
+    endif()
+endforeach()
+
 file(WRITE "${valid}" "")
 execute_process(COMMAND "${BRIEF}" dump-ast "${valid}"
     RESULT_VARIABLE status OUTPUT_VARIABLE tree ERROR_VARIABLE errors)

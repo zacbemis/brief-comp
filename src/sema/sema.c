@@ -424,6 +424,10 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
       } else {
         e->as.call.method = callee->as.field.name;
         receiver = resolve_expr(r, callee->as.field.object);
+        // Dotted calls never fall back to top-level functions. Remember only a
+        // visible candidate for diagnostic advice after receiver inference.
+        if (!local(r, e->as.call.method))
+          e->as.call.fallback = lookup(r->program, e->as.call.method);
       }
     } else if (callee->kind != EXPR_NAME)
       diagnostics_error(r->errors, callee->span,

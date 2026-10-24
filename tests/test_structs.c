@@ -1,3 +1,4 @@
+#include "ir/ir.h"
 #include "lexer/lexer.h"
 #include "lexer/newline.h"
 #include "parser/parser.h"
@@ -39,6 +40,55 @@ static void invalid(Arena *a, const char *text, const char *message) {
   }
   ASSERT_TRUE(found);
   ASSERT_TRUE(!r.program->checked);
+}
+static Result method_error(Arena *a, const char *text, const char *site,
+                            const char *advice) {
+  Result r = check(a, text);
+  ASSERT_TRUE(r.program->resolved);
+  for (unsigned repeat = 0; repeat < 2; repeat++) {
+    if (repeat) {
+      diagnostics_init(&r.errors, a);
+      sema_check(r.program, &r.errors);
+    }
+    if (r.errors.count != 1) {
+      fprintf(stderr, "method diagnostic case: %s\n", text);
+      diagnostics_print(&r.errors, stderr);
+    }
+    ASSERT_EQ_INT(1, r.errors.count);
+    if (r.errors.count == 1) {
+      Diagnostic *d = r.errors.items[0];
+      const char *call = strstr(text, site);
+      ASSERT_TRUE(call != NULL);
+      ASSERT_EQ_STRN("Unknown method for this type.", d->message,
+                     strlen(d->message));
+      if (call) {
+        ASSERT_EQ_INT((size_t)(call - text), d->span.start);
+        ASSERT_EQ_INT((size_t)(call - text) + strlen(site), d->span.end);
+      }
+      if (advice) {
+        ASSERT_TRUE(d->notes != NULL);
+        if (d->notes) {
+          ASSERT_EQ_STRN(advice, d->notes->message, strlen(d->notes->message));
+          ASSERT_TRUE(d->notes->next == NULL);
+          SemaSymbol *candidate = NULL;
+          for (size_t i = 0; i < r.program->count; i++) {
+            SemaSymbol *s = &r.program->functions[i].symbol;
+            if (!s->owner && d->notes->span.start == s->span.start)
+              candidate = s;
+          }
+          ASSERT_TRUE(candidate != NULL);
+          if (candidate) {
+            ASSERT_TRUE(d->notes->span.file == candidate->span.file);
+            ASSERT_EQ_INT(candidate->span.end, d->notes->span.end);
+          }
+        }
+      } else
+        ASSERT_TRUE(d->notes == NULL);
+    }
+    ASSERT_TRUE(!r.program->checked);
+    ASSERT_TRUE(ir_lower(a, r.program) == NULL);
+  }
+  return r;
 }
 int main(void) {
   Arena a;
@@ -112,6 +162,105 @@ int main(void) {
             "Wrong number");
     invalid(&a, "A {}\nimpl A { f(a: Self) {} }", "must define main");
     invalid(&a, "main() { \"x\".f() }", "Unknown method");
+  }
+  TEST("unknown methods suggest only visible compatible top-level functions") {
+    const char *one = "This is a top-level function, not a method; use "
+                      "save(value) or value |> save().";
+    const char *many = "This is a top-level function, not a method; use "
+                       "save(value, ...) or value |> save(...).";
+    struct {
+      const char *definition, *body, *site, *note;
+    } cases[] = {
+        {"save(value: P) {}", "f(p: P) { p.save() }", "p.save()", one},
+        {"save(value: P) {}", "f() { P {}.save() }", "P {}.save()", one},
+        {"save(value: P) {}\nmake() { P {} }", "f() { make().save() }",
+         "make().save()", one},
+        {"save(value: P) {}", "f(h: Holder) { h.p.save() }", "h.p.save()", one},
+        {"save(value: P) {}", "f(p: P, b: bool) { (if b { p } else { P {} }).save() }",
+         "(if b { p } else { P {} }).save()", one},
+        {"save(value: &P) {}", "f(p: &P) { p.save() }", "p.save()", one},
+        {"save(value: &P) {}", "f(p: P) { p.save() }", "p.save()", one},
+        {"save(value: P, n: int) {}", "f(p: P) { p.save(1) }", "p.save(1)", many},
+        {"save(value: P, n: int) {}", "f(p: P) { p.save(false) }",
+         "p.save(false)", many},
+        {"save(value: int) {}", "f(p: int) { p.save() }", "p.save()", one},
+        {"save(value: Sym<:a, :b>) {}", "f(p: Sym<:a>) { p.save() }",
+         "p.save()", one},
+        {"save(value: P) {}", "f(p: P) { if true { let save = 0 }\np.save() }",
+         "p.save()", one},
+        {"save(value: P) {}", "f(p: P) { p.save()\nlet save = 0 }",
+         "p.save()", one},
+        {"save(value: P) {}", "f(p: Q) { p.save() }", "p.save()", NULL},
+        {"", "f(p: P) { p.save() }", "p.save()", NULL},
+        {"impl Q { save(p: Self) {} }", "f(p: P) { p.save() }",
+         "p.save()", NULL},
+        {"save() {}", "f(p: P) { p.save() }", "p.save()", NULL},
+        {"save(value: P, n: int) {}", "f(p: P) { p.save() }", "p.save()", NULL},
+        {"save(value: P) {}", "f(p: P) { p.save(1) }", "p.save(1)", NULL},
+        {"save(value: P) {}", "f(p: P) { let save = 0\np.save() }",
+         "p.save()", NULL},
+        {"save(value: P) {}", "f(p: P, save: int) { p.save() }",
+         "p.save()", NULL},
+        {"", "f() { \"text\".print() }", "\"text\".print()", NULL}};
+    char code[2048], crlf[4096];
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+      snprintf(code, sizeof(code), "P {}\nQ {}\nHolder { p: P }\n%s\n%s\nmain() {}",
+               cases[i].definition, cases[i].body);
+      size_t n = 0;
+      for (size_t j = 0; code[j]; j++) {
+        if (code[j] == '\n')
+          crlf[n++] = '\r';
+        crlf[n++] = code[j];
+      }
+      crlf[n] = '\0';
+      method_error(&a, code, cases[i].site, cases[i].note);
+      method_error(&a, crlf, cases[i].site, cases[i].note);
+    }
+    Result r = method_error(&a,
+        "P {}\nf(p: P) { p.archive() }\narchive(value: P) {}\nmain() {}",
+        "p.archive()", "This is a top-level function, not a method; use "
+                       "archive(value) or value |> archive().");
+    SemaExpr *call = r.program->functions[0].body->as.block.items[0];
+    ASSERT_TRUE(call->as.call.target == NULL);
+    ASSERT_TRUE(call->as.call.fallback == &r.program->functions[1].symbol);
+    ASSERT_TRUE(r.program->functions[0].edges == NULL);
+    method_error(&a,
+        "P {}\nsave(value: P) {}\n"
+        "f(p: P, b: bool) { if b { ret p }\nforward(p, b)\np.save()\np }\n"
+        "forward(p: P, b: bool) { if b { ret p }\nf(p, b) }\nmain() {}",
+        "p.save()", one);
+    valid(&a, "P {}\nsave(value: P) {}\nf(p: P) { save(p)\np |> save() }\nmain() {}");
+    valid(&a, "P {}\nsave(value: &P) {}\nf(p: &P) { save(p)\np |> save() }\nmain() {}");
+    valid(&a, "P {}\nsave(value: P, n: int) {}\n"
+              "f(p: P) { save(p, 1)\np |> save(1) }\nmain() {}");
+    valid(&a, "P {}\nimpl P { save(p: Self): int { 1 } }\n"
+              "save(p: P): bool { true }\nf(p: P) { let save = 0\n"
+              "let a: int = p.save()\nlet b: int = p |> save() }\nmain() {}");
+    r = check(&a, "P {}\nimpl P { save(p: Self): int { 1 } }\n"
+                  "save(p: P): bool { true }\nf(p: P) {\n"
+                  "let a: int = p.save()\nlet b: int = p |> save()\n"
+                  "let c: bool = save(p) }\nmain() {}");
+    ASSERT_EQ_INT(0, r.errors.count);
+    ASSERT_TRUE(r.program->checked);
+    ASSERT_TRUE(ir_lower(&a, r.program) != NULL);
+    invalid(&a, "P {}\nsave(value: P, n: int) {}\n"
+                "f(p: P) { save(p, false) }\nmain() {}",
+            "Function argument has the wrong type.");
+    invalid(&a, "P {}\nsave(value: &P) {}\nf(p: P) { save(p) }\nmain() {}",
+            "A read-only value cannot be passed to an & parameter");
+    r = check(&a, "P {}\nsave(value: P) {}\nf() { missing.save() }\nmain() {}");
+    ASSERT_EQ_INT(1, r.errors.count);
+    if (r.errors.count)
+      ASSERT_TRUE(r.errors.items[0]->notes == NULL);
+    r = check(&a, "P {}\nsave(value: P) {}\ntake(value: int) {}\n"
+                  "f(p: P) { p.save()\ntake(false) }\nmain() {}");
+    ASSERT_EQ_INT(2, r.errors.count);
+    if (r.errors.count == 2) {
+      ASSERT_TRUE(r.errors.items[0]->notes != NULL);
+      ASSERT_EQ_STRN("Function argument has the wrong type.",
+                     r.errors.items[1]->message, strlen(r.errors.items[1]->message));
+      ASSERT_TRUE(r.errors.items[1]->notes == NULL);
+    }
   }
   TEST("read-only aliases and immutable parameter bindings") {
     valid(&a, "A { n: int }\nf(a: &A) { a.n++ }\nmain() { let a = A { n: 1 "

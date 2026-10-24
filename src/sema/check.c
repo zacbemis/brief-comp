@@ -1,6 +1,7 @@
 #include "sema/sema.h"
 #include <errno.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,6 +27,34 @@ static void expect(Checker *c, SemaExpr *e, const SemaType *wanted,
   if (!special(wanted) && !special(e->type) &&
       !sema_assignable(e->type, wanted))
     error(c, e->span, message);
+}
+static void unknown_method(Checker *c, SemaExpr *call,
+                           const SemaType *receiver) {
+  if (c->probe)
+    return;
+  Diagnostic *d = diagnostics_error(c->errors, call->span,
+                                    "Unknown method for this type.");
+  SemaSymbol *candidate = call->as.call.fallback;
+  if (!candidate || candidate->builtin || candidate->owner ||
+      !candidate->arity || candidate->arity != call->as.call.count ||
+      special(candidate->params[0]->type) ||
+      !sema_assignable(receiver, candidate->params[0]->type))
+    return;
+  // This advice identifies the call form, not permission, argument, outcome
+  // handling or return-type validity. It must not change lookup or add edges.
+  const char *format =
+      candidate->arity == 1
+          ? "This is a top-level function, not a method; use %s(value) "
+            "or value |> %s()."
+          : "This is a top-level function, not a method; use "
+            "%s(value, ...) or value |> %s(...).";
+  int length = snprintf(NULL, 0, format, candidate->name, candidate->name);
+  if (length < 0)
+    return;
+  char *message = arena_alloc(c->p->arena, (size_t)length + 1);
+  snprintf(message, (size_t)length + 1, format, candidate->name,
+           candidate->name);
+  diagnostic_note(c->errors, d, candidate->span, message);
 }
 static const SemaType *join(Checker *c, const SemaType *a, const SemaType *b,
                             Span span, const char *message) {
@@ -496,13 +525,14 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
         s = e->as.call.shadowed ? NULL : e->as.call.fallback;
       e->as.call.target = s;
       if (!special(receiver)) {
-        if (!s)
-          error(c, e->span,
-                e->as.call.pipeline
-                    ? (e->as.call.shadowed ? "A local binding is not callable."
-                                           : "Unknown function.")
-                    : "Unknown method for this type.");
-        else if (method && (!s->arity || s->params[0]->type != receiver))
+        if (!s) {
+          if (e->as.call.pipeline)
+            error(c, e->span,
+                  e->as.call.shadowed ? "A local binding is not callable."
+                                     : "Unknown function.");
+          else
+            unknown_method(c, e, receiver);
+        } else if (method && (!s->arity || s->params[0]->type != receiver))
           error(c, e->span,
                 "A method requires a first parameter of the receiver type.");
       }

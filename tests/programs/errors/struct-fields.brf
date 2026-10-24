@@ -1,5 +1,6 @@
 Num { n: int }
 Empty {}
+save(value: Num, label: str) {}
 main(): () {
   Num {} // error: Missing struct field initializer.
   Num { n: true } // error: Struct field initializer has the wrong type.
@@ -9,4 +10,5 @@ main(): () {
   value.missing // error: Unknown struct field.
   value.n = true // error: Assignment value has the wrong type.
   value.n += false // error: Assignment value has the wrong type.
+  value.save("example") // error: Unknown method for this type.
 }
