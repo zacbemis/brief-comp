@@ -203,7 +203,7 @@ int main(void) {
     ASSERT_EQ_INT(1, found);
   }
   TEST("every small integer value converts without wraparound") {
-    brt_number out;
+    brt_number out = {0};
     for (int64_t value = INT16_MIN; value <= UINT16_MAX; value++)
       for (unsigned bits = 16; bits <= 64; bits *= 2) {
         int signed_ok = value >= brt_min_s(bits) && value <= brt_max_s(bits);
@@ -225,7 +225,7 @@ int main(void) {
   }
   TEST("64-bit bounds and fractional/nonfinite floating inputs are checked "
        "before casting") {
-    brt_number out;
+    brt_number out = {0};
     ASSERT_TRUE(brt_convert_f(-0x1p63, BRT_SIGNED, 64, &out));
     ASSERT_TRUE(out.s == INT64_MIN);
     ASSERT_TRUE(!brt_convert_f(0x1p63, BRT_SIGNED, 64, &out));
@@ -279,7 +279,7 @@ int main(void) {
                UINT64_C(1442695040888963407);
       int64_t signed_value;
       memcpy(&signed_value, &random, sizeof(signed_value));
-      brt_number out;
+      brt_number out = {0};
       for (unsigned bits = 16; bits <= 64; bits *= 2) {
         int fits_signed = random <= (uint64_t)brt_max_s(bits);
         int fits_unsigned = random <= brt_max_u(bits);
@@ -299,7 +299,7 @@ int main(void) {
     }
   }
   TEST("binary-safe decimal parsing checks grammar and full-width ranges") {
-    brt_number out;
+    brt_number out = {0};
     ASSERT_TRUE(parse_number("-9223372036854775808", BRT_SIGNED, 64, &out));
     ASSERT_TRUE(out.s == INT64_MIN);
     ASSERT_TRUE(parse_number("18446744073709551615", BRT_UNSIGNED, 64, &out));
@@ -331,7 +331,7 @@ int main(void) {
     ASSERT_TRUE(out.f == 1.5);
   }
   TEST("decimal floating parsing rounds directly and admits finite underflow") {
-    brt_number out;
+    brt_number out = {0};
     ASSERT_TRUE(
         parse_number("1.000000059604644830901776231257827021181583404541015625",
                      BRT_FLOAT, 32, &out));
@@ -356,7 +356,7 @@ int main(void) {
                UINT64_C(1442695040888963407);
       double original;
       memcpy(&original, &random, sizeof(original));
-      brt_number out;
+      brt_number out = {0};
       const brt_string *s = brt_str_dub(original);
       ASSERT_TRUE(brt_convert_text(s, BRT_DOUBLE, 64, &out));
       ASSERT_TRUE(isnan(original) ? isnan(out.f) : out.f == original);
