@@ -115,6 +115,11 @@ Compilation supports:
   the old 128-function depth limit. Runtime recursion still uses the host C
   stack and may exhaust it rather than panic; tail-call elimination is not
   guaranteed.
+- Expressions, blocks and types nest at most 128 syntax levels, which keeps the
+  compiler's recursive passes within its C stack. Each operator in a chain is a
+  level, so one expression can chain at most 126 binary operators (for example
+  `+` concatenations); longer chains report `Syntax nesting limit exceeded.` and
+  can be split across bindings.
 - Numeric-target converters accept numbers, `chr` or strings; a `chr` always
   converts to its byte value. Integer targets require exact integral values in
   range; floating targets round, with every integer-to-float conversion
