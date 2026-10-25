@@ -27,6 +27,34 @@ first(a: Sym<:ok(str), :bad(str)>, b: ()) { a |> {
 } }
 ready(n: int): Sym<:ok(bool), :bad(str)> { n < 3 }
 start(): Sym<:ok(int), :bad(str)> { 0 }
+replaceOrFail(h: &Holder, failed: bool): Sym<:ok, :bad(str)> {
+  h.value = :bad("mutated" + " holder")
+  if failed { ret :bad("later" + " failure") }
+  ()
+}
+observeFirst(a: Sym<:ok(str), :bad(str)>, ignored: ()) {
+  print("callee")
+  first(a, ())
+}
+argumentWork(failed: bool) {
+  let h = Holder { value: :ok("argument" + " snapshot") }
+  h.value |> observeFirst(replaceOrFail(h, failed)?)
+}
+ownedCondition(n: int, failAt: int): Sym<:ok(bool), :bad(str)> {
+  let scratch = Node { text: "condition" + str(n) }
+  if n == failAt { ret :bad(scratch.text + ":stop") }
+  n < 3
+}
+conditionWork(failAt: int) {
+  let guard = Node { text: "guard" + " owner" }
+  var n = 0
+  while ownedCondition(n, failAt)? {
+    let body = Node { text: "body" + str(n) }
+    n++
+    if n == 1 { continue }
+  }
+  guard.text
+}
 main() {
   var total = 0
   for i in 0..1000 {
@@ -50,4 +78,17 @@ main() {
   var n = start()?
   while ready(n)? { n++ }
   print(str(n))
+  argumentWork(false) |> { :ok(text) => print(text)
+    :bad(text) => print(text) }
+  // expect: callee
+  // expect: argument snapshot
+  argumentWork(true) |> { :ok(text) => print(text)
+    :bad(text) => print(text) }
+  // expect: later failure
+  conditionWork(-1) |> { :ok(text) => print(text)
+    :bad(text) => print(text) }
+  // expect: guard owner
+  conditionWork(2) |> { :ok(text) => print(text)
+    :bad(text) => print(text) }
+  // expect: condition2:stop
 }
