@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+
 file(MAKE_DIRECTORY "${TEST_DIR}")
 set(valid "${TEST_DIR}/ast-valid.brf")
 file(WRITE "${valid}" "main() {\n  print(\n    \"Hello\"\n  )\n}\n")

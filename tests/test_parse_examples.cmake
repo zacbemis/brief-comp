@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+
 # Runs the example files in tests/parse (see tests/parse/README.md).
 #
 # pass/*.brf must parse: dump-ast exits 0, prints a tree, and writes nothing to

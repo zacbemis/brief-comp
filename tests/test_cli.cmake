@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+
 # End-to-end milestone-0 checks, with no Python dependency.
 file(MAKE_DIRECTORY "${TEST_DIR}")
 set(valid "${TEST_DIR}/valid.brf")

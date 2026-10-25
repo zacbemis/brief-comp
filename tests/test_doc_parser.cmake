@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+
 # Complete first-version examples are read directly from the design docs.
 # Expression/statement fragments are wrapped in main; bare types and pattern
 # arms get their own small wrappers. Semantic-error examples must still parse.

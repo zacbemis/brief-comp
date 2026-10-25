@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+
 file(READ "${INPUT}" bytes HEX)
 string(REGEX REPLACE "(..)" "0x\\1," bytes "${bytes}")
 get_filename_component(directory "${OUTPUT}" DIRECTORY)
