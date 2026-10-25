@@ -43,6 +43,15 @@ cmake --build build-release
 ctest --test-dir build-release --output-on-failure
 ```
 
+CI (`.github/workflows/ci.yml`) runs the tests on every push and pull request
+in GCC and Clang Debug builds with sanitizers, a GCC Release build and a GCC
+Debug build without sanitizers, all with warnings treated as errors. It also
+checks that every C source matches `.clang-format`, using clang-format 23.1.3:
+
+```sh
+git ls-files -z '*.c' '*.h' | xargs -0 clang-format --dry-run --Werror
+```
+
 ## Inspect source
 
 ```sh
