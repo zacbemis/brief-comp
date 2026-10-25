@@ -196,7 +196,8 @@ Panics terminate the process without unwinding owners.
 ## Compiler components
 
 - `include/common/`, `src/common/`: arena allocation, source loading and line
-  indexing, byte-offset spans, diagnostics with notes, and string interning.
+  indexing, byte-offset spans, diagnostics with notes, string interning, and
+  hashed name maps for semantic lookups.
 - `include/lexer/`, `src/lexer/`: streaming and whole-file lexing, validated
   escapes, single-line strings, and single-byte character literals. Unterminated
   literals report errors without consuming the next line; unclosed block

@@ -52,7 +52,7 @@ The first version is done when every example in the docs that falls inside its s
   ```
 
 - **Arena allocator**: one arena for the whole compilation. Syntax tree nodes, types, and strings are allocated from it and never freed individually.
-- **String interning**: the parser interns identifier spellings; semantic analysis canonicalizes symbol tags. Current name-table lookups may still compare bytes; canonical type/tag identity is shared.
+- **String interning**: the parser interns identifier spellings; semantic analysis canonicalizes symbol tags and interns symbol sets in a hash table. Declarations and locals are found through hashed name maps that compare name bytes, so lookups do not rely on parser interning; canonical type/tag identity is shared.
 
 ### Lexer (`src/lexer`, exists)
 
@@ -355,7 +355,7 @@ The final boundary review completes M6 for the first-version scope. It traced lo
 ## Source layout
 
 ```
-include/common/   src/common/    arena, source files, diagnostics, interning
+include/common/   src/common/    arena, source files, diagnostics, interning, name maps
 include/lexer/    src/lexer/     lexer and newline filter
 include/ast/      src/ast/       syntax tree nodes and tree printer
 include/parser/   src/parser/    parser
