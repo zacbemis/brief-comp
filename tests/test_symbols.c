@@ -410,7 +410,8 @@ int main(void) {
                    "x |> { :some(p) => p.x = 2\n:none => () } }"));
 #undef CASE
   }
-  TEST("permission messages distinguish read-only values from mutable targets") {
+  TEST(
+      "permission messages distinguish read-only values from mutable targets") {
     const char *prefix =
         "P { n: int }\n"
         "type Choice = Sym<:some(P), :none>\n"
@@ -424,10 +425,11 @@ int main(void) {
         "mutScalar(s: &Scalar) {}\n"
         "sameChoice(s: Choice): Choice { s }\n"
         "impl P { bump(p: &Self) { p.n++ } }\n";
-    const char *borrow = "A read-only value cannot be passed to an & parameter; "
-                         "take the parameter it comes from as &.";
+    const char *borrow =
+        "A read-only value cannot be passed to an & parameter; "
+        "take the parameter it comes from as &.";
     const char *store = "A read-only value cannot be stored in a field; take "
-                         "the parameter it comes from as &.";
+                        "the parameter it comes from as &.";
     struct {
       const char *type, *body, *site, *value;
       int storing;
@@ -445,10 +447,11 @@ int main(void) {
          "mutChoice(sameChoice(value))", "sameChoice(value)", 0},
         {"Choice", "value |> { :none => ()\nrest => mutChoice(rest) }",
          "mutChoice(rest)", "rest", 0},
-        {"Choice", "value |> { :some(p) => mut(p)\n:none => () }",
-         "mut(p)", "p", 0},
+        {"Choice", "value |> { :some(p) => mut(p)\n:none => () }", "mut(p)",
+         "p", 0},
         {"P", "holder.item = value", "holder.item = value", "value", 1},
-        {"Choice", "holder.choice = value", "holder.choice = value", "value", 1},
+        {"Choice", "holder.choice = value", "holder.choice = value", "value",
+         1},
         {"P", "holder.choice = :some(value)", "holder.choice = :some(value)",
          ":some(value)", 1},
         {"P", "holder.nested = :outer(:some(value))",
@@ -458,22 +461,27 @@ int main(void) {
         {"P", "holder.wrapper = Wrapper { part: value, marker: 1 }",
          "holder.wrapper = Wrapper { part: value, marker: 1 }",
          "Wrapper { part: value, marker: 1 }", 1},
-        {"P", "var alias = P { n: 0 }\nwhile flag { holder.item = alias\n"
-              "alias = value }", "holder.item = alias", "alias", 1},
-        {"P", "var alias = P { n: 0 }\nwhile flag { mut(alias)\nalias = value }",
+        {"P",
+         "var alias = P { n: 0 }\nwhile flag { holder.item = alias\n"
+         "alias = value }",
+         "holder.item = alias", "alias", 1},
+        {"P",
+         "var alias = P { n: 0 }\nwhile flag { mut(alias)\nalias = value }",
          "mut(alias)", "alias", 0}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       char text[4096];
-      snprintf(text, sizeof(text),
-               "%sf(value: %s, holder: &Holder, flag: bool) {\n%s\n}\nmain() {}",
-               prefix, cases[i].type, cases[i].body);
+      snprintf(
+          text, sizeof(text),
+          "%sf(value: %s, holder: &Holder, flag: bool) {\n%s\n}\nmain() {}",
+          prefix, cases[i].type, cases[i].body);
       permission_diagnostic(&a, text, cases[i].site, cases[i].value,
                             cases[i].storing ? store : borrow);
       // Changing the source permission, not its ownership or active tag,
       // makes the same operations legal. The parameter binding stays immutable.
-      snprintf(text, sizeof(text),
-               "%sf(value: &%s, holder: &Holder, flag: bool) {\n%s\n}\nmain() {}",
-               prefix, cases[i].type, cases[i].body);
+      snprintf(
+          text, sizeof(text),
+          "%sf(value: &%s, holder: &Holder, flag: bool) {\n%s\n}\nmain() {}",
+          prefix, cases[i].type, cases[i].body);
       valid(&a, text);
     }
     char text[4096];
@@ -483,10 +491,13 @@ int main(void) {
              "holder.scalar = scalar\nmutScalar(scalar)\n"
              "var alias = value\nalias = P { n: 1 }\nmut(alias)\n"
              "holder.item = alias\n}\nmain() {}");
-    valid(&a, text); // Copied scalars/immutable data and fresh rebinding stay legal.
+    valid(
+        &a,
+        text); // Copied scalars/immutable data and fresh rebinding stay legal.
     snprintf(text, sizeof(text), "%s%s", prefix,
              "f(value: Choice) { mut(value) }\nmain() {}");
-    Result wrong_type = invalid(&a, text, "Function argument has the wrong type.");
+    Result wrong_type =
+        invalid(&a, text, "Function argument has the wrong type.");
     ASSERT_EQ_INT(1, wrong_type.errors.count);
     Diagnostics permissions_only;
     diagnostics_init(&permissions_only, &a);

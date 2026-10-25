@@ -57,9 +57,9 @@ static Token err_token_at(Lexer *lexer, const char *message, Span highlight) {
 }
 
 static Token err_token(Lexer *lexer, const char *message) {
-  Span span = span_make(lexer->source,
-                        (size_t)(lexer->start - lexer->source->text),
-                        (size_t)(lexer->current - lexer->source->text));
+  Span span =
+      span_make(lexer->source, (size_t)(lexer->start - lexer->source->text),
+                (size_t)(lexer->current - lexer->source->text));
   return err_token_at(lexer, message, span);
 }
 
@@ -231,7 +231,8 @@ static Token number(Lexer *lexer) {
     if (end == lexer->end || !is_alpha(*end)) {
       lexer->current = end;
       return err_token(
-          lexer, "Exponent notation is not supported in source number literals.");
+          lexer,
+          "Exponent notation is not supported in source number literals.");
     }
   }
 

@@ -283,7 +283,8 @@ int main(void) {
     }
   }
 
-  TEST("diagnostic UTF-8 widths and tabs use display columns, not byte columns") {
+  TEST("diagnostic UTF-8 widths and tabs use display columns, not byte "
+       "columns") {
     const struct {
       const char *text;
       size_t start;
@@ -295,7 +296,8 @@ int main(void) {
         {"café @\n", 6, 7,
          "error: test\n  --> utf8.brf:1:7\n  |\n1 | café @\n  |      ^\n"},
         {"café\t@\n", 6, 7,
-         "error: test\n  --> utf8.brf:1:7\n  |\n1 | café    @\n  |         ^\n"},
+         "error: test\n  --> utf8.brf:1:7\n  |\n1 | café    @\n  |         "
+         "^\n"},
         {"é\t@\n", 3, 4,
          "error: test\n  --> utf8.brf:1:4\n  |\n1 | é   @\n  |     ^\n"},
     };
@@ -305,7 +307,8 @@ int main(void) {
       SourceFile *source = source_create(&arena, "utf8.brf", cases[i].text,
                                          strlen(cases[i].text));
       diagnostics_error(&diagnostics,
-                        span_make(source, cases[i].start, cases[i].end), "test");
+                        span_make(source, cases[i].start, cases[i].end),
+                        "test");
       char *printed = printed_diagnostics(&arena, &diagnostics);
       ASSERT_TRUE(printed != NULL);
       if (printed)

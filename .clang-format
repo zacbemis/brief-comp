@@ -1,0 +1,6 @@
+---
+# The sources follow LLVM style: two-space indents and 80 columns. CI checks
+# every tracked C file with the clang-format version pinned in
+# .github/workflows/ci.yml.
+BasedOnStyle: LLVM
+...

@@ -353,10 +353,23 @@ int main(void) {
   }
 
   TEST("source exponents are source-backed errors without consuming newlines") {
-    const char *spellings[] = {
-        "1e2", "1E2", "1e+2", "1E-2", "0e0", "0.0e0", "1.25e10",
-        "1.25E+10", "1.25E-10", "01e002", "1e99999999999999999999",
-        "1e", "1E", "1e+", "1E-", "0.5E+", "0.5e"};
+    const char *spellings[] = {"1e2",
+                               "1E2",
+                               "1e+2",
+                               "1E-2",
+                               "0e0",
+                               "0.0e0",
+                               "1.25e10",
+                               "1.25E+10",
+                               "1.25E-10",
+                               "01e002",
+                               "1e99999999999999999999",
+                               "1e",
+                               "1E",
+                               "1e+",
+                               "1E-",
+                               "0.5E+",
+                               "0.5e"};
     const char *endings[] = {"\n", "\r\n"};
     const char *message =
         "Exponent notation is not supported in source number literals.";
@@ -409,7 +422,8 @@ int main(void) {
       }
     }
   }
-  TEST("exponent errors preserve identifier-like suffixes, delimiters and text") {
+  TEST("exponent errors preserve identifier-like suffixes, delimiters and "
+       "text") {
     Lexer lx;
     init_lexer(&lx, "1else 1equal 1e2name 1E_2 1e+name 1.0e2name e2 E2");
     expect(&lx, TOK_INT_LIT, "1");
@@ -916,8 +930,8 @@ int main(void) {
     const char *cases[] = {"\"café \\q\\r\" next", "'\\q' next",
                            "\"ok\\n café \\q\" next"};
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
-      SourceFile *source = source_create(&test_arena, "escape.brf", cases[i],
-                                         strlen(cases[i]));
+      SourceFile *source =
+          source_create(&test_arena, "escape.brf", cases[i], strlen(cases[i]));
       Diagnostics diagnostics;
       diagnostics_init(&diagnostics, &test_arena);
       Lexer lx;
@@ -982,9 +996,10 @@ int main(void) {
     for (size_t i = 0; i < sizeof(prefixes) / sizeof(prefixes[0]); i++) {
       for (size_t j = 0; j < sizeof(newlines) / sizeof(newlines[0]); j++) {
         char text[64];
-        snprintf(text, sizeof(text), "%s%s@ \"ok\"\n", prefixes[i], newlines[j]);
-        SourceFile *source = source_create(&test_arena, "recovery.brf", text,
-                                           strlen(text));
+        snprintf(text, sizeof(text), "%s%s@ \"ok\"\n", prefixes[i],
+                 newlines[j]);
+        SourceFile *source =
+            source_create(&test_arena, "recovery.brf", text, strlen(text));
         Diagnostics diagnostics;
         diagnostics_init(&diagnostics, &test_arena);
         Lexer lx;
@@ -1001,14 +1016,16 @@ int main(void) {
         ASSERT_EQ_INT(TOK_ERR, later_error.type);
         ASSERT_EQ_STRN("@", later_error.start, later_error.length);
         ASSERT_EQ_INT(2, later_error.line);
-        ASSERT_EQ_INT(1, source_position(source, later_error.span.start).column);
+        ASSERT_EQ_INT(1,
+                      source_position(source, later_error.span.start).column);
         expect(&lx, TOK_STR_LIT, "\"ok\"");
         expect(&lx, TOK_NEWLINE, "\n");
         expect(&lx, TOK_EOF, NULL);
         ASSERT_EQ_INT(2, diagnostics.count);
         Diagnostics batch_diagnostics;
         diagnostics_init(&batch_diagnostics, &test_arena);
-        TokenArray tokens = lexer_tokenize(&test_arena, source, &batch_diagnostics);
+        TokenArray tokens =
+            lexer_tokenize(&test_arena, source, &batch_diagnostics);
         ASSERT_EQ_INT(6, tokens.count);
         ASSERT_EQ_INT(2, batch_diagnostics.count);
         ASSERT_EQ_INT(TOK_STR_LIT, tokens.items[3].type);
@@ -1185,7 +1202,8 @@ int main(void) {
         state = state * UINT32_C(1664525) + UINT32_C(1013904223);
         text[i] = (char)(state >> 24);
       }
-      SourceFile *source = source_create(&arena, "bytes.brf", text, sizeof(text));
+      SourceFile *source =
+          source_create(&arena, "bytes.brf", text, sizeof(text));
       Diagnostics diagnostics;
       diagnostics_init(&diagnostics, &arena);
       Lexer lx;

@@ -191,8 +191,8 @@ int main(int argc, char **argv) {
       ASSERT_EQ_INT(i == 3 ? 0 : 1, r.status);
       ASSERT_EQ_INT(0, r.out.length);
       const char *expected =
-          i == 3 ? "debug: 1 objects still alive at exit (cycles are not "
-                   "collected)\n"
+          i == 3   ? "debug: 1 objects still alive at exit (cycles are not "
+                     "collected)\n"
           : i == 2 ? "panic: reference count overflow\n  --> runtime.brf:7\n"
                    : "panic: string too large\n  --> runtime.brf:7\n";
       ASSERT_EQ_INT(strlen(expected), r.err.length);

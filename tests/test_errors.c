@@ -52,7 +52,7 @@ static Result invalid(Arena *a, const char *text, const char *message) {
   return r;
 }
 static void handling_errors(Arena *a, const char *text, size_t handling,
-                             const char *other, size_t other_count) {
+                            const char *other, size_t other_count) {
   const char *required =
       "A call that can fail must be handled with ?, !, or a match.";
   Result r = check(a, text);
@@ -216,7 +216,8 @@ int main(void) {
       ASSERT_EQ_INT(SEMA_ERROR, call->type->kind);
       ASSERT_EQ_INT(SEMA_ERROR, call->raw_type->kind);
       ASSERT_EQ_INT(SEMA_ERROR, binding->as.binding.variable->type->kind);
-      ASSERT_TRUE(call->flow & SEMA_NEXT); // Bad values do not hide later syntax.
+      ASSERT_TRUE(call->flow &
+                  SEMA_NEXT); // Bad values do not hide later syntax.
       ASSERT_TRUE(!f->inference_conflict);
       const char *site = strstr(code, "= source()");
       ASSERT_TRUE(site != NULL);
@@ -234,11 +235,10 @@ int main(void) {
               "data |> { :left => ()\n:right => () } }");
   }
   TEST("handling recovery preserves unrelated errors and SCC fallibility") {
-    const char *prefix =
-        "P { value: int }\nPair { number: int\nflag: bool }\n"
-        "source(): Sym<:ok(int), :bad> { 1 }\n"
-        "take(value: int, flag: bool) {}\n"
-        "writable(value: &P): Sym<:ok(P), :bad> { value }\n";
+    const char *prefix = "P { value: int }\nPair { number: int\nflag: bool }\n"
+                         "source(): Sym<:ok(int), :bad> { 1 }\n"
+                         "take(value: int, flag: bool) {}\n"
+                         "writable(value: &P): Sym<:ok(P), :bad> { value }\n";
     struct {
       const char *body, *message;
       size_t handling;
@@ -261,7 +261,8 @@ int main(void) {
         {"f() { take(source(), missing) }", "Unknown binding.", 1},
         {"f(value: P) { writable(value) }",
          "A read-only value cannot be passed to an & parameter; take the "
-         "parameter it comes from as &.", 1}};
+         "parameter it comes from as &.",
+         1}};
     char code[4096];
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       snprintf(code, sizeof(code), "%s%s\nmain() {}", prefix, cases[i].body);
@@ -272,21 +273,26 @@ int main(void) {
              "f() { both(source(), source()) }\nmain() {}");
     handling_errors(&a, code, 3, NULL, 0);
     handling_errors(&a,
-        "data(): Sym<:left, :right> { :left }\n"
-        "take(value: int) {}\nf() { take(data()) }\nmain() {}",
-        0, "Function argument has the wrong type.", 1);
+                    "data(): Sym<:left, :right> { :left }\n"
+                    "take(value: int) {}\nf() { take(data()) }\nmain() {}",
+                    0, "Function argument has the wrong type.", 1);
     // Deferring, rather than poisoning, probe results keeps the anchored
     // component fallible so its illegal recursive calls cannot disappear.
-    handling_errors(&a,
+    handling_errors(
+        &a,
         "a(n: int) { if n == 0 { ret :bad }\nif n == 1 { ret 1 }\nb(n) }\n"
-        "b(n: int) { a(n) }\nmain() {}", 1, NULL, 0);
-    handling_errors(&a,
+        "b(n: int) { a(n) }\nmain() {}",
+        1, NULL, 0);
+    handling_errors(
+        &a,
         "a(n: int) { if n == 0 { ret :bad }\nif n == 1 { ret 1 }\nb(n) }\n"
         "b(n: int) { if n == 0 { ret :bad }\nif n == 1 { ret 1 }\na(n) }\n"
-        "main() {}", 2, NULL, 0);
+        "main() {}",
+        2, NULL, 0);
     handling_errors(&a,
-        "a() { b() }\nb() { source() }\n"
-        "source(): Sym<:ok(int), :bad> { 1 }\nmain() {}", 1, NULL, 0);
+                    "a() { b() }\nb() { source() }\n"
+                    "source(): Sym<:ok(int), :bad> { 1 }\nmain() {}",
+                    1, NULL, 0);
   }
   TEST("return inference accumulates errors and narrows handled variants") {
     Result r = valid(&a, "type Problems = Sym<:a(str), :b(int)>\n"
@@ -387,7 +393,8 @@ int main(void) {
         "Binding value does not match its annotation."};
     ASSERT_EQ_INT(3, callers.errors.count);
     for (size_t i = 0; i < 3; i++)
-      ASSERT_TRUE(!strcmp(caller_messages[i], callers.errors.items[i]->message));
+      ASSERT_TRUE(
+          !strcmp(caller_messages[i], callers.errors.items[i]->message));
     Result collision =
         invalid(&a,
                 "a(): Sym<:ok(int), :bad(int)> { 1 }\n"

@@ -97,20 +97,24 @@ int main(void) {
         "Exponent notation is not supported in source number literals.";
     struct {
       const char *code, *lexeme;
-    } cases[] = {
-        {"let value = 1e2", "1e2"}, {"let value = 0.5E-2", "0.5E-2"},
-        {"let value = -1e-2", "1e-2"}, {"f(1E+2)", "1E+2"},
-        {"ret -1.25e2", "1.25e2"}, {"if 1e2 > 0 {}", "1e2"},
-        {"while 1E2 > 0 {}", "1E2"},
-        {"for i in 0..1e2 {}", "1e2"}, {"P { n: 1E2 }", "1E2"},
-        {"1 |> {\n1e2 => 0\n_ => 1\n}", "1e2"},
-        {"1 |> {\n-1E2 => 0\n_ => 1\n}", "1E2"},
-        {"let value: int[1e2] = ()", "1e2"},
-        {"let value = 1e", "1e"}, {"let value = 1E+", "1E+"}};
+    } cases[] = {{"let value = 1e2", "1e2"},
+                 {"let value = 0.5E-2", "0.5E-2"},
+                 {"let value = -1e-2", "1e-2"},
+                 {"f(1E+2)", "1E+2"},
+                 {"ret -1.25e2", "1.25e2"},
+                 {"if 1e2 > 0 {}", "1e2"},
+                 {"while 1E2 > 0 {}", "1E2"},
+                 {"for i in 0..1e2 {}", "1e2"},
+                 {"P { n: 1E2 }", "1E2"},
+                 {"1 |> {\n1e2 => 0\n_ => 1\n}", "1e2"},
+                 {"1 |> {\n-1E2 => 0\n_ => 1\n}", "1E2"},
+                 {"let value: int[1e2] = ()", "1e2"},
+                 {"let value = 1e", "1e"},
+                 {"let value = 1E+", "1E+"}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       char text[512], crlf[1024];
-      snprintf(text, sizeof(text), "main() {\n%s\nlet kept = 1\n}\nafter() {}\n",
-               cases[i].code);
+      snprintf(text, sizeof(text),
+               "main() {\n%s\nlet kept = 1\n}\nafter() {}\n", cases[i].code);
       size_t n = 0;
       for (size_t j = 0; text[j]; j++) {
         if (text[j] == '\n')
@@ -150,7 +154,8 @@ int main(void) {
     }
     Parsed *v = parse(&arena, "main() { let value = 1e2 + 2E3\n"
                               "let = 1\nlet kept = 1\n}\nafter() {}\n");
-    ASSERT_EQ_INT(3, v->diagnostics.count); // Two lexemes and one binding error.
+    ASSERT_EQ_INT(3,
+                  v->diagnostics.count); // Two lexemes and one binding error.
     for (size_t i = 0; i < v->diagnostics.count; i++)
       ASSERT_TRUE(strcmp(message, v->diagnostics.items[i]->message) == 0 ||
                   strcmp("Expected a binding name.",
@@ -282,30 +287,37 @@ int main(void) {
     const char *or_hint = "Use 'or' instead of '||'.";
     struct {
       const char *expression, *operator, *message;
-    } cases[] = {
-        {"++x", "++", prefix}, {"--x", "--", prefix},
-        {"++ x", "++", prefix}, {"-- user.age", "--", prefix},
-        {"f(++x)", "++", prefix}, {"let y = --x", "--", prefix},
-        {"ret ++x", "++", prefix}, {"if ++x {}", "++", prefix},
-        {"while --x {}", "--", prefix},
-        {"for i in 0..++x {}", "++", prefix},
-        {"x + --y", "--", prefix}, {"(++x)", "++", prefix},
-        {":ok(--x)", "--", prefix}, {"items[++x]", "++", prefix},
-        {"x |> { _ => ++x }", "++", prefix},
-        {"true && false", "&&", and_hint}, {"true||false", "||", or_hint},
-        {"f(true && false)", "&&", and_hint},
-        {"let y = true || false", "||", or_hint},
-        {"ret true && false", "&&", and_hint},
-        {"if true || false {}", "||", or_hint},
-        {"while true && false {}", "&&", and_hint},
-        {"(true || false)", "||", or_hint},
-        {":ok(true && false)", "&&", and_hint},
-        {"x |> { _ => true || false }", "||", or_hint},
-        {"a < b && c > d", "&&", and_hint},
-        {"a + b||c", "||", or_hint}};
+    } cases[] = {{"++x", "++", prefix},
+                 {"--x", "--", prefix},
+                 {"++ x", "++", prefix},
+                 {"-- user.age", "--", prefix},
+                 {"f(++x)", "++", prefix},
+                 {"let y = --x", "--", prefix},
+                 {"ret ++x", "++", prefix},
+                 {"if ++x {}", "++", prefix},
+                 {"while --x {}", "--", prefix},
+                 {"for i in 0..++x {}", "++", prefix},
+                 {"x + --y", "--", prefix},
+                 {"(++x)", "++", prefix},
+                 {":ok(--x)", "--", prefix},
+                 {"items[++x]", "++", prefix},
+                 {"x |> { _ => ++x }", "++", prefix},
+                 {"true && false", "&&", and_hint},
+                 {"true||false", "||", or_hint},
+                 {"f(true && false)", "&&", and_hint},
+                 {"let y = true || false", "||", or_hint},
+                 {"ret true && false", "&&", and_hint},
+                 {"if true || false {}", "||", or_hint},
+                 {"while true && false {}", "&&", and_hint},
+                 {"(true || false)", "||", or_hint},
+                 {":ok(true && false)", "&&", and_hint},
+                 {"x |> { _ => true || false }", "||", or_hint},
+                 {"a < b && c > d", "&&", and_hint},
+                 {"a + b||c", "||", or_hint}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       char text[512], crlf[1024];
-      snprintf(text, sizeof(text), "main() {\n%s\nlet kept = 1\n}\nafter() {}\n",
+      snprintf(text, sizeof(text),
+               "main() {\n%s\nlet kept = 1\n}\nafter() {}\n",
                cases[i].expression);
       size_t n = 0;
       for (size_t j = 0; text[j]; j++) {
@@ -346,16 +358,17 @@ int main(void) {
     }
   }
   TEST("logical hints require adjacent bytes and preserve valid operators") {
-    const char *separated[] = {"a & &b", "a | |b", "a &\n&b", "a |\n|b",
-                               "a & // gap\n&b", "a | // gap\n|b",
-                               "+ +x", "a + +b"};
+    const char *separated[] = {"a & &b",  "a | |b",         "a &\n&b",
+                               "a |\n|b", "a & // gap\n&b", "a | // gap\n|b",
+                               "+ +x",    "a + +b"};
     for (size_t i = 0; i < sizeof(separated) / sizeof(separated[0]); i++) {
       char text[256];
       snprintf(text, sizeof(text), "main() { %s }", separated[i]);
       Parsed *v = parse(&arena, text);
       ASSERT_EQ_INT(1, v->diagnostics.count);
       if (v->diagnostics.count)
-        ASSERT_EQ_STRN("Expected an expression.", v->diagnostics.items[0]->message,
+        ASSERT_EQ_STRN("Expected an expression.",
+                       v->diagnostics.items[0]->message,
                        strlen(v->diagnostics.items[0]->message));
     }
     expression_dump(&arena, "a & b | c", "(| (& (name a) (name b)) (name c))");
@@ -366,8 +379,8 @@ int main(void) {
     expression_dump(&arena, "- -x", "(- (- (name x)))");
     program_dump(&arena, "P {}\nf(p: &P) {}",
                  "(program (struct P) (fn f (params (p & P)) _ (block)))\n");
-    Parsed *v = parse(&arena,
-                      "main() { true && false\ntrue || false\n++x\nlet kept = 1 }\n");
+    Parsed *v = parse(
+        &arena, "main() { true && false\ntrue || false\n++x\nlet kept = 1 }\n");
     TokenArray filtered = newline_filter(&arena, v->raw);
     Token *saved = arena_alloc(&arena, filtered.count * sizeof(*saved));
     memcpy(saved, filtered.items, filtered.count * sizeof(*saved));
@@ -386,11 +399,13 @@ int main(void) {
       diagnostics_init(&d, &arena);
       parse_program(&arena, &v->names, filtered, &d);
       ASSERT_EQ_INT(3, d.count);
-      ASSERT_TRUE(memcmp(saved, filtered.items,
-                         filtered.count * sizeof(*saved)) == 0);
+      ASSERT_TRUE(
+          memcmp(saved, filtered.items, filtered.count * sizeof(*saved)) == 0);
     }
-    v = parse(&arena, "main() { let value = @\ntrue && @\n--x\nlet kept = 1 }\n");
-    ASSERT_EQ_INT(4, v->diagnostics.count); // Two lexer and two operator errors.
+    v = parse(&arena,
+              "main() { let value = @\ntrue && @\n--x\nlet kept = 1 }\n");
+    ASSERT_EQ_INT(4,
+                  v->diagnostics.count); // Two lexer and two operator errors.
     for (size_t i = 0; i < v->diagnostics.count; i++)
       ASSERT_TRUE(strcmp(v->diagnostics.items[i]->message,
                          "Expected an expression.") != 0);
@@ -509,7 +524,8 @@ int main(void) {
     invalid(&arena, "main() { for x in Guest { name: name }.items {} }",
             "Wrap struct literals in conditions or iterables in parentheses.");
   }
-  TEST("struct header hints have exact spans and recover without token changes") {
+  TEST("struct header hints have exact spans and recover without token "
+       "changes") {
     const char *message =
         "Wrap struct literals in conditions or iterables in parentheses.";
     const char *cases[] = {
@@ -527,11 +543,13 @@ int main(void) {
         "ret if Guest { name: name }.ok {} else {}",
         "sink(if Guest { name: name }.ok {})",
         "if outer(if Guest { name: name }.ok {}) {}",
-        "if test<Sym<:ok(Sym<:inner(int)>)>>(0) and Guest { name: name }.ok {}"};
+        // Parenthesized: one case, intentionally split across two literals.
+        ("if test<Sym<:ok(Sym<:inner(int)>)>>(0) and "
+         "Guest { name: name }.ok {}")};
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       char text[1024], crlf[2048];
-      snprintf(text, sizeof(text), "main() {\n%s\nlet kept = 1\n}\nafter() {}\n",
-               cases[i]);
+      snprintf(text, sizeof(text),
+               "main() {\n%s\nlet kept = 1\n}\nafter() {}\n", cases[i]);
       size_t n = 0;
       for (size_t j = 0; text[j]; j++) {
         if (text[j] == '\n')
@@ -592,14 +610,15 @@ int main(void) {
           ASSERT_EQ_STRN(first, second, strlen(second));
       }
     }
-    Parsed *v = parse(&arena,
-        "main() {\nif Guest { name: name }.ok {}\nlet broken 1\n"
-        "let kept = 1\n}\nafter() {}\n");
+    Parsed *v =
+        parse(&arena, "main() {\nif Guest { name: name }.ok {}\nlet broken 1\n"
+                      "let kept = 1\n}\nafter() {}\n");
     ASSERT_EQ_INT(2, v->diagnostics.count);
     if (v->diagnostics.count == 2) {
       ASSERT_EQ_STRN(message, v->diagnostics.items[0]->message,
                      strlen(v->diagnostics.items[0]->message));
-      ASSERT_EQ_STRN("Expected '=' in binding.", v->diagnostics.items[1]->message,
+      ASSERT_EQ_STRN("Expected '=' in binding.",
+                     v->diagnostics.items[1]->message,
                      strlen(v->diagnostics.items[1]->message));
     }
     v = parse(&arena, "main() {\nif Guest { name: @ }.ok {}\nlet kept = 1\n}");
@@ -616,13 +635,13 @@ int main(void) {
                     "(field (if (name ready) (block) none) field)");
     expression_dump(&arena, "if Empty {}.ok {}",
                     "(struct-value (field (if (name Empty) (block) none) ok))");
-    expression_dump(&arena, "if ready {}",
-                    "(if (name ready) (block) none)");
+    expression_dump(&arena, "if ready {}", "(if (name ready) (block) none)");
     expression_dump(&arena, "while ready {}", "(while (name ready) (block))");
     expression_dump(&arena, "for x in values {}",
                     "(for x (name values) (block))");
     const char *valid[] = {
-        "if ready { field }", "if ready { :tag }",
+        "if ready { field }",
+        "if ready { :tag }",
         "if ready { let field: int = 1\nfield }",
         "if ready { Guest { name: name } }",
         "if (Guest { name: name }).ok {}",
@@ -643,14 +662,16 @@ int main(void) {
         diagnostics_print(&v->diagnostics, stderr);
       ASSERT_EQ_INT(0, v->diagnostics.count);
     }
-    const char *other_errors[] = {
-        "main() { if true { field: value } }",
-        "main() { if check() { field: value } }",
-        "main() { if ready { field() : value } }",
-        "main() { if ready { true: value } }",
-        "main() { if ready", "main() { if ready {",
-        "main() { if ready {\n", "main() { if ready { field"};
-    for (size_t i = 0; i < sizeof(other_errors) / sizeof(other_errors[0]); i++) {
+    const char *other_errors[] = {"main() { if true { field: value } }",
+                                  "main() { if check() { field: value } }",
+                                  "main() { if ready { field() : value } }",
+                                  "main() { if ready { true: value } }",
+                                  "main() { if ready",
+                                  "main() { if ready {",
+                                  "main() { if ready {\n",
+                                  "main() { if ready { field"};
+    for (size_t i = 0; i < sizeof(other_errors) / sizeof(other_errors[0]);
+         i++) {
       Parsed *v = parse(&arena, other_errors[i]);
       ASSERT_TRUE(v->diagnostics.count > 0);
       for (size_t j = 0; j < v->diagnostics.count; j++)
@@ -754,16 +775,40 @@ int main(void) {
     invalid(&arena, "print(\"top-level statement\")", "inside a function");
   }
   TEST("top-level statement hints are exact and preserve later declarations") {
-    const char *statements[] = {
-        "let value = 1", "var value = 1", "print(\"Hello\")", "tick()",
-        "print(value)", "User.new(\"Bob\", 20)", "str(1)",
-        "print(User { name: \"Bob\", age: 20 })", "print(nested(1, (2)))",
-        "value = 1", "value += 1", "value++", "value[0] = 1",
-        "if true { print(\"if\") }", "while false { tick() }",
-        "for i in 0..2 { print(str(i)) }", "ret 1", "break", "continue",
-        "42", "0.5", "true", "'x'", "\"text\"", ":ok(1)", "()", "-1",
-        "!true", "~1", "value", "tick()?", "tick()!", "tick().field",
-        "print(\n\"multiline\"\n)"};
+    const char *statements[] = {"let value = 1",
+                                "var value = 1",
+                                "print(\"Hello\")",
+                                "tick()",
+                                "print(value)",
+                                "User.new(\"Bob\", 20)",
+                                "str(1)",
+                                "print(User { name: \"Bob\", age: 20 })",
+                                "print(nested(1, (2)))",
+                                "value = 1",
+                                "value += 1",
+                                "value++",
+                                "value[0] = 1",
+                                "if true { print(\"if\") }",
+                                "while false { tick() }",
+                                "for i in 0..2 { print(str(i)) }",
+                                "ret 1",
+                                "break",
+                                "continue",
+                                "42",
+                                "0.5",
+                                "true",
+                                "'x'",
+                                "\"text\"",
+                                ":ok(1)",
+                                "()",
+                                "-1",
+                                "!true",
+                                "~1",
+                                "value",
+                                "tick()?",
+                                "tick()!",
+                                "tick().field",
+                                "print(\n\"multiline\"\n)"};
     for (size_t i = 0; i < sizeof(statements) / sizeof(statements[0]); i++) {
       char text[512];
       snprintf(text, sizeof(text), "%s\nmain() {}\n", statements[i]);
@@ -774,16 +819,18 @@ int main(void) {
                        v->diagnostics.items[0]->message,
                        strlen(v->diagnostics.items[0]->message));
         ASSERT_EQ_INT(0, v->diagnostics.items[0]->span.start);
-        ASSERT_EQ_INT(source_position(v->source, 0).line,
-                      source_position(v->source,
-                                      v->diagnostics.items[0]->span.start).line);
+        ASSERT_EQ_INT(
+            source_position(v->source, 0).line,
+            source_position(v->source, v->diagnostics.items[0]->span.start)
+                .line);
       }
       ASSERT_EQ_INT(1, v->program->count);
       if (v->program->count)
         ASSERT_EQ_STRN("main", v->program->items[0]->name,
                        strlen(v->program->items[0]->name));
     }
-    Parsed *v = parse(&arena, "\r\n  print(\r\n\"Hello\"\r\n)\r\nmain() {}\r\n");
+    Parsed *v =
+        parse(&arena, "\r\n  print(\r\n\"Hello\"\r\n)\r\nmain() {}\r\n");
     ASSERT_EQ_INT(1, v->diagnostics.count);
     ASSERT_EQ_INT(4, v->diagnostics.items[0]->span.start);
     SourcePosition pos =
@@ -792,7 +839,8 @@ int main(void) {
     ASSERT_EQ_INT(3, pos.column);
     ASSERT_EQ_INT(1, v->program->count);
   }
-  TEST("declaration evidence keeps specific header errors, not statement hints") {
+  TEST("declaration evidence keeps specific header errors, not statement "
+       "hints") {
     invalid(&arena, "f(x) {}", "Expected ':' before type.");
     invalid(&arena, "f(1) {}", "Expected a parameter name.");
     invalid(&arena, "f(x: int)", "Expected '{' to start a block.");
@@ -821,9 +869,10 @@ int main(void) {
     ASSERT_EQ_INT(0, v->diagnostics.count);
     ASSERT_EQ_INT(3, v->program->count);
   }
-  TEST("statement lookahead leaves filtered tokens unchanged and is repeatable") {
-    Parsed *v = parse(&arena,
-                      "tick(make<Vec<Vec<int>>>(User { name: \"Bob\" }))\n"
+  TEST("statement lookahead leaves filtered tokens unchanged and is "
+       "repeatable") {
+    Parsed *v =
+        parse(&arena, "tick(make<Vec<Vec<int>>>(User { name: \"Bob\" }))\n"
                       "main() {}\n");
     TokenArray filtered = newline_filter(&arena, v->raw);
     Token *saved = arena_alloc(&arena, filtered.count * sizeof(*saved));
@@ -834,8 +883,8 @@ int main(void) {
       Program *program = parse_program(&arena, &v->names, filtered, &d);
       ASSERT_EQ_INT(1, d.count);
       ASSERT_EQ_INT(1, program->count);
-      ASSERT_TRUE(memcmp(saved, filtered.items,
-                         filtered.count * sizeof(*saved)) == 0);
+      ASSERT_TRUE(
+          memcmp(saved, filtered.items, filtered.count * sizeof(*saved)) == 0);
     }
   }
   TEST("recovery retains later statements, arms, fields, methods and "

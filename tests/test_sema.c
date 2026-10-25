@@ -65,7 +65,7 @@ static size_t message_count(const Diagnostics *errors, const char *message) {
   return count;
 }
 static Result generic_error(Arena *a, const char *text, const char *site,
-                             const char *other, size_t other_count) {
+                            const char *other, size_t other_count) {
   Result r;
   diagnostics_init(&r.errors, a);
   InternTable names;
@@ -88,13 +88,15 @@ static Result generic_error(Arena *a, const char *text, const char *site,
       diagnostics_print(&r.errors, stderr);
     }
     ASSERT_EQ_INT(1 + other_count, r.errors.count);
-    ASSERT_EQ_INT(1, message_count(&r.errors, "Generic calls are not implemented yet."));
+    ASSERT_EQ_INT(
+        1, message_count(&r.errors, "Generic calls are not implemented yet."));
     ASSERT_EQ_INT(other_count, other ? message_count(&r.errors, other) : 0);
     const char *call = strstr(text, site);
     ASSERT_TRUE(call != NULL);
     for (size_t i = 0; i < r.errors.count; i++) {
       Diagnostic *d = r.errors.items[i];
-      if (!strcmp(d->message, "Generic calls are not implemented yet.") && call) {
+      if (!strcmp(d->message, "Generic calls are not implemented yet.") &&
+          call) {
         ASSERT_EQ_INT((size_t)(call - text), d->span.start);
         ASSERT_EQ_INT((size_t)(call - text) + strlen(site), d->span.end);
       }
@@ -156,7 +158,9 @@ int main(void) {
     const char *prefix =
         "P {}\nimpl P { make(value: int) {}\nread(p: Self, n: int) {} }\n"
         "f(value: shrt) {}\ncheck(value: int) {}\n";
-    struct { const char *body, *site; } cases[] = {
+    struct {
+      const char *body, *site;
+    } cases[] = {
         {"f<int>()", "f<int>()"},
         {"f<int>(true)", "f<int>(true)"},
         {"int<int>(\"1\")", "int<int>(\"1\")"},
@@ -172,8 +176,10 @@ int main(void) {
         {"1 |> missing<int>()", "missing<int>()"},
         {"let f = 0\n1 |> f<int>()", "f<int>()"},
         {"P {} |> P.make<int>()", "P.make<int>()"},
-        {"f<Sym<:ok(Sym<:inner(int)>)>>(1)", "f<Sym<:ok(Sym<:inner(int)>)>>(1)"},
-        {"f<int>()?", "f<int>()"}, {"f<int>()!", "f<int>()"},
+        {"f<Sym<:ok(Sym<:inner(int)>)>>(1)",
+         "f<Sym<:ok(Sym<:inner(int)>)>>(1)"},
+        {"f<int>()?", "f<int>()"},
+        {"f<int>()!", "f<int>()"},
         {"f<int>() |> { _ => () }", "f<int>()"},
         {"let value = f<int>()\nvalue.field", "f<int>()"}};
     char code[2048], crlf[4096];
@@ -189,7 +195,8 @@ int main(void) {
       generic_error(&a, code, cases[i].site, NULL, 0);
       generic_error(&a, crlf, cases[i].site, NULL, 0);
     }
-    Result r = generic_error(&a,
+    Result r = generic_error(
+        &a,
         "callee(value: int): int { value }\nmain() { callee<int>(callee(1)) }",
         "callee<int>(callee(1))", NULL, 0);
     SemaFunction *caller = &r.program->functions[1];
@@ -201,7 +208,8 @@ int main(void) {
     ASSERT_EQ_INT(SEMA_ERROR, call->type->kind);
     ASSERT_EQ_INT(1, call->as.call.count);
     ASSERT_TRUE(call->flow & SEMA_NEXT);
-    ASSERT_TRUE(call->as.call.args[0]->as.call.target == &r.program->functions[0].symbol);
+    ASSERT_TRUE(call->as.call.args[0]->as.call.target ==
+                &r.program->functions[0].symbol);
     ASSERT_TRUE(caller->edges != NULL);
     if (caller->edges) {
       ASSERT_EQ_INT(r.program->functions[0].symbol.id, caller->edges->callee);
@@ -216,21 +224,28 @@ int main(void) {
     Result nested = check(&a, "main() { missing<int>(other<int>()) }");
     ASSERT_EQ_INT(2, nested.errors.count);
     ASSERT_EQ_INT(2, message_count(&nested.errors,
-                                  "Generic calls are not implemented yet."));
+                                   "Generic calls are not implemented yet."));
     ASSERT_TRUE(!nested.program->checked);
     ASSERT_TRUE(ir_lower(&a, nested.program) == NULL);
     valid(&a, "check(left: bool, right: bool) {}\n"
               "main() { let a = 1\nlet b = 2\nlet c = 3\nlet d = 1\n"
               "check(a < b, c > d)\ncheck((a < b), (c > (d))) }");
-    invalid(&a, "main() { let f = 0\nf() }", "A local binding is not callable.");
+    invalid(&a, "main() { let f = 0\nf() }",
+            "A local binding is not callable.");
     invalid(&a, "main() { missing() }", "Unknown function.");
     invalid(&a, "P {}\nmain() { P.missing() }", "Unknown associated function.");
-    invalid(&a, "P {}\nmain() { P {}.missing() }", "Unknown method for this type.");
+    invalid(&a, "P {}\nmain() { P {}.missing() }",
+            "Unknown method for this type.");
   }
-  TEST("generic recovery still checks receiver, argument and surrounding syntax") {
-    struct { const char *text, *site, *other; } cases[] = {
-        {"main() { missing<int>(unknown) }", "missing<int>(unknown)", "Unknown binding."},
-        {"main() { missing.read<int>() }", "missing.read<int>()", "Unknown binding."},
+  TEST("generic recovery still checks receiver, argument and surrounding "
+       "syntax") {
+    struct {
+      const char *text, *site, *other;
+    } cases[] = {
+        {"main() { missing<int>(unknown) }", "missing<int>(unknown)",
+         "Unknown binding."},
+        {"main() { missing.read<int>() }", "missing.read<int>()",
+         "Unknown binding."},
         {"P {}\nmake(n: int) { P {} }\nmain() { make(false).read<int>() }",
          "make(false).read<int>()", "Function argument has the wrong type."},
         {"main() { missing<int>(if true { 1 } else { false }) }",
@@ -241,37 +256,46 @@ int main(void) {
         {"take(n: int) {}\nmain() { missing<int>(take(false)) }",
          "missing<int>(take(false))", "Function argument has the wrong type."},
         {"fail(): Sym<:ok(int), :bad> { 1 }\nmain() { missing<int>(fail()) }",
-         "missing<int>(fail())", "A call that can fail must be handled with ?, !, or a match."},
+         "missing<int>(fail())",
+         "A call that can fail must be handled with ?, !, or a match."},
         {"P {}\nmut(p: &P) {}\nf(p: P) { missing<int>(mut(p)) }\nmain() {}",
-         "missing<int>(mut(p))", "A read-only value cannot be passed to an & parameter; "
+         "missing<int>(mut(p))",
+         "A read-only value cannot be passed to an & parameter; "
          "take the parameter it comes from as &."},
         {"main() { missing<int>()\nlet bad: int = false }", "missing<int>()",
          "Binding value does not match its annotation."},
         {"main() { let local = 0\nmissing<int>()\nlocal() }", "missing<int>()",
          "A local binding is not callable."},
         {"check(left: bool, right: bool) {}\nmain() { let a = 1\nlet d = 2\n"
-         "check(a < b, c > (d)) }", "a < b, c > (d)", "Wrong number of function arguments."},
-        {"bad(flag: bool) { if flag { ret 1 }\nfalse }\nmain() { missing<int>() }",
+         "check(a < b, c > (d)) }",
+         "a < b, c > (d)", "Wrong number of function arguments."},
+        {"bad(flag: bool) { if flag { ret 1 }\nfalse }\nmain() { "
+         "missing<int>() }",
          "missing<int>()", "Incompatible return types."},
         {"bad(): () { missing<int>()\nret 1 }\nmain() {}", "missing<int>()",
          "Return value does not match the written return type."},
         {"main() { missing<int>(1 + true) }", "missing<int>(1 + true)",
-         "Operator operands must have the same type; numeric conversions are explicit."}};
+         "Operator operands must have the same type; numeric conversions are "
+         "explicit."}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
       generic_error(&a, cases[i].text, cases[i].site, cases[i].other, 1);
-    generic_error(&a,
+    generic_error(
+        &a,
         "f() { if true { ret 1 }\nmissing<int>(g()) }\ng() { f() }\nmain() {}",
         "missing<int>(g())", NULL, 0);
     Result r = generic_error(&a,
-        "f() { missing<int>(if true { ret 1 } else { ret 2 })\nret false }\nmain() {}",
-        "missing<int>(if true { ret 1 } else { ret 2 })", NULL, 0);
+                             "f() { missing<int>(if true { ret 1 } else { ret "
+                             "2 })\nret false }\nmain() {}",
+                             "missing<int>(if true { ret 1 } else { ret 2 })",
+                             NULL, 0);
     ASSERT_EQ_INT(SEMA_INT, r.program->functions[0].symbol.return_type->kind);
     SemaExpr *call = r.program->functions[0].body->as.block.items[0];
     ASSERT_EQ_INT(SEMA_NEVER, call->type->kind);
     ASSERT_TRUE(!(call->flow & SEMA_NEXT));
     ASSERT_TRUE(call->flow & SEMA_RETURN);
   }
-  TEST("global const still parses but is rejected as an unimplemented declaration") {
+  TEST("global const still parses but is rejected as an unimplemented "
+       "declaration") {
     const char *sources[] = {"const VALUE = 1\nmain() {}",
                              "pub const VALUE = 1\nmain() {}"};
     for (size_t i = 0; i < sizeof(sources) / sizeof(sources[0]); i++) {
@@ -319,7 +343,8 @@ int main(void) {
         "main() { let x: Bogus = 5000000000 }",
         "main() { let x: Bogus = -5000000000 }",
         "f(x: Bogus) {}\nmain() { f(5000000000) }",
-        "P { v: Bogus }\nmain() { let p = P { v: 99999999999 } }", huge_real};
+        "P { v: Bogus }\nmain() { let p = P { v: 99999999999 } }",
+        huge_real};
     for (size_t i = 0; i < sizeof(unknown_contexts) / sizeof(*unknown_contexts);
          i++) {
       Result r = check(&a, unknown_contexts[i]);
@@ -427,8 +452,11 @@ int main(void) {
             "consistent return type");
   }
   TEST("recursive probe errors preserve contextual literal anchors") {
-    struct { const char *type, *bad, *good; } cases[] = {
-        {"shrt", "40000", "32000"}, {"ushrt", "-1", "65535"},
+    struct {
+      const char *type, *bad, *good;
+    } cases[] = {
+        {"shrt", "40000", "32000"},
+        {"ushrt", "-1", "65535"},
         {"uint", "-1", "4294967295"},
         {"ulng", "-1", "18446744073709551615"},
         {"flt", "350000000000000000000000000000000000000.0", "1.0000001"}};
@@ -438,9 +466,11 @@ int main(void) {
       snprintf(f, sizeof(f), "f(p: %s, b: bool) { if b { ret p }\ng(p, b) }\n",
                cases[i].type);
       for (unsigned order = 0; order < 2; order++) {
-        snprintf(g, sizeof(g), "g(p: %s, b: bool) { if b { ret f(p, b) }\n%s }\n",
+        snprintf(g, sizeof(g),
+                 "g(p: %s, b: bool) { if b { ret f(p, b) }\n%s }\n",
                  cases[i].type, cases[i].bad);
-        snprintf(text, sizeof(text), "%s%smain() {}", order ? g : f, order ? f : g);
+        snprintf(text, sizeof(text), "%s%smain() {}", order ? g : f,
+                 order ? f : g);
         size_t n = 0;
         for (size_t j = 0; text[j]; j++) {
           if (text[j] == '\n')
@@ -466,7 +496,8 @@ int main(void) {
               ASSERT_EQ_STRN(message, r.errors.items[0]->message,
                              strlen(r.errors.items[0]->message));
               if (at) {
-                ASSERT_EQ_INT((size_t)(at - source), r.errors.items[0]->span.start);
+                ASSERT_EQ_INT((size_t)(at - source),
+                              r.errors.items[0]->span.start);
                 ASSERT_EQ_INT((size_t)(at - source) + strlen(cases[i].bad),
                               r.errors.items[0]->span.end);
               }
@@ -474,16 +505,20 @@ int main(void) {
             SemaFunction *anchor = &r.program->functions[order ? 1 : 0];
             SemaFunction *peer = &r.program->functions[order ? 0 : 1];
             ASSERT_EQ_INT(anchor->component, peer->component);
-            ASSERT_TRUE(anchor->symbol.return_type == anchor->symbol.params[0]->type);
+            ASSERT_TRUE(anchor->symbol.return_type ==
+                        anchor->symbol.params[0]->type);
             ASSERT_TRUE(peer->symbol.return_type == anchor->symbol.return_type);
-            ASSERT_TRUE(!anchor->inference_conflict && !peer->inference_conflict);
+            ASSERT_TRUE(!anchor->inference_conflict &&
+                        !peer->inference_conflict);
             ASSERT_TRUE(!r.program->checked);
             ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
           }
         }
-        snprintf(g, sizeof(g), "g(p: %s, b: bool) { if b { ret f(p, b) }\n%s }\n",
+        snprintf(g, sizeof(g),
+                 "g(p: %s, b: bool) { if b { ret f(p, b) }\n%s }\n",
                  cases[i].type, cases[i].good);
-        snprintf(text, sizeof(text), "%s%smain() {}", order ? g : f, order ? f : g);
+        snprintf(text, sizeof(text), "%s%smain() {}", order ? g : f,
+                 order ? f : g);
         Result good = check(&a, text);
         if (good.errors.count)
           diagnostics_print(&good.errors, stderr);
@@ -502,8 +537,8 @@ int main(void) {
          "f(p,b) |> { 32000 => p\n_ => p }",
          "Number literal is outside the range of its type.", "40000", 0},
         {"bool", "f(p,b) |> { 1 => p\n_ => p }",
-         "f(p,b) |> { true => p\n_ => p }",
-         "Pattern value has the wrong type.", "1", 0},
+         "f(p,b) |> { true => p\n_ => p }", "Pattern value has the wrong type.",
+         "1", 0},
         {"str", "f(p,b) |> { 0..1 => p\n_ => p }",
          "f(p,b) |> { \"x\" => p\n_ => p }",
          "Range and comparison patterns require numbers or chr.", "0..1", 0},
@@ -514,57 +549,62 @@ int main(void) {
          "f(p,b) |> { :yes(_) => p\n_ => p }",
          "Symbol pattern tag is not in the input set.", ":missing", 0},
         {"Sym<:yes(shrt), :no>", "f(p,b) |> { :yes(_) => p }",
-         "f(p,b) |> { :yes(_) => p\n:no => p }",
-         "Match is not exhaustive.", "f(p,b) |> { :yes(_) => p }", 0},
+         "f(p,b) |> { :yes(_) => p\n:no => p }", "Match is not exhaustive.",
+         "f(p,b) |> { :yes(_) => p }", 0},
         {"Sym<:yes(shrt), :no>", "f(p,b) |> { Wrong => p\n_ => p }",
          "f(p,b) |> { :yes(_) => p\n_ => p }",
          "Symbol tag has conflicting payload types.", "Wrong", 0},
         {"Sym<:yes(shrt), :no>",
          "f(p,b) |> { :yes(_) => p\n:yes(_) => p\n:no => p }",
-         "f(p,b) |> { :yes(_) => p\n:no => p }",
-         "Unreachable match arm.", ":yes(_) => p\n:no", 7},
+         "f(p,b) |> { :yes(_) => p\n:no => p }", "Unreachable match arm.",
+         ":yes(_) => p\n:no", 7},
         {"bool", "f(p,b) |> { true => p }",
-         "f(p,b) |> { true => p\nfalse => p }",
-         "Match is not exhaustive.", "f(p,b) |> { true => p }", 0},
+         "f(p,b) |> { true => p\nfalse => p }", "Match is not exhaustive.",
+         "f(p,b) |> { true => p }", 0},
         {"bool", "f(p,b) |> { true => p\ntrue => p\nfalse => p }",
-         "f(p,b) |> { true => p\nfalse => p }",
-         "Unreachable match arm.", "true => p\nfalse", 4},
+         "f(p,b) |> { true => p\nfalse => p }", "Unreachable match arm.",
+         "true => p\nfalse", 4},
         {"str", "f(p,b) |> { \"x\" => p\n\"x\" => p\n_ => p }",
-         "f(p,b) |> { \"x\" => p\n_ => p }",
-         "Unreachable match arm.", "\"x\" => p\n_", 3},
+         "f(p,b) |> { \"x\" => p\n_ => p }", "Unreachable match arm.",
+         "\"x\" => p\n_", 3},
         {"Sym<:yes(shrt), :no>", "f(p,b)!", "f(p,b) |> { _ => p }",
          "? and ! require a symbol outcome with an :ok variant.", "f(p,b)!", 0},
         {"Sym<:yes(shrt), :no>", "f(p,b)?", "f(p,b) |> { _ => p }",
          "? and ! require a symbol outcome with an :ok variant.", "f(p,b)?", 0},
         {"bool", "~f(p,b)", "!f(p,b)",
-         "This unary operator requires numbers (bitwise not requires integers).",
+         "This unary operator requires numbers (bitwise not requires "
+         "integers).",
          "~f(p,b)", 0},
-        {"bool", "f(p,b) + p", "f(p,b) and p",
-         "Arithmetic requires numbers.", "f(p,b) + p", 0},
+        {"bool", "f(p,b) + p", "f(p,b) and p", "Arithmetic requires numbers.",
+         "f(p,b) + p", 0},
         {"int", "int(f(p,b), 1)", "int(f(p,b))",
          "Numeric conversion expects exactly one number, chr or str argument.",
          "int(f(p,b), 1)", 0},
-        {"P", "let unused = int(f(p,b))\nf(p,b)",
-         "let unused = int(1)\nf(p,b)",
-         "Numeric conversion expects a number, chr or str argument.",
-         "f(p,b)", 0}};
+        {"P", "let unused = int(f(p,b))\nf(p,b)", "let unused = int(1)\nf(p,b)",
+         "Numeric conversion expects a number, chr or str argument.", "f(p,b)",
+         0}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
       for (unsigned order = 0; order < 2; order++) {
         for (unsigned good = 0; good < 2; good++) {
           char f[512], g[512], text[2048], crlf[4096];
           const char *body = good ? cases[i].good : cases[i].bad;
-          snprintf(f, sizeof(f), "f(p: %s,b: bool) { if b { ret p }\ng(p,b) }\n",
+          snprintf(f, sizeof(f),
+                   "f(p: %s,b: bool) { if b { ret p }\ng(p,b) }\n",
                    cases[i].type);
-          snprintf(g, sizeof(g), "g(p: %s,b: bool) { if b { ret f(p,b) }\n%s }\n",
+          snprintf(g, sizeof(g),
+                   "g(p: %s,b: bool) { if b { ret f(p,b) }\n%s }\n",
                    cases[i].type, body);
-          snprintf(text, sizeof(text), "P {}\ntype Wrong = Sym<:yes(str)>\n%s%smain() {}",
+          snprintf(text, sizeof(text),
+                   "P {}\ntype Wrong = Sym<:yes(str)>\n%s%smain() {}",
                    order ? g : f, order ? f : g);
           const char *body_at = strstr(text, body);
           ASSERT_TRUE(body_at != NULL);
-          const char *at = !good && body_at ? strstr(body_at, cases[i].site) : NULL;
+          const char *at =
+              !good && body_at ? strstr(body_at, cases[i].site) : NULL;
           ASSERT_TRUE(good || at != NULL);
           size_t start = at ? (size_t)(at - text) : 0;
-          size_t width = cases[i].width ? cases[i].width : strlen(cases[i].site);
+          size_t width =
+              cases[i].width ? cases[i].width : strlen(cases[i].site);
           // These diagnostic spans contain no newline; only their starting
           // offsets shift when the surrounding source is converted to CRLF.
           size_t n = 0, extra = 0;
@@ -591,7 +631,8 @@ int main(void) {
               }
               ASSERT_EQ_INT(good ? 0 : 1, r.errors.count);
               if (!good && r.errors.count == 1) {
-                ASSERT_EQ_INT(0, strcmp(cases[i].message, r.errors.items[0]->message));
+                ASSERT_EQ_INT(
+                    0, strcmp(cases[i].message, r.errors.items[0]->message));
                 size_t offset = start + (ending ? extra : 0);
                 ASSERT_EQ_INT(offset, r.errors.items[0]->span.start);
                 ASSERT_EQ_INT(offset + width, r.errors.items[0]->span.end);
@@ -599,9 +640,12 @@ int main(void) {
               SemaFunction *anchor = &r.program->functions[order ? 1 : 0];
               SemaFunction *peer = &r.program->functions[order ? 0 : 1];
               ASSERT_EQ_INT(anchor->component, peer->component);
-              ASSERT_TRUE(anchor->symbol.return_type == anchor->symbol.params[0]->type);
-              ASSERT_TRUE(peer->symbol.return_type == anchor->symbol.return_type);
-              ASSERT_TRUE(!anchor->inference_conflict && !peer->inference_conflict);
+              ASSERT_TRUE(anchor->symbol.return_type ==
+                          anchor->symbol.params[0]->type);
+              ASSERT_TRUE(peer->symbol.return_type ==
+                          anchor->symbol.return_type);
+              ASSERT_TRUE(!anchor->inference_conflict &&
+                          !peer->inference_conflict);
               ASSERT_EQ_INT(good, r.program->checked);
               ASSERT_TRUE((ir_lower(&a, r.program) != NULL) == (int)good);
             }

@@ -143,8 +143,8 @@ int main(void) {
   TEST("recursive conversions require direct handling of their input call") {
     // The outer ? handles int(), not g(). This used to pass only because
     // poisoned SCC outcomes became SEMA_ERROR and hid g()'s fallibility.
-    SemaProgram *bad = check(&a,
-        "f() { if true { ret :bad }\nint(g())? }\ng() { f()? }\nmain() {}",
+    SemaProgram *bad = check(
+        &a, "f() { if true { ret :bad }\nint(g())? }\ng() { f()? }\nmain() {}",
         "must be handled");
     Diagnostics again;
     diagnostics_init(&again, &a);
@@ -152,8 +152,8 @@ int main(void) {
     ASSERT_EQ_INT(1, again.count);
     ASSERT_TRUE(!bad->checked);
     ASSERT_TRUE(ir_lower(&a, bad) == NULL);
-    SemaProgram *good = check(&a,
-        "f() { if true { ret :bad }\nint(g()?)? }\ng() { f()? }\nmain() {}",
+    SemaProgram *good = check(
+        &a, "f() { if true { ret :bad }\nint(g()?)? }\ng() { f()? }\nmain() {}",
         NULL);
     SemaProgram *programs[] = {bad, good};
     for (size_t i = 0; i < 2; i++)

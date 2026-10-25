@@ -542,7 +542,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
           if (e->as.call.pipeline)
             error(c, e->span,
                   e->as.call.shadowed ? "A local binding is not callable."
-                                     : "Unknown function.");
+                                      : "Unknown function.");
           else
             unknown_method(c, e, receiver);
         } else if (method && (!s->arity || s->params[0]->type != receiver))
@@ -571,16 +571,15 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       flow = sequence(flow, arg->flow);
     }
     if (s && e->as.call.count != s->arity)
-      error(
-          c, e->span,
-          s->builtin == SEMA_BUILTIN_PRINT
-              ? "print expects exactly one str argument."
-          : s->builtin == SEMA_BUILTIN_STR
-              ? "str expects exactly one number or bool argument."
-          : s->builtin == SEMA_BUILTIN_CONVERT
-              ? "Numeric conversion expects exactly one number, chr or str "
-                "argument."
-              : "Wrong number of function arguments.");
+      error(c, e->span,
+            s->builtin == SEMA_BUILTIN_PRINT
+                ? "print expects exactly one str argument."
+            : s->builtin == SEMA_BUILTIN_STR
+                ? "str expects exactly one number or bool argument."
+            : s->builtin == SEMA_BUILTIN_CONVERT
+                ? "Numeric conversion expects exactly one number, chr or str "
+                  "argument."
+                : "Wrong number of function arguments.");
     result = s ? s->return_type
              : e->as.call.method && unknown(e->as.call.args[0]->type)
                  ? t(c, SEMA_UNKNOWN)
@@ -874,8 +873,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   // probe; inherited errors without a local failure and intrinsic inference
   // conflicts still propagate. Final reports never depend on these counters.
   if (c->probe && result->kind == SEMA_ERROR &&
-      c->speculative_errors != before &&
-      c->speculative_conflicts == conflicts)
+      c->speculative_errors != before && c->speculative_conflicts == conflicts)
     result = t(c, SEMA_UNKNOWN);
   e->type = e->returns ? t(c, SEMA_NEVER) : result;
   return e->type;
