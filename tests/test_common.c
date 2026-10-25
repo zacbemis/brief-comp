@@ -1,5 +1,6 @@
 #include "common/diagnostic.h"
 #include "common/intern.h"
+#include "common/name_map.h"
 #include "test_utils.h"
 
 #include <stdint.h>
@@ -182,6 +183,39 @@ int main(void) {
     }
     ASSERT_TRUE(user == intern(&table, "User"));
     ASSERT_EQ_INT(2003, table.count);
+  }
+
+  TEST("name maps key by owner identity and name bytes across growth") {
+    NameMap map;
+    name_map_init(&map, &arena);
+    int owner_a = 0, owner_b = 0, values[3000] = {0};
+    ASSERT_TRUE(name_map_get(&map, NULL, "missing") == NULL);
+    char first[] = "same", second[] = "same";
+    ASSERT_TRUE(name_map_put(&map, &owner_a, first, &values[0]) == NULL);
+    ASSERT_TRUE(name_map_put(&map, &owner_b, first, &values[1]) == NULL);
+    ASSERT_TRUE(name_map_put(&map, NULL, first, &values[2]) == NULL);
+    // Different name pointers with equal bytes find the same entry.
+    ASSERT_TRUE(name_map_get(&map, &owner_a, second) == &values[0]);
+    ASSERT_TRUE(name_map_get(&map, &owner_b, second) == &values[1]);
+    ASSERT_TRUE(name_map_get(&map, NULL, second) == &values[2]);
+    ASSERT_TRUE(name_map_get(&map, &owner_a, "sam") == NULL);
+    // Replacing returns the previous value; NULL hides an entry again.
+    ASSERT_TRUE(name_map_put(&map, &owner_a, second, &values[3]) == &values[0]);
+    ASSERT_TRUE(name_map_put(&map, &owner_a, first, NULL) == &values[3]);
+    ASSERT_TRUE(name_map_get(&map, &owner_a, first) == NULL);
+    ASSERT_EQ_INT(3, map.count);
+    static char names[3000][16];
+    for (size_t i = 0; i < 3000; i++) {
+      snprintf(names[i], sizeof(names[i]), "name%zu", i);
+      ASSERT_TRUE(name_map_put(&map, NULL, names[i], &values[i]) == NULL);
+    }
+    for (size_t i = 0; i < 3000; i++) {
+      char buffer[16];
+      snprintf(buffer, sizeof(buffer), "name%zu", i);
+      ASSERT_TRUE(name_map_get(&map, NULL, buffer) == &values[i]);
+      ASSERT_TRUE(name_map_get(&map, &owner_b, buffer) == NULL);
+    }
+    ASSERT_TRUE(name_map_get(&map, &owner_b, "same") == &values[1]);
   }
 
   TEST(

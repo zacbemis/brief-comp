@@ -4,15 +4,16 @@
 #include <string.h>
 
 SemaTag *sema_tag(SemaProgram *p, const char *name) {
-  for (SemaTag *tag = p->tags; tag; tag = tag->next)
-    if (!strcmp(tag->name, name))
-      return tag;
+  SemaTag *found = name_map_get(&p->tag_names, NULL, name);
+  if (found)
+    return found;
   // The emitted tag representation has 32 bits; zero is an empty ARC slot.
   if (p->tag_count == UINT32_MAX)
     return NULL;
   SemaTag *tag = arena_alloc(p->arena, sizeof(*tag));
   *tag = (SemaTag){name, ++p->tag_count, p->tags};
   p->tags = tag;
+  name_map_put(&p->tag_names, NULL, name, tag);
   return tag;
 }
 const SemaVariant *sema_variant(const SemaType *type, const SemaTag *tag) {

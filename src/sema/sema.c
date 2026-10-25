@@ -6,7 +6,11 @@ struct Local {
   SemaVar *variable;
   unsigned depth;
   Local *next;
+  Local *shadowed; // The visible binding with this name it hides, if any.
 };
+typedef struct {
+  SemaSymbol *first, *last;
+} MethodChain;
 typedef struct {
   Arena *arena;
   SemaProgram *program;
@@ -14,6 +18,7 @@ typedef struct {
   SemaStruct *owner;
   Diagnostics *errors;
   Local *locals;
+  NameMap local_names; // Each visible name's innermost binding.
   unsigned depth, loops;
   int pipeline_call;
 } Resolver;
@@ -28,10 +33,7 @@ int sema_reference(const SemaType *t) {
          (t->kind == SEMA_STR || t->kind == SEMA_STRUCT || t->kind == SEMA_SYM);
 }
 static SemaStruct *structure(SemaProgram *p, const char *name) {
-  for (size_t i = 0; i < p->struct_count; i++)
-    if (!strcmp(name, p->structs[i].type.name))
-      return &p->structs[i];
-  return NULL;
+  return name_map_get(&p->struct_names, NULL, name);
 }
 static SemaStruct *named_structure(Resolver *r, const char *name) {
   return !strcmp(name, "Self") ? r->owner : structure(r->program, name);
@@ -47,17 +49,10 @@ SemaField *sema_field(const SemaType *t, const char *name) {
 SemaSymbol *sema_method(SemaProgram *p, const SemaType *t, const char *name) {
   if (!t || t->kind != SEMA_STRUCT || !t->structure)
     return NULL;
-  for (size_t i = 0; i < p->count; i++)
-    if (p->functions[i].symbol.owner == t->structure &&
-        !strcmp(name, p->functions[i].symbol.name))
-      return &p->functions[i].symbol;
-  return NULL;
+  return name_map_get(&p->function_names, t->structure, name);
 }
 static SemaAlias *alias(SemaProgram *p, const char *name) {
-  for (size_t i = 0; i < p->alias_count; i++)
-    if (!strcmp(p->aliases[i].syntax->name, name))
-      return &p->aliases[i];
-  return NULL;
+  return name_map_get(&p->alias_names, NULL, name);
 }
 static SemaTag *tag(Resolver *r, const char *name, Span span) {
   SemaTag *result = sema_tag(r->program, name);
@@ -234,27 +229,34 @@ static SemaSymbol *lookup(SemaProgram *p, const char *name) {
   for (size_t i = 0; i < sizeof(p->converters) / sizeof(*p->converters); i++)
     if (!strcmp(name, p->converters[i].name))
       return &p->converters[i];
-  for (size_t i = 0; i < p->count; i++)
-    if (!p->functions[i].symbol.owner &&
-        !strcmp(name, p->functions[i].symbol.name))
-      return &p->functions[i].symbol;
-  return NULL;
+  return name_map_get(&p->function_names, NULL, name);
 }
 static SemaVar *local(Resolver *r, const char *name) {
-  for (Local *l = r->locals; l; l = l->next)
-    if (!strcmp(l->variable->name, name))
-      return l->variable;
-  return NULL;
+  Local *l = name_map_get(&r->local_names, NULL, name);
+  return l ? l->variable : NULL;
+}
+static void push_local(Resolver *r, SemaVar *v) {
+  Local *l = arena_alloc(r->arena, sizeof(*l));
+  *l = (Local){v, r->depth, r->locals, NULL};
+  l->shadowed = name_map_put(&r->local_names, NULL, v->name, l);
+  r->locals = l;
+}
+// Leaves the scopes entered since saved, making hidden bindings visible again.
+static void restore(Resolver *r, Local *saved) {
+  for (Local *l = r->locals; l != saved; l = l->next)
+    name_map_put(&r->local_names, NULL, l->variable->name, l->shadowed);
+  r->locals = saved;
 }
 static SemaVar *variable(Resolver *r, const char *name, Span span,
                          const SemaType *annotation, int mutable) {
-  for (Local *l = r->locals; l && l->depth == r->depth; l = l->next)
-    if (!strcmp(l->variable->name, name)) {
-      Diagnostic *d = diagnostics_error(r->errors, span,
-                                        "Duplicate binding in this scope.");
-      diagnostic_note(r->errors, d, l->variable->span, "First declared here.");
-      break;
-    }
+  // A visible binding at this depth can only belong to the current scope.
+  Local *existing = name_map_get(&r->local_names, NULL, name);
+  if (existing && existing->depth == r->depth) {
+    Diagnostic *d =
+        diagnostics_error(r->errors, span, "Duplicate binding in this scope.");
+    diagnostic_note(r->errors, d, existing->variable->span,
+                    "First declared here.");
+  }
   SemaFunction *f = r->function;
   SemaVar *v = arena_calloc(r->arena, 1, sizeof(*v));
   *v = (SemaVar){.name = name,
@@ -273,9 +275,7 @@ static SemaVar *variable(Resolver *r, const char *name, Span span,
     f->variable_capacity = capacity;
   }
   f->variables[f->variable_count++] = v;
-  Local *l = arena_alloc(r->arena, sizeof(*l));
-  *l = (Local){v, r->depth, r->locals};
-  r->locals = l;
+  push_local(r, v);
   return v;
 }
 static SemaExpr *node(Resolver *r, SemaExprKind kind, Span span) {
@@ -457,16 +457,27 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
       e->as.call.shadowed = local(r, callee->as.name) != NULL;
     }
     // Instance receiver types may be inferred later. Conservative edges to
-    // matching methods keep every possible callee in the SCC schedule.
-    for (size_t i = 0; i < r->program->count; i++) {
-      SemaSymbol *symbol = &r->program->functions[i].symbol;
-      if (symbol == e->as.call.target ||
-          (e->as.call.method && symbol->owner &&
-           !strcmp(symbol->name, e->as.call.method))) {
-        SemaEdge *edge = arena_alloc(r->arena, sizeof(*edge));
-        *edge = (SemaEdge){symbol->id, r->function->edges};
-        r->function->edges = edge;
-      }
+    // matching methods keep every possible callee in the SCC schedule. Edges
+    // are added in declaration order, merging the target into the chain.
+    SemaSymbol *target = e->as.call.target;
+    if (target && target->builtin)
+      target = NULL;
+    const MethodChain *chain =
+        e->as.call.method
+            ? name_map_get(&r->program->method_names, NULL, e->as.call.method)
+            : NULL;
+    for (SemaSymbol *m = chain ? chain->first : NULL; m || target;) {
+      SemaSymbol *symbol = m;
+      if (target && (!m || target->id <= m->id)) {
+        symbol = target;
+        if (m == target)
+          m = m->next_method;
+        target = NULL;
+      } else
+        m = m->next_method;
+      SemaEdge *edge = arena_alloc(r->arena, sizeof(*edge));
+      *edge = (SemaEdge){symbol->id, r->function->edges};
+      r->function->edges = edge;
     }
     e->as.call.count = s->as.call.count + (receiver != NULL);
     e->as.call.args =
@@ -574,7 +585,7 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
           diagnostics_error(r->errors, p->span, "Unknown named symbol set.");
         }
         a->body = resolve_expr(r, source.value);
-        r->locals = arm_scope;
+        restore(r, arm_scope);
         r->depth--;
       }
     }
@@ -592,7 +603,7 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     e->as.block.items = arena_calloc(r->arena, 2, sizeof(SemaExpr *));
     e->as.block.items[0] = bind;
     e->as.block.items[1] = result;
-    r->locals = saved;
+    restore(r, saved);
     r->depth--;
     return e;
   }
@@ -671,7 +682,7 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
       }
       e->as.block.items[i] = value;
     }
-    r->locals = saved;
+    restore(r, saved);
     r->depth--;
     return e;
   }
@@ -704,7 +715,7 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     r->loops++;
     e->as.for_loop.body = resolve_expr(r, s->as.for_loop.body);
     r->loops--;
-    r->locals = saved;
+    restore(r, saved);
     r->depth--;
     return e;
   }
@@ -749,7 +760,7 @@ static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
   f->syntax = d;
   r->function = f;
   r->owner = owner;
-  r->locals = NULL;
+  restore(r, NULL);
   r->depth = 0;
   f->written = d->as.function.return_type != NULL;
   f->symbol = (SemaSymbol){.name = d->name,
@@ -757,6 +768,19 @@ static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
                            .id = p->count++,
                            .arity = d->as.function.count,
                            .owner = owner};
+  name_map_put(&p->function_names, owner, d->name, &f->symbol);
+  if (owner) {
+    MethodChain *chain = name_map_get(&p->method_names, NULL, d->name);
+    if (!chain) {
+      chain = arena_calloc(r->arena, 1, sizeof(*chain));
+      name_map_put(&p->method_names, NULL, d->name, chain);
+    }
+    if (chain->last)
+      chain->last->next_method = &f->symbol;
+    else
+      chain->first = &f->symbol;
+    chain->last = &f->symbol;
+  }
   f->written_type = return_type(r, d->as.function.return_type, f);
   f->symbol.outcome_type =
       f->written_type->kind == SEMA_SYM || f->written_type->kind <= SEMA_ERROR
@@ -785,6 +809,11 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
                           Diagnostics *errors) {
   SemaProgram *p = arena_calloc(a, 1, sizeof(*p));
   p->arena = a;
+  name_map_init(&p->struct_names, a);
+  name_map_init(&p->alias_names, a);
+  name_map_init(&p->tag_names, a);
+  name_map_init(&p->function_names, a);
+  name_map_init(&p->method_names, a);
   const char *names[] = {"unknown", "never", "error", "()",     "bool", "chr",
                          "shrt",    "ushrt", "int",   "uint",   "lng",  "ulng",
                          "flt",     "dub",   "str",   "struct", "Sym"};
@@ -825,6 +854,7 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
   p->structs = arena_calloc(a, syntax->count, sizeof(SemaStruct));
   size_t capacity = syntax->count;
   Resolver r = {.arena = a, .program = p, .errors = errors};
+  name_map_init(&r.local_names, a);
   for (size_t i = 0; i < syntax->count; i++) {
     const Decl *d = syntax->items[i];
     if (d->kind == DECL_IMPL)
@@ -836,6 +866,7 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
       continue;
     }
     SemaStruct *s = &p->structs[p->struct_count];
+    name_map_put(&p->struct_names, NULL, d->name, s);
     s->id = p->struct_count++;
     s->syntax = d;
     s->type = (SemaType){.kind = SEMA_STRUCT, .name = d->name, .structure = s};
@@ -855,6 +886,7 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
       diagnostics_error(errors, d->span, "Duplicate or reserved named type.");
       continue;
     }
+    name_map_put(&p->alias_names, NULL, d->name, &p->aliases[p->alias_count]);
     p->aliases[p->alias_count++].syntax = d;
   }
   resolve_aliases(&r);
@@ -900,13 +932,10 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
   for (size_t i = 0; i < p->count; i++) {
     r.function = &p->functions[i];
     r.owner = r.function->symbol.owner;
-    r.locals = NULL;
+    restore(&r, NULL);
     r.depth = 0;
-    for (size_t j = 0; j < r.function->symbol.arity; j++) {
-      Local *l = arena_alloc(a, sizeof(*l));
-      *l = (Local){r.function->symbol.params[j], 0, r.locals};
-      r.locals = l;
-    }
+    for (size_t j = 0; j < r.function->symbol.arity; j++)
+      push_local(&r, r.function->symbol.params[j]);
     r.function->body = resolve_expr(&r, r.function->syntax->as.function.body);
   }
   p->resolved = errors->count == 0;

@@ -3,6 +3,7 @@
 
 #include "ast/ast.h"
 #include "common/diagnostic.h"
+#include "common/name_map.h"
 #include <stdint.h>
 
 typedef enum {
@@ -80,15 +81,17 @@ struct SemaVar {
                     // flow-checked.
   const SemaType *annotation, *type;
 };
-typedef struct {
+typedef struct SemaSymbol SemaSymbol;
+struct SemaSymbol {
   const char *name;
   Span span;
   size_t id, arity;
   int builtin;
   SemaVar **params;
   const SemaType *return_type, *outcome_type; // ABI type and full outcome set.
-  SemaStruct *owner; // NULL for a top-level function/builtin.
-} SemaSymbol;
+  SemaStruct *owner;       // NULL for a top-level function/builtin.
+  SemaSymbol *next_method; // Next method of any type with this name.
+};
 typedef enum {
   SEMA_EXPR_UNIT,
   SEMA_EXPR_STRING,
@@ -262,6 +265,11 @@ typedef struct {
   SemaFunction *functions;
   size_t count;
   SemaSymbol *entry;
+  // Declarations by name. function_names holds top-level functions under a
+  // NULL owner and methods under their struct. method_names maps a method
+  // name to its chain of methods on any type, linked in declaration order
+  // through next_method.
+  NameMap struct_names, alias_names, tag_names, function_names, method_names;
   int resolved, checked;
 } SemaProgram;
 

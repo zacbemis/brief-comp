@@ -39,6 +39,7 @@ add_library(brief_core STATIC
     src/common/source.c
     src/common/diagnostic.c
     src/common/intern.c
+    src/common/name_map.c
     src/lexer/lexer.c
     src/lexer/token.c
     src/lexer/newline.c
