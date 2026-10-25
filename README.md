@@ -251,9 +251,13 @@ progress:** executable pipeline/matching, function, symbol, memory, syntax and
 type doc examples, plus overview prose-contract, raw running-sample, localized
 standard-library, single-file modules-chapter, isolated collections
 handler/manual-loop and transplanted trait-method scenarios, now use shared
-acceptance guards. All tracked chapters have scope audits, but M6 diagnostic
-finish and final status review remain. File-level statement-shaped input now
-gets a direct inside-a-function hint instead of misleading declaration or
+acceptance guards. All tracked chapters have scope audits and the initial
+diagnostic inventory is addressed, but the final scope/status review is still
+in progress. Its [first checkpoint](tests/first-version-review.md) found and
+fixed lost member-lookup and contextual numeric diagnostics in recursive
+inference groups; those invalid programs now retain their errors and cannot
+lower or build. File-level statement-shaped input now gets a direct
+inside-a-function hint instead of misleading declaration or
 parameter advice; specific malformed-declaration errors are preserved.
 Permission errors now identify a read-only argument passed to an `&` parameter
 and use type-neutral wording for read-only field stores, without changing the

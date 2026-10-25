@@ -52,7 +52,7 @@ The first version is done when every example in the docs that falls inside its s
   ```
 
 - **Arena allocator**: one arena for the whole compilation. Syntax tree nodes, types, and strings are allocated from it and never freed individually.
-- **String interning**: every identifier and symbol tag is stored once, so names compare by pointer.
+- **String interning**: the parser interns identifier spellings; semantic analysis canonicalizes symbol tags. Current name-table lookups may still compare bytes; canonical type/tag identity is shared.
 
 ### Lexer (`src/lexer`, exists)
 
@@ -98,7 +98,7 @@ Cases that need specific handling:
 | `x?`, `x!`, and `x != y` | The lexer already makes `!=` one token, so a `!` after an expression is always the postfix panic. |
 | Pipeline stages | After the pipeline operator, a `{` starts a match block. Otherwise the stage must be a call whose callee is a name or dotted path; calls through a call result or indexed value are rejected. |
 | Assignment and updates | Assignment and compound assignment are standalone, non-chaining statements. `x++` and `x--` are also standalone, valueless statements. None are Pratt expression operators, and all are rejected in conditions, arguments, and other value contexts. |
-| Patterns | Literals, `_`, names that bind, `:tag` and `:tag(pattern)`, named sets such as `Json.Error`, ranges `a..b`, and comparisons `< 18`. |
+| Patterns | The parser accepts literals, `_`, binding names, tags/payload patterns, named sets, ranges and comparisons. First-version checking supports only a binding or `_` as a symbol payload pattern; refutable/nested payload patterns remain deferred. |
 | `if` as a value | `if` is parsed as an expression everywhere. Type checking decides whether its value may be used. |
 
 **Error recovery.** After an error, skip to the next newline or `}` at the current nesting level and continue, so one mistake does not hide the rest. `dump-ast` runs parsing even when lexing reports errors; an error token is not diagnosed again as a syntax error.
@@ -111,7 +111,7 @@ Cases that need specific handling:
 
 ### Name resolution (`src/sema`)
 
-- Build one table of the file's top-level declarations: structs, named types, functions, and constants. Reject duplicates and anything that is not a declaration.
+- Collect the file's structs, named symbol-set aliases and functions before resolving bodies. Reject duplicate/reserved names. `const` declarations can parse but remain unsupported, rather than becoming first-version constants.
 - Attach each `impl` block's functions to its struct.
 - Walk each function with nested scopes, linking every name to a parameter, local, function, struct, named type, or constant.
 - Check that `main()` exists.
@@ -150,20 +150,14 @@ A symbol set is a sorted list of tags, each with an optional payload type. Every
 | Same tag, different payload | Reported when two sets are combined. |
 | Written return types | The inferred set must fit inside the written one. `_` lets the rest be inferred. |
 
-**Exhaustiveness.** Each match block is compiled into a decision tree with the algorithm in Jules Jacobs' "How to compile pattern matching". The same tree is used twice:
+**Exhaustiveness.** The first-version checker and lowering share normalized coverage metadata, not a general nested-pattern decision tree:
 
-- **For checking.** A path through the tree that reaches no arm is a missing case, and is reported with an example value. An arm that no path reaches is reported as unreachable.
-- **For code generation.** C emission turns the tree directly into `switch` statements and `if` chains.
+- Numeric/bool/byte-character patterns use inclusive `uint64_t` ranks and interval coverage/usefulness. A half-open integer range `18..100` covers 18 through 99. Floating ranks preserve signed-zero equality; a catch-all is required for NaN.
+- Symbol arms use finite tag sets, exact payload types and residual/group coverage. Payload patterns are limited to bindings and `_`.
+- String literals use complete decoded bytes and a coverage hash table; a catch-all is required for the unbounded string domain.
+- Lowering emits ordered branch tests from these records, with the same useful arms and normalized bounds. Missing coverage and unreachable arms are errors even when a match result is discarded.
 
-Number patterns are turned into ranges of the scrutinee's type before building the tree:
-
-```
-< 18      -> [minimum, 17]
-18..100   -> [18, 99]
->= 100    -> [100, maximum]
-```
-
-Coverage is then a question of whether the ranges together cover the type's whole range. Rust's exhaustiveness checker splits integer ranges the same way.
+Diagnostics currently report nonexhaustiveness without an example witness. The general nested symbol/payload decision tree and witness generation remain future work; the Jacobs/Maranget resources below are design references, not claims that their complete algorithms are implemented.
 
 **Other checks:**
 
@@ -219,7 +213,7 @@ Cycles are not collected in this version. Debug builds can print the objects sti
 
 - **Names** are prefixed to avoid clashes with C: `main` becomes `brf_main`, and `User.new` becomes `brm_4_User_new`. Methods encode the owner's name length and use a distinct namespace, avoiding clashes with top-level names and underscore-separated paths. Struct types use `brs_`; runtime helpers and generated temporaries use `brt_`.
 - **String literals** are emitted as readable escaped C strings with explicit byte lengths. Fixed-width octal escapes preserve zero/non-ASCII bytes without absorbing following digits; question marks are escaped to prevent C11 trigraphs.
-- **Sets of different sizes.** Because tag numbers are shared by the whole program, passing a value from a smaller set to a larger one copies the tag and payload without translating anything.
+- **Sets of different sizes.** Global tag IDs are preserved, but values with different set representations are explicitly repacked into the destination payload union. Widening does not renumber tags; zero-cost widening is not yet implemented.
 - **Overflow** is checked with portable C11 range preconditions before evaluating signed arithmetic. Unsigned operations also check their language-width limits. Power and left shift use checked multiplication/doubling; division guards the signed-minimum / -1 case, while the corresponding remainder is safely zero. Each checked IR operation records its Brief file/line for panic reporting. No overflow built-ins are required.
 - **Division** checks for zero before dividing.
 - **`#line` directives** map the generated C back to `.brf` lines, so a debugger and C compiler warnings point at the original source. Nim does the same.
@@ -234,7 +228,7 @@ A small C library included in every generated program:
 - **Objects.** An object header holding the reference count and a pointer to a release function that releases the object's fields.
 - **Memory.** Allocation that aborts on out-of-memory, plus the add-reference and release operations. Counts are not atomic, since programs are single-threaded.
 - **Strings.** Creation, concatenation, comparison, and printing.
-- **Builtins.** `print` and the converters: `str(...)` for numbers and `bool`, and the eight numeric-target converters for numbers and `str`, returning their plain successes or full outcomes according to source-domain compatibility.
+- **Builtins.** `print` and the converters: `str(...)` for numbers and `bool`, and the eight numeric-target converters for numbers, byte `chr` and `str`, returning their plain successes or full outcomes according to source-domain compatibility.
 - **Panics.** Print a message with the file and line, then exit with a non-zero status.
 
 The compiler build embeds the runtime's text in the compiler binary, so `brief` can paste it into each generated file. The output is then a single self-contained C file.
@@ -274,17 +268,19 @@ main() {
 
 A runner program in C compiles each file, runs it, and compares standard output, compile errors, panics, and the exit status (`// exit: 1`) with the comments. CTest runs it alongside the unit tests.
 
-**Memory checks.** Every program test also runs once compiled with `-fsanitize=address,undefined`. AddressSanitizer reports objects used after being freed, which catches a missing reference. Its leak checker reports objects never freed, which catches an extra reference. Together they test the reference-count rules on every program.
+**Memory checks.** With `BRIEF_ENABLE_SANITIZERS` enabled on GCC/Clang, program tests also run compiled with `-fsanitize=address,undefined`. AddressSanitizer reports objects used after being freed, which catches a missing reference. Its leak checker reports objects never freed, which catches an extra reference. Together they test the reference-count rules on every program.
 
-**The docs as tests.** The examples in the `lang-*.txt` files that fall inside the first version are copied into program tests as each feature lands.
+**The docs as tests.** Chapter-specific CMake manifests extract examples directly from `lang-*.txt`, guard adapters/counts and classify every fenced/raw fragment. Explicit scaffolding supplies omitted first-version contexts; prose scenarios, partial coverage and deferred features are distinguished from original executable examples. Generated fixtures stay separate from checked-in programs.
 
 ## Milestones
 
 Each milestone ends with every test passing.
 
+The following milestone paragraphs record the staged implementation history. Earlier limitations are superseded by later milestones; the README describes the cumulative implementation. The final-review checkpoint is recorded in `tests/first-version-review.md` and does not mark M6 complete.
+
 Milestone 0 is complete: the common infrastructure, lexer fixes, warning flags, and debug sanitizers are implemented and tested. `brief dump-tokens file.brf` exercises source loading and reports all lexer errors with line, byte column, source line, and marker. This debugging command does not parse or compile programs. Unit and CLI integration tests run through CTest.
 
-Milestone 1 is complete: the newline filter, arena-owned syntax trees, parser, recovery, and `dump-ast` are implemented. Unit tests compare tree dumps and cover precedence, generic-call rewind and virtual `>>` splitting, struct-literal ambiguity, match patterns, continuation rules, and recovery. CTest also parses 145 examples read directly from the design docs, with small wrappers for statement, type, and pattern fragments. The main continuation example keeps its first-version syntax by replacing just its lambda-bearing call with an ordinary method call. Expected semantic errors still parse; expected syntax errors are rejected. Blocks containing later-version syntax, incomplete signatures, or multi-file API notation are excluded by the documented test manifest; their first-version grammar is covered by the focused unit tests.
+Milestone 1 is complete: the newline filter, arena-owned syntax trees, parser, recovery, and `dump-ast` are implemented. Unit tests compare tree dumps and cover precedence, generic-call rewind and virtual `>>` splitting, struct-literal ambiguity, match patterns, continuation rules, and recovery. CTest currently parses 146 examples read directly from the design docs, with small wrappers for statement, type, and pattern fragments. The main continuation example keeps its first-version syntax by replacing just its lambda-bearing call with an ordinary method call. Expected semantic errors still parse; expected syntax errors are rejected. Blocks containing later-version syntax, incomplete signatures, or multi-file API notation are excluded by the documented test manifest; their first-version grammar is covered by the focused unit tests.
 
 Milestone 2 is complete: `run`, `build`, and `emit-c` connect minimal resolution and checking, a statement-based IR, self-contained C emission, an embedded runtime, and a POSIX native driver. The supported subset is zero-argument, non-recursive unit-returning functions, string literals, `print(str)`, function bodies, `()`, and unit returns. Bare blocks are not expressions or standalone statements; parser blocks remain available in their documented control-flow and match positions. Forward calls work; explicit `: ()` drops a final value. Other features are diagnosed as unimplemented instead of being silently ignored. The function call-graph walk limits its recursive descent to 128 function levels; full return inference and recursive groups remain milestone 3 work.
 
@@ -350,14 +346,16 @@ The wrong-method guidance slice preserves `Unknown method for this type.` and ad
 
 The generic-call recovery slice keeps `Generic calls are not implemented yet.` but stops treating that unsupported header as an ordinary callee. Targetless recovery calls preserve VALUE checking, flow, permissions and actual nested-call edges for value receivers/arguments, while avoiding callee-specific callability, lookup, signature and method-fallback cascades. Twenty LF/CRLF contexts pin exact spans and immutable tokens across repeat resolution; independent value/return/permission errors, nested calls, SCCs and non-fallthrough argument flow stay checked and cannot lower. A CRLF CLI guard uses the original ambiguous parse with a one-argument `check` scaffold, while lexer/AST dumping stays independent. Enclosing ordinary signatures still apply: the same parsed expression passed to a two-argument `check` also has an arity mismatch. Neither generic support nor comparison reinterpretation is added. The syntax audit's deferred generic fragment is not counted as native acceptance; totals remain 450 generated cases and 87 checked-in fixtures. The current diagnostic inventory is addressed, but final in-scope implementation/acceptance/README status review still blocks M6 completion.
 
+The final scope/status review found a first-version correctness blocker beyond the original diagnostic inventory: speculative member-lookup and contextual literal errors could poison recursive return anchors, erase final diagnostics and leave error-typed functions marked checked. The probe-recovery follow-up tracks locally observed errors and intrinsic conflicts per expression/checking pass. Locally diagnosed error results defer as unknown unless they include an intrinsic inference conflict; inherited frontend/callee errors without a local failure still propagate. Final reporting never uses these counters to suppress errors, and genuine conflict/unanchored-recursion diagnostics are preserved. Ten lookup and five numeric-domain contexts cover both declaration orders, LF/CRLF spans, full rechecks, stable anchors, advice notes and blocked lowering. Native entry paths reject before consulting CC or publishing output; valid recursive projections/method/pipeline calls retain ownership cleanup. Counts remain 450 generated cases and 87 native fixtures. The review also corrects stale plan claims about pattern decision trees/witnesses, union repacking, constants, interning, chr conversion and the parser count. This closes the discovered probe-error blocker, not the full review; M6 remains in progress. See `tests/first-version-review.md` for evidence and remaining review work.
+
 ## Source layout
 
 ```
 include/common/   src/common/    arena, source files, diagnostics, interning
-include/lexer/    src/lexer/     lexer (exists), newline filter
-include/ast/      src/ast/       syntax tree nodes (kinds exist), tree printer
+include/lexer/    src/lexer/     lexer and newline filter
+include/ast/      src/ast/       syntax tree nodes and tree printer
 include/parser/   src/parser/    parser
-include/sema/     src/sema/      name resolution, types, type checking, decision trees
+include/sema/     src/sema/      resolution, types, checking, coverage and permissions
 include/ir/       src/ir/        lowering and reference counts
 include/codegen/  src/codegen/   C emission
 include/driver/   src/driver/    native processes, signals, temporary files
@@ -406,7 +404,7 @@ What each resource is useful for, and whether its code may be reused.
 
 ### Pattern matching and exhaustiveness
 
-- **[How to compile pattern matching](https://julesjacobs.com/notes/patternmatching/patternmatching.pdf)**, Jules Jacobs (2021). A short note describing the decision-tree algorithm this plan uses. It reports a missing case wherever the tree has no arm to reach.
+- **[How to compile pattern matching](https://julesjacobs.com/notes/patternmatching/patternmatching.pdf)**, Jules Jacobs (2021). A design reference for a future general decision-tree matcher. The current first-version implementation uses interval/tag/string coverage and ordered lowering, without missing-case witnesses.
 - **[pattern-matching-in-rust](https://github.com/yorickpeterse/pattern-matching-in-rust)**, Yorick Peterse.
   - Implementations of Jacobs' algorithm and of Sestoft's, with tests.
   - Jacobs' note says this version supports integer literals and ranges, guards, and exhaustiveness and redundancy checks.

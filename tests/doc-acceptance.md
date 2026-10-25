@@ -41,12 +41,13 @@ in the 87 checked-in program-fixture count.
 
 ## Remaining M6 finish
 
-All 13 tracked chapters now have explicit acceptance/scope audits. This
-completes the chapter inventory, **not M6**. Remaining work includes improving
-the pinned diagnostics below with focused regressions, reviewing any in-scope
-gaps exposed by those changes, and a final implementation/README/status
-accuracy check. Partial and deferred claims must stay explicit throughout that
-review.
+All 13 tracked chapters have explicit acceptance/scope audits and the initial
+diagnostic inventory is addressed. The final implementation/README/status review
+has started, **not finished**: its [first checkpoint](first-version-review.md)
+found and fixed silent acceptance of recursive member-lookup and contextual
+literal errors. Continue the remaining in-scope paths and chapter-adapter/status
+review before deciding M6 completion. Partial and deferred claims must stay
+explicit throughout.
 
 ## Completed diagnostic improvements
 
@@ -166,6 +167,22 @@ review.
   native acceptance; all 450 generated cases and 87 checked-in fixtures retain
   their counts.
 
+- The first final-review checkpoint found that speculative member-lookup and
+  contextual literal errors could poison recursive anchors, erase their final
+  diagnostics and leave error-typed functions marked checked. Expression-local
+  probe recovery now defers locally diagnosed error results unless they contain
+  an intrinsic inference conflict. Inherited errors without a local failure
+  still propagate; final reporting never depends on these counters. Ten lookup
+  and five numeric-domain contexts cover both declaration orders, LF/CRLF, exact
+  spans, stable anchors and semantic rechecks. Self-recursion, advice notes,
+  unanchored recursion and existing independent/intrinsic conflict diagnostics
+  remain checked. Native fixtures preserve valid recursive ownership/number
+  contexts and pin all discovered rejection forms. CLI `emit-c`/`run`/`build`
+  reject before consulting CC or publishing a binary. The plan's stale status
+  claims are corrected in the linked checkpoint. This is a correctness
+  follow-up, not completion of the review; totals remain 450 generated cases and
+  87 fixtures.
+
 ## Audit requirements
 
 - Read examples from the documents instead of copying an unchecked approximation.
@@ -184,7 +201,8 @@ review.
 
 ## Diagnostic gaps
 
-The current diagnostic inventory has no open entries. This does **not** mark M6
-complete: the final in-scope implementation, acceptance and README/status review
-remains, and may identify further gaps. Deferred features remain deferred;
-rejecting their syntax is not evidence of native feature acceptance.
+The initial diagnostic inventory has no open entries. The final review already
+found the recursive probe-error correctness issue described above; that
+follow-up is addressed, but the rest of the review remains open and may identify
+further gaps. This does **not** mark M6 complete. Deferred features remain
+deferred; rejecting their syntax is not evidence of native feature acceptance.

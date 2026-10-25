@@ -228,9 +228,22 @@ nested-call dependencies, independent errors and enclosing ordinary arity rules.
 Generics are not implemented or reinterpreted as comparisons; their diagnostic
 rejection is separate from the 450 generated document-acceptance cases.
 
+The first final-review follow-up extends `errors/recursive.brf` with member and
+pipeline lookup errors plus a contextual literal overflow in anchored recursive
+groups. These could lose their errors when speculative error types erased the
+anchors. Expression-local recovery now defers diagnosed probe failures while
+preserving intrinsic conflicts and independent final errors. `structs.brf` runs
+valid recursive projections/method/pipeline calls, including an acyclic
+symbol-indirected chain with heap strings and clean ownership exits;
+`numeric-conversions.brf` checks a corrected recursive `shrt` context. Stage
+tests pin anchors, order/line-ending variants and rechecks; CLI paths reject
+before CC or publication.
+
 These generated cases remain separate from the 87 source fixtures here. Every
-tracked chapter now has a scope/acceptance audit, but diagnostic improvements,
-in-scope review and the final README/status check still remain M6 work.
+tracked chapter has an audit and the initial diagnostic inventory is addressed,
+but the [final-review checkpoint](../first-version-review.md) leaves the rest of
+the in-scope implementation/acceptance/README status review open. M6 is not
+complete.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.
