@@ -149,6 +149,23 @@ review.
   All 450 generated cases and 87 native fixtures remain separate and unchanged
   in count. No module loading, new call syntax or runtime behavior is added.
 
+- Unsupported generic-call headers now retain their dedicated rejection but do
+  not undergo ordinary callee lookup/signature checks. The documented
+  `a<b, c>(d)` parse therefore no longer adds a local-not-callable error.
+  Recovery uses a targetless call: value receivers and arguments still get
+  VALUE/flow/permission checks and contribute actual nested-call edges; generic
+  headers supply no target, signature, method fallback or callee edge.
+  Twenty LF/CRLF contexts, repeated resolution of the same AST, immutable
+  tokens, exact spans, SCC/return-flow controls and blocked lowering are
+  covered.
+  Independent receiver/argument/binding/return/permission errors and enclosing
+  ordinary-call arity errors remain required. CRLF CLI guards isolate the
+  unsupported error with a one-argument `check`, retain the original AST, and
+  require no C output. This is diagnostic recovery, not generic support or
+  reinterpretation as comparisons. Fence 33's deferred fragment remains outside
+  native acceptance; all 450 generated cases and 87 checked-in fixtures retain
+  their counts.
+
 ## Audit requirements
 
 - Read examples from the documents instead of copying an unchecked approximation.
@@ -167,9 +184,7 @@ review.
 
 ## Diagnostic gaps
 
-The audits pin current messages exactly, so improving one means updating the
-cases that name it. Known gaps found so far:
-
-| Input | Current diagnostic | Problem | Pinned by |
-|---|---|---|---|
-| `check(a < b, c > (d))` | `Generic calls are not implemented yet.` then `A local binding is not callable.` | The second error is a misleading cascade. | Not pinned (deferred line) |
+The current diagnostic inventory has no open entries. This does **not** mark M6
+complete: the final in-scope implementation, acceptance and README/status review
+remains, and may identify further gaps. Deferred features remain deferred;
+rejecting their syntax is not evidence of native feature acceptance.

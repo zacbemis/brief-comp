@@ -93,10 +93,20 @@ recovery, immutable tokens/reparse, EOF and independent lexer/parser errors;
 CLI tests also require empty AST/C output on rejection. Parser-only iterable,
 index and qualified-name cases do not establish collections or modules.
 
-M6 diagnostic finish is not complete. The follow-on `A local binding is not
-callable.` after fence 33's deferred generic-call rejection remains open.
-Fence 19 still records all errors from its documented unparenthesized parse,
-rather than weakening the runner to accept an arbitrary failure.
+The later generic-call recovery slice removes fence 33's misleading follow-on
+`A local binding is not callable.`: an unsupported generic header is no longer
+looked up or type-checked as an ordinary callee. Its value receiver and
+arguments still get independent checks; surrounding ordinary calls retain their
+own arity checks. Stage/CLI guards pin the original generic parse and exact
+unsupported error without counting rejection as native acceptance of generics.
+In particular, a one-argument `check` scaffold isolates that error; a
+two-argument ordinary `check` still reports the parsed outer call's
+one-argument arity mismatch.
+The two unambiguous comparison alternatives continue to execute unchanged.
+
+The current tracked diagnostic gaps are addressed, but M6 still needs its final
+in-scope/status review. Fence 19 continues to require all errors from its
+documented unparenthesized parse, not an arbitrary failure.
 
 ## Guarded inline and prose cases
 

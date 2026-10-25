@@ -116,11 +116,11 @@ owners and scope/jump cleanup. Count elimination, collector claims, cloning,
 `const` and real resource APIs have explicit partial/deferred classifications.
 The syntax slice adds 65 [syntax-document cases](../doc-syntax.md), observing
 operators/precedence, bindings, control flow and continuations, and checking
-exact syntax/type errors. Deferred fragments and the token-preserving
-struct-condition diagnostic adapter are explicit; its generic parser messages
-remain a diagnostic-finish opportunity. The type slice adds 64
-[type-document cases](../doc-types.md): primitive/literal domains, checked
-arithmetic, numeric/text conversion rules including `chr` sources, IEEE
+exact syntax/type errors. Deferred fragments are explicit; later diagnostic
+slices remove the struct-condition newline adapter and the unsupported-generic
+ordinary-callee cascade without adding those deferred features. The type slice
+adds 64 [type-document cases](../doc-types.md): primitive/literal domains,
+checked arithmetic, numeric/text conversion rules including `chr` sources, IEEE
 behavior, binary strings, content equality and unit effects. Identity calls in
 two equality fences and nine feature/library fences remain deferred. A later
 lexer slice gives source exponents an explicit unsupported-notation diagnostic,
@@ -219,6 +219,14 @@ exclusions, repeated checking and blocked lowering. Dotted calls do not gain
 fallback, and actual methods still outrank pipeline top-level functions. The
 raw-sample audit retains its primary rejection and existing direct/pipeline
 execution cases.
+
+The generic-call recovery follow-up extends `errors/unsupported.brf` with the
+original ambiguous generic spelling and a generic pipeline stage. The dedicated
+unsupported error remains, but those headers no longer resolve as ordinary
+callees. Stage/CLI tests preserve argument VALUE/flow/permission checks, actual
+nested-call dependencies, independent errors and enclosing ordinary arity rules.
+Generics are not implemented or reinterpreted as comparisons; their diagnostic
+rejection is separate from the 450 generated document-acceptance cases.
 
 These generated cases remain separate from the 87 source fixtures here. Every
 tracked chapter now has a scope/acceptance audit, but diagnostic improvements,
