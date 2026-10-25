@@ -32,6 +32,11 @@ fieldStep(link: Link, stop: bool) {
   throughField(link, true).next |> { :end => link
     :more(next) => next }
 }
+longChain(n: int) {
+  var head = Link { name: "e" + "nd", next: :end }
+  for i in 0..n { head = Link { name: "n" + str(i), next: :more(head) } }
+  head.name
+}
 main() {
   let user = User.new("Bob", 20)
   let alias = user
@@ -54,4 +59,6 @@ main() {
   print(throughField(chain, false).name) // expect: tail
   let terminal = Link { name: "e" + "nd", next: :end }
   print(throughField(terminal, false).name) // expect: end
+  // Releasing a long acyclic chain must not recurse once per link.
+  print(longChain(200000)) // expect: n199999
 }

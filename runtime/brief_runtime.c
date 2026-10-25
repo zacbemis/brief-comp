@@ -66,13 +66,43 @@ void brt_retain(const void *pointer) {
     o->refs++;
   }
 }
+// Destroy callbacks release their fields through brt_release. Objects reaching
+// zero during a destroy are queued rather than destroyed recursively, so long
+// acyclic chains use bounded C stack. All are still freed before the outermost
+// release returns.
+static brt_object **brt_pending;
+static size_t brt_pending_count, brt_pending_capacity;
+static int brt_releasing;
 void brt_release(const void *pointer) {
   brt_object *o = (brt_object *)pointer;
-  if (o && o->refs && --o->refs == 0) {
+  if (!o || !o->refs || --o->refs)
+    return;
+  if (brt_releasing) {
+    if (brt_pending_count == brt_pending_capacity) {
+      size_t capacity = brt_pending_capacity ? brt_pending_capacity * 2 : 64;
+      if (capacity < brt_pending_capacity ||
+          capacity > SIZE_MAX / sizeof(*brt_pending))
+        brt_panic("out of memory");
+      brt_object **pending =
+          realloc(brt_pending, capacity * sizeof(*brt_pending));
+      if (!pending)
+        brt_panic("out of memory");
+      brt_pending = pending;
+      brt_pending_capacity = capacity;
+    }
+    brt_pending[brt_pending_count++] = o;
+    return;
+  }
+  brt_releasing = 1;
+  for (;;) {
     o->destroy(o);
     brt_live_objects--;
     free(o);
+    if (!brt_pending_count)
+      break;
+    o = brt_pending[--brt_pending_count];
   }
+  brt_releasing = 0;
 }
 void *brt_alloc(size_t size, void (*destroy)(brt_object *)) {
   brt_object *o = calloc(1, size);
@@ -84,6 +114,9 @@ void *brt_alloc(size_t size, void (*destroy)(brt_object *)) {
   return o;
 }
 void brt_finish(void) {
+  free(brt_pending);
+  brt_pending = NULL;
+  brt_pending_capacity = 0;
   (void)
       brt_live_objects; // Counter also supports runtime tests without reports.
 #ifdef BRT_DEBUG

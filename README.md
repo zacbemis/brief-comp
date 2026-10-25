@@ -174,18 +174,19 @@ original disposition, so terminal Ctrl-C stops the child and cleanup still runs.
 before an input filename starting with `-` for `build` or `run`.
 
 The generated C uses readable `brf_main`/`brf_greet` function names, a distinct
-`brm_` namespace for length-qualified methods, `brs_` for struct types, `bry_` for
-value-represented symbol sets, and `brt_`
-for runtime helpers and generated locals. Strings have explicit byte lengths.
-It includes its runtime and needs no project headers or libraries; link with
-system `libm` (`-lm`) for floating-point power. Generated C checks that the host
-provides binary32 `float` and binary64 `double`.
-String literals remain permanent; computed strings and structs use single-threaded
-reference counting. The initial ownership pass conservatively pins all reference
-reads, including argument snapshots, before later evaluation can invalidate them.
-Count elimination and cycle collection are not implemented. Generated equality
-and release callbacks also use the host C stack; very deep object shapes can
-exhaust it rather than panic. Panics terminate the process without unwinding owners.
+`brm_` namespace for length-qualified methods, `brs_` for struct types, `bry_`
+for value-represented symbol sets, and `brt_` for runtime helpers and generated
+locals. Strings have explicit byte lengths. It includes its runtime and needs no
+project headers or libraries; link with system `libm` (`-lm`) for floating-point
+power. Generated C checks that the host provides binary32 `float` and binary64
+`double`. String literals remain permanent; computed strings and structs use
+single-threaded reference counting. The initial ownership pass conservatively
+pins all reference reads, including argument snapshots, before later evaluation
+can invalidate them. Count elimination and cycle collection are not implemented.
+Release queues objects whose counts reach zero during another object's
+destruction instead of recursing, so long acyclic chains are freed with bounded
+C stack. Generated equality recurses only through non-recursive field types.
+Panics terminate the process without unwinding owners.
 
 ## Compiler components
 

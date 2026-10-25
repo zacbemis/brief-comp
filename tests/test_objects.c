@@ -7,6 +7,20 @@ typedef struct {
   const brt_string *child;
 } Box;
 static void destroy_box(brt_object *p) { brt_release(((Box *)p)->child); }
+typedef struct {
+  brt_object header;
+  brt_object *left, *right;
+} Node;
+static void destroy_node(brt_object *p) {
+  brt_release(((Node *)p)->left);
+  brt_release(((Node *)p)->right);
+}
+static Node *node(brt_object *left, brt_object *right) {
+  Node *n = brt_alloc(sizeof(*n), destroy_node);
+  n->left = left;
+  n->right = right;
+  return n;
+}
 static void text(const brt_string *s, const char *expected) {
   ASSERT_EQ_INT(strlen(expected), s->length);
   ASSERT_TRUE(memcmp(s->bytes, expected, s->length) == 0);
@@ -75,6 +89,29 @@ int main(int argc, char **argv) {
     text(snapshot, "old");
     brt_release(box);
     ASSERT_EQ_INT(0, brt_live_objects);
+  }
+  TEST("deep and wide object graphs release without recursive destruction") {
+    // Recursive destroy callbacks would exhaust the C stack at this depth.
+    brt_object *chain = NULL;
+    for (int i = 0; i < 1000000; i++)
+      chain = &node(chain, NULL)->header;
+    brt_retain(chain); // A shared head survives until its last release.
+    brt_release(chain);
+    ASSERT_EQ_INT(1000000, brt_live_objects);
+    brt_release(chain);
+    ASSERT_EQ_INT(0, brt_live_objects);
+    // Each level of a complete tree queues two children during one destroy.
+    brt_object *level[1 << 12];
+    size_t count = sizeof(level) / sizeof(*level);
+    for (size_t i = 0; i < count; i++)
+      level[i] = &node(NULL, (brt_object *)brt_string_new("leaf", 4))->header;
+    for (; count > 1; count /= 2)
+      for (size_t i = 0; i < count / 2; i++)
+        level[i] = &node(level[2 * i], level[2 * i + 1])->header;
+    ASSERT_EQ_INT(3 * 4096 - 1, brt_live_objects);
+    brt_release(level[0]);
+    ASSERT_EQ_INT(0, brt_live_objects);
+    brt_finish();
   }
   TEST("string comparison is unsigned-byte lexicographic and binary-safe") {
     const brt_string *a = brt_string_new("a\0b", 3),
