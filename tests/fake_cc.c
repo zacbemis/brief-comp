@@ -35,6 +35,10 @@ static int copy(const char *from, const char *to) {
 int main(int argc, char **argv) {
   // When copied to the requested output, this is the fake compiled program.
   if (argc == 1) {
+    if (getenv("FAKE_PROGRAM_SIGTERM")) {
+      raise(SIGTERM);
+      return 99;
+    }
     if (getenv("FAKE_GROUP_SIGINT")) {
       // Simulate terminal Ctrl-C to both brief and its running program.
       if (kill(0, SIGINT) != 0)
@@ -98,6 +102,12 @@ int main(int argc, char **argv) {
     if (fclose(f) != 0)
       return 2;
     return 9;
+  }
+  if (mode && !strcmp(mode, "empty"))
+    return 0; // A successful compiler that did not produce its requested file.
+  if (mode && !strcmp(mode, "signal")) {
+    raise(SIGTERM);
+    return 99;
   }
   if (mode && !strcmp(mode, "exit"))
     return copy(argv[0], output) ? 0 : 2;

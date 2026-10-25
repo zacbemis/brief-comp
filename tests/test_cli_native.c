@@ -225,13 +225,23 @@ int main(int argc, char **argv) {
     call(&c, (const char *[]){"build", source, "-o", output, NULL}, 0, NULL, 0);
     expect_binary(&c, output);
   }
-  TEST("source files cannot be overwritten directly or through symlinks") {
+  TEST("source files cannot be overwritten directly or through links") {
     call(&c, (const char *[]){"build", source, "-o", source, NULL}, 1, NULL, 0);
     ASSERT_TRUE(bytes_equal(source_text, read_file(&a, source)));
     char *alias = test_path(&a, root, "source alias");
     ASSERT_EQ_INT(0, symlink(source, alias));
     call(&c, (const char *[]){"build", source, "-o", alias, NULL}, 1, NULL, 0);
     ASSERT_TRUE(bytes_equal(source_text, read_file(&a, source)));
+    char *hard = test_path(&a, root, "source hard link");
+    ASSERT_EQ_INT(0, link(source, hard));
+    ProcessResult r = call(
+        &c, (const char *[]){"build", source, "-o", hard, NULL}, 1, wrapped, 5);
+    ASSERT_TRUE(bytes_contains(
+        r.err, TEST_BYTES("output would overwrite the source file")));
+    ASSERT_TRUE(bytes_equal(source_text, read_file(&a, source)));
+    ASSERT_TRUE(bytes_equal(source_text, read_file(&a, hard)));
+    // The recording compiler has not been used yet: protection precedes CC.
+    ASSERT_TRUE(access(record, F_OK) != 0);
   }
   TEST("the stand-in compiler records the native flags without a shell") {
     call(&c, (const char *[]){"build", source, "-o", output, NULL}, 0, wrapped,
@@ -261,12 +271,36 @@ int main(int argc, char **argv) {
   }
   TEST("compiler failures preserve existing output; run propagates status") {
     TestBytes before = read_file(&a, output);
-    wrapped[3].value = "fail";
-    call(&c, (const char *[]){"build", source, "-o", output, NULL}, 1, wrapped,
-         5);
-    ASSERT_TRUE(bytes_equal(before, read_file(&a, output)));
+    const char *modes[] = {"fail", "empty", "signal"};
+    for (size_t i = 0; i < sizeof(modes) / sizeof(*modes); i++) {
+      wrapped[3].value = modes[i];
+      ProcessResult failed =
+          call(&c, (const char *[]){"build", source, "-o", output, NULL}, 1,
+               wrapped, 5);
+      ASSERT_TRUE(bytes_contains(failed.err,
+                                 i == 1 ? TEST_BYTES("cannot write executable")
+                                        : TEST_BYTES("C compilation failed")));
+      ASSERT_TRUE(bytes_equal(before, read_file(&a, output)));
+    }
     wrapped[3].value = "exit";
     call(&c, (const char *[]){"run", source, NULL}, 7, wrapped, 5);
+    TestEnv signaled[6];
+    memcpy(signaled, wrapped, sizeof(wrapped));
+    signaled[5] = (TestEnv){"FAKE_PROGRAM_SIGTERM", "1"};
+    ProcessResult terminated = call(&c, (const char *[]){"run", source, NULL},
+                                    128 + SIGTERM, signaled, 6);
+    ASSERT_EQ_INT(0, terminated.out.length);
+    ASSERT_EQ_INT(0, terminated.err.length);
+    char *directory = test_path(&a, root, "publication directory");
+    char *marker = test_path(&a, directory, "keep");
+    ASSERT_EQ_INT(0, mkdir(directory, 0700));
+    ASSERT_TRUE(test_write_file(marker, TEST_BYTES("unchanged")));
+    ProcessResult unpublished =
+        call(&c, (const char *[]){"build", source, "-o", directory, NULL}, 1,
+             wrapped, 5);
+    ASSERT_TRUE(
+        bytes_contains(unpublished.err, TEST_BYTES("cannot write executable")));
+    ASSERT_TRUE(bytes_equal(TEST_BYTES("unchanged"), read_file(&a, marker)));
     wrapped[3].value = "compile";
     TestEnv missing_cc = {"CC", test_path(&a, root, "missing cc")};
     call(&c, (const char *[]){"run", source, NULL}, 1, &missing_cc, 1);
@@ -281,6 +315,10 @@ int main(int argc, char **argv) {
     ASSERT_EQ_INT(0, r.out.length);
     ASSERT_TRUE(bytes_equal(calls_before, read_file(&a, record)));
     ASSERT_TRUE(bytes_equal(before, read_file(&a, output)));
+    r = call(&c, (const char *[]){"run", bad, NULL}, 1, wrapped, 5);
+    ASSERT_TRUE(bytes_contains(r.err, TEST_BYTES("Unknown function.")));
+    ASSERT_EQ_INT(0, r.out.length);
+    ASSERT_TRUE(bytes_equal(calls_before, read_file(&a, record)));
     r = call(&c, (const char *[]){"emit-c", bad, NULL}, 1, NULL, 0);
     ASSERT_EQ_INT(0, r.out.length);
   }
