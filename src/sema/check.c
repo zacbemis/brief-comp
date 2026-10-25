@@ -264,6 +264,10 @@ static unsigned char escaped(unsigned char c) {
 }
 static const SemaType *literal(Checker *c, SemaExpr *e,
                                const SemaType *expected) {
+  // An already-diagnosed context type gives no range to check against. The
+  // literal still takes its default type so independent errors stay checked,
+  // but exceeding that default would only be a misleading second diagnostic.
+  int diagnosed = expected && expected->kind == SEMA_ERROR;
   const SemaVariant *ok = sema_ok(expected);
   if (ok)
     expected = ok->payload;
@@ -284,7 +288,8 @@ static const SemaType *literal(Checker *c, SemaExpr *e,
     double value = kind->kind == SEMA_FLT ? (double)strtof(text, NULL)
                                           : strtod(text, NULL);
     if (errno == ERANGE && isinf(value)) {
-      error(c, e->span, "Number literal is outside the range of its type.");
+      if (!diagnosed)
+        error(c, e->span, "Number literal is outside the range of its type.");
       return t(c, SEMA_ERROR);
     }
     e->real = e->negative ? -value : value;
@@ -304,7 +309,8 @@ static const SemaType *literal(Checker *c, SemaExpr *e,
     value = value * 10 + digit;
   }
   if (!valid || (e->negative && !kind->is_signed && value != 0)) {
-    error(c, e->span, "Number literal is outside the range of its type.");
+    if (!diagnosed)
+      error(c, e->span, "Number literal is outside the range of its type.");
     return t(c, SEMA_ERROR);
   }
   e->integer = value;

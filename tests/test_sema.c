@@ -307,6 +307,33 @@ int main(void) {
             "main() { let x: flt = "
             "999999999999999999999999999999999999999999999.0 }",
             "outside the range");
+    // An unknown context type is the only error: the literal is not checked
+    // against a default type it was never meant to take.
+    char digits[401], huge_real[512];
+    memset(digits, '9', 400);
+    digits[400] = '\0';
+    snprintf(huge_real, sizeof(huge_real), "main() { let x: Bogus = %s.0 }",
+             digits);
+    const char *unknown_contexts[] = {
+        "mk(): Sym<:ok(lng), :e(Bogus)> { 5000000000 }\nmain() {}",
+        "main() { let x: Bogus = 5000000000 }",
+        "main() { let x: Bogus = -5000000000 }",
+        "f(x: Bogus) {}\nmain() { f(5000000000) }",
+        "P { v: Bogus }\nmain() { let p = P { v: 99999999999 } }", huge_real};
+    for (size_t i = 0; i < sizeof(unknown_contexts) / sizeof(*unknown_contexts);
+         i++) {
+      Result r = check(&a, unknown_contexts[i]);
+      if (r.errors.count != 1)
+        diagnostics_print(&r.errors, stderr);
+      ASSERT_EQ_INT(1, r.errors.count);
+      ASSERT_EQ_INT(0, strcmp("This type is unknown or not implemented yet.",
+                              r.errors.items[0]->message));
+      ASSERT_TRUE(!r.program->checked);
+    }
+    Result independent =
+        check(&a, "main() { let x: Bogus = 1\nlet y: shrt = 40000 }");
+    ASSERT_EQ_INT(2, independent.errors.count);
+    ASSERT_EQ_INT(1, message_count(&independent.errors, "outside the range"));
     invalid(&a, "main() { 1.0 % 2.0 }", "requires integers");
     invalid(&a, "main() { true + false }", "requires numbers");
     invalid(&a, "main() { 1 and 2 }", "require bool");
