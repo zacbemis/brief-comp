@@ -12,15 +12,19 @@ typedef struct {
   Diagnostics *errors;
   int probe, defaults, reachable, saw_return;
   const SemaType *candidate, *expected, *failures;
+  size_t speculative_errors, speculative_conflicts;
 } Checker;
 static const SemaType *t(Checker *c, SemaTypeKind k) { return &c->p->types[k]; }
 static int unknown(const SemaType *a) { return !a || a->kind == SEMA_UNKNOWN; }
 static int special(const SemaType *a) {
   return unknown(a) || a->kind == SEMA_ERROR || a->kind == SEMA_NEVER;
 }
-static void error(Checker *c, Span span, const char *message) {
-  if (!c->probe)
-    diagnostics_error(c->errors, span, message);
+static Diagnostic *error(Checker *c, Span span, const char *message) {
+  if (c->probe) {
+    c->speculative_errors++;
+    return NULL;
+  }
+  return diagnostics_error(c->errors, span, message);
 }
 static void expect(Checker *c, SemaExpr *e, const SemaType *wanted,
                    const char *message) {
@@ -30,10 +34,9 @@ static void expect(Checker *c, SemaExpr *e, const SemaType *wanted,
 }
 static void unknown_method(Checker *c, SemaExpr *call,
                            const SemaType *receiver) {
-  if (c->probe)
+  Diagnostic *d = error(c, call->span, "Unknown method for this type.");
+  if (!d)
     return;
-  Diagnostic *d = diagnostics_error(c->errors, call->span,
-                                    "Unknown method for this type.");
   SemaSymbol *candidate = call->as.call.fallback;
   if (!candidate || candidate->builtin || candidate->owner ||
       !candidate->arity || candidate->arity != call->as.call.count ||
@@ -72,7 +75,9 @@ static const SemaType *join(Checker *c, const SemaType *a, const SemaType *b,
   }
   if (a->kind != SEMA_ERROR && b->kind != SEMA_ERROR) {
     c->function->inference_conflict = 1;
-    if (!c->probe)
+    if (c->probe)
+      c->speculative_conflicts++;
+    else
       c->function->inference_reported = 1;
     error(c, span, message);
   }
@@ -345,6 +350,8 @@ static const SemaType *operand_type(Checker *c, SemaExpr *a, SemaExpr *b,
 static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
                              Use use) {
   const SemaType *result = t(c, SEMA_UNIT);
+  size_t before = c->speculative_errors;
+  size_t conflicts = c->speculative_conflicts;
   unsigned flow = SEMA_NEXT;
   int reachable = c->reachable;
   e->reachable = reachable;
@@ -855,6 +862,15 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       e->adapt = 1;
     }
   }
+  // A locally diagnosed error result is not a return-type anchor. Poisoning
+  // an SCC with it can erase the types/context needed to report the primary
+  // error on the final pass. Defer only errors observed in this expression's
+  // probe; inherited errors without a local failure and intrinsic inference
+  // conflicts still propagate. Final reports never depend on these counters.
+  if (c->probe && result->kind == SEMA_ERROR &&
+      c->speculative_errors != before &&
+      c->speculative_conflicts == conflicts)
+    result = t(c, SEMA_UNKNOWN);
   e->type = e->returns ? t(c, SEMA_NEVER) : result;
   return e->type;
 }

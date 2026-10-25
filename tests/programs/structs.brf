@@ -8,8 +8,30 @@ impl User {
   pub label(user: Self) { user.name + ": " + str(user.age) }
   pub birthday(user: &Self) { user.age++ }
   pub rename(user: &Self, name: str) { user.name = name }
+  identity(user: Self): Self { user }
 }
 Box { user: User }
+throughMethod(user: User, stop: bool) {
+  if stop { ret user }
+  methodStep(user, stop)
+}
+methodStep(user: User, stop: bool) { throughMethod(user, true).identity() }
+sameUser(user: User) { user }
+throughPipe(user: User, stop: bool) {
+  if stop { ret user }
+  pipeStep(user, stop)
+}
+pipeStep(user: User, stop: bool) { throughPipe(user, true) |> sameUser() }
+Link { name: str
+  next: Sym<:end, :more(Link)> }
+throughField(link: Link, stop: bool) {
+  if stop { ret link }
+  fieldStep(link, stop)
+}
+fieldStep(link: Link, stop: bool) {
+  throughField(link, true).next |> { :end => link
+    :more(next) => next }
+}
 main() {
   let user = User.new("Bob", 20)
   let alias = user
@@ -26,4 +48,10 @@ main() {
   box.user = User.new("Jane", 30)
   print(box.user.label()) // expect: Jane: 30
   print(alias.label()) // expect: Robert!: 23
+  print(throughMethod(user, false).label()) // expect: Robert!: 23
+  print(throughPipe(user, false).label()) // expect: Robert!: 23
+  let chain = Link { name: "he" + "ad", next: :more(Link { name: "ta" + "il", next: :end }) }
+  print(throughField(chain, false).name) // expect: tail
+  let terminal = Link { name: "e" + "nd", next: :end }
+  print(throughField(terminal, false).name) // expect: end
 }

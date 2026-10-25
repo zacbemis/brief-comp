@@ -185,6 +185,28 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")
     message(FATAL_ERROR "generic-call recovery must not affect lexing (${status}):\n${errors}")
 endif()
 
+# A recursive error must not erase its own inferred receiver and silently
+# admit error-typed functions to lowering. All native paths reject it before
+# consulting CC or publishing a binary, even though main does not call it.
+set(recursive "${TEST_DIR}/recursive-lookup.brf")
+set(blocked "${TEST_DIR}/recursive-lookup-output")
+file(REMOVE "${blocked}")
+file(WRITE "${recursive}" "P {}\r\nf(p: P, b: bool) { if b { ret p }\r\n  g(p, b) }\r\ng(p: P, b: bool) {\r\n  f(p, b).missing\r\n}\r\nmain() {}\r\n")
+string(REPEAT "~" 14 tail)
+set(expected "error: Unknown struct field.\n  --> ${recursive}:5:3\n  |\n5 |   f(p, b).missing\n  |   ^${tail}\n")
+foreach(command IN ITEMS emit-c run build)
+    set(arguments "${recursive}")
+    if(command STREQUAL "build")
+        list(APPEND arguments -o "${blocked}")
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env "CC=${TEST_DIR}/must-not-run"
+        "${BRIEF}" "${command}" ${arguments}
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected OR EXISTS "${blocked}")
+        message(FATAL_ERROR "recursive lookup admitted by ${command} (${status}):\n${errors}\nexpected:\n${expected}")
+    endif()
+endforeach()
+
 file(WRITE "${valid}" "")
 execute_process(COMMAND "${BRIEF}" dump-ast "${valid}"
     RESULT_VARIABLE status OUTPUT_VARIABLE tree ERROR_VARIABLE errors)

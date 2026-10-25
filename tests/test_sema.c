@@ -399,6 +399,73 @@ int main(void) {
             "{ if x { f(x) } else { 1 } }",
             "consistent return type");
   }
+  TEST("recursive probe errors preserve contextual literal anchors") {
+    struct { const char *type, *bad, *good; } cases[] = {
+        {"shrt", "40000", "32000"}, {"ushrt", "-1", "65535"},
+        {"uint", "-1", "4294967295"},
+        {"ulng", "-1", "18446744073709551615"},
+        {"flt", "350000000000000000000000000000000000000.0", "1.0000001"}};
+    const char *message = "Number literal is outside the range of its type.";
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+      char f[512], g[512], text[2048], crlf[4096];
+      snprintf(f, sizeof(f), "f(p: %s, b: bool) { if b { ret p }\ng(p, b) }\n",
+               cases[i].type);
+      for (unsigned order = 0; order < 2; order++) {
+        snprintf(g, sizeof(g), "g(p: %s, b: bool) { if b { ret f(p, b) }\n%s }\n",
+                 cases[i].type, cases[i].bad);
+        snprintf(text, sizeof(text), "%s%smain() {}", order ? g : f, order ? f : g);
+        size_t n = 0;
+        for (size_t j = 0; text[j]; j++) {
+          if (text[j] == '\n')
+            crlf[n++] = '\r';
+          crlf[n++] = text[j];
+        }
+        crlf[n] = '\0';
+        for (unsigned ending = 0; ending < 2; ending++) {
+          const char *source = ending ? crlf : text;
+          Result r = check(&a, source);
+          ASSERT_TRUE(r.program->resolved);
+          for (unsigned repeat = 0; repeat < 2; repeat++) {
+            if (repeat) {
+              diagnostics_init(&r.errors, &a);
+              sema_check(r.program, &r.errors);
+            }
+            if (r.errors.count != 1)
+              diagnostics_print(&r.errors, stderr);
+            ASSERT_EQ_INT(1, r.errors.count);
+            if (r.errors.count == 1) {
+              const char *at = strstr(source, cases[i].bad);
+              ASSERT_TRUE(at != NULL);
+              ASSERT_EQ_STRN(message, r.errors.items[0]->message,
+                             strlen(r.errors.items[0]->message));
+              if (at) {
+                ASSERT_EQ_INT((size_t)(at - source), r.errors.items[0]->span.start);
+                ASSERT_EQ_INT((size_t)(at - source) + strlen(cases[i].bad),
+                              r.errors.items[0]->span.end);
+              }
+            }
+            SemaFunction *anchor = &r.program->functions[order ? 1 : 0];
+            SemaFunction *peer = &r.program->functions[order ? 0 : 1];
+            ASSERT_EQ_INT(anchor->component, peer->component);
+            ASSERT_TRUE(anchor->symbol.return_type == anchor->symbol.params[0]->type);
+            ASSERT_TRUE(peer->symbol.return_type == anchor->symbol.return_type);
+            ASSERT_TRUE(!anchor->inference_conflict && !peer->inference_conflict);
+            ASSERT_TRUE(!r.program->checked);
+            ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+          }
+        }
+        snprintf(g, sizeof(g), "g(p: %s, b: bool) { if b { ret f(p, b) }\n%s }\n",
+                 cases[i].type, cases[i].good);
+        snprintf(text, sizeof(text), "%s%smain() {}", order ? g : f, order ? f : g);
+        Result good = check(&a, text);
+        if (good.errors.count)
+          diagnostics_print(&good.errors, stderr);
+        ASSERT_EQ_INT(0, good.errors.count);
+        ASSERT_TRUE(good.program->checked);
+        ASSERT_TRUE(ir_lower(&a, good.program) != NULL);
+      }
+    }
+  }
   TEST("independent errors do not hide an intrinsic inference conflict") {
     Result r =
         check(&a, "main() { let bad: int = true }\nf(x: bool) { if x { g(x) } "

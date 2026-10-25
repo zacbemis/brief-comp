@@ -1,1 +1,28 @@
 main() { main() } // error: Cannot infer recursive return type; write a return type.
+shortAnchor(p: shrt, b: bool) { if b { ret p }
+  shortCycle(p, b) }
+shortCycle(p: shrt, b: bool) { if b { ret shortAnchor(p, b) }
+  40000 // error: Number literal is outside the range of its type.
+}
+P {}
+fieldAnchor(p: P, b: bool) { if b { ret p }
+  fieldCycle(p, b) }
+fieldCycle(p: P, b: bool) {
+  fieldAnchor(p, b).missing // error: Unknown struct field.
+}
+methodAnchor(p: P, b: bool) { if b { ret p }
+  methodCycle(p, b) }
+methodCycle(p: P, b: bool) {
+  methodAnchor(p, b).missing() // error: Unknown method for this type.
+}
+pipelineAnchor(p: P, b: bool) { if b { ret p }
+  pipelineCycle(p, b) }
+pipelineCycle(p: P, b: bool) {
+  pipelineAnchor(p, b) |> absent() // error: Unknown function.
+}
+shadowAnchor(p: P, b: bool) { if b { ret p }
+  shadowCycle(p, b) }
+shadowCycle(p: P, b: bool) {
+  let absent = 0
+  shadowAnchor(p, b) |> absent() // error: A local binding is not callable.
+}

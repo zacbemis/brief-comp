@@ -90,6 +90,61 @@ static Result method_error(Arena *a, const char *text, const char *site,
   }
   return r;
 }
+static Result recursive_lookup_error(Arena *a, const char *text,
+                                      const char *site, const char *message,
+                                      const char *advice) {
+  Result r = check(a, text);
+  ASSERT_TRUE(r.program->resolved);
+  for (unsigned repeat = 0; repeat < 2; repeat++) {
+    if (repeat) {
+      diagnostics_init(&r.errors, a);
+      sema_check(r.program, &r.errors);
+    }
+    if (r.errors.count != 1) {
+      fprintf(stderr, "recursive lookup case: %s\n", text);
+      diagnostics_print(&r.errors, stderr);
+    }
+    ASSERT_EQ_INT(1, r.errors.count);
+    if (r.errors.count == 1) {
+      Diagnostic *d = r.errors.items[0];
+      const char *at = strstr(text, site);
+      ASSERT_TRUE(at != NULL);
+      ASSERT_EQ_STRN(message, d->message, strlen(d->message));
+      if (at) {
+        ASSERT_EQ_INT((size_t)(at - text), d->span.start);
+        ASSERT_EQ_INT((size_t)(at - text) + strlen(site), d->span.end);
+      }
+      if (advice) {
+        ASSERT_TRUE(d->notes != NULL);
+        if (d->notes) {
+          ASSERT_EQ_STRN(advice, d->notes->message, strlen(d->notes->message));
+          ASSERT_TRUE(d->notes->next == NULL);
+        }
+      } else
+        ASSERT_TRUE(d->notes == NULL);
+    }
+    SemaFunction *f = NULL, *g = NULL;
+    for (size_t i = 0; i < r.program->count; i++) {
+      SemaFunction *fn = &r.program->functions[i];
+      if (!strcmp(fn->symbol.name, "f"))
+        f = fn;
+      if (!strcmp(fn->symbol.name, "g"))
+        g = fn;
+      ASSERT_TRUE(!fn->inference_conflict);
+    }
+    ASSERT_TRUE(f != NULL);
+    if (f) {
+      ASSERT_TRUE(f->symbol.return_type == f->symbol.params[0]->type);
+      if (g) {
+        ASSERT_EQ_INT(f->component, g->component);
+        ASSERT_EQ_INT(SEMA_ERROR, g->symbol.return_type->kind);
+      }
+    }
+    ASSERT_TRUE(!r.program->checked);
+    ASSERT_TRUE(ir_lower(a, r.program) == NULL);
+  }
+  return r;
+}
 int main(void) {
   Arena a;
   arena_init(&a);
@@ -261,6 +316,90 @@ int main(void) {
                      r.errors.items[1]->message, strlen(r.errors.items[1]->message));
       ASSERT_TRUE(r.errors.items[1]->notes == NULL);
     }
+  }
+  TEST("recursive lookup failures retain their receiver anchor and diagnostic") {
+    struct {
+      const char *type, *body, *site, *message;
+    } cases[] = {
+        {"P", "f(p, b).missing", "f(p, b).missing", "Unknown struct field."},
+        {"P", "f(p, b).missing()", "f(p, b).missing()", "Unknown method for this type."},
+        {"P", "f(p, b).missing(1)", "f(p, b).missing(1)", "Unknown method for this type."},
+        {"P", "f(p, b) |> absent()", "absent()", "Unknown function."},
+        {"P", "let absent = 0\nf(p, b) |> absent()", "absent()",
+         "A local binding is not callable."},
+        {"int", "f(p, b).missing", "f(p, b).missing", "Field access requires a struct."},
+        {"str", "f(p, b).missing()", "f(p, b).missing()", "Unknown method for this type."},
+        {"Sym<:a, :b>", "f(p, b).missing", "f(p, b).missing", "Field access requires a struct."},
+        {"Sym<:a, :b>", "f(p, b).missing()", "f(p, b).missing()", "Unknown method for this type."},
+        {"P", "let alias = f(p, b)\nalias.missing", "alias.missing", "Unknown struct field."}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+      char f[512], g[512], text[2048], crlf[4096];
+      snprintf(f, sizeof(f), "f(p: %s, b: bool) { if b { ret p }\ng(p, b) }\n",
+               cases[i].type);
+      snprintf(g, sizeof(g), "g(p: %s, b: bool) { %s }\n",
+               cases[i].type, cases[i].body);
+      for (unsigned order = 0; order < 2; order++) {
+        snprintf(text, sizeof(text), "P {}\n%s%smain() {}", order ? g : f,
+                 order ? f : g);
+        size_t n = 0;
+        for (size_t j = 0; text[j]; j++) {
+          if (text[j] == '\n')
+            crlf[n++] = '\r';
+          crlf[n++] = text[j];
+        }
+        crlf[n] = '\0';
+        recursive_lookup_error(&a, text, cases[i].site, cases[i].message, NULL);
+        recursive_lookup_error(&a, crlf, cases[i].site, cases[i].message, NULL);
+      }
+    }
+    recursive_lookup_error(&a,
+        "P {}\nf(p: P, b: bool) { if b { ret p }\nf(p, b).missing }\nmain() {}",
+        "f(p, b).missing", "Unknown struct field.", NULL);
+    recursive_lookup_error(&a,
+        "P {}\nmissing(p: P) { p }\n"
+        "f(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
+        "g(p: P, b: bool) { f(p, b).missing() }\nmain() {}",
+        "f(p, b).missing()", "Unknown method for this type.",
+        "This is a top-level function, not a method; use missing(value) or value |> missing().");
+    Result r = check(&a,
+        "P {}\nf(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
+        "g(p: P, b: bool) { f(p, b).missing }\n"
+        "wrong(): int { false }\nmain() {}");
+    ASSERT_EQ_INT(2, r.errors.count);
+    if (r.errors.count == 2) {
+      ASSERT_EQ_STRN("Unknown struct field.", r.errors.items[0]->message,
+                     strlen(r.errors.items[0]->message));
+      ASSERT_EQ_STRN("Function body does not match the written return type.",
+                     r.errors.items[1]->message, strlen(r.errors.items[1]->message));
+    }
+    ASSERT_TRUE(!r.program->checked);
+    ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+    r = check(&a, "P {}\nf(p: P) { g(p) }\ng(p: P) { f(p).missing }\nmain() {}");
+    ASSERT_TRUE(!r.program->checked);
+    ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+    ASSERT_EQ_INT(1, r.errors.count);
+    if (r.errors.count)
+      ASSERT_EQ_STRN("Cannot infer recursive return type; write a return type.",
+                     r.errors.items[0]->message, strlen(r.errors.items[0]->message));
+    r = check(&a,
+        "P {}\nf(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
+        "g(p: P, b: bool) { unknown.missing }\nmain() {}");
+    ASSERT_EQ_INT(1, r.errors.count);
+    ASSERT_TRUE(!r.program->checked);
+    ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+    if (r.errors.count)
+      ASSERT_EQ_STRN("Unknown binding.", r.errors.items[0]->message,
+                     strlen(r.errors.items[0]->message));
+    valid(&a, "P {}\nimpl P { same(p: Self): Self { p } }\n"
+              "f(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
+              "g(p: P, b: bool) { f(p, true).same() }\nmain() {}");
+    valid(&a, "P {}\nsame(p: P) { p }\n"
+              "f(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
+              "g(p: P, b: bool) { f(p, true) |> same() }\nmain() {}");
+    valid(&a, "Link { next: Sym<:end, :more(Link)> }\n"
+              "f(p: Link, b: bool) { if b { ret p }\ng(p, b) }\n"
+              "g(p: Link, b: bool) { f(p, true).next |> { :end => p\n:more(next) => next } }\n"
+              "main() { f(Link { next: :end }, false) }");
   }
   TEST("read-only aliases and immutable parameter bindings") {
     valid(&a, "A { n: int }\nf(a: &A) { a.n++ }\nmain() { let a = A { n: 1 "

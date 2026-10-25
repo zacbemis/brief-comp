@@ -31,11 +31,16 @@
 // expect: true
 // expect: true
 // expect: recursive
+// expect: 32000
 recursiveConversion() {
   if true { ret :bad }
   int(recursiveForward()?)?
 }
 recursiveForward() { recursiveConversion()? }
+shortCycle(p: shrt, b: bool) { if b { ret p }
+  shortStep(p, b) }
+shortStep(p: shrt, b: bool) { if b { ret shortCycle(p, true) }
+  32000 }
 main() {
   print(str(lng(12)))
   let half: flt = 0.5
@@ -90,4 +95,5 @@ main() {
   print(str(dub("1E-2")! == 0.01))
   recursiveForward() |> { :ok(_) => print("wrong")
     :bad => print("recursive") }
+  print(str(shortCycle(7, false)))
 }
