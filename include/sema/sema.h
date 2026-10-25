@@ -253,6 +253,12 @@ typedef struct {
   size_t tag_count;
   SemaSymSet *symbol_sets, *last_symbol_set;
   size_t symbol_set_count;
+  // Canonical sets by content (open addressing), and reusable working
+  // storage for building candidate variant lists before interning them.
+  SemaSymSet **set_table;
+  size_t set_table_capacity;
+  SemaVariant *scratch;
+  size_t scratch_capacity;
   SemaFunction *functions;
   size_t count;
   SemaSymbol *entry;

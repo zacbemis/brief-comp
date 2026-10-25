@@ -228,6 +228,45 @@ int main(void) {
       ASSERT_EQ_INT(2,
                     r.program->functions[i].symbol.return_type->symbols->count);
   }
+  TEST("hashed interning keeps sets canonical across growth and conflicts") {
+    Result r = valid(&a, "main() {}");
+    SemaProgram *p = r.program;
+    enum { COUNT = 300 }; // Several interning-table resizes.
+    SemaTag *tags[COUNT];
+    const SemaType *single[COUNT];
+    for (size_t i = 0; i < COUNT; i++) {
+      char *name = arena_alloc(&a, 16);
+      snprintf(name, 16, "t%zu", i);
+      tags[i] = sema_tag(p, name);
+      SemaVariant v = {tags[i], NULL};
+      single[i] = sema_symbol_set(p, &v, 1);
+      ASSERT_TRUE(sema_symbol_set(p, &v, 1) == single[i]);
+    }
+    const SemaType *forward = single[0], *backward = single[COUNT - 1];
+    for (size_t i = 1; i < COUNT; i++) {
+      forward = sema_symbol_union(p, forward, single[i]);
+      backward = sema_symbol_union(p, backward, single[COUNT - 1 - i]);
+    }
+    ASSERT_TRUE(forward == backward);
+    ASSERT_EQ_INT(COUNT, forward->symbols->count);
+    SemaVariant reversed[COUNT];
+    for (size_t i = 0; i < COUNT; i++)
+      reversed[i] = (SemaVariant){tags[COUNT - 1 - i], NULL};
+    ASSERT_TRUE(sema_symbol_set(p, reversed, COUNT) == forward);
+    const SemaType *number = &p->types[SEMA_INT];
+    SemaVariant conflict = {tags[7], number};
+    ASSERT_TRUE(sema_symbol_union(p, forward,
+                                  sema_symbol_set(p, &conflict, 1)) == NULL);
+    SemaVariant duplicate[] = {
+        {tags[3], NULL}, {tags[2], NULL}, {tags[3], number}};
+    ASSERT_TRUE(sema_symbol_set(p, duplicate, 3) == NULL);
+    SemaVariant outcome[] = {{tags[4], NULL}, {p->ok, number}, {tags[5], NULL}};
+    const SemaType *full = sema_symbol_set(p, outcome, 3);
+    ASSERT_TRUE(sema_ok(full) != NULL && sema_ok(full)->payload == number);
+    ASSERT_TRUE(sema_failures(p, full) ==
+                sema_symbol_union(p, single[4], single[5]));
+    ASSERT_TRUE(sema_ok(sema_failures(p, full)) == NULL);
+  }
   TEST("emission declares only referenced symbol sets, in dependency order") {
     // Each ? grows h's inferred error set by one variant. Inference interns
     // every intermediate union, but no lowered value has those types.

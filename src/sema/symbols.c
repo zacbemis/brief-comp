@@ -1,4 +1,5 @@
 #include "sema/sema.h"
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -30,10 +31,10 @@ const SemaVariant *sema_variant(const SemaType *type, const SemaTag *tag) {
                                                          : NULL;
 }
 const SemaVariant *sema_ok(const SemaType *type) {
-  if (type && type->kind == SEMA_SYM)
-    for (size_t i = 0; i < type->symbols->count; i++)
-      if (!strcmp(type->symbols->variants[i].tag->name, "ok"))
-        return &type->symbols->variants[i];
+  // :ok is the program's first tag, and canonical sets sort by tag ID.
+  if (type && type->kind == SEMA_SYM && type->symbols->count &&
+      !strcmp(type->symbols->variants[0].tag->name, "ok"))
+    return &type->symbols->variants[0];
   return NULL;
 }
 const SemaType *sema_success(SemaProgram *p, const SemaType *payload) {
@@ -50,13 +51,9 @@ const SemaType *sema_failures(SemaProgram *p, const SemaType *type) {
   const SemaVariant *ok = sema_ok(type);
   if (!ok || type->symbols->count == 1)
     return NULL;
-  size_t n = type->symbols->count;
-  SemaVariant *v = arena_calloc(p->arena, n, sizeof(*v));
-  size_t count = 0;
-  for (size_t i = 0; i < n; i++)
-    if (type->symbols->variants[i].tag != ok->tag)
-      v[count++] = type->symbols->variants[i];
-  return sema_symbol_set(p, v, count);
+  // :ok is first, so the failures are the remaining canonical suffix.
+  return sema_symbol_set(p, type->symbols->variants + 1,
+                         type->symbols->count - 1);
 }
 int sema_assignable(const SemaType *actual, const SemaType *wanted) {
   if (actual == wanted)
@@ -121,39 +118,61 @@ static int compare_variants(const void *a, const void *b) {
   size_t y = ((const SemaVariant *)b)->tag->id;
   return (x > y) - (x < y);
 }
-const SemaType *sema_symbol_set(SemaProgram *p, const SemaVariant *variants,
-                                size_t count) {
-  if (!count)
-    return NULL;
-  const SemaVariant *sorted = variants;
-  int ordered = 1;
-  for (size_t i = 1; i < count; i++)
-    if (variants[i - 1].tag->id >= variants[i].tag->id)
-      ordered = 0;
-  size_t n = count;
-  if (!ordered) {
-    SemaVariant *copy = arena_calloc(p->arena, count, sizeof(*copy));
-    memcpy(copy, variants, count * sizeof(*copy));
-    qsort(copy, count, sizeof(*copy), compare_variants);
-    n = 0;
-    for (size_t i = 0; i < count; i++) {
-      if (n && copy[n - 1].tag == copy[i].tag) {
-        if (copy[n - 1].payload != copy[i].payload)
-          return NULL;
-      } else
-        copy[n++] = copy[i];
-    }
-    sorted = copy;
+static SemaVariant *scratch(SemaProgram *p, size_t count) {
+  if (count > p->scratch_capacity) {
+    size_t capacity =
+        p->scratch_capacity > count / 2 ? p->scratch_capacity * 2 : count;
+    if (capacity < count)
+      capacity = count;
+    p->scratch = arena_calloc(p->arena, capacity, sizeof(*p->scratch));
+    p->scratch_capacity = capacity;
   }
-  for (SemaSymSet *s = p->symbol_sets; s; s = s->next) {
-    if (s->count != n)
-      continue;
-    size_t i = 0;
-    while (i < n && s->variants[i].tag == sorted[i].tag &&
-           s->variants[i].payload == sorted[i].payload)
-      i++;
-    if (i == n)
-      return &s->type;
+  return p->scratch;
+}
+static size_t set_hash(const SemaVariant *variants, size_t count) {
+  uint64_t hash = UINT64_C(14695981039346656037);
+  for (size_t i = 0; i < count; i++) {
+    hash = (hash ^ variants[i].tag->id) * UINT64_C(1099511628211);
+    hash = (hash ^ (uint64_t)(uintptr_t)variants[i].payload) *
+           UINT64_C(1099511628211);
+  }
+  return (size_t)(hash ^ (hash >> 32));
+}
+static int same_variants(const SemaSymSet *s, const SemaVariant *variants,
+                         size_t count) {
+  if (s->count != count)
+    return 0;
+  for (size_t i = 0; i < count; i++)
+    if (s->variants[i].tag != variants[i].tag ||
+        s->variants[i].payload != variants[i].payload)
+      return 0;
+  return 1;
+}
+static void set_table_insert(SemaSymSet **table, size_t capacity,
+                             SemaSymSet *s) {
+  size_t i = set_hash(s->variants, s->count) & (capacity - 1);
+  while (table[i])
+    i = (i + 1) & (capacity - 1);
+  table[i] = s;
+}
+// Interns sorted, duplicate-free variants. Only a new set copies them, so
+// callers may pass the reusable scratch buffer.
+static const SemaType *intern_set(SemaProgram *p, const SemaVariant *sorted,
+                                  size_t n) {
+  if (p->set_table_capacity) {
+    size_t mask = p->set_table_capacity - 1;
+    for (size_t i = set_hash(sorted, n) & mask; p->set_table[i];
+         i = (i + 1) & mask)
+      if (same_variants(p->set_table[i], sorted, n))
+        return &p->set_table[i]->type;
+  }
+  if (p->symbol_set_count >= p->set_table_capacity / 2) {
+    size_t capacity = p->set_table_capacity ? p->set_table_capacity * 2 : 64;
+    SemaSymSet **table = arena_calloc(p->arena, capacity, sizeof(*table));
+    for (SemaSymSet *s = p->symbol_sets; s; s = s->next)
+      set_table_insert(table, capacity, s);
+    p->set_table = table;
+    p->set_table_capacity = capacity;
   }
   SemaSymSet *s = arena_calloc(p->arena, 1, sizeof(*s));
   s->type = (SemaType){.kind = SEMA_SYM, .name = "Sym", .symbols = s};
@@ -167,7 +186,32 @@ const SemaType *sema_symbol_set(SemaProgram *p, const SemaVariant *variants,
   else
     p->symbol_sets = s;
   p->last_symbol_set = s;
+  set_table_insert(p->set_table, p->set_table_capacity, s);
   return &s->type;
+}
+const SemaType *sema_symbol_set(SemaProgram *p, const SemaVariant *variants,
+                                size_t count) {
+  if (!count)
+    return NULL;
+  int ordered = 1;
+  for (size_t i = 1; i < count; i++)
+    if (variants[i - 1].tag->id >= variants[i].tag->id)
+      ordered = 0;
+  if (ordered)
+    return intern_set(p, variants, count);
+  SemaVariant *copy = scratch(p, count);
+  if (copy != variants)
+    memcpy(copy, variants, count * sizeof(*copy));
+  qsort(copy, count, sizeof(*copy), compare_variants);
+  size_t n = 0;
+  for (size_t i = 0; i < count; i++) {
+    if (n && copy[n - 1].tag == copy[i].tag) {
+      if (copy[n - 1].payload != copy[i].payload)
+        return NULL;
+    } else
+      copy[n++] = copy[i];
+  }
+  return intern_set(p, copy, n);
 }
 const SemaType *sema_symbol_union(SemaProgram *p, const SemaType *a,
                                   const SemaType *b) {
@@ -179,14 +223,27 @@ const SemaType *sema_symbol_union(SemaProgram *p, const SemaType *a,
     return b;
   if (sema_assignable(b, a))
     return a;
-  size_t n = a->symbols->count, m = b->symbols->count;
+  const SemaSymSet *x = a->symbols, *y = b->symbols;
   // Check the summed count; arena_calloc checks multiplication by element size.
-  if (m > SIZE_MAX - n)
+  if (y->count > SIZE_MAX - x->count)
     return NULL;
-  SemaVariant *variants = arena_calloc(p->arena, n + m, sizeof(*variants));
-  memcpy(variants, a->symbols->variants, n * sizeof(*variants));
-  memcpy(variants + n, b->symbols->variants, m * sizeof(*variants));
-  return sema_symbol_set(p, variants, n + m);
+  // Both inputs are canonical, so a linear merge yields the canonical union.
+  SemaVariant *merged = scratch(p, x->count + y->count);
+  size_t i = 0, j = 0, n = 0;
+  while (i < x->count || j < y->count) {
+    if (j == y->count ||
+        (i < x->count && x->variants[i].tag->id < y->variants[j].tag->id))
+      merged[n++] = x->variants[i++];
+    else if (i == x->count || y->variants[j].tag->id < x->variants[i].tag->id)
+      merged[n++] = y->variants[j++];
+    else {
+      if (x->variants[i].payload != y->variants[j].payload)
+        return NULL;
+      merged[n++] = x->variants[i++];
+      j++;
+    }
+  }
+  return intern_set(p, merged, n);
 }
 static void error(Diagnostics *errors, Span span, const char *message) {
   if (errors)
