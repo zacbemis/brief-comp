@@ -312,6 +312,8 @@ main() { observe(1, 2, 1)
 ]=])
 source_lines(33 3 lines)
 list(GET lines 0 generic)
+# Stage/CLI tests guard this unsupported-call diagnostic separately; rejecting
+# deferred generics does not establish native acceptance of this fragment.
 string(FIND "${generic}" "check(a < b, c > (d))" at)
 if(at LESS 0)
     message(FATAL_ERROR "Update the deferred ambiguous-generic adapter")

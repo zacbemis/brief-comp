@@ -404,7 +404,8 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     e = node(r, SEMA_EXPR_CALL, s->span);
     int pipeline = r->pipeline_call;
     r->pipeline_call = 0;
-    if (s->as.call.type_count)
+    int generic = s->as.call.type_count != 0;
+    if (generic)
       diagnostics_error(r->errors, s->span,
                         "Generic calls are not implemented yet.");
     const Expr *callee = s->as.call.callee;
@@ -416,31 +417,40 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
               ? named_structure(r, callee->as.field.object->as.name)
               : NULL;
       if (owner) {
-        e->as.call.target =
-            sema_method(r->program, &owner->type, callee->as.field.name);
-        if (!e->as.call.target)
-          diagnostics_error(r->errors, callee->span,
-                            "Unknown associated function.");
+        if (!generic) {
+          e->as.call.target =
+              sema_method(r->program, &owner->type, callee->as.field.name);
+          if (!e->as.call.target)
+            diagnostics_error(r->errors, callee->span,
+                              "Unknown associated function.");
+        }
       } else {
-        e->as.call.method = callee->as.field.name;
         receiver = resolve_expr(r, callee->as.field.object);
-        // Dotted calls never fall back to top-level functions. Remember only a
-        // visible candidate for diagnostic advice after receiver inference.
-        if (!local(r, e->as.call.method))
-          e->as.call.fallback = lookup(r->program, e->as.call.method);
+        if (!generic) {
+          e->as.call.method = callee->as.field.name;
+          // Dotted calls never fall back to top-level functions. Remember only
+          // a visible candidate for advice after receiver inference.
+          if (!local(r, e->as.call.method))
+            e->as.call.fallback = lookup(r->program, e->as.call.method);
+        }
       }
-    } else if (callee->kind != EXPR_NAME)
-      diagnostics_error(r->errors, callee->span,
-                        "Function values are not implemented yet.");
-    else if (!pipeline && local(r, s->as.call.callee->as.name))
-      diagnostics_error(r->errors, s->as.call.callee->span,
-                        "A local binding is not callable.");
-    else {
-      e->as.call.target = lookup(r->program, s->as.call.callee->as.name);
-      if (!e->as.call.target && !pipeline)
-        diagnostics_error(r->errors, callee->span, "Unknown function.");
+    } else if (!generic) {
+      if (callee->kind != EXPR_NAME)
+        diagnostics_error(r->errors, callee->span,
+                          "Function values are not implemented yet.");
+      else if (!pipeline && local(r, callee->as.name))
+        diagnostics_error(r->errors, callee->span,
+                          "A local binding is not callable.");
+      else {
+        e->as.call.target = lookup(r->program, callee->as.name);
+        if (!e->as.call.target && !pipeline)
+          diagnostics_error(r->errors, callee->span, "Unknown function.");
+      }
     }
-    if (pipeline && callee->kind == EXPR_NAME) {
+    // An unsupported generic header has no ordinary callee or signature.
+    // Keep a targetless call so its receiver/arguments still get VALUE checks,
+    // flow and dependency edges, without callee-specific error cascades.
+    if (!generic && pipeline && callee->kind == EXPR_NAME) {
       e->as.call.pipeline = 1;
       e->as.call.method = callee->as.name;
       e->as.call.fallback = e->as.call.target;

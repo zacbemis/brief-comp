@@ -1,4 +1,9 @@
 main() {
   const x = "not yet" // error: const bindings are not implemented yet.
   0[0] // error: This expression is not implemented yet.
+  let a = 1
+  let d = 2
+  check(a < b, c > (d)) // error: Generic calls are not implemented yet.
+  1 |> missing<int>() // error: Generic calls are not implemented yet.
 }
+check(value: int) {}

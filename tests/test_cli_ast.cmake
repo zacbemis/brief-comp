@@ -161,6 +161,30 @@ foreach(command IN ITEMS dump-tokens dump-ast)
     endif()
 endforeach()
 
+# The documented ambiguous spelling is still parsed as a generic call, not
+# reinterpreted as comparisons. Unsupported generic headers get no follow-on
+# ordinary-call lookup error. The one-argument check scaffold isolates that
+# diagnostic; surrounding ordinary arity checks have separate stage coverage.
+set(generic "${TEST_DIR}/generic-invalid.brf")
+file(WRITE "${generic}" "check(value: int) {}\r\nmain() { let a = 1\r\n  let d = 2\r\n  check(a < b, c > (d))\r\n}\r\n")
+set(expected "error: Generic calls are not implemented yet.\n  --> ${generic}:4:9\n  |\n4 |   check(a < b, c > (d))\n  |         ^~~~~~~~~~~~~~\n")
+execute_process(COMMAND "${BRIEF}" emit-c "${generic}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+    message(FATAL_ERROR "incorrect generic-call recovery (${status}):\n${errors}\nexpected:\n${expected}")
+endif()
+execute_process(COMMAND "${BRIEF}" dump-ast "${generic}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+string(FIND "${output}" "(call (name check) (call (name a) (types b c) (name d)))" generic_at)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR generic_at LESS 0)
+    message(FATAL_ERROR "generic-call disambiguation changed (${status}):\n${errors}\n${output}")
+endif()
+execute_process(COMMAND "${BRIEF}" dump-tokens "${generic}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")
+    message(FATAL_ERROR "generic-call recovery must not affect lexing (${status}):\n${errors}")
+endif()
+
 file(WRITE "${valid}" "")
 execute_process(COMMAND "${BRIEF}" dump-ast "${valid}"
     RESULT_VARIABLE status OUTPUT_VARIABLE tree ERROR_VARIABLE errors)
