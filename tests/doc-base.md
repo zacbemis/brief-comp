@@ -149,13 +149,14 @@ parameter match the receiver. The note gives direct/pipeline forms, not implicit
 fallback. The native audit still pins the primary rejection; independent
 semantic and CRLF CLI tests pin the note text/declaration span and its
 conservative exclusions. Shadowed names, mismatched arity/receiver types and
-builtins get no such note.
-This is single-file function guidance, not module discovery or privacy support.
-A later M6 parser slice improves the top-level binding error
-to `Statements are only allowed inside a function.`, pinned by this audit.
-There is no claim that all M6 diagnostic finish is complete. Acyclic native
-objects and leak-free debug exits do not establish cycle collection, ARC count
-elimination, deep const, identity comparison or clone behavior. Independent
-parser, checker, IR/RC, arithmetic, conversion, matching and ownership tests stay
-in place. The original raw-sample audit needed no compiler/runtime changes; the
-later parser-only diagnostic update is described above.
+builtins get no such note. This is single-file function guidance, not module
+discovery or privacy support. A later M6 parser slice improves the top-level
+binding error to `Statements are only allowed inside a function.`, pinned by
+this audit. Overall diagnostic/scope completion is recorded in the [final M6
+review](first-version-review.md), not established by this audit alone. Acyclic
+native objects and leak-free debug exits do not establish cycle collection, ARC
+count elimination, deep const, identity comparison or clone behavior.
+Independent parser, checker, IR/RC, arithmetic, conversion, matching and
+ownership tests stay in place. The original raw-sample audit needed no
+compiler/runtime changes; the later parser-only diagnostic update is described
+above.

@@ -17,7 +17,8 @@ ownership exits. Fence/method/case counts, unique names, exact exclusion and
 adaptation anchors, and the chapter's six design-goal bullets and non-final-API
 qualification are guarded. Generated cases live in
 `build/tests/test_doc_stdlib-fixtures/programs/`, separately from the sanitized
-variant and checked-in fixtures. M6 remains in progress.
+variant and checked-in fixtures. Overall M6 completion is recorded in the
+[final review](first-version-review.md), not established by this chapter alone.
 
 ## Fence and prose classification
 

@@ -3,9 +3,10 @@
 `test_doc_types.cmake` reads all **24 code fences** directly from the chapter.
 Fifteen are represented in **64 native/diagnostic cases**; nine require deferred
 features or provisional library APIs. Fences **20 and 21 are partial**: content
-equality is checked, but the `same(...)` identity calls remain deferred. Selected
-first-version inline/prose rules have additional guarded cases. M6 is still in
-progress; this is not a claim that all language-design types are implemented.
+equality is checked, but the `same(...)` identity calls remain deferred.
+Selected first-version inline/prose rules have additional guarded cases. The
+[final M6 review](first-version-review.md) records overall completion; this
+chapter is not a claim that all language-design types are implemented.
 
 ```sh
 ctest --test-dir build -L doc-types --output-on-failure

@@ -99,22 +99,23 @@ examples. These generated cases are separate from the 87 source fixtures here;
 section 12's entry-result prose is also covered by the existing fixtures and
 native/stage-level tests.
 
-M6 is in progress. Its first slice adds 20 generated pipeline/matching doc cases
-and shared acceptance helpers with eleven failure-guard checks. The
-[acceptance tracker](../doc-acceptance.md) and [pipeline audit](../doc-pipelines.md)
-record exact scope, including partial coverage and later-version exclusions.
-The next slice adds 33 [function-document cases](../doc-functions.md), covering
-return typing, owned/unit results, call forms and selected prose rules, plus
-regression coverage for a misleading partial-return payload-collision cascade.
-The symbol slice adds 32 [symbol-document cases](../doc-symbols.md), covering
+M6's acceptance/diagnostic work developed in the following slices. Its first
+slice adds 20 generated pipeline/matching doc cases and shared acceptance
+helpers with eleven failure-guard checks. The [acceptance
+tracker](../doc-acceptance.md) and [pipeline audit](../doc-pipelines.md) record
+exact scope, including partial coverage and later-version exclusions. The next
+slice adds 33 [function-document cases](../doc-functions.md), covering return
+typing, owned/unit results, call forms and selected prose rules, plus regression
+coverage for a misleading partial-return payload-collision cascade. The symbol
+slice adds 32 [symbol-document cases](../doc-symbols.md), covering
 constructors/handlers, named sets, forward/recursive aliases, exact payload
-identity and contextual payload widening, with module-qualified sets and ordering
-explicitly deferred. The memory slice adds 48
-[memory/permission cases](../doc-memory.md), including exact access-path errors,
-flow joins, symbol/handler permissions, argument snapshots, retained/returned
-owners and scope/jump cleanup. Count elimination, collector claims, cloning,
-`const` and real resource APIs have explicit partial/deferred classifications.
-The syntax slice adds 65 [syntax-document cases](../doc-syntax.md), observing
+identity and contextual payload widening, with module-qualified sets and
+ordering explicitly deferred. The memory slice adds 48 [memory/permission
+cases](../doc-memory.md), including exact access-path errors, flow joins,
+symbol/handler permissions, argument snapshots, retained/returned owners and
+scope/jump cleanup. Count elimination, collector claims, cloning, `const` and
+real resource APIs have explicit partial/deferred classifications. The syntax
+slice adds 65 [syntax-document cases](../doc-syntax.md), observing
 operators/precedence, bindings, control flow and continuations, and checking
 exact syntax/type errors. Deferred fragments are explicit; later diagnostic
 slices remove the struct-condition newline adapter and the unsupported-generic
@@ -124,44 +125,42 @@ checked arithmetic, numeric/text conversion rules including `chr` sources, IEEE
 behavior, binary strings, content equality and unit effects. Identity calls in
 two equality fences and nine feature/library fences remain deferred. A later
 lexer slice gives source exponents an explicit unsupported-notation diagnostic,
-without changing numeric text conversion. The overview slice adds
-24 [prose-contract scenarios](../doc-overview.md), not extracted programs: the
+without changing numeric text conversion. The overview slice adds 24
+[prose-contract scenarios](../doc-overview.md), not extracted programs: the
 overview has no code fences. It guards first-version/deferred scope, checks the
 document/open-question inventories, and exercises representative entry, typing,
 control-flow, permission, outcome and ownership contracts. The shared harness
 now handles prose-only manifests, with fourteen failure-guard checks. The raw
-[running-sample audit](../doc-base.md) adds 38 cases from 38 completely classified
-source spans, including preserved arithmetic/control flow and localized
-User/Admin/retaining/handler bodies. Module, trait, const, JSON, vector and clone
-limitations are explicit; adapted bodies are not acceptance of those features.
-The [standard-library audit](../doc-stdlib.md) adds 17 cases for its one partial
-JSON fence, preserving constructor/propagation bodies with deterministic field
-access. It tests local error compatibility, handling, ownership and coverage,
-not JSON parsing/serialization or module privacy. A later checker slice removes
-the unhandled-getter argument-type cascade, without weakening direct handling.
-The chapter contains no builtin examples.
-The [modules-chapter audit](../doc-modules.md) adds 30 cases covering eight of its
-17 fences and guarded prose contracts. It checks local structs/literals, explicit
-receivers and `Self`, constructors and entry ownership/results in one file.
-Nine fences are deferred; three represented fences are partial. Neither local
-`File.read` outcomes nor local public declarations establish filesystem APIs,
-module loading or cross-file privacy. A later parser slice gives top-level
+[running-sample audit](../doc-base.md) adds 38 cases from 38 completely
+classified source spans, including preserved arithmetic/control flow and
+localized User/Admin/retaining/handler bodies. Module, trait, const, JSON,
+vector and clone limitations are explicit; adapted bodies are not acceptance of
+those features. The [standard-library audit](../doc-stdlib.md) adds 17 cases for
+its one partial JSON fence, preserving constructor/propagation bodies with
+deterministic field access. It tests local error compatibility, handling,
+ownership and coverage, not JSON parsing/serialization or module privacy. A
+later checker slice removes the unhandled-getter argument-type cascade, without
+weakening direct handling. The chapter contains no builtin examples. The
+[modules-chapter audit](../doc-modules.md) adds 30 cases covering eight of its
+17 fences and guarded prose contracts. It checks local structs/literals,
+explicit receivers and `Self`, constructors and entry ownership/results in one
+file. Nine fences are deferred; three represented fences are partial. Neither
+local `File.read` outcomes nor local public declarations establish filesystem
+APIs, module loading or cross-file privacy. A later parser slice gives top-level
 calls/bindings a direct inside-a-function hint, pinned here and by the base
-audit.
-The [collections scope audit](../doc-collections.md) classifies all 31 fences:
-only four are partial, represented with prose/derived checks in 14 cases. It runs
-original symbol handlers and the written manual `while` expansion with controlled
-inputs, not vectors, queries, lambdas or compiler-generated cursor iteration.
-All 26 table operations and 27 whole fences are deferred. Direct `!` handling in
-the oldest-user example is corrected and its former delayed shape is rejected;
-ASCII/UTF-8 byte comparisons are tested without claiming sorting support.
-The [traits scope audit](../doc-traits.md) classifies all six fences: five
-partial fences and derived scenarios run in 16 cases; the generic example is
-deferred.
-Original getters/default/custom bodies run as explicitly installed ordinary
-methods, with nominal composition, permission, coverage and ownership checks.
-No trait conformance, inherited defaults, override dispatch or generics are
-implemented by these fixtures.
+audit. The [collections scope audit](../doc-collections.md) classifies all 31
+fences: only four are partial, represented with prose/derived checks in 14
+cases. It runs original symbol handlers and the written manual `while` expansion
+with controlled inputs, not vectors, queries, lambdas or compiler-generated
+cursor iteration. All 26 table operations and 27 whole fences are deferred.
+Direct `!` handling in the oldest-user example is corrected and its former
+delayed shape is rejected; ASCII/UTF-8 byte comparisons are tested without
+claiming sorting support. The [traits scope audit](../doc-traits.md) classifies
+all six fences: five partial fences and derived scenarios run in 16 cases; the
+generic example is deferred. Original getters/default/custom bodies run as
+explicitly installed ordinary methods, with nominal composition, permission,
+coverage and ownership checks. No trait conformance, inherited defaults,
+override dispatch or generics are implemented by these fixtures.
 
 `errors/top-level-statements.brf` brings the checked-in fixture count to 87,
 requiring exact statement hints across calls, bindings, assignments, control
@@ -239,11 +238,21 @@ symbol-indirected chain with heap strings and clean ownership exits;
 tests pin anchors, order/line-ending variants and rechecks; CLI paths reject
 before CC or publication.
 
+The final boundary review extends `error-ownership.brf` with a pinned
+symbol/string argument before a mutating/fallible later argument, plus
+heap-owning loop conditions that succeed or propagate an owned failure across
+body/continue cleanup. Exact callee traces distinguish success from skipped
+calls, and debug runs require clean ownership exits. Independent native-driver
+tests cover hard-link protection before CC, missing compiler output, compiler
+and program signals, failed publication and semantic rejection before CC.
+`structs.brf` also drops a 200,000-link chain built in a loop, which previously
+exhausted the C stack through recursive release in debug runs.
+
 These generated cases remain separate from the 87 source fixtures here. Every
-tracked chapter has an audit and the initial diagnostic inventory is addressed,
-but the [final-review checkpoint](../first-version-review.md) leaves the rest of
-the in-scope implementation/acceptance/README status review open. M6 is not
-complete.
+tracked chapter has an audit, the initial diagnostic inventory is addressed,
+and the [final review](../first-version-review.md) records completed
+implementation/acceptance/README status verification. M6 is complete for the
+first-version scope, without claiming the deferred surrounding features.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

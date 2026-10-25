@@ -12,11 +12,11 @@ Run this slice in normal and sanitized configurations:
 ctest --test-dir build -L doc-pipelines --output-on-failure
 ```
 
-The tests use the existing C program runner: output, diagnostic text/source line,
-exit status, and sanitizer failures are checked. They share extraction, adapter,
-classification, case-count and runner support with the M5 error-example audit in
-`doc_examples.cmake`. `test_doc_examples_support` independently checks fourteen
-failure guards so a stale or incomplete audit does not silently pass.
+The tests use the existing C program runner: output, diagnostic text/source
+line, exit status, and sanitizer failures are checked. They share extraction,
+adapter, classification, case-count and runner support with the M5 error-example
+audit in `doc_examples.cmake`. `test_doc_examples_support` independently checks
+fourteen failure guards so a stale or incomplete audit does not silently pass.
 
 ## Fence-by-fence record
 
@@ -62,6 +62,7 @@ explanatory comments remain intact.
 Existing `test_matching`, `scalar-matches.brf`, `integer-matches.brf`,
 `string-matches.brf`, `string-match-ownership.brf` and their negative fixtures
 cover the chapter's additional prose rules: immutable arm bindings, first-useful
-selection, byte-exact strings, required catch-alls, NaN/signed zero, nonlocal jumps
-and ownership. This slice is not a claim that every inline/prose example in every
-document has been audited, nor that M6 is complete.
+selection, byte-exact strings, required catch-alls, NaN/signed zero, nonlocal
+jumps and ownership. This slice alone does not establish all-document acceptance
+or M6 completion; the [final review](first-version-review.md) records the
+overall first-version completion decision.

@@ -4,11 +4,11 @@ Brief is an experimental statically typed language. The first compiler is
 written in C and emits readable C, then invokes an existing C compiler to
 produce a native program.
 
-**Current state: milestones 0–5 are implemented**, including native compilation,
-numbers, control flow, heap strings, structs, methods, and reference counting.
-**M5 is complete for the first-version scope:** pipelines, scalar/symbol matching, named symbol sets,
-implicit success returns, error-set inference, `?`/`!` handling, numeric/string
-conversions and string literal patterns now compile.
+**The first-version compiler is complete (milestones 0–6)** for the scope in
+[`docs/lang-desc.txt`](docs/lang-desc.txt): native compilation, numbers, control
+flow, heap strings, structs, methods, reference counting, pipelines,
+scalar/symbol/string matching, named symbol sets, success/error inference,
+`?`/`!` handling and numeric/string conversions.
 Compilation supports the subset below; the parser accepts much more syntax.
 The design docs also include deferred features and fragments needing context.
 The [document audits](tests/doc-acceptance.md) record executable coverage,
@@ -248,40 +248,41 @@ Wide and combining characters do not yet have special display-width handling.
 - [Error handling](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
 
-The overview links the remaining topic documents. Milestone 5 is complete for the
-first-version scope: pipelines, scalar/symbol matching, named sets, success/error
-handling, numeric/string conversions and string literal patterns are implemented.
-The [error-example acceptance audit](tests/doc-errors.md) checks the in-scope
-`lang-errors.txt` examples, including their compile errors. **Milestone 6 is in
-progress:** executable pipeline/matching, function, symbol, memory, syntax and
-type doc examples, plus overview prose-contract, raw running-sample, localized
-standard-library, single-file modules-chapter, isolated collections
-handler/manual-loop and transplanted trait-method scenarios, now use shared
-acceptance guards. All tracked chapters have scope audits and the initial
-diagnostic inventory is addressed, but the final scope/status review is still
-in progress. Its [first checkpoint](tests/first-version-review.md) found and
-fixed lost member-lookup and contextual numeric diagnostics in recursive
+The overview links the remaining topic documents. Milestone 5 is complete for
+the first-version scope: pipelines, scalar/symbol matching, named sets,
+success/error handling, numeric/string conversions and string literal patterns
+are implemented. The [error-example acceptance audit](tests/doc-errors.md)
+checks the in-scope `lang-errors.txt` examples, including their compile errors.
+**Milestone 6 is complete for that scope:** all thirteen chapters have guarded
+acceptance/scope audits, the tracked diagnostic gaps are addressed, and the
+[final implementation/status review](tests/first-version-review.md) is complete.
+The audits distinguish extracted examples, representative prose scenarios,
+partial adaptations and deferred features; local library/module/collection/trait
+stand-ins are not implementations of those deferred features. Fresh GCC/Clang
+sanitized Debug, GCC Release and unsanitized Debug suites passed, alongside
+strict GCC/Clang compilation of 333 native/generated programs. This is a scoped
+experimental compiler, not a claim of production readiness or bug freedom. The
+review fixed lost member-lookup and contextual numeric diagnostics in recursive
 inference groups; those invalid programs now retain their errors and cannot
 lower or build. File-level statement-shaped input now gets a direct
-inside-a-function hint instead of misleading declaration or
-parameter advice; specific malformed-declaration errors are preserved.
-Permission errors now identify a read-only argument passed to an `&` parameter
-and use type-neutral wording for read-only field stores, without changing the
-rules. Invalid `&&`/`||` now suggest `and`/`or`, and prefix `++`/`--` errors
-explain postfix standalone updates; valid operators and their tokenization are
-unchanged. Source exponent notation now gets a specific lexical error, while
-exponents in numeric text conversions remain supported. Modules, cross-file
-privacy and collection/lambda/trait behavior remain deferred.
-Function-contract mismatches no longer cause a misleading partial-set
-payload-collision diagnostic. Unhandled fallible results no longer cause
-dependent argument-type cascades; direct handling is still mandatory and
-independent errors remain checked. Named-field struct literals in conditions
-or iterables now get a parentheses hint; ordinary/empty block ambiguity and
-valid grouped/call/index forms are unchanged. Unknown dotted methods can now
-point to a compatible visible top-level function and suggest direct/pipeline
-forms, without accepting dotted fallback. Unsupported generic calls no longer
-produce ordinary-callee cascades; their value expressions and surrounding calls
-remain checked, and generics remain deferred. The [document acceptance
-tracker](tests/doc-acceptance.md) records partial coverage and the remaining
-in-scope/status review. Symbol ordering and refutable/nested payload patterns
-remain deferred, not M5 blockers.
+inside-a-function hint instead of misleading declaration or parameter advice;
+specific malformed-declaration errors are preserved. Permission errors now
+identify a read-only argument passed to an `&` parameter and use type-neutral
+wording for read-only field stores, without changing the rules. Invalid
+`&&`/`||` now suggest `and`/`or`, and prefix `++`/`--` errors explain postfix
+standalone updates; valid operators and their tokenization are unchanged. Source
+exponent notation now gets a specific lexical error, while exponents in numeric
+text conversions remain supported. Modules, cross-file privacy and
+collection/lambda/trait behavior remain deferred. Function-contract mismatches
+no longer cause a misleading partial-set payload-collision diagnostic. Unhandled
+fallible results no longer cause dependent argument-type cascades; direct
+handling is still mandatory and independent errors remain checked. Named-field
+struct literals in conditions or iterables now get a parentheses hint;
+ordinary/empty block ambiguity and valid grouped/call/index forms are unchanged.
+Unknown dotted methods can now point to a compatible visible top-level function
+and suggest direct/pipeline forms, without accepting dotted fallback.
+Unsupported generic calls no longer produce ordinary-callee cascades; their
+value expressions and surrounding calls remain checked, and generics remain
+deferred. The [document acceptance tracker](tests/doc-acceptance.md) records
+partial coverage and the completion evidence. Symbol ordering and
+refutable/nested payload patterns remain deferred, not M5 blockers.

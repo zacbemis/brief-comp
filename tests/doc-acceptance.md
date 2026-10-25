@@ -1,11 +1,13 @@
 # First-version document acceptance tracker
 
-M6 is **in progress**. Its definition of done includes executable/diagnostic
-acceptance for every in-scope document example, improved diagnostics, and an
-accurate README. Parsing an example is not proof that it compiles or behaves as
-described. The scope remains `docs/lang-desc.txt`, “First version”; deferred
-modules, collections/lambdas, ordering and refutable/nested payload patterns are
-not being added to that scope by these tests.
+M6 is **complete for the first-version scope**. Its definition of done includes
+executable/diagnostic acceptance for every in-scope document example, improved
+diagnostics, and an accurate README. The [final review](first-version-review.md)
+records the implementation checks, validation and reasoned completion decision.
+Parsing an example is not proof that it compiles or behaves as described. The
+scope remains `docs/lang-desc.txt`, “First version”; deferred modules,
+collections/lambdas, ordering and refutable/nested payload patterns are not
+being added to that scope by these tests.
 
 ## Current audits
 
@@ -39,15 +41,26 @@ runner without interpreter or shell dependencies. Generated cases live in
 separate build-tree directories per test/configuration; they are not included
 in the 87 checked-in program-fixture count.
 
-## Remaining M6 finish
+## M6 completion evidence
 
 All 13 tracked chapters have explicit acceptance/scope audits and the initial
-diagnostic inventory is addressed. The final implementation/README/status review
-has started, **not finished**: its [first checkpoint](first-version-review.md)
-found and fixed silent acceptance of recursive member-lookup and contextual
-literal errors. Continue the remaining in-scope paths and chapter-adapter/status
-review before deciding M6 completion. Partial and deferred claims must stay
-explicit throughout.
+diagnostic inventory is addressed. The [final review](first-version-review.md)
+found and fixed silent acceptance of recursive member-lookup/contextual literal
+errors, cross-checked chapter adapters, added seventeen recursive checker
+invalid/valid pairs, and reviewed lowering, RC, runtime and native-driver
+boundaries against the first-version scope. Additional native regressions cover
+propagation cleanup, pinned arguments and failed publication/source protection.
+A follow-up whole-compiler probe fixed recursive release of long acyclic chains,
+a range-error cascade after unknown context types and the report for a C
+compiler that produces no output, and documented the syntax nesting limit. No
+known in-scope blocker remains from that review.
+
+Fresh sequential GCC Debug ASan/UBSan, Clang Debug ASan/UBSan, GCC Release and
+unsanitized GCC Debug suites passed 50/50, 50/50, 50/50 and 36/36 tests. The
+local document label passed 27/27, and all 333 non-compile-error
+native/generated sources compiled under strict GCC and Clang flags.
+Partial/deferred claims remain explicit; this is not a production-readiness or
+bug-freedom guarantee.
 
 ## Completed diagnostic improvements
 
@@ -201,8 +214,9 @@ explicit throughout.
 
 ## Diagnostic gaps
 
-The initial diagnostic inventory has no open entries. The final review already
-found the recursive probe-error correctness issue described above; that
-follow-up is addressed, but the rest of the review remains open and may identify
-further gaps. This does **not** mark M6 complete. Deferred features remain
-deferred; rejecting their syntax is not evidence of native feature acceptance.
+The initial diagnostic inventory has no open entries. The recursive probe-error
+correctness issue found during final review is addressed, and the remaining
+scope/status review is complete with no known in-scope blocker. New defects
+remain possible and should be recorded as compiler bugs. Deferred features
+remain deferred; rejecting their syntax is not evidence of native feature
+acceptance.

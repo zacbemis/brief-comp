@@ -14,8 +14,10 @@ The complete eleven-bullet “First version” scope and its later-version parag
 are exact source anchors. Scope edits therefore require an audit review. The
 script also checks the overview's thirteen document-table links for existence
 and uniqueness and guards the eleven-item open-question inventory. A link check
-is not acceptance of the linked document's contents. Remaining chapter audits
-and diagnostic improvements are still M6 work.
+is not acceptance of the linked document's contents. The other chapter audits
+and diagnostic improvements are recorded in
+[doc-acceptance.md](doc-acceptance.md); the [final
+review](first-version-review.md) records overall M6 completion.
 
 Normal and sanitized runs use the shared C runner, exact output/status and
 message/source-line expectations, source-located panics, sanitizer checks and

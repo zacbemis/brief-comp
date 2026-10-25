@@ -59,7 +59,7 @@ missing `getName` requires `Unknown method for this type.`. This deliberately
 does **not** expect a trait conformance/required-method diagnostic. It shows why
 plain struct composition alone is not evidence of automatic default methods.
 
-## Deferred design and remaining finish work
+## Deferred design and overall acceptance
 
 Trait requirements, default acquisition, conformance, default-to-override
 resolution, `ovr`, conflict/coherence rules and generic constraints remain
@@ -71,6 +71,7 @@ separately from current nominal-type evidence.
 Fence counts, all method/call inventories, unique adapters, generic-fence
 subjects, selected scope prose, valid unique case names and the 16-case total
 are guarded. No language-reference, compiler or runtime changes were needed.
-Every tracked chapter now has a scope/acceptance audit, but this does **not**
-complete M6: the diagnostic gaps and final README/status verification in
-`doc-acceptance.md` still need finish work.
+Every tracked chapter has a scope/acceptance audit, but that inventory alone
+does not establish completion. The [final review](first-version-review.md)
+records the diagnostic, implementation and README/status verification behind
+M6's first-version completion decision; traits remain deferred.

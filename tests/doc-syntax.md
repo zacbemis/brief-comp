@@ -104,9 +104,10 @@ two-argument ordinary `check` still reports the parsed outer call's
 one-argument arity mismatch.
 The two unambiguous comparison alternatives continue to execute unchanged.
 
-The current tracked diagnostic gaps are addressed, but M6 still needs its final
-in-scope/status review. Fence 19 continues to require all errors from its
-documented unparenthesized parse, not an arbitrary failure.
+The tracked diagnostic gaps are addressed; the [final M6
+review](first-version-review.md) records the completed in-scope/status
+verification. Fence 19 continues to require all errors from its documented
+unparenthesized parse, not an arbitrary failure.
 
 ## Guarded inline and prose cases
 
