@@ -228,6 +228,50 @@ int main(void) {
       ASSERT_EQ_INT(2,
                     r.program->functions[i].symbol.return_type->symbols->count);
   }
+  TEST("emission declares only referenced symbol sets, in dependency order") {
+    // Each ? grows h's inferred error set by one variant. Inference interns
+    // every intermediate union, but no lowered value has those types.
+    char text[16384];
+    size_t used = 0;
+    for (int i = 0; i < 40; i++)
+      used += (size_t)snprintf(text + used, sizeof(text) - used,
+                               "g%d(x: int): Sym<:ok(int), :e%d(int)> { x }\n",
+                               i, i);
+    used += (size_t)snprintf(text + used, sizeof(text) - used, "h(x: int) {\n");
+    for (int i = 0; i < 40; i++)
+      used += (size_t)snprintf(text + used, sizeof(text) - used,
+                               "let y%d = g%d(x)?\n", i, i);
+    snprintf(text + used, sizeof(text) - used,
+             "x }\nmain() { h(1) |> { :ok(v) => print(str(v))\n"
+             "_ => print(\"e\") } }\n");
+    Result r = valid(&a, text);
+    IrProgram *ir = ir_lower(&a, r.program);
+    ASSERT_TRUE(ir != NULL);
+    if (ir) {
+      ASSERT_TRUE(r.program->symbol_set_count > ir->symbol_set_count + 30);
+      unsigned char *declared =
+          arena_calloc(&a, r.program->symbol_set_count, 1);
+      for (size_t i = 0; i < ir->symbol_set_count; i++) {
+        const SemaSymSet *s = ir->symbol_sets[i];
+        for (size_t j = 0; j < s->count; j++) {
+          const SemaType *payload = s->variants[j].payload;
+          if (payload && payload->kind == SEMA_SYM)
+            ASSERT_TRUE(declared[payload->symbols->id]);
+        }
+        declared[s->id] = 1;
+      }
+      for (size_t i = 0; i < ir->count; i++)
+        for (size_t j = 0; j < ir->functions[i].temporaries; j++) {
+          const SemaType *t = ir->functions[i].temporary_types[j];
+          if (t && t->kind == SEMA_SYM)
+            ASSERT_TRUE(declared[t->symbols->id]);
+        }
+    }
+    // Nested payload sets are declared even when only their container is used.
+    valid(&a, "f(): Sym<:a(Sym<:b(Sym<:c(str)>)>)> { :a(:b(:c(\"x\"))) }\n"
+              "main() { f() |> { :a(inner) => inner |> {\n"
+              ":b(deep) => deep |> { :c(s) => print(s) } } } }");
+  }
   TEST("global tags may have distinct payload types until their sets meet") {
     Result r = valid(
         &a,

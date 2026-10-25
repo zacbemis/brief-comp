@@ -76,7 +76,10 @@ typedef struct {
   size_t count, entry;
   const SemaStruct *structs;
   size_t struct_count;
-  const SemaSymSet *symbol_sets;
+  // Only the symbol sets the IR references, in creation order (nested value
+  // types precede their users). Inference also creates intermediate sets.
+  const SemaSymSet **symbol_sets;
+  size_t symbol_set_count;
   SemaTag *ok;
   const SemaType *entry_outcome;
   int ownership_inserted;

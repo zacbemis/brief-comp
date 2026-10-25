@@ -653,6 +653,47 @@ static size_t lower(Lower *l, const SemaExpr *e) {
                             .tag = l->program->ok});
   return result;
 }
+static void use_type(const SemaType *t, unsigned char *used,
+                     const SemaSymSet **pending, size_t *count) {
+  if (t && t->kind == SEMA_SYM && !used[t->symbols->id]) {
+    used[t->symbols->id] = 1;
+    pending[(*count)++] = t->symbols;
+  }
+}
+// Growing error sets during inference intern every intermediate union. Emit
+// only the sets lowered code can name, plus their nested payload sets, so the
+// generated C stays linear in the sets a program actually uses.
+static void used_symbol_sets(Arena *arena, const SemaProgram *program,
+                             IrProgram *p) {
+  size_t total = program->symbol_set_count ? program->symbol_set_count : 1;
+  unsigned char *used = arena_calloc(arena, total, 1);
+  const SemaSymSet **pending = arena_calloc(arena, total, sizeof(*pending));
+  size_t count = 0;
+  use_type(p->entry_outcome, used, pending, &count);
+  for (size_t i = 0; i < p->struct_count; i++)
+    for (size_t j = 0; j < p->structs[i].count; j++)
+      use_type(p->structs[i].fields[j].type, used, pending, &count);
+  for (size_t i = 0; i < p->count; i++) {
+    const IrFunction *f = &p->functions[i];
+    use_type(f->return_type, used, pending, &count);
+    for (size_t j = 0; j < f->variable_count; j++)
+      use_type(f->variables[j], used, pending, &count);
+    for (size_t j = 0; j < f->temporaries; j++)
+      use_type(f->temporary_types[j], used, pending, &count);
+    for (size_t j = 0; j < f->count; j++)
+      use_type(f->instructions[j].type, used, pending, &count);
+  }
+  while (count) {
+    const SemaSymSet *s = pending[--count];
+    for (size_t i = 0; i < s->count; i++)
+      use_type(s->variants[i].payload, used, pending, &count);
+  }
+  // Each set is pushed at most once, so the marked sets fit in `pending`.
+  p->symbol_sets = pending;
+  for (const SemaSymSet *s = program->symbol_sets; s; s = s->next)
+    if (used[s->id])
+      p->symbol_sets[p->symbol_set_count++] = s;
+}
 IrProgram *ir_lower(Arena *arena, const SemaProgram *program) {
   if (!program->checked)
     return NULL;
@@ -661,7 +702,6 @@ IrProgram *ir_lower(Arena *arena, const SemaProgram *program) {
   p->entry = program->entry->id;
   p->structs = program->structs;
   p->struct_count = program->struct_count;
-  p->symbol_sets = program->symbol_sets;
   p->ok = program->ok;
   p->entry_outcome = program->entry->outcome_type;
   p->functions = arena_calloc(arena, p->count, sizeof(IrFunction));
@@ -695,5 +735,6 @@ IrProgram *ir_lower(Arena *arena, const SemaProgram *program) {
       emit(&l, (IrInstruction){.op = IR_RETURN, .span = f->span, .a = result});
     }
   }
+  used_symbol_sets(arena, program, p);
   return p;
 }

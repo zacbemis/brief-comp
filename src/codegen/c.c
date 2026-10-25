@@ -87,7 +87,8 @@ static void equal(FILE *out, const SemaType *type, const char *a,
     fprintf(out, "%s == %s", a, b);
 }
 static void symbol_declarations(FILE *out, const IrProgram *p) {
-  for (const SemaSymSet *s = p->symbol_sets; s; s = s->next) {
+  for (size_t set = 0; set < p->symbol_set_count; set++) {
+    const SemaSymSet *s = p->symbol_sets[set];
     fprintf(
         out,
         "typedef struct {\n  uint32_t tag;\n  union {\n    uint8_t empty;\n");
@@ -111,7 +112,8 @@ static void symbol_declarations(FILE *out, const IrProgram *p) {
   }
 }
 static void symbol_helpers(FILE *out, const IrProgram *p) {
-  for (const SemaSymSet *s = p->symbol_sets; s; s = s->next) {
+  for (size_t set = 0; set < p->symbol_set_count; set++) {
+    const SemaSymSet *s = p->symbol_sets[set];
     for (int retain = 0; retain <= 1; retain++) {
       fprintf(out,
               "void brt_sym_%zu_%s(bry_%zu value) {\n  switch (value.tag) {\n",
@@ -223,7 +225,8 @@ static void formatters(FILE *out, const IrProgram *p) {
     }
     fprintf(out, "  fputs(\"%s}\", out);\n}\n", s->count ? " " : "");
   }
-  for (const SemaSymSet *s = p->symbol_sets; s; s = s->next) {
+  for (size_t set = 0; set < p->symbol_set_count; set++) {
+    const SemaSymSet *s = p->symbol_sets[set];
     fprintf(out,
             "void brt_sym_%zu_write(FILE *out, bry_%zu value, unsigned depth, "
             "size_t *budget) {\n"
