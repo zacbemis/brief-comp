@@ -466,6 +466,123 @@ int main(void) {
       }
     }
   }
+  TEST("recursive handlers, conversions, operators and coverage fail closed") {
+    struct {
+      const char *type, *bad, *good, *message, *site;
+      size_t width; // Nonzero spans only the pattern within a unique arm site.
+    } cases[] = {
+        {"shrt", "f(p,b) |> { 40000 => p\n_ => p }",
+         "f(p,b) |> { 32000 => p\n_ => p }",
+         "Number literal is outside the range of its type.", "40000", 0},
+        {"bool", "f(p,b) |> { 1 => p\n_ => p }",
+         "f(p,b) |> { true => p\n_ => p }",
+         "Pattern value has the wrong type.", "1", 0},
+        {"str", "f(p,b) |> { 0..1 => p\n_ => p }",
+         "f(p,b) |> { \"x\" => p\n_ => p }",
+         "Range and comparison patterns require numbers or chr.", "0..1", 0},
+        {"Sym<:yes(shrt), :no>", "f(p,b) |> { :yes => p\n:no => p }",
+         "f(p,b) |> { :yes(_) => p\n:no => p }",
+         "Symbol pattern has the wrong payload shape.", ":yes", 0},
+        {"Sym<:yes(shrt), :no>", "f(p,b) |> { :missing => p\n_ => p }",
+         "f(p,b) |> { :yes(_) => p\n_ => p }",
+         "Symbol pattern tag is not in the input set.", ":missing", 0},
+        {"Sym<:yes(shrt), :no>", "f(p,b) |> { :yes(_) => p }",
+         "f(p,b) |> { :yes(_) => p\n:no => p }",
+         "Match is not exhaustive.", "f(p,b) |> { :yes(_) => p }", 0},
+        {"Sym<:yes(shrt), :no>", "f(p,b) |> { Wrong => p\n_ => p }",
+         "f(p,b) |> { :yes(_) => p\n_ => p }",
+         "Symbol tag has conflicting payload types.", "Wrong", 0},
+        {"Sym<:yes(shrt), :no>",
+         "f(p,b) |> { :yes(_) => p\n:yes(_) => p\n:no => p }",
+         "f(p,b) |> { :yes(_) => p\n:no => p }",
+         "Unreachable match arm.", ":yes(_) => p\n:no", 7},
+        {"bool", "f(p,b) |> { true => p }",
+         "f(p,b) |> { true => p\nfalse => p }",
+         "Match is not exhaustive.", "f(p,b) |> { true => p }", 0},
+        {"bool", "f(p,b) |> { true => p\ntrue => p\nfalse => p }",
+         "f(p,b) |> { true => p\nfalse => p }",
+         "Unreachable match arm.", "true => p\nfalse", 4},
+        {"str", "f(p,b) |> { \"x\" => p\n\"x\" => p\n_ => p }",
+         "f(p,b) |> { \"x\" => p\n_ => p }",
+         "Unreachable match arm.", "\"x\" => p\n_", 3},
+        {"Sym<:yes(shrt), :no>", "f(p,b)!", "f(p,b) |> { _ => p }",
+         "? and ! require a symbol outcome with an :ok variant.", "f(p,b)!", 0},
+        {"Sym<:yes(shrt), :no>", "f(p,b)?", "f(p,b) |> { _ => p }",
+         "? and ! require a symbol outcome with an :ok variant.", "f(p,b)?", 0},
+        {"bool", "~f(p,b)", "!f(p,b)",
+         "This unary operator requires numbers (bitwise not requires integers).",
+         "~f(p,b)", 0},
+        {"bool", "f(p,b) + p", "f(p,b) and p",
+         "Arithmetic requires numbers.", "f(p,b) + p", 0},
+        {"int", "int(f(p,b), 1)", "int(f(p,b))",
+         "Numeric conversion expects exactly one number, chr or str argument.",
+         "int(f(p,b), 1)", 0},
+        {"P", "let unused = int(f(p,b))\nf(p,b)",
+         "let unused = int(1)\nf(p,b)",
+         "Numeric conversion expects a number, chr or str argument.",
+         "f(p,b)", 0}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned order = 0; order < 2; order++) {
+        for (unsigned good = 0; good < 2; good++) {
+          char f[512], g[512], text[2048], crlf[4096];
+          const char *body = good ? cases[i].good : cases[i].bad;
+          snprintf(f, sizeof(f), "f(p: %s,b: bool) { if b { ret p }\ng(p,b) }\n",
+                   cases[i].type);
+          snprintf(g, sizeof(g), "g(p: %s,b: bool) { if b { ret f(p,b) }\n%s }\n",
+                   cases[i].type, body);
+          snprintf(text, sizeof(text), "P {}\ntype Wrong = Sym<:yes(str)>\n%s%smain() {}",
+                   order ? g : f, order ? f : g);
+          const char *body_at = strstr(text, body);
+          ASSERT_TRUE(body_at != NULL);
+          const char *at = !good && body_at ? strstr(body_at, cases[i].site) : NULL;
+          ASSERT_TRUE(good || at != NULL);
+          size_t start = at ? (size_t)(at - text) : 0;
+          size_t width = cases[i].width ? cases[i].width : strlen(cases[i].site);
+          // These diagnostic spans contain no newline; only their starting
+          // offsets shift when the surrounding source is converted to CRLF.
+          size_t n = 0, extra = 0;
+          for (size_t j = 0; text[j]; j++) {
+            if (text[j] == '\n') {
+              crlf[n++] = '\r';
+              if (j < start)
+                extra++;
+            }
+            crlf[n++] = text[j];
+          }
+          crlf[n] = '\0';
+          for (unsigned ending = 0; ending < 2; ending++) {
+            Result r = check(&a, ending ? crlf : text);
+            ASSERT_TRUE(r.program->resolved);
+            for (unsigned repeat = 0; repeat < 2; repeat++) {
+              if (repeat) {
+                diagnostics_init(&r.errors, &a);
+                sema_check(r.program, &r.errors);
+              }
+              if (r.errors.count != (good ? 0u : 1u)) {
+                fprintf(stderr, "recursive recovery case %zu: %s\n", i, text);
+                diagnostics_print(&r.errors, stderr);
+              }
+              ASSERT_EQ_INT(good ? 0 : 1, r.errors.count);
+              if (!good && r.errors.count == 1) {
+                ASSERT_EQ_INT(0, strcmp(cases[i].message, r.errors.items[0]->message));
+                size_t offset = start + (ending ? extra : 0);
+                ASSERT_EQ_INT(offset, r.errors.items[0]->span.start);
+                ASSERT_EQ_INT(offset + width, r.errors.items[0]->span.end);
+              }
+              SemaFunction *anchor = &r.program->functions[order ? 1 : 0];
+              SemaFunction *peer = &r.program->functions[order ? 0 : 1];
+              ASSERT_EQ_INT(anchor->component, peer->component);
+              ASSERT_TRUE(anchor->symbol.return_type == anchor->symbol.params[0]->type);
+              ASSERT_TRUE(peer->symbol.return_type == anchor->symbol.return_type);
+              ASSERT_TRUE(!anchor->inference_conflict && !peer->inference_conflict);
+              ASSERT_EQ_INT(good, r.program->checked);
+              ASSERT_TRUE((ir_lower(&a, r.program) != NULL) == (int)good);
+            }
+          }
+        }
+      }
+    }
+  }
   TEST("independent errors do not hide an intrinsic inference conflict") {
     Result r =
         check(&a, "main() { let bad: int = true }\nf(x: bool) { if x { g(x) } "
