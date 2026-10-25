@@ -15,7 +15,7 @@ ctest --test-dir build -L doc-pipelines --output-on-failure
 The tests use the existing C program runner: output, diagnostic text/source line,
 exit status, and sanitizer failures are checked. They share extraction, adapter,
 classification, case-count and runner support with the M5 error-example audit in
-`doc_examples.cmake`. `test_doc_examples_support` independently checks eleven
+`doc_examples.cmake`. `test_doc_examples_support` independently checks fourteen
 failure guards so a stale or incomplete audit does not silently pass.
 
 ## Fence-by-fence record
