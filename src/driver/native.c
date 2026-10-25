@@ -158,6 +158,13 @@ int native_build(Arena *arena, const IrProgram *p, const char *output,
     fputs("error: C compilation failed\n", stderr);
     goto cleanup;
   }
+  // A compiler can exit successfully without its output; report that rather
+  // than a misleading publication or program-execution failure.
+  struct stat compiled;
+  if (stat(binary, &compiled) != 0 || !S_ISREG(compiled.st_mode)) {
+    fputs("error: C compiler did not produce an executable\n", stderr);
+    goto cleanup;
+  }
   if (run) {
     char *run_argv[] = {binary, NULL};
     result = process(run_argv, 0, &original_sigint);

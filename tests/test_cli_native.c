@@ -274,13 +274,18 @@ int main(int argc, char **argv) {
     const char *modes[] = {"fail", "empty", "signal"};
     for (size_t i = 0; i < sizeof(modes) / sizeof(*modes); i++) {
       wrapped[3].value = modes[i];
+      TestBytes expected =
+          i == 1 ? TEST_BYTES("C compiler did not produce an executable")
+                 : TEST_BYTES("C compilation failed");
       ProcessResult failed =
           call(&c, (const char *[]){"build", source, "-o", output, NULL}, 1,
                wrapped, 5);
-      ASSERT_TRUE(bytes_contains(failed.err,
-                                 i == 1 ? TEST_BYTES("cannot write executable")
-                                        : TEST_BYTES("C compilation failed")));
+      ASSERT_TRUE(bytes_contains(failed.err, expected));
       ASSERT_TRUE(bytes_equal(before, read_file(&a, output)));
+      // run reports the same compiler failure instead of an exec failure.
+      failed = call(&c, (const char *[]){"run", source, NULL}, 1, wrapped, 5);
+      ASSERT_TRUE(bytes_contains(failed.err, expected));
+      ASSERT_EQ_INT(0, failed.out.length);
     }
     wrapped[3].value = "exit";
     call(&c, (const char *[]){"run", source, NULL}, 7, wrapped, 5);
