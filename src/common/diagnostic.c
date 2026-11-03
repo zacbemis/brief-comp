@@ -40,6 +40,21 @@ void diagnostic_note(Diagnostics *diagnostics, Diagnostic *error, Span span,
   error->last_note = note;
 }
 
+int diagnostic_fix(Diagnostics *diagnostics, Diagnostic *error, Span span,
+                   const char *replacement) {
+  if (!span.file || span.start > span.end || span.end > span.file->length)
+    return 0;
+  DiagnosticFix *fix = arena_calloc(diagnostics->arena, 1, sizeof(*fix));
+  fix->span = span;
+  fix->replacement = arena_strdup(diagnostics->arena, replacement);
+  if (error->last_fix)
+    error->last_fix->next = fix;
+  else
+    error->fixes = fix;
+  error->last_fix = fix;
+  return 1;
+}
+
 // Count UTF-8 code points rather than bytes. Wide and combining characters
 // will need a fuller terminal-width policy; byte columns in locations stay
 // unchanged. Use the same calculation for excerpts and their underlines.
@@ -104,6 +119,55 @@ static void print_excerpt(FILE *output, Span span) {
   fputc('\n', output);
 }
 
+// Keep help on one terminal line even for multi-line edits or control bytes.
+// The structured fix always retains the exact, unescaped source replacement.
+static void print_fix_text(FILE *output, const char *text, size_t length) {
+  for (size_t i = 0; i < length; i++) {
+    unsigned char c = (unsigned char)text[i];
+    switch (c) {
+    case '\n':
+      fputs("\\n", output);
+      break;
+    case '\r':
+      fputs("\\r", output);
+      break;
+    case '\t':
+      fputs("\\t", output);
+      break;
+    case '`':
+      fputs("\\`", output);
+      break;
+    default:
+      if (c < 32 || c == 127)
+        fprintf(output, "\\x%02x", (unsigned int)c);
+      else
+        fputc(c, output);
+      break;
+    }
+  }
+}
+
+static void print_fix(FILE *output, const DiagnosticFix *fix, Span primary) {
+  Span span = fix->span;
+  SourcePosition start = source_position(span.file, span.start);
+  SourcePosition end = source_position(span.file, span.end);
+  size_t length;
+  const char *line = source_line(span.file, end.line, &length);
+  size_t line_end = (size_t)(line - span.file->text) + length;
+  if (line_end < span.end)
+    line_end = span.end; // A span may end inside a CRLF line ending.
+  fputs("help: ", output);
+  if (span.file != primary.file ||
+      start.line != source_position(primary.file, primary.start).line)
+    fprintf(output, "%s:%zu:%zu: ", span.file->path, start.line, start.column);
+  fputs("write `", output);
+  size_t line_start = span.file->line_starts[start.line - 1];
+  print_fix_text(output, span.file->text + line_start, span.start - line_start);
+  print_fix_text(output, fix->replacement, strlen(fix->replacement));
+  print_fix_text(output, span.file->text + span.end, line_end - span.end);
+  fputs("`\n", output);
+}
+
 void diagnostics_print(const Diagnostics *diagnostics, FILE *output) {
   for (size_t i = 0; i < diagnostics->count; i++) {
     const Diagnostic *error = diagnostics->items[i];
@@ -113,5 +177,7 @@ void diagnostics_print(const Diagnostics *diagnostics, FILE *output) {
       fprintf(output, "note: %s\n", note->message);
       print_excerpt(output, note->span);
     }
+    for (const DiagnosticFix *fix = error->fixes; fix; fix = fix->next)
+      print_fix(output, fix, error->span);
   }
 }

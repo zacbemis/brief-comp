@@ -5,8 +5,8 @@ written in C and emits readable C, then invokes an existing C compiler to
 produce a native program.
 
 **The first-version compiler is complete (milestones 0–6)** for the scope in
-[`docs/v0/lang-desc.txt`](docs/v0/lang-desc.txt): native compilation, numbers, control
-flow, heap strings, structs, methods, reference counting, pipelines,
+[`docs/v0/lang-desc.txt`](docs/v0/lang-desc.txt): native compilation, numbers,
+control flow, heap strings, structs, methods, reference counting, pipelines,
 scalar/symbol/string matching, named symbol sets, success/error inference,
 `?`/`!` handling and numeric/string conversions.
 Compilation supports the subset below; the parser accepts much more syntax.
@@ -63,6 +63,11 @@ The command loads the whole file and prints each token's line, byte column,
 kind, and escaped source spelling. Lexical errors are collected and printed
 on standard error with their source line and an underline; invalid input exits
 with status 1. Invalid command arguments exit with status 2.
+
+Diagnostics can carry machine-applicable fixes as byte spans and replacement
+text. These print as `help:` previews below the error and its notes. Previews
+escape control bytes and line breaks, while structured edits preserve exact
+replacement bytes.
 
 `dump-ast` filters continuation newlines and parses first-version syntax into
 an arena-owned tree, printed as a stable S-expression. Syntax errors are
@@ -205,8 +210,8 @@ Panics terminate the process without unwinding owners.
 ## Compiler components
 
 - `include/common/`, `src/common/`: arena allocation, source loading and line
-  indexing, byte-offset spans, diagnostics with notes, string interning, and
-  hashed name maps for semantic lookups.
+  indexing, byte-offset spans, diagnostics with notes and fix-its, string
+  interning, and hashed name maps for semantic lookups.
 - `include/lexer/`, `src/lexer/`: streaming and whole-file lexing, validated
   escapes, single-line strings, and single-byte character literals. Unterminated
   literals report errors without consuming the next line; unclosed block

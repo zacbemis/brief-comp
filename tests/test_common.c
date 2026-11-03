@@ -283,6 +283,137 @@ int main(void) {
     }
   }
 
+  TEST("diagnostic fixes own replacements and print after ordered notes") {
+    Diagnostics diagnostics;
+    diagnostics_init(&diagnostics, &arena);
+    const char *text = "if !ready {\n";
+    SourceFile *source = source_create(&arena, "fix.brf", text, strlen(text));
+    Span span = span_make(source, 3, 4);
+    Diagnostic *error = diagnostics_error(&diagnostics, span, "Use not.");
+    diagnostic_note(&diagnostics, error, span_make(NULL, 0, 0), "a note");
+    char replacement[] = "not ";
+    ASSERT_EQ_INT(1, diagnostic_fix(&diagnostics, error, span, replacement));
+    replacement[0] = 'X';
+    ASSERT_TRUE(error->fixes == error->last_fix);
+    ASSERT_TRUE(error->fixes->next == NULL);
+    ASSERT_TRUE(error->fixes->span.file == source);
+    ASSERT_EQ_INT(3, error->fixes->span.start);
+    ASSERT_EQ_INT(4, error->fixes->span.end);
+    ASSERT_EQ_STRN("not ", error->fixes->replacement,
+                   strlen(error->fixes->replacement));
+    char *printed = printed_diagnostics(&arena, &diagnostics);
+    ASSERT_TRUE(printed != NULL);
+    if (printed)
+      ASSERT_EQ_STRN("error: Use not.\n"
+                     "  --> fix.brf:1:4\n"
+                     "  |\n"
+                     "1 | if !ready {\n"
+                     "  |    ^\n"
+                     "note: a note\n"
+                     "help: write `if not ready {`\n",
+                     printed, strlen(printed));
+  }
+
+  TEST("fix previews support insertion, deletion, EOF and multi-line edits") {
+    const struct {
+      const char *text;
+      size_t start, end;
+      const char *replacement, *help;
+    } cases[] = {
+        {"abc", 1, 2, "XY", "help: write `aXYc`\n"},
+        {"abc", 0, 0, "!", "help: write `!abc`\n"},
+        {"abc", 3, 3, "!", "help: write `abc!`\n"},
+        {"", 0, 0, "new", "help: write `new`\n"},
+        {"abc", 1, 2, "", "help: write `ac`\n"},
+        {"abc", 0, 3, "", "help: write ``\n"},
+        {"first\r\nsecond\r\n", 2, 9, "X", "help: write `fiXcond`\n"},
+        {"first\nsecond", 0, 5, "one\ntwo", "help: write `one\\ntwo`\n"},
+        {"\tcafé && ok\r\n", 7, 9, "and", "help: write `\\tcafé and ok`\n"},
+        {"abc\r\n", 4, 4, "X", "help: write `abc\\rX`\n"},
+        {"abc\n", 4, 4, "X", "help: write `X`\n"},
+        {"x", 0, 1, "\n\r\t\033\177`",
+         "help: write `\\n\\r\\t\\x1b\\x7f\\``\n"},
+    };
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+      Diagnostics diagnostics;
+      diagnostics_init(&diagnostics, &arena);
+      SourceFile *source = source_create(&arena, "fix.brf", cases[i].text,
+                                         strlen(cases[i].text));
+      Span span = span_make(source, cases[i].start, cases[i].end);
+      Diagnostic *error = diagnostics_error(&diagnostics, span, "test");
+      ASSERT_EQ_INT(
+          1, diagnostic_fix(&diagnostics, error, span, cases[i].replacement));
+      char *printed = printed_diagnostics(&arena, &diagnostics);
+      ASSERT_TRUE(printed != NULL);
+      if (printed) {
+        char *help = strstr(printed, "help:");
+        ASSERT_TRUE(help != NULL);
+        if (help)
+          ASSERT_EQ_STRN(cases[i].help, help, strlen(help));
+      }
+    }
+  }
+
+  TEST("fix lists remain stable across growth and identify other locations") {
+    Diagnostics diagnostics;
+    diagnostics_init(&diagnostics, &arena);
+    SourceFile *a = source_create(&arena, "a.brf", "old\nold", 7);
+    SourceFile *b = source_create(&arena, "b.brf", "old", 3);
+    Diagnostic *error =
+        diagnostics_error(&diagnostics, span_make(a, 0, 3), "test");
+    ASSERT_EQ_INT(
+        1, diagnostic_fix(&diagnostics, error, span_make(a, 4, 7), "new"));
+    DiagnosticFix *first = error->fixes;
+    for (size_t i = 0; i < 100; i++)
+      diagnostics_error(&diagnostics, span_make(NULL, 0, 0), "another");
+    ASSERT_EQ_INT(
+        1, diagnostic_fix(&diagnostics, error, span_make(b, 0, 3), "other"));
+    ASSERT_TRUE(error == diagnostics.items[0]);
+    ASSERT_TRUE(first == error->fixes);
+    ASSERT_TRUE(first->next == error->last_fix);
+    ASSERT_TRUE(error->last_fix->next == NULL);
+    ASSERT_TRUE(first->span.file == a);
+    ASSERT_TRUE(first->next->span.file == b);
+    Diagnostic *last = diagnostics.items[100];
+    ASSERT_EQ_INT(1,
+                  diagnostic_fix(&diagnostics, last, span_make(b, 3, 3), "!"));
+    char *printed = printed_diagnostics(&arena, &diagnostics);
+    ASSERT_TRUE(printed != NULL);
+    if (printed) {
+      ASSERT_TRUE(strstr(printed, "help: a.brf:2:1: write `new`\n"
+                                  "help: b.brf:1:1: write `other`\n") != NULL);
+      ASSERT_TRUE(strstr(printed, "help: b.brf:1:4: write `old!`\n") != NULL);
+    }
+  }
+
+  TEST("fixes reject invalid source spans instead of changing their offsets") {
+    Diagnostics diagnostics;
+    diagnostics_init(&diagnostics, &arena);
+    SourceFile *source = source_create(&arena, "fix.brf", "x", 1);
+    Diagnostic *error =
+        diagnostics_error(&diagnostics, span_make(NULL, 0, 0), "test");
+    const Span invalid[] = {{NULL, 0, 0},
+                            {source, 1, 0},
+                            {source, 0, 2},
+                            {source, 2, 2},
+                            {source, 0, SIZE_MAX}};
+    for (size_t i = 0; i < sizeof(invalid) / sizeof(invalid[0]); i++) {
+      ASSERT_EQ_INT(0, diagnostic_fix(&diagnostics, error, invalid[i], "new"));
+      ASSERT_TRUE(error->fixes == NULL && error->last_fix == NULL);
+    }
+    ASSERT_EQ_INT(1, diagnostics.count);
+    const char bytes[] = {'a', '\0', 'b'};
+    SourceFile *binary =
+        source_create(&arena, "binary.brf", bytes, sizeof(bytes));
+    ASSERT_EQ_INT(
+        1, diagnostic_fix(&diagnostics, error, span_make(binary, 2, 3), "c"));
+    char *printed = printed_diagnostics(&arena, &diagnostics);
+    ASSERT_TRUE(printed != NULL);
+    if (printed)
+      ASSERT_EQ_STRN("error: test\nhelp: binary.brf:1:3: write `a\\x00c`\n",
+                     printed, strlen(printed));
+  }
+
   TEST("diagnostic UTF-8 widths and tabs use display columns, not byte "
        "columns") {
     const struct {

@@ -11,11 +11,20 @@ struct DiagnosticNote {
   DiagnosticNote *next;
 };
 
+typedef struct DiagnosticFix DiagnosticFix;
+struct DiagnosticFix {
+  Span span;
+  const char *replacement;
+  DiagnosticFix *next;
+};
+
 typedef struct {
   Span span;
   const char *message;
   DiagnosticNote *notes;
   DiagnosticNote *last_note;
+  DiagnosticFix *fixes;
+  DiagnosticFix *last_fix;
 } Diagnostic;
 
 typedef struct {
@@ -26,12 +35,18 @@ typedef struct {
 } Diagnostics;
 
 void diagnostics_init(Diagnostics *diagnostics, Arena *arena);
-// Messages are copied into the arena. Diagnostics and notes remain stable
-// even when the list grows. All entries currently represent errors.
+// Messages and replacements are copied into the arena. Diagnostics, notes and
+// fixes remain stable even when the list grows. All entries represent errors.
 Diagnostic *diagnostics_error(Diagnostics *diagnostics, Span span,
                               const char *message);
 void diagnostic_note(Diagnostics *diagnostics, Diagnostic *error, Span span,
                      const char *message);
+// Attach only certainly correct edits, not guesses or alternative suggestions.
+// All fixes on a diagnostic are intended to be applied together to the original
+// source. An empty span inserts; an empty replacement deletes. Returns 0 for a
+// missing source or invalid offsets (fix spans are never silently clamped).
+int diagnostic_fix(Diagnostics *diagnostics, Diagnostic *error, Span span,
+                   const char *replacement);
 void diagnostics_print(const Diagnostics *diagnostics, FILE *output);
 
 #endif
