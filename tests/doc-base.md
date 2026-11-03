@@ -1,4 +1,4 @@
-# M6 acceptance slice: `docs/lang-ex-base.txt`
+# M6 acceptance slice: `docs/v0/lang-ex-base.txt`
 
 This chapter is a **raw running syntax sample**, not a fenced Markdown chapter
 or a complete single-source program. It combines notation, unrelated local

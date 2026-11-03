@@ -1,4 +1,4 @@
-# M6 acceptance slice: `docs/lang-pipelines.txt`
+# M6 acceptance slice: `docs/v0/lang-pipelines.txt`
 
 `test_doc_pipelines.cmake` reads all 17 code fences directly from the document.
 Ten fences are represented in **20 native/diagnostic cases**: nine contain only

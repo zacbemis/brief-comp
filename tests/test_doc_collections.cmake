@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.16)
 include("${CMAKE_CURRENT_LIST_DIR}/doc_examples.cmake")
 doc_examples_begin(lang-collections 31)
-file(READ "${ROOT}/docs/lang-collections.txt" document)
+file(READ "${ROOT}/docs/v0/lang-collections.txt" document)
 string(REGEX REPLACE "[\r\n ]+" " " prose "${document}")
 foreach(rule IN ITEMS
         "Collections are queried and changed through ordinary functions. There is no query syntax."

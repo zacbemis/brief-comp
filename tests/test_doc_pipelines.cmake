@@ -168,7 +168,7 @@ endforeach()
 
 # Inline syntax examples are also executable obligations. Guard their spelling
 # in the actual document rather than silently testing an unrelated copied string.
-file(READ "${ROOT}/docs/lang-pipelines.txt" document)
+file(READ "${ROOT}/docs/v0/lang-pipelines.txt" document)
 function(inline_code variable text)
     string(FIND "${document}" "`${text}`" at)
     if(at LESS 0)

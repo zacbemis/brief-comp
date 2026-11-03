@@ -1,4 +1,4 @@
-# M6 acceptance slice: `docs/lang-stdlib.txt`
+# M6 acceptance slice: `docs/v0/lang-stdlib.txt`
 
 The chapter has **one code fence**, explicitly **partial** in this audit, and
 **no builtin examples**. `test_doc_stdlib.cmake` reads the fence directly and

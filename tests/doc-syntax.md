@@ -1,4 +1,4 @@
-# M6 acceptance slice: `docs/lang-syntax.txt`
+# M6 acceptance slice: `docs/v0/lang-syntax.txt`
 
 `test_doc_syntax.cmake` reads all **33 code fences** directly from the document.
 Thirty are represented in **65 native/diagnostic cases**; three collection-only

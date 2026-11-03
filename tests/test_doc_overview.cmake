@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.16)
 include("${CMAKE_CURRENT_LIST_DIR}/doc_examples.cmake")
 doc_examples_begin(lang-desc 0)
-file(READ "${ROOT}/docs/lang-desc.txt" document)
+file(READ "${ROOT}/docs/v0/lang-desc.txt" document)
 
 # A scope change must prompt a review of this audit, not silently redefine M6.
 set(scope_contract [=[
@@ -51,7 +51,7 @@ endif()
 set(seen "")
 foreach(link IN LISTS links)
     string(REGEX REPLACE "^\\| `(lang-[a-z-]+\\.txt)` \\|$" "\\1" filename "${link}")
-    if(filename IN_LIST seen OR NOT EXISTS "${ROOT}/docs/${filename}" OR IS_DIRECTORY "${ROOT}/docs/${filename}")
+    if(filename IN_LIST seen OR NOT EXISTS "${ROOT}/docs/v0/${filename}" OR IS_DIRECTORY "${ROOT}/docs/v0/${filename}")
         message(FATAL_ERROR "Duplicate or missing overview document: ${filename}")
     endif()
     list(APPEND seen "${filename}")

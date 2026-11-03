@@ -324,7 +324,7 @@ example(33 unambiguous-comparison-arguments
     "check(left: bool, right: bool) { print(str(left) + \":\" + str(right)) }\nmain() { let a = 1\nlet b = 2\nlet c = 3\nlet d = 1"
     "${first}\n${second}" "}\n// expect: true:true\n// expect: true:true")
 
-file(READ "${ROOT}/docs/lang-syntax.txt" document)
+file(READ "${ROOT}/docs/v0/lang-syntax.txt" document)
 string(REGEX REPLACE "[\r\n ]+" " " prose "${document}")
 function(require_prose text)
     string(FIND "${prose}" "${text}" at)

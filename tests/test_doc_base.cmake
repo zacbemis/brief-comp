@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.16)
 include("${CMAKE_CURRENT_LIST_DIR}/doc_examples.cmake")
 doc_examples_begin(lang-ex-base 0)
-file(READ "${ROOT}/docs/lang-ex-base.txt" document)
+file(READ "${ROOT}/docs/v0/lang-ex-base.txt" document)
 set_property(GLOBAL PROPERTY base_remaining "${document}")
 set_property(GLOBAL PROPERTY base_parts "")
 set_property(GLOBAL PROPERTY base_covered "")

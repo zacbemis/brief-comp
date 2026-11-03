@@ -239,7 +239,7 @@ example(27 not-a-method "${user_api}\n${block_26}\nmain() { let user = User { na
     "${code}" "}")
 
 # Selected first-version prose obligations, beyond the chapter's code fences.
-file(READ "${ROOT}/docs/lang-functions.txt" document)
+file(READ "${ROOT}/docs/v0/lang-functions.txt" document)
 string(REGEX REPLACE "[\r\n ]+" " " prose "${document}")
 function(require_prose text)
     string(FIND "${prose}" "${text}" at)

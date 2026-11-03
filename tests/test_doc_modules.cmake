@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.16)
 include("${CMAKE_CURRENT_LIST_DIR}/doc_examples.cmake")
 doc_examples_begin(lang-modules 17)
-file(READ "${ROOT}/docs/lang-modules.txt" document)
+file(READ "${ROOT}/docs/v0/lang-modules.txt" document)
 string(REGEX REPLACE "[\r\n ]+" " " prose "${document}")
 function(require_prose text)
     string(FIND "${prose}" "${text}" at)

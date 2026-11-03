@@ -3,7 +3,7 @@
 include_guard(GLOBAL)
 
 function(doc_examples_begin filename expected_count)
-    file(READ "${ROOT}/docs/${filename}.txt" rest)
+    file(READ "${ROOT}/docs/v0/${filename}.txt" rest)
     set(count 0)
     while(TRUE)
         string(FIND "${rest}" "```" opening)

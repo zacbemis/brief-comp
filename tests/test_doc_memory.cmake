@@ -167,7 +167,7 @@ example(11 nonexclusive-aliases "${user_api}\n${block_9}\nobserve(user: User, wr
 
 # Guard prose obligations against the actual chapter; these are constructed
 # first-version contexts, not additional fences or implementations of const.
-file(READ "${ROOT}/docs/lang-memory.txt" document)
+file(READ "${ROOT}/docs/v0/lang-memory.txt" document)
 string(REGEX REPLACE "[\r\n ]+" " " prose "${document}")
 function(require_prose text)
     string(FIND "${prose}" "${text}" at)

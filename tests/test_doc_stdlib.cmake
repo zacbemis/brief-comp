@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.16)
 include("${CMAKE_CURRENT_LIST_DIR}/doc_examples.cmake")
 doc_examples_begin(lang-stdlib 1)
-file(READ "${ROOT}/docs/lang-stdlib.txt" document)
+file(READ "${ROOT}/docs/v0/lang-stdlib.txt" document)
 string(REGEX REPLACE "[\r\n ]+" " " prose "${document}")
 foreach(rule IN ITEMS
         "Object fields remain encapsulated."

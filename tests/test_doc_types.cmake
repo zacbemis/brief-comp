@@ -152,7 +152,7 @@ example(21 recursive-equality "" "${code}" "}\nmain() {}")
 
 # Guard selected first-version prose rules in the actual chapter. Existing
 # exhaustive/random stage and runtime suites stay independent of these examples.
-file(READ "${ROOT}/docs/lang-types.txt" document)
+file(READ "${ROOT}/docs/v0/lang-types.txt" document)
 set(primitive_table [=[
 | Type | Size | Meaning |
 |---|---|---|

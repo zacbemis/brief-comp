@@ -1,4 +1,4 @@
-# M6 acceptance slice: `docs/lang-symbols.txt`
+# M6 acceptance slice: `docs/v0/lang-symbols.txt`
 
 `test_doc_symbols.cmake` reads all **10 code fences** directly from the document.
 Nine are represented in **32 native/diagnostic cases**. Fence 10 needs a

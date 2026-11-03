@@ -1,4 +1,4 @@
-# M6 acceptance slice: `docs/lang-functions.txt`
+# M6 acceptance slice: `docs/v0/lang-functions.txt`
 
 `test_doc_functions.cmake` reads all 27 code fences directly from the document.
 Twenty fences are represented in **33 native/diagnostic cases**; fences 9 and 27

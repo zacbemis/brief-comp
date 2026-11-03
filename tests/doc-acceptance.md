@@ -5,7 +5,7 @@ executable/diagnostic acceptance for every in-scope document example, improved
 diagnostics, and an accurate README. The [final review](first-version-review.md)
 records the implementation checks, validation and reasoned completion decision.
 Parsing an example is not proof that it compiles or behaves as described. The
-scope remains `docs/lang-desc.txt`, “First version”; deferred modules,
+scope remains `docs/v0/lang-desc.txt`, “First version”; deferred modules,
 collections/lambdas, ordering and refutable/nested payload patterns are not
 being added to that scope by these tests.
 

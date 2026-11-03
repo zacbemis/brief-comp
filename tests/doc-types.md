@@ -1,4 +1,4 @@
-# M6 acceptance slice: `docs/lang-types.txt`
+# M6 acceptance slice: `docs/v0/lang-types.txt`
 
 `test_doc_types.cmake` reads all **24 code fences** directly from the chapter.
 Fifteen are represented in **64 native/diagnostic cases**; nine require deferred

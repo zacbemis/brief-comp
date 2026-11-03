@@ -1,4 +1,4 @@
-# M6 acceptance slice: `docs/lang-desc.txt`
+# M6 acceptance slice: `docs/v0/lang-desc.txt`
 
 The overview contains **zero code fences**. `test_doc_overview.cmake` guards that
 count and checks **24 representative first-version prose-contract cases**.

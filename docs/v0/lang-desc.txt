@@ -1,0 +1,220 @@
+# Programming Language — Design Overview
+
+> **Status: Experimental language design**
+>
+> This document describes the intended design and philosophy of a new statically typed, compiled programming language. The syntax and semantics are evolving, and examples should be treated as design references rather than proof of an implemented feature.
+
+## 1. Overview
+
+This language aims to combine the **simplicity and expressiveness of modern high-level languages with the performance, predictability, and compile-time safety of systems programming languages**.
+
+Its primary goal is to reduce unnecessary complexity in application development without sacrificing control over data, memory, or program behavior.
+
+The language draws inspiration from Rust, Kotlin, Nim, functional programming, and modern strongly typed languages, but does not attempt to reproduce any one of them.
+
+Key characteristics include:
+
+- Static typing with strong type inference.
+- Concise, expression-oriented syntax.
+- Modules, structs, traits, and composition instead of class inheritance.
+- Automatic reference counting with cycle collection.
+- Lightweight borrowing and explicit mutation permissions.
+- Explicit copying of nontrivial objects.
+- Immutable data through `const`.
+- Typed symbols and exhaustive pattern matching.
+- Pipelines for transforming values and handling results.
+- Compiler-enforced recoverable error handling.
+- Declarative collection operations instead of unnecessary loops.
+- Explicit cleanup of external resources.
+
+The language should make common operations simple while keeping expensive, unsafe, or potentially failing operations visible to programmers.
+
+**Core philosophy: Make the common case concise and the dangerous case explicit.**
+
+---
+
+## 2. Design Principles
+
+### Simplicity over complexity
+
+The language should avoid introducing multiple ways to accomplish the same task without a meaningful semantic benefit.
+
+Complexity should be managed by the compiler whenever it can do so safely and predictably.
+
+For example, programmers should not manually manage reference counts, write repetitive collection loops, or implement dozens of forwarding methods for related types.
+
+### Expressiveness without hidden behavior
+
+APIs should clearly communicate important behavior, including mutation, error conditions, and expensive copying.
+
+However, internal implementation details should remain encapsulated.
+
+The programmer should understand what an operation guarantees without needing to understand how it is implemented.
+
+### Compile-time safety
+
+The compiler should detect as many mistakes as reasonably possible, including:
+
+- Type mismatches.
+- Unhandled recoverable errors.
+- Nonexhaustive pattern matching.
+- Invalid mutable borrowing.
+- Mutation of immutable data.
+- Unauthorized access to private fields.
+- Incorrect trait implementations.
+- Invalid error propagation.
+
+Safety should not require programmers to write excessive boilerplate.
+
+### Composition over inheritance
+
+The language does not use traditional class inheritance.
+
+Instead, functionality is shared through traits, generic programming, and composition.
+
+Types can reuse behavior without becoming subtypes of one another.
+
+### Performance without manual memory management
+
+The language targets native compilation and efficient runtime behavior.
+
+Programmers should not need to manually allocate and release ordinary objects. Memory-management operations are inserted and optimized by the compiler.
+
+Potentially expensive object copies must be explicit.
+
+---
+
+## 3. Documents
+
+The design is split across these files in `docs/`.
+
+| File | Covers |
+|---|---|
+| `lang-desc.txt` | This overview, compiler responsibilities, and open questions. |
+| `lang-syntax.txt` | Statements, variables, operators and precedence, control flow. |
+| `lang-types.txt` | Primitive types, numbers, strings, tuples, function types, equality, maps. |
+| `lang-functions.txt` | Functions, return types, unused values, call syntax. |
+| `lang-modules.txt` | Structs, source files, finding modules, imports, program entry, constructors. |
+| `lang-traits.txt` | Traits, composition, overriding, generics. |
+| `lang-symbols.txt` | The `Sym` type and what it is used for. |
+| `lang-errors.txt` | The full error-handling rules for `Sym`, with examples. |
+| `lang-pipelines.txt` | The pipeline operator and pattern matching. |
+| `lang-memory.txt` | Reference counting, borrowing, `const`, resource cleanup. |
+| `lang-collections.txt` | Collection operations, ordering, groups, and the collection trait. |
+| `lang-stdlib.txt` | The standard library and the JSON example. |
+| `lang-ex-base.txt` | A running syntax sample. |
+
+---
+
+## 4. Compiler Responsibilities
+
+The compiler is expected to handle much of the complexity that programmers traditionally manage manually.
+
+Its responsibilities include:
+
+**Type checking**
+- Static type inference and validation.
+- Generic constraint checking.
+- Trait implementation verification.
+- Typed symbol compatibility.
+
+**Control-flow validation**
+- Pattern-match exhaustiveness.
+- Error propagation.
+- Mandatory acknowledgement of recoverable errors.
+- Validation of implicit function returns.
+
+**Memory safety**
+- Automatic reference-count operations.
+- Retain/release optimization.
+- Borrow checking.
+- Prevention of mutation through immutable references.
+- Protection against invalid ownership and lifetime transitions.
+- Integration with cycle collection.
+
+**Encapsulation**
+- Module-based visibility.
+- Private-field access enforcement.
+- Safe object initialization.
+- Trait-method resolution and override checking.
+
+The compiler should provide actionable error messages rather than requiring programmers to understand internal ownership machinery.
+
+### Compilation strategy
+
+The first compiler is written in C and emits C, which an existing C compiler turns into a native binary.
+
+The long-term goal is to bootstrap: most of the compiler will be rewritten in the language itself, reusing the same C output and runtime.
+
+### First version
+
+The first version of the compiler handles a single source file and this part of the language:
+
+- `main()` as the program's entry point.
+- `bool`, `chr`, `str`, and every integer and floating-point type.
+- `let` and `var`, with optional type annotations, and literals that take their type from context.
+- Arithmetic with overflow and division-by-zero panics, comparisons, `and`, `or`, and `!`.
+- Functions with typed parameters and inferred, partly written, or fully written return types.
+- `if` as a value, `while`, `for` over ranges, `break`, and `continue`.
+- Structs, `impl` blocks, struct literals, method calls with `.`, and `&` parameters.
+- `Sym` with named sets, `?`, `!`, `|>` match blocks, exhaustiveness checking, error accumulation, and the rule that a call that can fail is handled where it is made.
+- `|>` calls.
+- `print`, the `str(...)` converter, and the numeric converters such as `int(...)` and `dub(...)`.
+- Reference counting for structs and strings, without the cycle collector.
+
+These come in later versions: `const`, lambdas and `Fn`, `Vec` and the collection functions, named tuples, maps, traits, generics written by the programmer, modules and finding them by name, and the cycle collector.
+
+The plan for building it is in `docs/plans/`.
+
+---
+
+## 5. Features Still Under Consideration
+
+The following areas are not fully specified and should not be assumed to have final behavior:
+
+1. Enforcing `const` for values returned by calls that are still referenced elsewhere, and for mutable objects stored inside a `const` value. Storing a `const` or read-only reference is already prevented (`lang-memory.txt`, "Storing references").
+2. Shallow versus deep cloning rules.
+3. Trait coherence and conflict resolution.
+4. Weak-reference syntax and runtime representation.
+5. Scoped resource cleanup such as `defer`.
+6. Async programming and concurrency.
+7. ABI and foreign-function interfaces.
+8. Catching a misspelled symbol tag in a function whose return type is inferred.
+9. Whether a type can be given an `impl` block outside its defining module.
+10. Nested modules, for which the `mod` keyword is reserved.
+11. How a type of your own converts with `str(value)` and the other converters.
+
+These are design questions rather than commitments to specific implementations.
+
+---
+
+## 6. Guidance for Coding Agents
+
+When implementing or extending this language, follow these principles:
+
+- **Preserve simplicity.** Prefer extending existing abstractions over introducing overlapping syntax.
+- **Avoid inheritance.** Use traits, composition, and generics for behavior reuse.
+- **Keep borrowing lightweight.** Retain `&` for mutable access and ordinary type parameters for immutable borrowing.
+- **Keep memory management automatic.** Use ORC; do not introduce manual reference-count requirements into ordinary application code.
+- **Never silently clone objects.** Use explicit `.clone()` for independent object duplication.
+- **Preserve `const` guarantees.** Do not allow mutation through shared aliases or returned references.
+- **Enforce recoverable errors.** Do not allow fallible operations to be silently discarded.
+- **Keep `|>` generic.** The pipeline transfers values; pattern matching handles destructuring and branching.
+- **Favor declarative collection operations.** Avoid repetitive loops when an existing iterator clearly expresses the operation.
+- **Maintain module privacy.** Public types may still have private fields and controlled construction.
+- **Keep external resource cleanup explicit.** Do not rely on GC timing to close files or connections.
+- **Do not assume unresolved features are finalized.** When implementing an ambiguous case, identify the required semantic decision rather than inventing an implicit guarantee.
+
+Examples in these documents describe the intended language behavior. They are not necessarily executable in the current compiler.
+
+---
+
+## Long-Term Vision
+
+The language aims to occupy a middle ground between traditional systems languages and high-level application languages.
+
+It seeks to offer the control and static guarantees associated with Rust, the convenient abstractions of Kotlin and modern functional languages, and the automatic memory management of Nim's ORC model.
+
+The programmer should focus primarily on **what the program does**, while the compiler handles routine memory management, type checking, borrow validation, and error-safety enforcement.
+
+The ultimate goal is a language that is expressive enough for everyday application development, predictable enough for performance-sensitive software, and simple enough that developers can understand its behavior without mastering a large collection of special rules.

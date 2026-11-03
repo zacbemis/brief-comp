@@ -172,7 +172,7 @@ main() { make(0)
 
 # First-version prose rules. Fence 10 itself stays deferred: Json.Error is a
 # module-qualified type, not the local alias below. No module/JSON API is claimed.
-file(READ "${ROOT}/docs/lang-symbols.txt" document)
+file(READ "${ROOT}/docs/v0/lang-symbols.txt" document)
 string(REGEX REPLACE "[\r\n ]+" " " prose "${document}")
 function(require_prose text)
     string(FIND "${prose}" "${text}" at)

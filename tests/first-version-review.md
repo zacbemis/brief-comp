@@ -1,6 +1,6 @@
 # M6 first-version review and completion decision
 
-The review is anchored to `docs/lang-desc.txt`, **First version**, and the goal
+The review is anchored to `docs/v0/lang-desc.txt`, **First version**, and the goal
 and M6 definition of done in `docs/plans/first-version.txt`. The eleven scope
 bullets have an existing evidence map in [doc-overview.md](doc-overview.md);
 [doc-acceptance.md](doc-acceptance.md) inventories all thirteen chapter audits.
@@ -266,7 +266,7 @@ cases and **106** checked-in parser fixtures.
 
 ## Completion decision
 
-**M0–M6 are complete for the first-version scope in `docs/lang-desc.txt`.**
+**M0–M6 are complete for the first-version scope in `docs/v0/lang-desc.txt`.**
 The decision combines the explicit chapter/example classifications, intended
 error checks and diagnostic improvements, implementation-to-scope review,
 independent boundary regressions, the follow-up fixes, bounded validation

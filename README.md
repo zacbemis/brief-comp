@@ -5,7 +5,7 @@ written in C and emits readable C, then invokes an existing C compiler to
 produce a native program.
 
 **The first-version compiler is complete (milestones 0–6)** for the scope in
-[`docs/lang-desc.txt`](docs/lang-desc.txt): native compilation, numbers, control
+[`docs/v0/lang-desc.txt`](docs/v0/lang-desc.txt): native compilation, numbers, control
 flow, heap strings, structs, methods, reference counting, pipelines,
 scalar/symbol/string matching, named symbol sets, success/error inference,
 `?`/`!` handling and numeric/string conversions.
@@ -138,9 +138,9 @@ Compilation supports:
   Parsing text returns `:invalid(original)` on bad syntax or range, with binary-safe
   full-input validation. Floating decimal text rounds directly to its destination
   width. Conversions work with pipelines, matching,
-  `?` and `!`; see `docs/lang-types.txt` for the exact rules.
+  `?` and `!`; see `docs/v0/lang-types.txt` for the exact rules.
 - Immutable heap strings, `+`/`+=`, bytewise comparisons, and `str(number)` /
-  `str(bool)` conversions. See `docs/lang-types.txt` for formatting choices.
+  `str(bool)` conversions. See `docs/v0/lang-types.txt` for formatting choices.
 - Nominal structs, complete named field initialization, field reads/writes and
   numeric field updates, `impl`, associated/receiver calls, and `Self`.
   Ordinary parameters and their direct local/field aliases are read-only; `&`
@@ -250,7 +250,7 @@ Wide and combining characters do not yet have special display-width handling.
 
 ## Design and implementation plan
 
-- [Language overview and first-version scope](docs/lang-desc.txt)
+- [Language overview and first-version scope](docs/v0/lang-desc.txt)
 - [Syntax](docs/lang-syntax.txt)
 - [Types](docs/lang-types.txt)
 - [Functions](docs/lang-functions.txt)

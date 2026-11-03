@@ -1,4 +1,4 @@
-# M6 acceptance slice: `docs/lang-memory.txt`
+# M6 acceptance slice: `docs/v0/lang-memory.txt`
 
 `test_doc_memory.cmake` reads all **17 code fences** from the document. Ten are
 represented in **48 native/diagnostic cases**; fences **4, 6 and 7 are partial**.

@@ -1,0 +1,109 @@
+# Traits and Composition
+
+> Part of the language design. `lang-desc.txt` has the overview and the list of documents.
+
+The language does not support traditional class inheritance.
+
+Instead, traits define shared capabilities and reusable default behavior.
+
+Traits may contain both required methods and methods with default implementations.
+
+## Example: shared user behavior
+
+```
+pub trait HasUser {
+  getUser(value: Self): User
+
+  pub getName(value: Self): str {
+    value.getUser().name
+  }
+
+  pub getAge(value: Self): int {
+    value.getUser().age
+  }
+
+  pub getAgeRange(value: Self): Sym<:adult, :senior> {
+    value.getAge() |> {
+      < 100 => :adult
+      >= 100 => :senior
+    }
+  }
+}
+```
+
+`Self` represents the concrete type implementing the trait.
+
+A type implementing `HasUser` only needs to provide the required `getUser()` function to receive the default methods.
+
+```
+impl User: HasUser {
+  getUser(user: User): User {
+    user
+  }
+}
+```
+
+A composed type can reuse the behavior:
+
+```
+pub Admin {
+  user: User
+  tier: int
+}
+
+impl Admin: HasUser {
+  getUser(admin: Admin): User {
+    admin.user
+  }
+}
+```
+
+Now both `User` and `Admin` support:
+
+```
+user.getName()
+admin.getName()
+
+user.getAge()
+admin.getAge()
+```
+
+This avoids repeated method implementations and artificial inheritance hierarchies.
+
+## Overriding default behavior
+
+The `ovr` keyword explicitly replaces a trait's default implementation.
+
+```
+impl Admin: HasUser {
+  getUser(admin: Admin): User {
+    admin.user
+  }
+
+  ovr pub getName(admin: Admin): str {
+    "Admin: " + admin.user.getName()
+  }
+}
+```
+
+Default trait methods calling other trait methods should resolve to the implementing type's applicable implementation, including overrides.
+
+Trait-method conflicts and implementation coherence rules still require further specification.
+
+## Generics
+
+Generic types and trait-constrained implementations are planned as the primary mechanism for reusing algorithms across different types.
+
+Proposed syntax:
+
+```
+pub Collection<T> {
+  items: Vec<T>
+}
+
+impl<T: HasUser> Collection<T> {
+  // Functions available when T implements HasUser
+}
+```
+
+Generics do not imply inheritance or automatically allow unrelated concrete types to be stored interchangeably.
