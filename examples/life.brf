@@ -1,0 +1,152 @@
+// Conway's Game of Life on an 8x8 board that wraps at the edges. The whole
+// board is one ulng: cell (row, col) is bit row * 8 + col. A linked history
+// of earlier boards detects when a pattern dies, freezes or starts repeating.
+
+History {
+  board: ulng
+  generation: int
+  older: Sym<:none, :more(History)>
+}
+
+bit(row: int, col: int): ulng {
+  let r = (row + 8) % 8
+  let c = (col + 8) % 8
+  // The index is never negative, so the signed-to-unsigned conversion
+  // cannot fail; ! would panic if it did.
+  ulng(1) << ulng(r * 8 + c)!
+}
+
+alive(board: ulng, row: int, col: int): bool { board & bit(row, col) != 0 }
+
+neighbors(board: ulng, row: int, col: int): int {
+  var count = 0
+  for dr in -1..2 {
+    for dc in -1..2 {
+      if (dr != 0 or dc != 0) and alive(board, row + dr, col + dc) { count++ }
+    }
+  }
+  count
+}
+
+step(board: ulng): ulng {
+  var next: ulng = 0
+  for row in 0..8 {
+    for col in 0..8 {
+      let n = neighbors(board, row, col)
+      let lives = if alive(board, row, col) { n == 2 or n == 3 } else { n == 3 }
+      if lives { next = next | bit(row, col) }
+    }
+  }
+  next
+}
+
+population(board: ulng): int {
+  var count = 0
+  var rest = board
+  while rest != 0 {
+    rest = rest & (rest - 1) // clears the lowest set bit
+    count++
+  }
+  count
+}
+
+// Sets the listed columns of one row. Without string indexing, a row is
+// written as a list of column numbers rather than as text.
+place(board: ulng, row: int, cols: Sym<:none, :col(Cell)>): ulng {
+  cols |> {
+    :none => board
+    :col(cell) => place(board | bit(row, cell.col), row, cell.rest)
+  }
+}
+
+Cell {
+  col: int
+  rest: Sym<:none, :col(Cell)>
+}
+
+cells(a: int, b: int, c: int): Sym<:none, :col(Cell)> {
+  :col(Cell { col: a, rest: :col(Cell { col: b, rest: :col(Cell { col: c, rest: :none }) }) })
+}
+
+show(board: ulng) {
+  for row in 0..8 {
+    var line = " "
+    for col in 0..8 { line += if alive(board, row, col) { " #" } else { " ." } }
+    print(line)
+  }
+}
+
+// Returns the generation at which `board` appeared before, if it did.
+seen(history: History, board: ulng): Sym<:ok(int), :none> {
+  if history.board == board { ret history.generation }
+  history.older |> {
+    :none => :none
+    :more(older) => seen(older, board)?
+  }
+}
+
+describe(outcome: Sym<:dead(int), :still(int), :cycle(Period), :running(int)>) {
+  outcome |> {
+    :dead(g) => print("  died out at generation " + str(g))
+    :still(g) => print("  froze into a still life at generation " + str(g))
+    :cycle(p) => print("  repeats every " + str(p.length) + " generations from generation " + str(p.start))
+    :running(g) => print("  still changing after " + str(g) + " generations")
+  }
+}
+
+Period {
+  start: int
+  length: int
+}
+
+run(name: str, start: ulng, limit: int, frames: int) {
+  print("== " + name + " (" + str(population(start)) + " cells)")
+  show(start)
+  var history = History { board: start, generation: 0, older: :none }
+  var board = start
+  for generation in 1..limit + 1 {
+    board = step(board)
+    if generation <= frames {
+      print("  generation " + str(generation) + ":")
+      show(board)
+    }
+    if board == 0 {
+      describe(:dead(generation))
+      ret
+    }
+    seen(history, board) |> {
+      :ok(earlier) => {
+        let length = generation - earlier
+        if length == 1 { describe(:still(earlier)) } else {
+          describe(:cycle(Period { start: earlier, length: length }))
+        }
+        ret
+      }
+      :none => ()
+    }
+    history = History { board: board, generation: generation, older: :more(history) }
+  }
+  describe(:running(limit))
+}
+
+main() {
+  var blinker: ulng = 0
+  blinker = place(blinker, 3, cells(2, 3, 4))
+  run("Blinker", blinker, 10, 1)
+
+  var glider: ulng = 0
+  glider = glider | bit(0, 1) | bit(1, 2)
+  glider = place(glider, 2, cells(0, 1, 2))
+  run("Glider", glider, 64, 4)
+
+  var block: ulng = bit(1, 1) | bit(1, 2) | bit(2, 1) | bit(2, 2)
+  block = block | bit(5, 5)
+  run("Block with a stray cell", block, 10, 1)
+
+  var pentomino: ulng = bit(2, 3) | bit(2, 4) | bit(4, 3)
+  pentomino = place(pentomino, 3, cells(2, 3, 3))
+  run("R-pentomino on a small torus", pentomino, 200, 0)
+
+  var lonely: ulng = bit(0, 0) | bit(4, 4)
+  run("Two lonely cells", lonely, 10, 0)
+}

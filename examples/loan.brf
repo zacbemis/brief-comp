@@ -1,0 +1,192 @@
+// Loan amortization calculator. Money is kept in integer cents and rates in
+// basis points (650 = 6.50% a year), so every figure is exact. The monthly
+// payment is the smallest whole-cent amount that repays the loan in its term,
+// found by binary search over a month-by-month simulation.
+
+type LoanError = Sym<:badPrincipal(lng), :badRate(int), :badTerm(int)>
+
+Loan {
+  principal: lng
+  rateBps: int
+  months: int
+}
+
+Summary {
+  payment: lng
+  months: int
+  interest: lng
+}
+
+// Monthly interest on a balance, rounded half up to the cent.
+interest(balance: lng, rateBps: int): lng {
+  (balance * lng(rateBps) + 60000) / 120000
+}
+
+money(cents: lng): str {
+  let negative = cents < 0
+  var rest = if negative { -cents } else { cents }
+  let fraction = rest % 100
+  rest = rest / 100
+  var whole = ""
+  while rest >= 1000 {
+    let group = rest % 1000
+    let zeros = if group < 10 { "00" } else { if group < 100 { "0" } else { "" } }
+    whole = "," + zeros + str(group) + whole
+    rest = rest / 1000
+  }
+  whole = str(rest) + whole
+  let cents2 = if fraction < 10 { "0" + str(fraction) } else { str(fraction) }
+  (if negative { "-$" } else { "$" }) + whole + "." + cents2
+}
+
+percent(bps: int): str {
+  let hundredths = bps % 100
+  str(bps / 100) + "." + (if hundredths < 10 { "0" } else { "" }) +
+    str(hundredths) + "%"
+}
+
+digits(n: lng): int {
+  var count = 1
+  var rest = n / 10
+  while rest > 0 {
+    count++
+    rest = rest / 10
+  }
+  count
+}
+
+// The language has no string length yet, so each formatter knows the width
+// of what it produced.
+moneyWidth(cents: lng): int {
+  let whole = (if cents < 0 { -cents } else { cents }) / 100
+  let d = digits(whole)
+  (if cents < 0 { 2 } else { 1 }) + d + (d - 1) / 3 + 3
+}
+
+right(text: str, length: int, width: int): str {
+  var padded = text
+  for i in length..width { padded = " " + padded }
+  padded
+}
+
+column(cents: lng, width: int): str {
+  right(money(cents), moneyWidth(cents), width)
+}
+
+impl Loan {
+  new(principal: lng, rateBps: int, years: int): Sym<:ok(Self), LoanError> {
+    if principal <= 0 { ret :badPrincipal(principal) }
+    if rateBps < 0 or rateBps > 5000 { ret :badRate(rateBps) }
+    if years < 1 or years > 50 { ret :badTerm(years) }
+    Self { principal: principal, rateBps: rateBps, months: years * 12 }
+  }
+
+  // Simulates paying `payment` (plus `extra`) every month. Returns the months
+  // taken and total interest, or the balance left if the term runs out.
+  simulate(loan: Self, payment: lng, extra: lng):
+    Sym<:ok(Summary), :unpaid(lng)> {
+    var balance = loan.principal
+    var paid: lng = 0
+    for month in 1..loan.months + 1 {
+      let due = interest(balance, loan.rateBps)
+      paid += due
+      balance += due
+      balance -= payment + extra
+      if balance <= 0 {
+        ret :ok(Summary { payment: payment, months: month, interest: paid })
+      }
+    }
+    :unpaid(balance)
+  }
+
+  payment(loan: Self): lng {
+    var low: lng = 0
+    var high = loan.principal + interest(loan.principal, loan.rateBps)
+    while low < high {
+      let middle = (low + high) / 2
+      loan.simulate(middle, 0) |> {
+        :ok(_) => high = middle
+        :unpaid(_) => low = middle + 1
+      }
+    }
+    low
+  }
+
+  summary(loan: Self, extra: lng): Summary {
+    let payment = loan.payment()
+    loan.simulate(payment, extra) |> {
+      :ok(result) => result
+      :unpaid(_) => Summary { payment: payment, months: loan.months, interest: 0 }
+    }
+  }
+
+  schedule(loan: Self) {
+    let payment = loan.payment()
+    print("month      payment     interest    principal        balance")
+    var balance = loan.principal
+    for month in 1..loan.months + 1 {
+      let due = interest(balance, loan.rateBps)
+      let amount = if payment < balance + due { payment } else { balance + due }
+      balance = balance + due - amount
+      if month <= 3 or month % 60 == 0 or month == loan.months {
+        print(right(str(month), digits(lng(month)), 5) + column(amount, 13) +
+          column(due, 13) + column(amount - due, 13) + column(balance, 15))
+      }
+    }
+  }
+}
+
+amount(n: int, unit: str): str {
+  str(n) + " " + unit + (if n == 1 { "" } else { "s" })
+}
+
+describe(name: str, loan: Loan) {
+  let plain = loan.summary(0)
+  print(name + ": " + money(loan.principal) + " at " + percent(loan.rateBps) +
+    " over " + amount(loan.months / 12, "year"))
+  print("  monthly payment " + money(plain.payment) + ", total interest " +
+    money(plain.interest) + ", total paid " +
+    money(loan.principal + plain.interest))
+  let extra = loan.summary(20000)
+  let saved = plain.months - extra.months
+  print("  paying $200.00 extra each month: done in " +
+    amount(extra.months, "month") + ", " + amount(saved / 12, "year") +
+    " and " + amount(saved % 12, "month") + " early, saving " +
+    money(plain.interest - extra.interest))
+}
+
+explain(e: LoanError): str {
+  e |> {
+    :badPrincipal(p) => "the principal " + money(p) + " must be positive"
+    :badRate(r) => "the rate " + percent(r) + " is outside 0%-50%"
+    :badTerm(t) => "a " + str(t) + "-year term is outside 1-50 years"
+  }
+}
+
+// A fallible call is handled where it is made, here with a match.
+attempt(principal: lng, rateBps: int, years: int) {
+  Loan.new(principal, rateBps, years) |> {
+    :ok(loan) => print("accepted " + money(loan.principal))
+    problem => print("rejected: " + explain(problem))
+  }
+}
+
+main(): Sym<:ok, LoanError> {
+  let mortgage = Loan.new(35000000, 650, 30)?
+  describe("30-year mortgage", mortgage)
+  let shorter = Loan.new(35000000, 600, 15)?
+  describe("15-year mortgage", shorter)
+  let car = Loan.new(2800000, 799, 5)?
+  describe("Car loan", car)
+  let free = Loan.new(120000, 0, 1)?
+  describe("Interest-free plan", free)
+
+  print("")
+  print("Car loan schedule (first months, every fifth year, and the last):")
+  car.schedule()
+
+  print("")
+  attempt(0, 500, 10)
+  attempt(100000, 9000, 10)
+  attempt(100000, 500, 80)
+}

@@ -1,0 +1,215 @@
+// Calendar toolkit: validated dates, weekdays, date arithmetic, business
+// days, Easter Sunday and a printed month grid. Dates use the proleptic
+// Gregorian calendar, counting days from 0001-01-01 (a Monday).
+
+type DateError = Sym<:badYear(int), :badMonth(int), :badDay(int)>
+
+Date {
+  year: int
+  month: int
+  day: int
+}
+
+leap(year: int): bool {
+  year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+}
+
+daysIn(year: int, month: int): int {
+  month |> {
+    2 => if leap(year) { 29 } else { 28 }
+    4 => 30
+    6 => 30
+    9 => 30
+    11 => 30
+    _ => 31
+  }
+}
+
+yearLength(year: int): int { if leap(year) { 366 } else { 365 } }
+
+pad(n: int, width: int): str {
+  var text = str(n)
+  var digits = 1
+  var rest = n / 10
+  while rest > 0 {
+    digits++
+    rest = rest / 10
+  }
+  for i in digits..width { text = "0" + text }
+  text
+}
+
+monthName(month: int): str {
+  month |> {
+    1 => "January"
+    2 => "February"
+    3 => "March"
+    4 => "April"
+    5 => "May"
+    6 => "June"
+    7 => "July"
+    8 => "August"
+    9 => "September"
+    10 => "October"
+    11 => "November"
+    _ => "December"
+  }
+}
+
+dayName(weekday: int): str {
+  weekday |> {
+    0 => "Monday"
+    1 => "Tuesday"
+    2 => "Wednesday"
+    3 => "Thursday"
+    4 => "Friday"
+    5 => "Saturday"
+    _ => "Sunday"
+  }
+}
+
+impl Date {
+  new(year: int, month: int, day: int): Sym<:ok(Self), DateError> {
+    if year < 1 or year > 9999 { ret :badYear(year) }
+    if month < 1 or month > 12 { ret :badMonth(month) }
+    if day < 1 or day > daysIn(year, month) { ret :badDay(day) }
+    Self { year: year, month: month, day: day }
+  }
+
+  // Days since 0001-01-01.
+  ordinal(d: Self): int {
+    let y = d.year - 1
+    var days = y * 365 + y / 4 - y / 100 + y / 400
+    for m in 1..d.month { days += daysIn(d.year, m) }
+    days + d.day - 1
+  }
+
+  fromOrdinal(n: int): Self {
+    // Every 400 years repeat exactly: 146097 days.
+    var year = 1 + n / 146097 * 400
+    var rest = n % 146097
+    while rest >= yearLength(year) {
+      rest -= yearLength(year)
+      year++
+    }
+    var month = 1
+    while rest >= daysIn(year, month) {
+      rest -= daysIn(year, month)
+      month++
+    }
+    Self { year: year, month: month, day: rest + 1 }
+  }
+
+  weekday(d: Self): int { d.ordinal() % 7 }
+
+  dayOfYear(d: Self): int {
+    var total = d.day
+    for m in 1..d.month { total += daysIn(d.year, m) }
+    total
+  }
+
+  addDays(d: Self, n: int): Self { Self.fromOrdinal(d.ordinal() + n) }
+
+  label(d: Self): str {
+    pad(d.year, 4) + "-" + pad(d.month, 2) + "-" + pad(d.day, 2)
+  }
+}
+
+daysBetween(from: Date, to: Date): int { to.ordinal() - from.ordinal() }
+
+// Weekdays (Monday to Friday) in [from, to).
+businessDays(from: Date, to: Date): int {
+  let total = daysBetween(from, to)
+  var count = total / 7 * 5
+  var weekday = from.weekday()
+  for i in 0..total % 7 {
+    if weekday < 5 { count++ }
+    weekday = (weekday + 1) % 7
+  }
+  count
+}
+
+// The anonymous Gregorian algorithm (Meeus/Jones/Butcher).
+easter(year: int): Date {
+  let a = year % 19
+  let b = year / 100
+  let c = year % 100
+  let h = (19 * a + b - b / 4 - (b - (b + 8) / 25 + 1) / 3 + 15) % 30
+  let l = (32 + 2 * (b % 4) + 2 * (c / 4) - h - c % 4) % 7
+  let m = (a + 11 * h + 22 * l) / 451
+  let n = h + l - 7 * m + 114
+  Date { year: year, month: n / 31, day: n % 31 + 1 }
+}
+
+explain(e: DateError): str {
+  e |> {
+    :badYear(y) => "year " + str(y) + " is outside 1-9999"
+    :badMonth(m) => "month " + str(m) + " is outside 1-12"
+    :badDay(d) => "day " + str(d) + " does not exist in that month"
+  }
+}
+
+check(year: int, month: int, day: int) {
+  Date.new(year, month, day) |> {
+    :ok(d) => print(d.label() + " is a " + dayName(d.weekday()) +
+      ", day " + str(d.dayOfYear()) + " of the year")
+    problem => print(pad(year, 4) + "-" + pad(month, 2) + "-" + pad(day, 2) +
+      " rejected: " + explain(problem))
+  }
+}
+
+printMonth(year: int, month: int): Sym<:ok, DateError> {
+  let first = Date.new(year, month, 1)?
+  print("")
+  print("   " + monthName(month) + " " + str(year))
+  print("Mo Tu We Th Fr Sa Su")
+  var line = ""
+  var column = first.weekday()
+  for i in 0..column { line += "   " }
+  for day in 1..daysIn(year, month) + 1 {
+    if column > 0 { line += " " }
+    line += if day < 10 { " " + str(day) } else { str(day) }
+    column++
+    if column == 7 {
+      print(line)
+      line = ""
+      column = 0
+    }
+  }
+  if column > 0 { print(line) }
+}
+
+main(): Sym<:ok, DateError> {
+  print("== Checking dates")
+  check(1969, 7, 20)
+  check(2000, 1, 1)
+  check(2024, 2, 29)
+  check(2023, 2, 29)
+  check(2024, 13, 1)
+  check(0, 1, 1)
+
+  print("")
+  print("== Date arithmetic")
+  let start = Date.new(2024, 1, 15)?
+  let deadline = Date.new(2024, 3, 1)?
+  print("From " + start.label() + " to " + deadline.label() + ": " +
+    str(daysBetween(start, deadline)) + " days, " +
+    str(businessDays(start, deadline)) + " business days")
+  print("90 days after " + start.label() + " is " + start.addDays(90).label())
+  print("1000 days before " + start.label() + " is " +
+    start.addDays(-1000).label())
+  let epoch = Date.new(1970, 1, 1)?
+  print("The Unix epoch is day " + str(epoch.ordinal()) +
+    " counted from 0001-01-01")
+  print("Round trip of day 738000: " + Date.fromOrdinal(738000).label())
+
+  print("")
+  print("== Easter Sunday")
+  for year in 2024..2031 {
+    let day = easter(year)
+    print(str(year) + ": " + monthName(day.month) + " " + str(day.day))
+  }
+
+  printMonth(2024, 2)?
+  printMonth(2026, 10)?
+}

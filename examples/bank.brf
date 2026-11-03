@@ -1,0 +1,247 @@
+// A small bank ledger: accounts with transaction histories, deposits,
+// withdrawals and transfers that validate before moving money, monthly
+// interest for savings, and statements. Errors are typed symbols; transfer
+// has no written return type, so its error set is inferred from the
+// functions it calls, and callers must handle every case.
+
+type Kind = Sym<:checking, :savings>
+type BankError = Sym<:noAccount(int), :badAmount(lng), :frozen(int),
+  :insufficient(Shortfall), :sameAccount>
+
+Shortfall {
+  id: int
+  needed: lng
+}
+
+Entry {
+  label: str
+  amount: lng
+  balance: lng
+  older: Sym<:none, :more(Entry)>
+}
+
+Account {
+  id: int
+  owner: str
+  kind: Kind
+  balance: lng
+  frozen: bool
+  history: Sym<:none, :more(Entry)>
+}
+
+Node {
+  account: Account
+  next: Sym<:none, :more(Node)>
+}
+
+Bank {
+  name: str
+  accounts: Sym<:none, :more(Node)>
+  nextId: int
+}
+
+money(cents: lng): str {
+  let sign = if cents < 0 { "-" } else { "" }
+  let whole = (if cents < 0 { -cents } else { cents })
+  let fraction = whole % 100
+  sign + "$" + str(whole / 100) + "." + (if fraction < 10 { "0" } else { "" }) +
+    str(fraction)
+}
+
+kindName(kind: Kind): str {
+  kind |> {
+    :checking => "checking"
+    :savings => "savings"
+  }
+}
+
+impl Account {
+  record(account: &Self, label: str, amount: lng) {
+    account.balance += amount
+    account.history = :more(Entry {
+      label: label
+      amount: amount
+      balance: account.balance
+      older: account.history
+    })
+  }
+
+  deposit(account: &Self, amount: lng, label: str):
+    Sym<:ok, :badAmount(lng), :frozen(int)> {
+    if amount <= 0 { ret :badAmount(amount) }
+    if account.frozen { ret :frozen(account.id) }
+    account.record(label, amount)
+  }
+
+  // The withdrawal's error set is inferred: :badAmount, :frozen and
+  // :insufficient, from the returns below.
+  withdraw(account: &Self, amount: lng, label: str) {
+    if amount <= 0 { ret :badAmount(amount) }
+    if account.frozen { ret :frozen(account.id) }
+    if amount > account.balance {
+      ret :insufficient(Shortfall { id: account.id, needed: amount - account.balance })
+    }
+    account.record(label, -amount)
+  }
+}
+
+impl Bank {
+  new(name: str): Self { Self { name: name, accounts: :none, nextId: 100 } }
+
+  open(bank: &Self, owner: str, kind: Kind): Account {
+    let account = Account {
+      id: bank.nextId
+      owner: owner
+      kind: kind
+      balance: 0
+      frozen: false
+      history: :none
+    }
+    bank.nextId++
+    bank.accounts = :more(Node { account: account, next: bank.accounts })
+    account
+  }
+
+  // Taking the bank as & makes the account it returns writable.
+  find(bank: &Self, id: int): Sym<:ok(Account), :noAccount(int)> {
+    var cursor = bank.accounts
+    while true {
+      let node = cursor |> {
+        :none => ret :noAccount(id)
+        :more(node) => node
+      }
+      if node.account.id == id { ret node.account }
+      cursor = node.next
+    }
+  }
+
+  // Checks everything before moving money, so a failed transfer changes
+  // nothing. The return type is inferred from every ? and ret.
+  transfer(bank: &Self, from: int, to: int, amount: lng) {
+    if from == to { ret :sameAccount }
+    let source = bank.find(from)?
+    let target = bank.find(to)?
+    if target.frozen { ret :frozen(to) }
+    source.withdraw(amount, "transfer to #" + str(to))?
+    target.deposit(amount, "transfer from #" + str(from))?
+  }
+
+  // Adds a month of interest to every savings account.
+  interest(bank: &Self, yearlyBps: int) {
+    var cursor = bank.accounts
+    while true {
+      let node = cursor |> {
+        :none => break
+        :more(node) => node
+      }
+      let account = node.account
+      account.kind |> {
+        :savings => {
+          let earned = (account.balance * lng(yearlyBps) + 60000) / 120000
+          if earned > 0 { account.record("interest", earned) }
+        }
+        :checking => ()
+      }
+      cursor = node.next
+    }
+  }
+
+  report(bank: Self) {
+    print("== " + bank.name)
+    var checking: lng = 0
+    var savings: lng = 0
+    var cursor = bank.accounts
+    while true {
+      let node = cursor |> {
+        :none => break
+        :more(node) => node
+      }
+      let account = node.account
+      print("  #" + str(account.id) + " " + account.owner + " (" +
+        kindName(account.kind) + ")" + (if account.frozen { " [frozen]" } else { "" }) +
+        ": " + money(account.balance))
+      account.kind |> {
+        :checking => checking += account.balance
+        :savings => savings += account.balance
+      }
+      cursor = node.next
+    }
+    print("  total checking " + money(checking) + ", savings " + money(savings) +
+      ", held " + money(checking + savings))
+  }
+}
+
+// Prints oldest entries first by recursing to the end of the history.
+printHistory(history: Sym<:none, :more(Entry)>) {
+  history |> {
+    :none => ()
+    :more(entry) => {
+      printHistory(entry.older)
+      let sign = if entry.amount > 0 { "+" } else { "" }
+      print("    " + entry.label + ": " + sign + money(entry.amount) +
+        " -> " + money(entry.balance))
+    }
+  }
+}
+
+statement(account: Account) {
+  print("  statement for #" + str(account.id) + " " + account.owner)
+  printHistory(account.history)
+}
+
+explain(e: BankError): str {
+  e |> {
+    :noAccount(id) => "there is no account #" + str(id)
+    :badAmount(a) => money(a) + " is not a positive amount"
+    :frozen(id) => "account #" + str(id) + " is frozen"
+    :insufficient(s) => "account #" + str(s.id) + " is short by " + money(s.needed)
+    :sameAccount => "an account cannot transfer to itself"
+  }
+}
+
+attempt(bank: &Bank, from: int, to: int, amount: lng) {
+  let label = "transfer " + money(amount) + " #" + str(from) + " -> #" + str(to)
+  bank.transfer(from, to, amount) |> {
+    :ok => print("  ok: " + label)
+    problem => print("  refused: " + label + ": " + explain(problem))
+  }
+}
+
+main(): Sym<:ok, :badAmount(lng), :frozen(int)> {
+  let bank = Bank.new("Brief Savings & Loan")
+  let ada = bank.open("Ada", :checking)
+  let ada2 = bank.open("Ada", :savings)
+  let grace = bank.open("Grace", :checking)
+  let alan = bank.open("Alan", :savings)
+  ada.deposit(250000, "opening deposit")?
+  ada2.deposit(1000000, "opening deposit")?
+  grace.deposit(5000, "opening deposit")?
+  alan.deposit(42000, "opening deposit")?
+
+  print("== Transfers")
+  attempt(bank, ada.id, grace.id, 75050)
+  attempt(bank, grace.id, alan.id, 100000)
+  attempt(bank, ada.id, 999, 100)
+  attempt(bank, ada.id, ada.id, 100)
+  attempt(bank, ada2.id, ada.id, -5)
+  alan.frozen = true
+  attempt(bank, grace.id, alan.id, 1000)
+  alan.frozen = false
+  attempt(bank, ada2.id, alan.id, 12345)
+
+  ada.withdraw(20000, "rent") |> {
+    :ok => print("  ok: rent paid")
+    problem => print("  refused: rent: " + explain(problem))
+  }
+  grace.withdraw(1000000, "car") |> {
+    :ok => print("  ok: car bought")
+    problem => print("  refused: car: " + explain(problem))
+  }
+
+  for month in 1..4 { bank.interest(425) }
+  print("")
+  bank.report()
+  print("")
+  statement(ada2)
+  statement(grace)
+}
