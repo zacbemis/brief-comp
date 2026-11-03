@@ -620,6 +620,7 @@ them.
   by "Handling outcomes", Q10 by string interpolation and D12 by "Modules".
 - Order of work: settle these notes; apply them to the `lang-*.txt` documents
   (done, with the first version's documents kept in `docs/v0/`); plan the
-  changes to the C compiler and its tests; rewrite the bootstrap plan for the
+  changes to the C compiler and its tests (`docs/plans/next-version.txt`,
+  proposed); rewrite the bootstrap plan for the
   new syntax; then start the bootstrap. The Brief-written compiler should not
   be started in syntax that is about to change.

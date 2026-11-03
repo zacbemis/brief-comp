@@ -1,0 +1,233 @@
+# Plan: Moving the Compiler to the Next-Version Language
+
+> **Status: Proposed, not started.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
+
+## Goal
+
+The compiler accepts the language in `docs/lang-*.txt` for every feature the first version implements, with the new rules for errors, outcomes and methods, and rejects the old syntax with diagnostics that say what to write instead. Every existing test keeps its coverage in the new syntax.
+
+The plan is done when:
+
+- every program fixture, parser fixture and example program passes in the new syntax, with the same output, panics, exit status and error lines as before, except where this plan changes the meaning;
+- every code fence in the new documents is classified by an acceptance audit, and those in scope compile and behave as described;
+- the old grammar and the tests that read `docs/v0/` are gone.
+
+## Scope
+
+### In scope
+
+These are the first version's features in their new form, and the decisions in the notes that need no new runtime machinery.
+
+1. **Names.** The casing rules, enforced, with fix-its.
+2. **Declarations.** `Name = type` with no keyword; structs with functions inside them and no `impl` or `Self`; `self` and `&self`; methods inferred from the use of `self`; calls the wrong way rejected with a fix; `->` return types; struct literals with `=`; `pub` on functions and fields, and its rejection on types; a struct needs a field, and a field-less declaration is recognized as a trait and reported as not implemented yet.
+3. **Operators.** `not`, with an old-style prefix `!` rejected; `..=`; shift counts of any integer type.
+4. **Symbols.** `:name` and `:!name`; `[]` payloads with several values matched by position; unions written with `|`, including `_` in return types; one kind per name; `:none` reserved; recursion only through structs.
+5. **Errors and outcomes.** An outcome is a union with an error symbol. `?` and `!` act on errors only, and what is left follows the documented rule. Functions return exactly their type, and `:ok[T]` alone is `T`. Outcomes are handled at the call, by returning them as they are, or later from a binding. `main` exits 1 on an error symbol.
+6. **Bindings and loops.** Declared, then assigned (`let x: T`); `let ... else`; `for n: lng in ...`.
+7. **Strings.** Interpolation with `{...}` and the `\{` escape.
+
+### Out of scope
+
+These need new runtime types, several files or traits, and are planned elsewhere:
+
+- `Arr`, `Vec` and `Map`;
+- modules across files, together with imports, module-qualified tags (`Db.:!notFound`), merged symbols and `pub` across files;
+- `const`;
+- trait declarations and conformance;
+- generics, lambdas and `Fn` types;
+- named tuples;
+- the cycle collector.
+
+The parser accepts the syntax of the first three where it is cheap to parse, so the documents can be checked, and resolution reports each as `... are not implemented yet.`, as the first version does for later features.
+
+A single file is still one module. Tags are given module identity now (see "Symbols") so that modules do not need a second rework of symbol identity.
+
+## Principles
+
+- **Same meaning first, new meaning second.** The syntax switch (N1) changes no program's behavior, so every converted test must pass with its old expectations. That checks the conversion and the new front end against each other. Semantic changes follow in separate milestones, each with a short, reviewed list of tests whose expectations change. Scala 3 split its migration the same way: syntax rewrites first, and semantic incompatibilities handled separately ([Scala 3 migration guide](https://docs.scala-lang.org/scala3/guides/migration/tooling-migration-mode.html)).
+- **Convert by hand, guided by the compiler.** The old programs are small: about 1,600 lines of program fixtures, 1,400 lines of examples, the hand-written parser fixtures and the Brief inside the C tests, with 13 `impl` blocks in the fixtures and examples. That is less work than a migration tool such as Go's `gofix` or Scala 3's `-rewrite`, which pay off for large code bases. Plain renames such as `dub` to `dbl` and `):` before a return type are done with search and replace; `!` is changed by hand, since it also appears in `!=` and as the postfix panic. The rest is fixed by compiling each file with the new compiler and applying the fix-its its diagnostics give (see "Diagnostics carry their fix"), which also tests those diagnostics.
+- **One switch, no dual syntax.** The compiler accepts only the new grammar after N1. Rust's editions keep two grammars alive because an ecosystem of crates must keep compiling. Brief has no such ecosystem, and two grammars would double the parser and its tests. The first version stays in history at the tag `v0`.
+- **One flow analysis.** Read-only permissions, definite assignment and outcome handling are all forward data flow over the structured syntax tree, with joins at branches and fixed points at loops. `src/sema/permissions.c` already does this. The new checks reuse its framework instead of each writing its own, as Java's definite-assignment rules are written as one analysis over statements ([JLS chapter 16](https://docs.oracle.com/javase/specs/jls/se21/html/jls-16.html)).
+- **Diagnostics carry their fix.** Every error that has one right answer, such as `not` for `!`, `->` for `:`, `=` in a literal, `date.label()` for `Date.label()` or `maxUsers` for `MAX_USERS`, carries a replacement span and text. This follows Clang's fix-it hints and rustc's suggestions, and it is what makes converting the tests by hand quick.
+- **Milestones end with every test passing** in the full CI matrix (GCC and Clang with sanitizers, GCC Release, GCC without sanitizers) and with clang-format clean, as in the first version.
+
+## Design
+
+### Diagnostics (`src/common`)
+
+- A `Diagnostic` gains an optional list of fixes, each a span and replacement text. The printer shows each one after the excerpt and notes as a `help:` line: the source line with the replacement applied, and the fix's location when it is on another line or in another file.
+
+  ```
+  error: logical not is written `not`
+    --> users.brf:4:6
+    |
+  4 | if !user.isActive() {
+    |    ^
+  help: write `if not user.isActive() {`
+  ```
+
+- A fix is attached only when it is certainly right. If it is not, the message explains and no fix is given. This is the distinction rustc makes between machine-applicable suggestions and the rest.
+
+### Lexer (`src/lexer`)
+
+- **Two identifier tokens.** `TOK_IDENT` splits into `TOK_UPPER_NAME` and `TOK_LOWER_NAME` by the first byte, as OCaml's lexer splits `UIDENT` from `LIDENT` and Gleam's splits `UpName` from `Name`. The lexer only classifies. The parser decides which kind each position accepts and reports a wrongly cased name there with a fix, so a mistake gives one clear error instead of a cascade. `_` alone stays the wildcard. A name starting with `_` is reported as an error, because the documents do not allow it.
+- **Keywords.** `not` and `self` are added. `Sym`, `Self`, `type`, `impl`, `trait` and `ovr` stop being keywords: a remaining use is an ordinary name, and the parser reports it with the replacement (`Self` gets "there is no `Self`: name the type, as in `Date`"). `dub` is replaced by `dbl`, and an old `dub` is reported with a fix.
+- **Interpolation.** A string literal containing `{` is lexed in modes, as CPython does since PEP 701 with `FSTRING_START`, `FSTRING_MIDDLE` and `FSTRING_END` ([PEP 701 discussion](https://discuss.python.org/t/pep-701-syntactic-formalization-of-f-strings/22046/61)), and as Kotlin does with its template-entry tokens. The lexer emits `TOK_STR_START` (text before the first `{`), the ordinary tokens of the expression, `TOK_STR_PART` (text between `}` and the next `{`) and `TOK_STR_END`. A stack of brace depths, one entry per open string, tells the lexer which `}` ends an interpolation. A string without `{` stays one `TOK_STR_LIT`. `\{` is a new escape. A literal still has to close on its own line, so an interpolation cannot span lines.
+- **Other tokens.** `..=` and `.(` are new tokens. `:!` stays as two tokens, `:` and `!`, joined by the parser, which requires them to be adjacent.
+
+### Newline filter
+
+- A newline after `|`, `->`, `not`, `and` and `or` does not end a statement. `|` is already a binary operator, so union continuation needs no special rule.
+- The interpolation tokens open and close a bracket entry, treated like `(`.
+- `type`, `impl` and `pub` lose their continuation entries, and `import` keeps its own.
+
+### Parser (`src/parser`)
+
+- **Top-level declarations** are read by their first tokens:
+  - `UpperName =` is a type declaration;
+  - `UpperName {` or `UpperName: ...` is a struct or trait;
+  - `lowerName(` is a function;
+  - `const` and `import` keep their forms.
+- **Struct or trait.** The members inside `{ }` are parsed with one rule: `name: type` is a field and `name(...)` a function. A declaration with no fields becomes `DECL_TRAIT`. Deciding after the members are read avoids lookahead and gives one error ("a struct needs a field") in the right place.
+- **Functions** take `self` or `&self` as an optional first parameter, which is required in a trait and allowed only there. Return types follow `->`. A `:` there gets a fix.
+- **Types.** A type is read where a type is expected, not by guessing. Each type position calls the type parser: after `:` in a binding, field or parameter, after `->`, on the right of a type declaration, and inside the `[]` of a type. A union is one or more symbol entries or named types joined by `|`, with `_` allowed only where the checker accepts it. `Name[args]` gives type arguments.
+- **Symbols** are written `:name[...]` and `:!name[...]`, in expressions and patterns, with any number of payload values. Payload patterns bind by position. A typed binding (`p: str`) is parsed now and reported as not implemented until merged symbols exist.
+- **Expressions.** `not` is a prefix operator at the level of `-` and `~`. A prefix `!` is parsed in the same place and reported with its fix, so recovery continues normally. `.(` is a postfix index, which parses for the documents and is reported as not implemented until arrays exist. Struct literals use `name = value`, and a `:` in a literal gets a fix. Interpolated strings become `EXPR_INTERPOLATION` with alternating text and expression parts.
+- **Statements.** `let x: T` with no value, `let p = e else { ... }` and `for x: T in ...` are added.
+- **Type arguments in expressions** move from `<...>` to `[...]`. The generic-call lookahead and backtracking (`angle_end`, `close_angle`) is deleted, because `[` after a name can no longer mean anything else. That ambiguity was the reason the first version's lexer collected the whole token array; the array stays for recovery.
+- **The syntax tree.** `DECL_IMPL` and `TYPE_SYM` go. A struct declaration holds its fields and functions. A tag carries a kind and an optional module qualifier, and a payload holds a list of values. `ast_print` is updated, and its output format stays stable and address-free.
+
+### Resolution (`src/sema/sema.c`)
+
+- **Methods.** Before any body is checked, one syntactic walk of each struct function decides whether it uses `self`, including inside nested blocks and, later, lambdas. This needs no types, so it cannot interact with the return-type inference and its probes. No other language infers method-ness this way. Python and Rust make the receiver explicit, so the rule is kept as simple as possible: a mention of `self`, nothing else. A function that names `&self` is a method even if its body does not otherwise use `self`.
+- **Calls the wrong way.** A method called on the type, or an associated function called on a value, is reported with the documented message and a fix that rewrites the call.
+- **Casing** is checked where names are declared, not where they are used, so one wrongly named struct gives one error.
+- **Visibility.** `pub` on a type, alias or trait is an error with a fix that removes it. `pub` on functions and fields is recorded; with one file, it has no effect yet.
+- **Symbols.** `SemaTag` gains a kind (neutral or error) and a module. Its identity becomes the pair of module and name, and its program-global ID stays the number used in emitted C, so canonical symbol sets keep pointer identity and sorting by ID. A name used with both kinds in one module is an error that names both places. `:ok` and `:none` are shared tags with no module, and `:none` with a payload is an error.
+- **Recursion.** A union that contains itself through payloads, without a struct in between, is an error at its declaration. The first version already requires the struct indirection, and the message now says so in those terms.
+- **Not yet implemented** is reported for:
+  - traits and conformance lists;
+  - module-qualified tags and merged symbols;
+  - imports;
+  - `.(` indexing and `Arr`/`Vec`/`Map`;
+  - `const`;
+  - lambdas and `Fn`.
+
+  Each is reported once, without cascades, as the first version does for generics.
+
+### Checking (`src/sema/check.c`, `match.c`)
+
+- **Outcomes by kind.** `sema_failures` and the `:ok`-based tests are replaced by one question: does the union contain an error tag? `?` and `!` on a union without errors are errors, with a message that explains why.
+- **What is left after `?` or `!`.**
+  - The error tags are removed.
+  - One remaining tag gives its payload, or `()` when it has none.
+  - Several remaining tags give a narrower union, lowered with the existing `IR_SYMBOL_CAST`.
+- **Exact return types.** The implicit `:ok` around every result goes: `SemaExpr.adapt == 2` and the `outcome` flag on plain calls are removed.
+  - A union whose only tag is `:ok[T]` is interned as `T` itself, and `:ok` alone as `()`. This is done in `sema_symbol_set`, so every route to that type normalizes the same way.
+  - Wrapping a plain value in `:ok[...]` happens only where the expected result is a union containing `:ok`.
+  - Matching a plain value against `:ok[v]` is a type error.
+- **`:none`.**
+  - A function whose result includes `:none` returns `:none` when it ends without a value.
+  - A payload-less `:ok` together with `:none` is an error at the type.
+  - `?` and `!` ignore `:none`, because it is not an error.
+- **Returning an outcome as it is.** The existing `TAIL` use already reaches the final expression and the ends of branches. It now accepts an outcome there and in `ret e`, adds its errors to the function's result, and does not wrap it.
+- **Outcome bindings.** These are checked by the flow framework described next.
+- **`let ... else`** is checked as a match with two arms. Its value must contain `:none` or an error, and the bound value is what remains, by the same rule as `?`. The `else` block must not fall through, which the existing `returns` flag already records.
+- **Interpolation parts** must be values that `str(...)` accepts. Anything else is an error naming the type.
+- **Patterns.** `a..=b` becomes an inclusive range. Ranks are already inclusive internally, so coverage and unreachable-arm checks need no change.
+- **Shifts.** The count can be any integer type, and the result has the left side's type.
+
+### Flow analysis (`src/sema/flow.c`, new)
+
+The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `State`, `merge`) moves into a small framework that walks the checked tree. Each analysis supplies its state size, a join and its transfer functions. Permissions are ported first, with no change in behavior, then two analyses are added.
+
+- **Definite assignment** for `let x: T` and `var x: T` without a value. This follows Java's rules for blank finals ([JLS chapter 16](https://docs.oracle.com/javase/specs/jls/se21/html/jls-16.html)):
+  - each binding tracks "definitely assigned" and "definitely unassigned";
+  - a read needs the binding to be definitely assigned;
+  - an assignment to such a `let` needs it to be definitely unassigned;
+  - joins intersect the first set and the second;
+  - loops account for back edges, so a `let` assigned in a loop body is rejected.
+- **Outcome bindings**, handled exactly once. Each `let` or `var` that holds an outcome is in one of three states: unhandled, handled, or handled on some paths only. These are the rules of a linear-type checker such as Austral's: a value used exactly once, branches that must agree, and no consuming inside a loop of a value bound outside it ([Austral specification](https://austral-lang.org/spec/spec.html)).
+  - A match, `?`, `!` or return of the binding moves it from unhandled to handled.
+  - A second handling, or any other use while it is unhandled, is an error that names the use. Other uses are passing it, storing it in a field, copying it or reassigning it.
+  - At a join, states that differ are an error "handled on some paths but not others", reported at the join, with a note at the unhandled path.
+  - At each scope exit, including `ret`, `break` and `continue`, an unhandled binding is an error at the exit.
+  - The loop rule needs nothing extra. A binding from outside a loop that is handled in the body reaches the loop header handled on the back edge and unhandled on entry, so the join reports it.
+
+### Lowering, ownership and C emission (`src/ir`, `src/codegen`)
+
+- **Inclusive ranges.** A `for` over `a..=b` must not compute `b + 1`. When `b` is the type's maximum, that value does not exist. It lowers as:
+  1. test `a <= b` once;
+  2. run the body;
+  3. if `i == b`, leave;
+  4. otherwise increment `i` and repeat.
+
+  `continue` jumps to step 3. Rust's `RangeInclusive` keeps an `exhausted` flag for the same reason ([RangeInclusive](https://doc.rust-lang.org/beta/std/ops/struct.RangeInclusive.html)).
+- **Shifts** check the count in its own type, against zero and the left type's width, before converting it, so a `ulng` count of 2^40 still panics and is not truncated first.
+- **Interpolation** lowers to the `str` conversions of its parts and one call to a new runtime function, `brt_concat(count, parts)`. It adds up the lengths with overflow checks and allocates once. The bootstrap plan needs the same function for joining many strings.
+- **Implicit `:ok`.** The extraction paths for an only-`:ok` result are removed, because such results are now plain values.
+- **`:none` endings** lower like the existing implicit `:ok` ending.
+- **`main`'s result.** A per-set table generated in the emitted C marks which tags are errors. `main` exits 1 when its active tag is one of them.
+- **The entry formatter** in `runtime/brief_runtime.c` prints tags as `:!name["payload"]`, with `[]` around payloads and several payloads separated by commas.
+- **Emitted C names** do not change, and the output stays deterministic.
+
+## Tests
+
+### What exists and what happens to it
+
+| Tests | Today | Change |
+|---|---|---|
+| `tests/programs/` (45 fixtures) | First-version syntax, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/parse/pass/` (26) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
+| `tests/parse/fail/` (80) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
+| Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
+| Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
+| CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
+| Document acceptance (13 audits, reading `docs/v0/`) | Generated cases from first-version fences | Deleted in N1. Each new document's audit is written in the milestone that implements its rules (see "Milestones"), so document coverage returns chapter by chapter instead of all at the end. |
+| `test_doc_parser` | Parses `docs/v0/` fences | Rewritten in N1 for `docs/lang-*.txt`. Every fence parses with the new grammar or is listed as needing a later feature. |
+| `examples/*.brf` | Not run in CI | Converted in N1, and added to the program runner with their output as expectations, so the examples cannot rot again. |
+
+### New test forms
+
+- **Several errors per fixture.** The existing `// error:` markers are already tied to lines, like the `// ERROR` comments in Go's `test/` directory and the `//~ ERROR` annotations in rustc's UI tests ([rustc-dev-guide, UI tests](https://rust.googlesource.com/rust-lang/rustc-dev-guide/+show/refs/heads/main/src/tests/ui.md)). New rejection tests put independent errors in one file where they cannot cascade, instead of one file per error.
+- **Fix-it markers.** A new `// fix:` marker gives the expected replacement for the diagnostic on its line, so every documented fix is tested.
+- **Flow analysis.** For each rule, a valid and an invalid fixture: every branch shape (`if`, `else if`, match, loops with `break` and `continue`, early `ret`) for definite assignment and for outcome handling, including nesting and recovery after the first error.
+- **Edge values.** These run under sanitizers:
+  - `..=` up to each integer type's maximum and down from its minimum;
+  - shift counts that are negative, oversized or of a different type;
+  - interpolation with embedded zero bytes, empty parts and concatenated lengths near overflow.
+
+## Milestones
+
+Each milestone ends with every test passing in the full CI matrix.
+
+| # | Milestone | Done when |
+|---|---|---|
+| N0 | **Groundwork, in the first version's syntax.** Fix-its on diagnostics; the flow framework, with permissions ported to it and no change in behavior; tags with kind and module fields, all neutral. | All tests pass with no change in behavior. |
+| N1 | **The new syntax, with the same meaning.** Lexer, newline filter, parser, syntax tree, method inference, wrong-way calls, casing, `not`, `pub` rules, struct-or-trait detection and the old-syntax diagnostics. All fixtures, examples and C tests are converted in the same change. The scripts that read `docs/v0/` are deleted, `test_doc_parser` reads the new documents, and the audits for `lang-syntax.txt`, `lang-types.txt`, `lang-functions.txt`, `lang-modules.txt` and `lang-ex-base.txt` are written for the rules that exist. Error tags are parsed and their kind checked, while outcomes keep the first version's `:ok`-based rules. | Every converted test passes with its old expectations, apart from message texts that quote syntax. The old grammar is rejected with fixes. Every new document fence parses or is listed. |
+| N2 | **Outcomes by error kind.** Outcomes defined by error tags; `?` and `!` on errors only, and what is left after them; `:ok[T]` alone as `T` and exact return types; `:none`; `main`'s exit by error kind; the entry formatter's new spelling. The audits for `lang-symbols.txt` and `lang-errors.txt` sections 1–5 and 7–12. | The fixtures for each rule pass, and the only changed expectations are the reviewed ones. |
+| N3 | **Handling outcomes.** Returning an outcome as it is, and outcome bindings handled exactly once, on the flow framework. The audits for `lang-errors.txt` section 6, `lang-pipelines.txt` and `lang-memory.txt`. | Every documented example in "Handling outcomes" behaves as described, and the invalid shapes report their errors once each. |
+| N4 | **Bindings and loops.** Declared-then-assigned bindings, `let ... else`, `..=` in loops and patterns, typed loop variables and shift counts of any integer type, with their fences added to the audits. | Fixtures for each, including the edge values, pass under sanitizers. |
+| N5 | **String interpolation.** Lexer modes, the syntax tree, checking, lowering and `brt_concat`, with their fences added to the audits. | Interpolation works with every accepted type, nested braces and `\{`, under sanitizers. |
+| N6 | **Finishing the audits.** The remaining chapters (`lang-desc.txt`, `lang-traits.txt`, `lang-collections.txt`, `lang-stdlib.txt`), whose fences are mostly later features, are classified. The README, `lang-desc.txt`'s version section and this plan's status are updated. | Every chapter has an audit, and the overview's scope list matches what is implemented. |
+
+N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and N3.
+
+## Risks
+
+- **Choosing each tag's kind by hand.** A tag that appears in a set with `:ok` becomes an error tag. One that appears both in such a set and in data is the only case that needs thought; the one-kind-per-name check reports it.
+- **Document coverage between N1 and the later audits.** The first version's audits stop when N1 deletes them. Writing each new audit in the milestone that implements its chapter keeps that gap to the chapters whose rules are still being changed.
+- **Method inference from `self`** has no precedent in another language. If it causes confusing errors in practice, an explicit `self` parameter in struct functions, as traits already require, is a small change to the parser and resolution. The rest of this plan does not depend on which is chosen.
+- **The cost of the flow analyses** grows with nesting and loops, as permissions do now. The fixed point is reached in a bounded number of passes because each state only moves one way: from unassigned to assigned, or from unhandled to handled to mixed. The existing deep-nesting stress fixtures are run against the new analyses.
+- **`!` on an optional** is rejected under the current notes. If that changes (`lang-errors.txt`, section 1), only the `!` rule in N2 changes.
+
+## References
+
+- Scala 3 migration mode: [tooling migration mode](https://docs.scala-lang.org/scala3/guides/migration/tooling-migration-mode.html).
+- Go: `// ERROR` checks in [`test/run.go`](https://go.googlesource.com/go/+/cd22afa07b83d56e0563d0ca4343e5c1a20c3e82%5E%21/test/run.go).
+- Rust: [UI tests](https://rust.googlesource.com/rust-lang/rustc-dev-guide/+show/refs/heads/main/src/tests/ui.md); [`RangeInclusive`](https://doc.rust-lang.org/beta/std/ops/struct.RangeInclusive.html).
+- Python: [PEP 701 discussion](https://discuss.python.org/t/pep-701-syntactic-formalization-of-f-strings/22046/61) and the [3.12 tokenizer changes](https://android.googlesource.com/platform/external/python/cpython3/+/c45701e9ef0%5E%21).
+- Java: [JLS chapter 16, Definite Assignment](https://docs.oracle.com/javase/specs/jls/se21/html/jls-16.html).
+- Austral: [specification, linear types](https://austral-lang.org/spec/spec.html).
+- OCaml identifiers and paths: [`Parse` module](https://manpath.be/f37/3o/Parse). Gleam's name tokens: [glexer](https://hexdocs.pm/glexer/2.4.0/glexer/token.html).
+- Zig, for comparison with mandatory error handling: [error union is ignored](https://github.com/ziglang/zig/issues/21845).

@@ -260,6 +260,7 @@ Wide and combining characters do not yet have special display-width handling.
 - [Symbols](docs/lang-symbols.txt)
 - [Errors and outcomes](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
+- [Next-version compiler plan](docs/plans/next-version.txt) (proposed)
 - [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
 
 The overview links the remaining topic documents. Milestone 5 is complete for
