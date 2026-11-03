@@ -45,7 +45,7 @@ A single file is still one module. Tags are given module identity now (see "Symb
 ## Principles
 
 - **Same meaning first, new meaning second.** The syntax switch (N1) changes no program's behavior, so every converted test must pass with its old expectations. That checks the conversion and the new front end against each other. Semantic changes follow in separate milestones, each with a short, reviewed list of tests whose expectations change. Scala 3 split its migration the same way: syntax rewrites first, and semantic incompatibilities handled separately ([Scala 3 migration guide](https://docs.scala-lang.org/scala3/guides/migration/tooling-migration-mode.html)).
-- **Convert by hand, guided by the compiler.** The old programs are small: about 1,600 lines of program fixtures, 1,400 lines of examples, the hand-written parser fixtures and the Brief inside the C tests, with 13 `impl` blocks in the fixtures and examples. That is less work than a migration tool such as Go's `gofix` or Scala 3's `-rewrite`, which pay off for large code bases. Plain renames such as `dub` to `dbl` and `):` before a return type are done with search and replace; `!` is changed by hand, since it also appears in `!=` and as the postfix panic. The rest is fixed by compiling each file with the new compiler and applying the fix-its its diagnostics give (see "Diagnostics carry their fix"), which also tests those diagnostics.
+- **Convert by hand, guided by the compiler.** The old programs are small: about 2,100 lines of program fixtures, 1,400 lines of examples, the hand-written parser fixtures and the Brief inside the C tests, with 15 `impl` blocks in the fixtures and examples. That is less work than a migration tool such as Go's `gofix` or Scala 3's `-rewrite`, which pay off for large code bases. Plain renames such as `dub` to `dbl` and `):` before a return type are done with search and replace; `!` is changed by hand, since it also appears in `!=` and as the postfix panic. The rest is fixed by compiling each file with the new compiler and applying the fix-its its diagnostics give (see "Diagnostics carry their fix"), which also tests those diagnostics.
 - **One switch, no dual syntax.** The compiler accepts only the new grammar after N1. Rust's editions keep two grammars alive because an ecosystem of crates must keep compiling. Brief has no such ecosystem, and two grammars would double the parser and its tests. The first version stays in history at the tag `v0`.
 - **One flow analysis.** Read-only permissions, definite assignment and outcome handling are all forward data flow over the structured syntax tree, with joins at branches and fixed points at loops. `src/sema/permissions.c` already does this. The new checks reuse its framework instead of each writing its own, as Java's definite-assignment rules are written as one analysis over statements ([JLS chapter 16](https://docs.oracle.com/javase/specs/jls/se21/html/jls-16.html)).
 - **Diagnostics carry their fix.** Every error that has one right answer, such as `not` for `!`, `->` for `:`, `=` in a literal, `date.label()` for `Date.label()` or `maxUsers` for `MAX_USERS`, carries a replacement span and text. This follows Clang's fix-it hints and rustc's suggestions, and it is what makes converting the tests by hand quick.
@@ -79,7 +79,7 @@ A single file is still one module. Tags are given module identity now (see "Symb
 
 - A newline after `|`, `->`, `not`, `and` and `or` does not end a statement. `|` is already a binary operator, so union continuation needs no special rule.
 - The interpolation tokens open and close a bracket entry, treated like `(`.
-- `type`, `impl` and `pub` lose their continuation entries, and `import` keeps its own.
+- `type` and `impl` lose their continuation entries; `pub` and `import` keep theirs.
 
 ### Parser (`src/parser`)
 
@@ -89,7 +89,7 @@ A single file is still one module. Tags are given module identity now (see "Symb
   - `lowerName(` is a function;
   - `const` and `import` keep their forms.
 - **Struct or trait.** The members inside `{ }` are parsed with one rule: `name: type` is a field and `name(...)` a function. A declaration with no fields becomes `DECL_TRAIT`. Deciding after the members are read avoids lookahead and gives one error ("a struct needs a field") in the right place.
-- **Functions** take `self` or `&self` as an optional first parameter, which is required in a trait and allowed only there. Return types follow `->`. A `:` there gets a fix.
+- **Functions** in a trait write `self` or `&self` first when they are methods; associated functions omit it. Struct methods infer their receiver from uses of `self`, and write `&self` first when they mutate it. Explicit plain `self` parameters are trait-only. Return types follow `->`. A `:` there gets a fix.
 - **Types.** A type is read where a type is expected, not by guessing. Each type position calls the type parser: after `:` in a binding, field or parameter, after `->`, on the right of a type declaration, and inside the `[]` of a type. A union is one or more symbol entries or named types joined by `|`, with `_` allowed only where the checker accepts it. `Name[args]` gives type arguments.
 - **Symbols** are written `:name[...]` and `:!name[...]`, in expressions and patterns, with any number of payload values. Payload patterns bind by position. A typed binding (`p: str`) is parsed now and reported as not implemented until merged symbols exist.
 - **Expressions.** `not` is a prefix operator at the level of `-` and `~`. A prefix `!` is parsed in the same place and reported with its fix, so recovery continues normally. `.(` is a postfix index, which parses for the documents and is reported as not implemented until arrays exist. Struct literals use `name = value`, and a `:` in a literal gets a fix. Interpolated strings become `EXPR_INTERPOLATION` with alternating text and expression parts.
@@ -177,7 +177,7 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (45 fixtures) | First-version syntax, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/programs/` (87 fixtures, including rejection and panic cases) | First-version syntax, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
 | `tests/parse/pass/` (26) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
 | `tests/parse/fail/` (80) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
@@ -218,7 +218,7 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 N0 has started; the compiler still accepts only the first version's language.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
-- [ ] N0 (2): shared flow framework and unchanged permissions analysis.
+- [x] N0 (2): shared flow framework and unchanged permissions analysis.
 - [ ] N0 (3): neutral tag kinds and module identity.
 
 ### N0 (1): diagnostic fixes
@@ -250,6 +250,41 @@ Validation: fresh builds with `-Werror` passed the full suites in GCC Debug with
 ASan/UBSan (50/50), Clang Debug with ASan/UBSan (50/50), GCC Release (50/50) and
 GCC Debug without sanitizers (36/36). clang-format 23.1.3 and `git diff --check`
 passed. This completes N0 (1), not the N0 milestone.
+
+### N0 (2): shared flow analysis
+
+`include/sema/flow.h` and `src/sema/flow.c` now provide the checked-tree walker.
+Each analysis supplies a byte-state size, a monotone join and optional expression
+and match-arm transfer hooks. Child results are captured before later children
+run, preserving argument, target and initializer evaluation order. Permission
+reachability, transfers and diagnostics remain in `permissions.c`; its traversal,
+branch joins and loop fixed points are no longer duplicated there.
+
+The walker joins the first incoming state rather than assuming a zero identity,
+so intersection analyses can use it too. It handles continuing branches, useful
+match arms, short-circuit paths, zero-iteration loops, and innermost break/continue
+edges. Loop headers persist across whole-function probe passes; only header
+changes request another pass. Diagnostics run once after convergence. Dead syntax
+is still visited with the existing conservative permission state, and each run
+starts with fresh headers and a copied entry state.
+
+`test_flow` independently exercises both union and intersection facts, returning
+and useless arms, input/argument snapshots, zero-iteration and non-terminating
+loops, nested jumps, dead tails, 25 nested loops, repeated runs and empty state.
+Existing permission tests continue to check field/payload aliases, stores,
+rebindings, call/literal snapshots, backedges and one-time diagnostics.
+
+Validation: fresh `-Werror` builds passed GCC and Clang Debug with ASan/UBSan,
+and GCC Release (51/51 each), plus GCC Debug without sanitizers (37/37).
+clang-format 23.1.3 and `git diff --check` passed. Comparing the pre-refactor and
+new compilers on 1,265 checked-in and generated source files (including audit
+copies) found identical status, stdout and stderr for `emit-c`: 638 emitted C
+and 627 rejected inputs, with no differences. No language, checking, ownership
+or runtime rules changed. N0 (3), tag metadata, remains pending.
+
+The plan review also corrected the fixture inventory and clarified `pub` newline
+continuation and trait/struct receiver parameters against the language documents.
+The revised manual conversion and staged document-audit scope is unchanged.
 
 ## Risks
 

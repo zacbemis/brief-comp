@@ -1,4 +1,4 @@
-#include "sema/sema.h"
+#include "sema/flow.h"
 #include <string.h>
 
 // Access permission is separate from ownership: retaining a reference does not
@@ -7,46 +7,15 @@
 // children and call results whose type can reach a read-only argument's
 // objects. A read-only value cannot be stored in a field. These are local
 // access rules, not deep const or a function purity guarantee.
-typedef unsigned char *State;
-typedef struct Loop Loop;
-struct Loop {
-  State breaks, continues;
-  int has_break, has_continue;
-  Loop *outer;
-};
-typedef struct Header Header;
-struct Header {
-  SemaExpr *body;
-  State state;
-  Header *next;
-};
 typedef struct {
-  Arena *arena;
   Diagnostics *errors;
   // Rows are structs followed by symbol sets. reach[a * structs + b] means
   // type a can reach struct b through fields/payloads (including identity).
   // Strings are immutable and ignored.
   const unsigned char *reach;
-  size_t structs;
-  size_t count;
-  int probe, active, changed;
-  Loop *loop;
-  Header *headers;
+  size_t structs, count;
 } Permissions;
-static State copy(Permissions *p, State state) {
-  State result = arena_calloc(p->arena, p->count, 1);
-  if (state && p->count)
-    memcpy(result, state, p->count);
-  return result;
-}
-static void merge(Permissions *p, State into, State from) {
-  for (size_t i = 0; i < p->count; i++)
-    into[i] |= from[i];
-}
-static void replace(Permissions *p, State into, State from) {
-  if (p->count)
-    memcpy(into, from, p->count);
-}
+
 static const unsigned char *row(const Permissions *p, const SemaType *type) {
   if (!type || (type->kind != SEMA_STRUCT && type->kind != SEMA_SYM))
     return NULL;
@@ -61,11 +30,11 @@ static int structure(const Permissions *p, const SemaType *type) {
       return 1;
   return 0;
 }
-static void error(Permissions *p, Span span, const char *message) {
-  if (!p->probe)
+static void error(SemaFlow *flow, Span span, const char *message) {
+  Permissions *p = flow->context;
+  if (!flow->probe)
     diagnostics_error(p->errors, span, message);
 }
-static int visit(Permissions *p, SemaExpr *e, State state);
 // A call result can only hold objects from a read-only argument when some
 // struct type is reachable from both: identity calls and getters returning a
 // field are caught, while a constructor building a User from a Json is not.
@@ -119,231 +88,102 @@ static const unsigned char *reachability(SemaProgram *program) {
   }
   return reach;
 }
-static Loop loop(Permissions *p) {
-  return (Loop){
-      .breaks = copy(p, NULL), .continues = copy(p, NULL), .outer = p->loop};
-}
-static void grow(Permissions *p, State header, State state) {
-  for (size_t i = 0; i < p->count; i++)
-    if (state[i] && !header[i]) {
-      header[i] = 1;
-      p->changed = 1;
-    }
-}
-static void repeat(Permissions *p, SemaExpr *condition, SemaExpr *body,
-                   State state) {
-  Header *header = p->headers;
-  while (header && header->body != body)
-    header = header->next;
-  if (!header) {
-    header = arena_alloc(p->arena, sizeof(*header));
-    *header = (Header){body, copy(p, NULL), p->headers};
-    p->headers = header;
+static int merge(SemaFlow *flow, void *into, const void *from, SemaExpr *at) {
+  Permissions *p = flow->context;
+  unsigned char *a = into;
+  const unsigned char *b = from;
+  int changed = 0;
+  (void)at;
+  for (size_t i = 0; i < p->count; i++) {
+    unsigned char bit = a[i] | b[i];
+    changed |= bit != a[i];
+    a[i] = bit;
   }
-  // Header bits only grow. Iterate the whole function, rather than recursively
-  // iterating nested loops: even deeply nested loops take one visit per pass.
-  grow(p, header->state, state);
-  State exit = copy(p, header->state);
-  int active = p->active;
-  if (condition) {
-    visit(p, condition, exit);
-    p->active = active && (condition->flow & SEMA_NEXT);
-  }
-  Loop l = loop(p);
-  p->loop = &l;
-  State body_state = copy(p, exit);
-  visit(p, body, body_state);
-  p->loop = l.outer;
-  if (p->active && (body->flow & SEMA_NEXT))
-    grow(p, header->state, body_state);
-  if (l.has_continue)
-    grow(p, header->state, l.continues);
-  p->active = active;
-  int has_exit = !condition ||
-                 ((condition->flow & SEMA_NEXT) &&
-                  !(condition->kind == SEMA_EXPR_BOOL && condition->integer));
-  if (!has_exit && l.has_break) {
-    // Only breaks reach the following statement in a while true loop.
-    exit = copy(p, NULL);
-  }
-  // With no exit at all, retain the condition/header state for checking dead
-  // syntax; clearing it would incorrectly grant writable access to parameters.
-  if (l.has_break)
-    merge(p, exit, l.breaks);
-  replace(p, state, exit);
+  return changed;
 }
-static int visit(Permissions *p, SemaExpr *e, State state) {
-  int readonly = 0, active = p->active;
+static SemaFlowValue enter(SemaFlow *flow, SemaExpr *e, void *state) {
+  (void)flow;
+  unsigned char *bits = state;
+  return e->kind == SEMA_EXPR_VAR && e->as.variable ? bits[e->as.variable->id]
+                                                    : 0;
+}
+static SemaFlowValue child(SemaFlow *flow, SemaExpr *e, size_t index,
+                           void *state, SemaFlowValue result,
+                           SemaFlowValue value) {
+  Permissions *p = flow->context;
+  unsigned char *bits = state;
   switch (e->kind) {
-  case SEMA_EXPR_VAR:
-    if (e->as.variable)
-      readonly = state[e->as.variable->id];
-    break;
   case SEMA_EXPR_FIELD:
-    readonly = visit(p, e->as.field.object, state);
+  case SEMA_EXPR_SYMBOL:
+  case SEMA_EXPR_TRY:
+  case SEMA_EXPR_PANIC:
+    return value;
+  case SEMA_EXPR_BIND:
+    bits[e->as.binding.variable->id] = (unsigned char)value;
     break;
-  case SEMA_EXPR_BIND: {
-    int value = visit(p, e->as.binding.value, state);
-    state[e->as.binding.variable->id] = (unsigned char)value;
-    break;
-  }
   case SEMA_EXPR_ASSIGN:
   case SEMA_EXPR_UPDATE: {
     SemaExpr *target = e->as.binding.target;
-    int parent = 0;
-    if (target) {
-      parent = visit(p, target->as.field.object, state);
-      if (parent && target->as.field.field && target->type &&
+    if (index == 0) {
+      if (value && target->as.field.field && target->type &&
           target->type->kind >= SEMA_UNIT)
-        error(p, target->span,
+        error(flow, target->span,
               "Cannot mutate through an ordinary parameter; use &.");
-      p->active = active && (target->flow & SEMA_NEXT);
+      return value; // Capture the target's permission before RHS effects.
     }
-    if (e->as.binding.value) {
-      int value = visit(p, e->as.binding.value, state);
-      if (!target && e->as.binding.variable)
-        state[e->as.binding.variable->id] = (unsigned char)value;
-      // A stored reference outlives this access path: whoever can write the
-      // holder could later write through it. Keeping an argument therefore
-      // needs an & parameter. A read-only holder was already reported above.
-      if (target && target->as.field.field && value && !parent)
-        error(p, e->as.binding.value->span,
-              "A read-only value cannot be stored in a field; take the "
-              "parameter it comes from as &.");
-    }
+    if (!target && e->as.binding.variable)
+      bits[e->as.binding.variable->id] = (unsigned char)value;
+    // Keeping a read-only reference would upgrade access through its holder.
+    // A read-only target was already reported above.
+    if (target && target->as.field.field && value && !result)
+      error(flow, e->as.binding.value->span,
+            "A read-only value cannot be stored in a field; take the "
+            "parameter it comes from as &.");
     break;
   }
-  case SEMA_EXPR_CALL:
-    for (size_t i = 0; i < e->as.call.count; i++) {
-      SemaExpr *arg = e->as.call.args[i];
-      int value =
-          visit(p, arg, state); // Capture before later arguments rebind names.
-      readonly |= value && may_share(p, e->type, arg->type);
-      SemaSymbol *s = e->as.call.target;
-      if (value && s && i < s->arity && s->params[i]->data_mutable &&
-          sema_assignable(arg->type, s->params[i]->type))
-        error(p, arg->span,
-              "A read-only value cannot be passed to an & parameter; take the "
-              "parameter it comes from as &.");
-      p->active = p->active && (arg->flow & SEMA_NEXT);
-    }
-    break; // Ownership does not upgrade access; primitive results stay values.
-  case SEMA_EXPR_SYMBOL:
-    if (e->as.symbol.payload)
-      readonly = visit(p, e->as.symbol.payload, state);
-    break;
+  case SEMA_EXPR_CALL: {
+    SemaExpr *arg = e->as.call.args[index];
+    SemaSymbol *s = e->as.call.target;
+    if (value && s && index < s->arity && s->params[index]->data_mutable &&
+        sema_assignable(arg->type, s->params[index]->type))
+      error(flow, arg->span,
+            "A read-only value cannot be passed to an & parameter; take the "
+            "parameter it comes from as &.");
+    return result | (value && may_share(p, e->type, arg->type));
+  }
   case SEMA_EXPR_STRUCT:
-    for (size_t i = 0; i < e->as.structure.count; i++) {
-      SemaExpr *value = e->as.structure.values[i];
-      readonly |= visit(p, value, state);
-      p->active = p->active && (value->flow & SEMA_NEXT);
-    }
-    break; // Conservatively restrict the whole object, not individual fields.
-  case SEMA_EXPR_TRY:
-  case SEMA_EXPR_PANIC:
-    readonly = visit(p, e->as.value, state);
-    break;
-  case SEMA_EXPR_RETURN:
-    if (e->as.value)
-      visit(p, e->as.value, state);
-    break;
+    return result | value;
   case SEMA_EXPR_BLOCK:
-    for (size_t i = 0; i < e->as.block.count; i++) {
-      SemaExpr *item = e->as.block.items[i];
-      int value = visit(p, item, state);
-      if (p->active)
-        readonly = value;
-      p->active = p->active && (item->flow & SEMA_NEXT);
+    return flow->active ? value : result;
+  case SEMA_EXPR_IF:
+    if (index &&
+        ((index == 1 ? e->as.conditional.yes : e->as.conditional.no)->flow &
+         SEMA_NEXT))
+      return result | value;
+    return result;
+  case SEMA_EXPR_MATCH:
+    if (index) {
+      SemaArm *arm = &e->as.match.arms[index - 1];
+      if (arm->useful && (arm->body->flow & SEMA_NEXT))
+        return result | value;
     }
-    break;
-  case SEMA_EXPR_MATCH: {
-    SemaExpr *input = e->as.match.input;
-    int value = visit(p, input, state), has_next = 0;
-    State joined = copy(p, NULL);
-    for (size_t i = 0; i < e->as.match.count; i++) {
-      SemaArm *a = &e->as.match.arms[i];
-      State arm_state = copy(p, state);
-      if (a->binding)
-        arm_state[a->binding->id] = (unsigned char)value;
-      p->active = active && (input->flow & SEMA_NEXT) && a->useful;
-      int result = visit(p, a->body, arm_state);
-      if (a->useful && (a->body->flow & SEMA_NEXT)) {
-        merge(p, joined, arm_state);
-        readonly |= result;
-        has_next = 1;
-      }
-    }
-    if (has_next)
-      replace(p, state, joined);
-    break;
-  }
-  case SEMA_EXPR_IF: {
-    SemaExpr *condition = e->as.conditional.condition;
-    SemaExpr *yes = e->as.conditional.yes, *no = e->as.conditional.no;
-    visit(p, condition, state);
-    State yes_state = copy(p, state), no_state = copy(p, state);
-    p->active = active && (condition->flow & SEMA_NEXT);
-    int yr = visit(p, yes, yes_state);
-    p->active = active && (condition->flow & SEMA_NEXT);
-    int nr = no ? visit(p, no, no_state) : 0;
-    int yf = (yes->flow & SEMA_NEXT) != 0, nf = !no || (no->flow & SEMA_NEXT);
-    if (yf && nf) {
-      replace(p, state, yes_state);
-      merge(p, state, no_state);
-    } else if (yf)
-      replace(p, state, yes_state);
-    else if (nf)
-      replace(p, state, no_state);
-    readonly = (yf && yr) || (nf && nr);
-    break;
-  }
-  case SEMA_EXPR_BINARY: {
-    SemaExpr *a = e->as.binary.left, *b = e->as.binary.right;
-    visit(p, a, state);
-    p->active = active && (a->flow & SEMA_NEXT);
-    State skipped = NULL;
-    if (e->as.binary.op == BINARY_LOGICAL_AND ||
-        e->as.binary.op == BINARY_LOGICAL_OR)
-      skipped = copy(p, state);
-    visit(p, b, state);
-    if (skipped) {
-      if (b->flow & SEMA_NEXT)
-        merge(p, state, skipped);
-      else
-        replace(p, state, skipped);
-    }
-    break;
-  }
-  case SEMA_EXPR_UNARY:
-    visit(p, e->as.unary.value, state);
-    break;
-  case SEMA_EXPR_WHILE:
-    repeat(p, e->as.while_loop.condition, e->as.while_loop.body, state);
-    break;
-  case SEMA_EXPR_FOR:
-    visit(p, e->as.for_loop.lower, state);
-    p->active = active && (e->as.for_loop.lower->flow & SEMA_NEXT);
-    visit(p, e->as.for_loop.upper, state);
-    p->active = p->active && (e->as.for_loop.upper->flow & SEMA_NEXT);
-    repeat(p, NULL, e->as.for_loop.body, state);
-    break;
-  case SEMA_EXPR_BREAK:
-  case SEMA_EXPR_CONTINUE:
-    if (active && p->loop) {
-      if (e->kind == SEMA_EXPR_BREAK) {
-        merge(p, p->loop->breaks, state);
-        p->loop->has_break = 1;
-      } else {
-        merge(p, p->loop->continues, state);
-        p->loop->has_continue = 1;
-      }
-    }
-    break;
+    return result;
   default:
     break;
   }
-  p->active = active;
-  return structure(p, e->type) && readonly;
+  return 0;
+}
+static SemaFlowValue leave(SemaFlow *flow, SemaExpr *e, void *state,
+                           SemaFlowValue result) {
+  Permissions *p = flow->context;
+  (void)state;
+  return structure(p, e->type) && result;
+}
+static void arm(SemaFlow *flow, SemaArm *a, void *state, SemaFlowValue input) {
+  (void)flow;
+  unsigned char *bits = state;
+  if (a->binding)
+    bits[a->binding->id] = (unsigned char)input;
 }
 void sema_check_permissions(SemaProgram *program, Diagnostics *errors) {
   if (!program->struct_count)
@@ -351,13 +191,11 @@ void sema_check_permissions(SemaProgram *program, Diagnostics *errors) {
   const unsigned char *reach = reachability(program);
   for (size_t i = 0; i < program->count; i++) {
     SemaFunction *f = &program->functions[i];
-    Permissions p = {.arena = program->arena,
-                     .errors = errors,
+    Permissions p = {.errors = errors,
                      .reach = reach,
                      .structs = program->struct_count,
-                     .count = f->variable_count,
-                     .active = 1};
-    State entry = copy(&p, NULL);
+                     .count = f->variable_count};
+    unsigned char *entry = arena_calloc(program->arena, p.count, 1);
     int has_readonly = 0;
     for (size_t j = 0; j < f->symbol.arity; j++) {
       SemaVar *v = f->symbol.params[j];
@@ -366,13 +204,12 @@ void sema_check_permissions(SemaProgram *program, Diagnostics *errors) {
     }
     if (!has_readonly)
       continue;
-    p.probe = 1;
-    do {
-      p.changed = 0;
-      visit(&p, f->body, copy(&p, entry));
-    } while (p.changed);
-    // Emit diagnostics only at the fixed point, once per source expression.
-    p.probe = 0;
-    visit(&p, f->body, copy(&p, entry));
+    SemaFlowAnalysis analysis = {.state_size = p.count,
+                                 .join = merge,
+                                 .enter = enter,
+                                 .child = child,
+                                 .leave = leave,
+                                 .arm = arm};
+    sema_flow_run(program->arena, &analysis, &p, f->body, entry);
   }
 }
