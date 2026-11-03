@@ -1,0 +1,228 @@
+# Plan: Getting the Compiler Ready for Bootstrapping
+
+> **Status: Proposed, not started; language decisions still open.** This plan extends the first-version compiler (`docs/plans/first-version.txt`) until a compiler for Brief can be written in Brief. The decisions in "Decisions to settle first" and the questions in "Open questions" need answers, and their language rules need to be recorded in the `docs/lang-*.txt` files, before milestone B1 begins. The recommendations below are proposals, not settled design. "Findings from the example programs" records what writing the programs in `examples/` showed about the current language. Porting the compiler itself is outlined at the end but is not part of this plan.
+
+## Goal
+
+The long-term goal in `docs/lang-desc.txt` is to bootstrap: rewrite the compiler in Brief, reusing the same C output and runtime. The current compiler, written in C, becomes stage 0. It compiles the first Brief-written compiler, stage 1, which then compiles itself.
+
+The first-version language cannot express a compiler. Its only input or output is `print`. It cannot look at the bytes of a string, has no growable collections or maps, and keeps a program in one file. This plan adds the smallest set of features that a compiler like the current one needs, and implements them in stage 0.
+
+The plan is done when a Brief program compiled by stage 0 reproduces stage 0's own lexer: given any test fixture or document example, the Brief lexer prints exactly the output of `brief dump-tokens`. This readiness check exercises every feature in the scope inside a realistic, multi-module program and confirms that the language is comfortable to write a compiler in before the full port starts.
+
+## Principles
+
+- **Every feature is built twice.** Each feature in this scope is implemented in C now and again in Brief during the port. The scope is therefore the smallest that makes writing a compiler practical, not the full design in the `lang-*.txt` files.
+- **Follow the existing design.** `Vec`, `Map`, modules, `for` over collections, privacy and the standard-library style are already described in `lang-collections.txt`, `lang-types.txt`, `lang-modules.txt` and `lang-stdlib.txt`. This plan implements subsets of them rather than inventing alternatives. Where the design is silent, the decision is recorded in the language docs first.
+- **No new dependence on deferred features.** Lambdas, traits, user generics and the cycle collector stay out. The collections are built-in generic types, as `Vec` and `Map` were in early Go, so no general generics machinery is needed.
+- **Deterministic output.** A bootstrap is checked by requiring that the compiler reproduces itself byte for byte. Nothing in the compiler or its runtime may depend on addresses, hash seeds or timing. Maps iterate in insertion order, as `lang-types.txt` already requires.
+- **The stage-1 compiler stays within this scope.** As long as stage 0 is the seed, stage 1 must only use features that stage 0 implements. Go kept its compiler buildable with Go 1.4 for the same reason.
+- **Milestones end with every test passing**, in the CI matrix (GCC and Clang with sanitizers, GCC Release, GCC without sanitizers) and with clang-format clean.
+
+## What a Brief compiler needs
+
+These requirements come from the current C compiler, about 9,600 lines, read stage by stage.
+
+| Compiler part | What it does in C | What it needs from Brief |
+|---|---|---|
+| Source loading | Reads a whole file into memory | Read a file into a `str`, with typed errors |
+| Lexer | Walks bytes, compares characters, cuts token text | String length, byte access returning `chr`, byte-range slices, `chr` to `str` |
+| Tokens, syntax trees, IR | Growable arrays of tokens, child nodes and instructions | A growable vector of any element type |
+| Names and interning | Hash tables keyed by name, symbol-set tables | A map keyed by `str` and integers |
+| Call graphs | Tarjan's algorithm with explicit work stacks | Vectors used as stacks, indexed read and write |
+| Diagnostics | Printed to stderr with line, column and source line | Write to stderr, `str(int)` (exists), slices of source lines |
+| C emission | Writes megabytes of C text | Building large text in linear time, then writing a file |
+| Driver | Arguments, exit status 2 for usage errors and 1 for compile errors | Program arguments and an exit with a chosen status |
+| Native build | Runs `cc`, uses `CC` and `TMPDIR`, temporary files and rename | Running a program, environment variables, file system operations |
+| Canonical symbol sets | Sorts variants with `qsort` | A sort, or a hand-written one |
+| Runtime embedding | A build step turns `runtime/brief_runtime.c` into a C string | A way to carry about 500 lines of C text (see D10) |
+
+Pointer identity, which the C compiler uses to compare canonical types, is not required. A Brief compiler can give types integer IDs and keep them in vectors, which also avoids reference cycles in type graphs while the cycle collector does not exist.
+
+## Scope
+
+### Required
+
+1. **Strings and characters**: byte size, byte access, slices, `chr` to `str`, a checked number-to-`chr` converter, and joining many strings at once.
+2. **`Vec<T>`**, a built-in generic type: construction, `add`, `len`, indexed read and write, `pop`, `isEmpty`, `first`, and `for` over a vector, for any element type.
+3. **`Map<K, V>`**, a built-in generic type: construction, `set`, `get`, a key test, `len` and the keys in insertion order. Keys are strings, integers, `chr`, `bool` and symbols without payloads.
+4. **Program input and output**: reading and writing whole files, writing to stderr, program arguments and exiting with a status.
+5. **Modules**: one module per file in the same folder, `Module.item` access, privacy for items and fields, and rejected dependency cycles.
+
+### Included if approved (D9, D11)
+
+6. **Top-level `const`** for numbers, `bool` and strings, which cannot be mutated by construction.
+7. **Running programs**, environment variables, temporary directories and rename, so that stage 1 can provide `build` and `run` itself. Without it, stage 1 can begin with `emit-c` only.
+
+### Out of scope
+
+Lambdas and `Fn`, and so every collection operation that takes a function (`where`, `select`, `orderBy` and the rest); traits; user generics; named tuples and `groupBy`; `Vec` and `Map` equality; struct keys in maps; nested and refutable payload patterns; folder paths and `import` for modules; the cycle collector; deep `const`, cloning and identity comparison; async; FFI. These remain later-version work, and nothing in the scope above depends on them.
+
+## Findings from the example programs
+
+The six programs in `examples/` (a calendar, a loan calculator, the Game of Life, symbolic differentiation, a number-theory toolkit and a bank ledger) were written against the first-version compiler. Each runs cleanly under sanitizers. Writing them showed where the current language gets in the way; the last column says how this plan responds.
+
+| # | Finding | Where it appeared | Response |
+|---|---|---|---|
+| F1 | Strings have no length or byte access. Right-aligning a table column needs the width of each formatted value to be computed arithmetically, and a board row cannot be written as text such as `"..##.."`. | `loan.brf` width helpers; `life.brf` rows given as column lists | Required item 1 (D1–D3), with the naming in Q1. |
+| F2 | There are no collections. Lists are recursive structs, built with nested literals and walked with `while true`, a match and `break`, which the bank example repeats three times. | `bank.brf` account list; `life.brf` history and cell lists | Required items 2 and 3 (D5–D7), with `for` over a vector. |
+| F3 | A loop over a literal range gets an `int` variable, and there is no implicit widening, so a loop that needs `lng` must be written `for n in lng(2)..10000`. | `numbers.brf` perfect numbers and Collatz loops | Q5. |
+| F4 | A fallible result cannot be stored and matched later. Validating several inputs required a helper function so that each call could be matched where it was made. | `loan.brf` `attempt` | Q6. This is the handled-call rule working as designed. |
+| F5 | Returning a fallible call's outcome needs `?`, even when the enclosing function returns the same set. | `life.brf` `seen` | Q7. Also by design. |
+| F6 | Converting a signed value to an unsigned type is fallible even when it cannot be negative, and a shift count must have the shifted value's type, giving `ulng(1) << ulng(r * 8 + c)!`. | `life.brf` `bit` | Q8. |
+| F7 | There is no rounding, `floor` or other math function, and floating-to-integer conversion requires an exact integral value. The loan calculator therefore uses integer cents and a binary search instead of the closed-form payment formula. | `loan.brf` | Q9. |
+| F8 | Arithmetic overflow cannot be detected without panicking, so overflow-safe code checks bounds by hand before each multiplication. | `numbers.brf` factorial and Egyptian fractions | Q9. `lang-types.txt` already proposes `checkedAdd`-style functions. |
+| F9 | There is no formatting help: every program writes its own zero padding, alignment, thousands separators and fixed decimals. | All six; `loan.brf` `money`, `calendar.brf` `pad` | Q10. |
+| F10 | Several values with the same result need one match arm each. | `calendar.brf` `daysIn` (4, 6, 9 and 11 give 30) | Q11. |
+| F11 | Lookup tables are written as matches on an index, sometimes as two parallel matches. | `numbers.brf` Roman numerals; `calendar.brf` month and day names | D9 and Q12. |
+| F12 | Every error set needs a hand-written function that turns each tag into a message. | `explain` in `calendar.brf`, `loan.brf`, `bank.brf` | Q15, which is open question 11 in `lang-desc.txt`. |
+| F13 | `str(-0.0)` prints `-0`, as `lang-types.txt` specifies, so display code adds zero to hide it. | `symbolic.brf` evaluation output | Q16. |
+| F14 | Code that can never run, such as a value after a `while true` loop that never breaks, is accepted without comment. The compiler has errors but no warnings. | An earlier version of `bank.brf` `find` | Q13. |
+
+None of the findings is a compiler bug: each program compiles to the same output under GCC and Clang, in debug builds with sanitizers and in a release build, and its generated C compiles with strict warnings as errors.
+
+## Decisions to settle first
+
+Each decision is recorded in the matching `lang-*.txt` file in milestone B0, with the existing open questions in `lang-desc.txt` updated where they are affected. The recommendation is the option this plan assumes.
+
+| # | Question | Recommendation |
+|---|---|---|
+| D1 | How are a string's bytes read? | `size(text)` gives the byte count as `int`; the name `size` is preferred over `count`, and `len` is kept for a length (Q1). `text[i]` gives the byte at `i` as `chr` and panics outside `0..size(text)`, naming the file and line, like other panics. Indexing a string cannot be assigned, because strings are immutable. |
+| D2 | How are slices taken? | `slice(text, start, end)` copies the bytes from `start` up to, not including, `end`, and panics when the range is outside the string or reversed. A copy keeps the representation simple; a shared view can be added later without changing the meaning. Range values such as `text[1..3]` stay deferred. |
+| D3 | How do `chr` and text convert? | `str(c)` for a `chr` gives a one-byte string. `chr(n)` is a numeric-target converter like the others: a literal in `0..255` succeeds directly, and other values return `Sym<:ok(chr), :overflow>`. |
+| D4 | How is large text built in linear time? | `concat(parts)` joins a `Vec<str>` into one string with a single allocation. The name `join` is already taken by the collection operation of that name in `lang-collections.txt`. |
+| D5 | What does `Vec` provide without lambdas? | `Vec<T>()`, `add`, `len` (Q1: `lang-collections.txt` currently calls this `count`), `isEmpty`, `first` (from the existing design), `pop` returning `Sym<:ok(T), :none>`, `v[i]` reads and `v[i] = x` writes that panic outside the range, and `for x in v`. Type arguments are always written; they are not inferred from later use. Each function can be called in all three forms the design allows: `add(v, x)`, `v.add(x)` and `v \|> add(x)`. |
+| D6 | How does `Vec` interact with permissions? | As `lang-collections.txt` says: changing functions take the collection as `&`, and `add` takes a reference item as `&` because the vector keeps it. Elements reached through a read-only vector are read-only. Changing a vector through the same name or path while a `for` loop walks it is a compile error; any other change during the loop panics when the cursor next checks the length. |
+| D7 | What does `Map` provide? | `Map<K, V>()`, `set(m, key, value)`, `get(m, key)` returning `Sym<:ok(V), :none>` (from the existing design), `hasKey(m, key)`, `len(m)` and `keys(m)` returning a `Vec<K>` in the order keys were first added. Keys are limited to strings, integers, `chr`, `bool` and symbols without payloads; struct keys from the full design are deferred. `hasKey` avoids reusing `contains`, which the design defines as an element test. |
+| D8 | How do programs reach files, arguments, stderr and the exit status? | Two standard-library modules, implemented in the runtime. `File.read(path)` returns `Sym<:ok(str), :notFound(str), :denied(str), :failed(str)>` and `File.write(path, text)` returns `Sym<:ok, :denied(str), :failed(str)>`, where the payload is the path. `Process.args()` returns a `Vec<str>` without the program name, `Process.exit(status)` ends the program without unwinding, like a panic, and `Process.printErr(text)` writes a line to stderr. `main()` keeps its zero-argument form from `lang-modules.txt`. The error tags and names are a proposal for the standard library, which `lang-stdlib.txt` says is not final. |
+| D9 | Is top-level `const` included? | Yes, limited to numbers, `bool` and strings, whose values cannot be changed by any reference. Constants for structs, collections and other objects keep the open questions in `lang-desc.txt` about deep `const`. |
+| D10 | How does stage 1 carry the runtime's C text? | A build step generates a Brief module that adds the runtime one line at a time to a `Vec<str>`, then joins it with `concat`. This needs no language change. A long `+` chain would exceed the 128-level syntax nesting limit, and multi-line strings are excluded by `lang-types.txt`. |
+| D11 | Is running programs included? | Recommended, as the last milestone. `Process.run(program, args)` returns `Sym<:ok(int), :notFound(str), :failed(str)>` with the exit status or `128 + signal`, never using a shell. `Process.env(name)` returns `Sym<:ok(str), :none>`. `File.tempDir()`, `File.rename` and `File.remove` complete what the current driver does. |
+| D12 | Which modules exist and how are they found? | The rules in `lang-modules.txt` for the same folder and the standard library: a name that is not defined in the current file, used as a type or as `Name.item`, loads `Name.brf` from the folder of the file that uses it, and otherwise the standard library's module of that name. A name that matches both is an error. Folder paths such as `models.User` and `import` are deferred. |
+| D13 | Can an `impl` block live outside its type's module? | No, for now. This answers open question 9 in `lang-desc.txt` conservatively, and allowing it later is compatible. |
+| D14 | Is a sort included? | Not required. A compiler can sort with a short hand-written loop. A `sort(v)` for vectors of numbers, `chr` and strings in natural order can be added later without lambdas. |
+
+## Open questions
+
+These need answers before or during B0. "Blocks" names the milestone that cannot start until the question is answered; questions marked "later" do not affect this plan's scope but came up while writing the examples. Where a proposal is given, it is a starting point, not a decision.
+
+| # | Question | Context | Options or proposal | Blocks |
+|---|---|---|---|---|
+| Q1 | What do `size` and `len` mean, and what happens to `count`? | `size()` is preferred for a byte count and `len()` for a length. `lang-collections.txt` uses `count(items)` as the SQL-style `COUNT` aggregate. | For `str`, does `len` count bytes or UTF-8 characters, or is there only `size`? Do `Vec` and `Map` use `len`, and does the collection `count` become `len`, stay as a separate aggregate, or go? | B0 |
+| Q2 | What happens on a bad index? | D1 and D5 propose panicking, like overflow. | Panic with the location; or return `Sym<:ok(T), :outOfRange>`, which must be handled at every access; or both, as `v[i]` and `get(v, i)`. | B0 |
+| Q3 | How are slices written and represented? | D2 proposes `slice(text, start, end)` returning a copy. Range values such as `1..3` are deferred. | A function or `text[start..end]`; a copy or a shared view; whether vectors also get slices. | B0 |
+| Q4 | Are characters bytes forever? | `chr` is one byte and `lang-types.txt` says non-ASCII text takes several. | Keep bytes only for now, or add a way to walk UTF-8 code points. This also settles part of Q1. | B0 |
+| Q5 | How do loops over literal ranges get their type? | F3. A range bound takes its type from context, but nothing gives the loop variable a context. | Allow `for n: lng in 2..10000`; infer the type from how the loop variable is used; or keep the explicit conversion. | later |
+| Q6 | Can a fallible result be stored and handled later? | F4. The handled-call rule requires handling where the call is made. | Keep the rule; or allow binding a full outcome if every path later matches it exhaustively. | later |
+| Q7 | Can a function return a call's outcome without `?`? | F5. Today `f() { g() }` must be `f() { g()? }` even when the sets match. | Keep requiring `?`; or allow returning a call whose outcome set is contained in the function's. | later |
+| Q8 | How should integer conversions and shifts work when the value is known to fit? | F6. `ulng(i)` from an `int` is fallible, and shift counts must match the shifted type. | Accept any integer type as a shift count; add explicitly wrapping or unchecked conversions; or keep `!`. | later |
+| Q9 | What is in the numeric library? | F7 and F8. `lang-types.txt` sketches `checkedAdd` and `wrappingMul` as library functions with names that are not final. | Rounding (`floor`, `ceil`, `round`, `trunc`), `abs`, `min`, `max`, `sqrt`, and the checked and wrapping arithmetic, in a `Math` module or as builtins. The bootstrap needs none of it; hashing in stage 1 uses the built-in `Map`. | later |
+| Q10 | How is text formatted? | F9. Every example writes its own padding and number formatting. | Library functions for padding, fixed decimals and digit grouping; or string interpolation or format strings in the language. Padding needs Q1 first. | later |
+| Q11 | Should patterns combine alternatives? | F10. | Or-patterns such as `4 \| 6 \| 9 \| 11 => 30`, with exhaustiveness and binding rules for each alternative. | later |
+| Q12 | Are there collection literals? | F11. `lang-types.txt` says there is no map literal syntax yet. | A vector literal such as `[1, 2, 3]` once `Vec` exists, and whether a top-level `const` may hold one, which meets the open deep-`const` questions. | later |
+| Q13 | Should the compiler warn? | F14. Diagnostics today are all errors. | Warnings for unreachable code, unused bindings and unused imports; whether they can fail a build. | later |
+| Q14 | How do programs reach stderr, arguments and the exit status? | D8 proposes `Process.printErr`, `Process.args` and `Process.exit` and keeps `main()` without parameters. | Those module functions; builtins such as `eprint`; or `main(args: Vec<str>)` and a status from `main`, which `lang-modules.txt` currently rules out. | B0 |
+| Q15 | How does a value of your own type become text? | F12; open question 11 in `lang-desc.txt`. The entry-error formatter already prints symbols and structs. | A trait, once traits exist; or a built-in debug form like the entry formatter in the meantime. | later |
+| Q16 | Should `str(-0.0)` print `-0`? | F13. The current rule is documented in `lang-types.txt`. | Keep it, which round-trips exactly; or print `0`. | later |
+
+## Design
+
+Each feature goes through every stage at once, as in the first version: the parser, resolution, checking, permissions, lowering, ownership insertion, C emission and the runtime. The parser already accepts `Vec<T>` types, the generic call `Vec<T>()`, `x[i]`, indexed assignment, `for x in items` and `const`; resolution currently rejects each of them with a "not implemented yet" diagnostic, and those diagnostics become real features.
+
+### Strings and characters
+
+- `size`, indexing, `slice`, `str(chr)`, `chr(...)` and `concat` are builtins, resolved like `print` and `str` today, and callable in the call, method and pipeline forms.
+- The runtime adds bounds-checked byte access and slicing that record their source location before checking, as arithmetic does, and a `concat` that sums the lengths with overflow checks before one allocation.
+- Panics use new messages: `panic: string index out of range` and `panic: slice out of range`, with the Brief file and line.
+
+### Built-in generic types
+
+- **Types.** Two new kinds, `Vec` with an element type and `Map` with key and value types. Each instantiation is canonical and interned in a hash table, as symbol sets are, so type identity stays pointer equality. Both are reference types: a `Node` may hold a `Vec<Node>`, and such recursive shapes are not equatable, as for structs.
+- **Construction.** `Vec<T>()` and `Map<K, V>()` are the only generic calls that resolve. Every other generic call keeps `Generic calls are not implemented yet.` without the cascade that the first version already avoids.
+- **Checking.** Element, key and value types check arguments with the existing contextual typing, so `v.add(1)` on a `Vec<shrt>` types the literal as `shrt`. Map keys must be one of the allowed key types; anything else is a compile error at the type.
+- **Permissions.** The reachability table that decides what a read-only value can reach includes vector elements and map keys and values. This extends the existing rules rather than adding new ones.
+- **Representation.** Each instantiation gets its own C struct and helpers: creation, growth with overflow-checked doubling, bounds-checked access and update, `pop` and destruction. Elements are retained when stored and released when replaced, popped or destroyed. Destruction uses the release queue added in the first version, so long chains and large vectors free without deep recursion. Only instantiations the lowered program references are emitted, as for symbol sets.
+- **Maps.** Entries are kept in insertion order in one array, with a separate open-addressing index of positions, as in Python's compact dictionary. Hashing and equality are generated per key type and do not depend on addresses or a random seed, so output is deterministic.
+- **Loops.** `for x in v` lowers to an index cursor with the length saved at the start. Each step compares the current length and panics with `panic: collection changed during loop` when it differs. The loop variable is an immutable binding with the element's permission. Changing the vector through the same name or path inside the body is rejected at compile time.
+
+### Program input and output
+
+- `File` and `Process` are standard-library modules whose functions are implemented in the runtime and declared to the compiler as builtins with typed outcomes. They are found by the module rules in D12, so a project file named `File.brf` causes the documented ambiguity error.
+- Files are read and written as bytes, with no newline or encoding conversion. Errors map from `errno` to the tags in D8.
+- Arguments are copied into an immortal vector when the program starts. `Process.exit` and panics flush standard output before ending the program, as panics do now.
+
+### Modules
+
+- The driver keeps one entry file. Resolution collects names that are not defined in the current file, loads `Name.brf` from the same folder for each, and repeats until no new modules are needed. Every module is lexed and parsed into the same arena, and each `SourceFile` keeps its own path, so diagnostics already name the right file.
+- The module dependency graph is checked for cycles with an explicit work stack, and a cycle is reported as in `lang-modules.txt`.
+- Names declared in a module live in that module's namespace. `Module.item` finds public items, and associated calls such as `User.new` keep working for the module's main type. Privacy follows `lang-modules.txt`: items and fields are private unless marked `pub`, and a public type does not make its fields public.
+- Emitted C names gain the module name, for example `brf_Lexer_next`, keeping the existing prefixes. Modules are emitted in dependency order and declarations in source order, so output is deterministic.
+- The program test runner gains directory fixtures, for example `tests/programs/modules/<case>/Main.brf` with sibling modules, using the same `// expect:` and `// error:` comments.
+
+### Top-level constants (if D9 is approved)
+
+`const NAME = value` and `const NAME: type = value` at the top level of a module, where the value is a literal or an expression of other constants, of a number, `bool` or `str` type. Constants are emitted as C constants or immortal string literals. Local `const` bindings keep their current rejection.
+
+### Running programs (if D11 is approved)
+
+The functions in D11 wrap the existing driver code: `fork` and `execvp` without a shell, the child's signal disposition, status mapping and the temporary directory beside the destination. Moving them into the runtime lets the stage-1 driver reproduce `build` and `run` exactly, including the native-driver tests.
+
+## Testing
+
+- **Program fixtures** for every new operation, including each panic with its location and every new compile error, in normal and sanitized runs.
+- **Document acceptance.** Fences that were deferred only because they needed `Vec`, `Map`, modules, file input or `const` are moved to native acceptance where they fall inside this scope, with the chapter audits and their guarded counts updated. Fences that need lambdas, traits or named tuples stay deferred.
+- **Ownership.** Sanitized fixtures that store structs, strings and symbols in vectors and maps, replace and pop them, nest collections, build long chains and leave everything to be freed at exit with no live objects.
+- **Determinism.** The same program compiled twice from the same path emits identical C, and no emitted text depends on memory addresses or hash seeds. Map iteration order is checked against insertion order with collisions and growth.
+- **Performance budgets.** Adding ten million elements to a vector, a million keys to a map and compiling a generated 20,000-line multi-module program each stay within a fixed time in the Release build, so quadratic behavior is caught as a test failure. Compile-time costs found in the first-version review are fixed when a budget shows them.
+- **Example programs.** The programs in `examples/` are run in CI with checked output, and each milestone updates them where a new feature removes a workaround listed in the findings.
+- **Comparing two compilers.** A new test tool, `compare_compilers`, runs two compiler executables on the same sources with the same command (`dump-tokens`, `dump-ast`, `emit-c` or `run`) and reports any difference in output, errors or exit status. It is tested by comparing stage 0 with itself, and becomes the main check during the port.
+
+## Milestones
+
+Each milestone ends with every test passing in the full CI matrix.
+
+| # | Milestone | Done when |
+|---|---|---|
+| B0 | **Decisions and language rules.** Settle D1–D14 and the open questions marked B0. Record the rules in `lang-types.txt`, `lang-collections.txt`, `lang-modules.txt`, `lang-stdlib.txt` and `lang-syntax.txt`, add the bootstrap scope to `lang-desc.txt`, and classify every new or changed fence in the document audits. | The language docs describe every feature in this plan, and the audits classify the new examples as pending. |
+| B1 | **Text.** `size`, string indexing, `slice`, `str(chr)`, `chr(...)` and `concat`. | Fixtures scan and cut strings byte by byte, including their panics and compile errors. |
+| B2 | **Program input and output.** `File.read`, `File.write`, `Process.args`, `Process.exit` and `Process.printErr`, with the runner able to pass arguments and check files. | A fixture reads a file, writes a transformed copy, reports errors on stderr and exits with chosen statuses. |
+| B3 | **Vectors.** `Vec<T>`, its operations, indexing and `for` loops. | Token-list and syntax-tree shaped programs, including nested vectors, pass under sanitizers within their budgets. |
+| B4 | **Maps.** `Map<K, V>` with insertion-ordered keys. | An interning table and a symbol table program pass under sanitizers, with deterministic order and within their budgets. |
+| B5 | **Modules.** Same-folder modules, privacy, cycle errors and module-qualified C names. | Directory fixtures with several modules run; privacy, missing-module, ambiguity and cycle errors are reported. |
+| B6 | **Constants and the comparison tool.** Top-level `const` (if approved) and `compare_compilers`. | Constants compile in every allowed form, and the tool reports no difference between stage 0 and itself over every fixture and document example. |
+| B7 | **Readiness check.** A Brief lexer in `bootstrap/`, split into modules, that reads a file named on the command line and prints the token format of `dump-tokens`. | `compare_compilers` finds no difference between the Brief lexer and `brief dump-tokens` over every fixture and document example, and the README and this plan describe the result. |
+| B8 | **Running programs** (if approved). `Process.run`, `Process.env` and the file system operations from D11. | A Brief program builds and runs a C program through the C compiler, and failures and signals map as the native driver does today. |
+
+The plan is complete after B7, or after B8 if it is approved. If B7 shows that writing the lexer is awkward, for example because of permissions on shared data or missing string operations, the problems are recorded and the scope is adjusted before the port starts.
+
+## After this plan: the port
+
+This section outlines the work that follows. It is not part of this plan's scope.
+
+1. Port the lexer and newline filter, extending the B7 program, and compare with `dump-tokens`.
+2. Port the parser and compare with `dump-ast`.
+3. Port resolution, checking, permissions, lowering, ownership insertion and C emission, and compare with `emit-c`. Stage 1 must produce byte-identical C to stage 0 for every fixture and document example.
+4. Port the driver, using B8, and run the full program and document suites with `--brief` pointing at stage 1.
+5. Reach the fixed point. Stage 0 builds stage 1, stage 1 builds itself as stage 2, and stage 2 builds itself as stage 3. The C that stages 2 and 3 emit for the compiler must be identical, as GCC requires of its stage 2 and stage 3.
+6. Decide how to keep the bootstrap. Either keep stage 0 maintained for this scope, or commit stage 1's generated C as the seed and retire stage 0, as Nim does with its `csources` repositories and Zig does with its committed WebAssembly seed.
+
+## Risks
+
+| Risk | Plan |
+|---|---|
+| Generic collections are the largest addition to stage 0: type application, generated helpers per instantiation and element ownership. | One shared design for `Vec` and `Map` types, staged across B3 and B4, with sanitizer fixtures for every ownership path. |
+| The permission rules may make the shared, mutable data of a compiler awkward to build. | Compiler-shaped fixtures in B3 and B4, and the B7 readiness check before the port begins. Problems found there adjust the language rules, not stage 1's design. |
+| Scope creep, because every feature is built twice. | The explicit out-of-scope list. A feature is added only when the readiness check or the port shows it is needed. |
+| Reference cycles in compiler data are never freed until the cycle collector exists. | Stage 1 uses integer IDs and vectors for graphs such as types and calls. Debug leak reports remain on, so an accidental cycle is visible. |
+| Compiling stage 1 through stage 0 may be slow, mostly in the C compiler. | Compile-time budgets, emitting only referenced helpers, and building stage 1 at a lower optimization level during development. |
+| Output that differs between runs breaks the fixed-point check. | Insertion-ordered maps, deterministic hashing, no address-dependent output and the determinism tests. |
+| Several files change how diagnostics, the test runner and C names work. | Directory fixtures, per-file source spans that already exist, and module-qualified emitted names. |
+
+## Resources
+
+- **[Installing GCC: Building](https://gcc.gnu.org/install/build.html)**. GCC's three-stage bootstrap builds the compiler with itself twice and compares stages 2 and 3, the model for the fixed-point check.
+- **[Go 1.5 Bootstrap Plan](https://go.googlesource.com/proposal/+/master/design/go15bootstrap.md)**, Russ Cox (2015). Go's move from a C compiler to one written in Go, keeping the compiler buildable with Go 1.4 by limiting the features it used.
+- **[Goodbye to the C++ Implementation of Zig](https://ziglang.org/news/goodbye-cpp/)**, Andrew Kelley (2022). Zig replaced its C++ bootstrap compiler with a small committed WebAssembly seed that is translated to C.
+- **[csources_v2](https://github.com/nim-lang/csources_v2)**. The generated C sources of the Nim compiler, the model for keeping stage 1's own C output as a seed.
+- **[Fully Countering Trusting Trust through Diverse Double-Compiling](https://arxiv.org/abs/1004.5534)**, David A. Wheeler (2009). Compiling a compiler's source through an independent compiler and requiring bit-identical results, which a second Brief compiler would make possible.
+- **[What's New In Python 3.6: new dict implementation](https://docs.python.org/3/whatsnew/3.6.html)**. The compact dictionary: an insertion-ordered entry array with a separate index, the model for `Map`.
