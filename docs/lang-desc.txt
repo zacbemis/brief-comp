@@ -3,6 +3,8 @@
 > **Status: Experimental language design**
 >
 > This document describes the intended design and philosophy of a new statically typed, compiled programming language. The syntax and semantics are evolving, and examples should be treated as design references rather than proof of an implemented feature.
+>
+> These documents describe the next version of the language. The current compiler implements the first version, whose documents are kept unchanged in `docs/v0/` and checked by the document-acceptance tests. `lang-post-0-notes.txt` records the decisions that separate the two.
 
 ## 1. Overview
 
@@ -21,7 +23,7 @@ Key characteristics include:
 - Lightweight borrowing and explicit mutation permissions.
 - Explicit copying of nontrivial objects.
 - Immutable data through `const`.
-- Typed symbols and exhaustive pattern matching.
+- Typed symbols, unions of symbols, and exhaustive pattern matching.
 - Pipelines for transforming values and handling results.
 - Compiler-enforced recoverable error handling.
 - Declarative collection operations instead of unnecessary loops.
@@ -92,17 +94,19 @@ The design is split across these files in `docs/`.
 |---|---|
 | `lang-desc.txt` | This overview, compiler responsibilities, and open questions. |
 | `lang-syntax.txt` | Statements, variables, operators and precedence, control flow. |
-| `lang-types.txt` | Primitive types, numbers, strings, tuples, function types, equality, maps. |
+| `lang-types.txt` | Primitive types, numbers, strings, arrays and vectors, tuples, function types, equality, maps. |
 | `lang-functions.txt` | Functions, return types, unused values, call syntax. |
-| `lang-modules.txt` | Structs, source files, finding modules, imports, program entry, constructors. |
-| `lang-traits.txt` | Traits, composition, overriding, generics. |
-| `lang-symbols.txt` | The `Sym` type and what it is used for. |
-| `lang-errors.txt` | The full error-handling rules for `Sym`, with examples. |
+| `lang-modules.txt` | Structs, methods, source files, finding modules, imports, visibility, program entry, constructors. |
+| `lang-traits.txt` | Traits, composition, default functions, generics. |
+| `lang-symbols.txt` | Symbols, unions, payloads, and what they are used for. |
+| `lang-errors.txt` | The full rules for errors and outcomes, with examples. |
 | `lang-pipelines.txt` | The pipeline operator and pattern matching. |
 | `lang-memory.txt` | Reference counting, borrowing, `const`, resource cleanup. |
 | `lang-collections.txt` | Collection operations, ordering, groups, and the collection trait. |
 | `lang-stdlib.txt` | The standard library and the JSON example. |
 | `lang-ex-base.txt` | A running syntax sample. |
+
+`lang-post-0-notes.txt` is the record of the decisions made after the first version, and `docs/v0/` holds the first version's documents.
 
 ---
 
@@ -136,7 +140,11 @@ Its responsibilities include:
 - Module-based visibility.
 - Private-field access enforcement.
 - Safe object initialization.
-- Trait-method resolution and override checking.
+- Trait-method resolution and conformance checking.
+
+**Names**
+- Casing rules: types, modules and traits start with a capital; everything else starts lowercase.
+- Finding modules by name, and reporting a name that matches more than one module.
 
 The compiler should provide actionable error messages rather than requiring programmers to understand internal ownership machinery.
 
@@ -146,25 +154,13 @@ The first compiler is written in C and emits C, which an existing C compiler tur
 
 The long-term goal is to bootstrap: most of the compiler will be rewritten in the language itself, reusing the same C output and runtime.
 
-### First version
+### Versions
 
-The first version of the compiler handles a single source file and this part of the language:
+The first version of the compiler handles a single source file and a subset of the language. Its scope is listed in `docs/v0/lang-desc.txt`, "First version", in the first version's syntax: `main()`, the primitive types, `let` and `var`, arithmetic and comparisons, functions with inferred and written return types, `if`, `while`, `for` over ranges, structs and their functions, symbols with `?`, `!` and match blocks, `|>` calls, `print` and the converters, and reference counting without the cycle collector.
 
-- `main()` as the program's entry point.
-- `bool`, `chr`, `str`, and every integer and floating-point type.
-- `let` and `var`, with optional type annotations, and literals that take their type from context.
-- Arithmetic with overflow and division-by-zero panics, comparisons, `and`, `or`, and `!`.
-- Functions with typed parameters and inferred, partly written, or fully written return types.
-- `if` as a value, `while`, `for` over ranges, `break`, and `continue`.
-- Structs, `impl` blocks, struct literals, method calls with `.`, and `&` parameters.
-- `Sym` with named sets, `?`, `!`, `|>` match blocks, exhaustiveness checking, error accumulation, and the rule that a call that can fail is handled where it is made.
-- `|>` calls.
-- `print`, the `str(...)` converter, and the numeric converters such as `int(...)` and `dub(...)`.
-- Reference counting for structs and strings, without the cycle collector.
+The next version moves that scope to the syntax and rules in these documents. Which further features it adds, such as arrays and vectors, modules found by name, and `const`, is planned in `docs/plans/`.
 
-These come in later versions: `const`, lambdas and `Fn`, `Vec` and the collection functions, named tuples, maps, traits, generics written by the programmer, modules and finding them by name, and the cycle collector.
-
-The plan for building it is in `docs/plans/`.
+These come later: lambdas and `Fn`, the collection functions, named tuples, maps, traits, generics written by the programmer, and the cycle collector.
 
 ---
 
@@ -180,9 +176,10 @@ The following areas are not fully specified and should not be assumed to have fi
 6. Async programming and concurrency.
 7. ABI and foreign-function interfaces.
 8. Catching a misspelled symbol tag in a function whose return type is inferred.
-9. Whether a type can be given an `impl` block outside its defining module.
+9. Whether a type can conform to a trait outside its defining module, and how built-in types such as `int` conform to traits.
 10. Nested modules, for which the `mod` keyword is reserved.
-11. How a type of your own converts with `str(value)` and the other converters.
+11. How a type of your own converts with `str(value)`, the other converters, and string interpolation.
+12. Generic functions: bounds such as `max[T: Ord and Printable](a: T, b: T)`, inferred type arguments, and compiling one copy per type.
 
 These are design questions rather than commitments to specific implementations.
 
@@ -201,7 +198,7 @@ When implementing or extending this language, follow these principles:
 - **Enforce recoverable errors.** Do not allow fallible operations to be silently discarded.
 - **Keep `|>` generic.** The pipeline transfers values; pattern matching handles destructuring and branching.
 - **Favor declarative collection operations.** Avoid repetitive loops when an existing iterator clearly expresses the operation.
-- **Maintain module privacy.** Public types may still have private fields and controlled construction.
+- **Maintain module privacy.** Types are always public but may still have private fields and controlled construction.
 - **Keep external resource cleanup explicit.** Do not rely on GC timing to close files or connections.
 - **Do not assume unresolved features are finalized.** When implementing an ambiguous case, identify the required semantic decision rather than inventing an implicit guarantee.
 

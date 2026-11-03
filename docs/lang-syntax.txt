@@ -11,6 +11,25 @@
    can span lines */
 ```
 
+## Names
+
+Casing is part of the grammar, and breaking it is a compile error.
+
+- Types, modules and traits start with a capital: `Date`, `Json`, `HasUser`.
+- Functions, variables, constants, fields, parameters and symbol tags start with a lowercase letter: `daysIn`, `date`, `maxUsers`, `year`, `:badYear`.
+- The primitive types, such as `int` and `str`, are keywords and stay lowercase.
+
+The first letter tells a reader, and the parser, what a name is: `Date.new()` is called on a type and `date.label()` on a value, and `Date { ... }` is a literal while `ready { ... }` is not.
+
+```
+let Count = 0              // Compiler error: a variable starts with a lowercase letter
+const MAX_USERS = 100      // Compiler error: a constant starts with a lowercase letter
+date {                     // Compiler error: a struct starts with a capital
+  day: int
+}
+const maxUsers = 100       // allowed
+```
+
 ## Statements and line breaks
 
 Statements are separated by newlines. There is no statement terminator.
@@ -20,13 +39,13 @@ let user = User.new("Bob", 20)!
 let name = user.getName()
 ```
 
-Fields in a struct definition and arms in a pattern-matching block are also written one per line.
+Fields in a struct definition and arms in a pattern-matching block are also written one per line. Short matches cannot be put on one line.
 
 A statement may span several lines. The examples in this document assume a newline does not end a statement when it appears:
 
 - Inside `( )` or `[ ]`.
-- After a token that cannot end a statement, such as `,`, `:`, `=`, `=>`, `|>`, `.`, or a binary operator.
-- After a keyword that still needs its declaration, condition, iterable, or body: `let`, `var`, `const`, `type`, `impl`, `pub`, `if`, `else`, `for`, `in`, or `while`.
+- After a token that cannot end a statement, such as `,`, `:`, `=`, `=>`, `->`, `|>`, `.`, or a binary operator. In a type, this includes the `|` that joins a union.
+- After a keyword that still needs its declaration, condition, iterable, or body: `let`, `var`, `const`, `pub`, `import`, `if`, `else`, `for`, `in`, `while`, `and`, `or`, or `not`.
 - Before a line that begins with `|>` or `.`.
 
 ```
@@ -38,14 +57,19 @@ let valid = json
   |> parse()?
   |> validate()?
 
-let name = users
-  .find((user) => user.getAge() > 30)!
+let label = user
   .getName()
+  .trim()
 
 let user = User.new(
   "Bob",
   20
 )!
+
+read(path: str) -> :ok[str] | :!notFound[str] |
+  :!denied[str] | :!failed[str] {
+  ...
+}
 ```
 
 These continuation rules are accepted for now and may be refined.
@@ -65,7 +89,7 @@ Examples:
 ```
 let user = User.new("Bob", 20)!
 var counter = 0
-const MAX_USERS = 100
+const maxUsers = 100
 ```
 
 `let` prevents reassigning the variable, but does not inherently make the referenced object immutable.
@@ -92,6 +116,26 @@ iteration bindings.
 
 The previous `const var` combination has been removed from the current design.
 
+### Declared, then assigned
+
+A `let` or `var` can be declared with a type and no value, and assigned later. It must be assigned as a whole before it is read, on every path, or it is a compile error. A `let` declared this way is assigned exactly once.
+
+```
+let squares: Arr[int]                 // declared, not yet assigned
+squares = Arr[int] {1, 4, 9}          // assigned before use
+
+let label: str
+if count == 1 {
+  label = "one item"
+} else {
+  label = "{count} items"
+}
+print(label)                          // allowed: assigned on both paths
+
+let total: int
+print(str(total))                     // Compiler error: total is not assigned
+```
+
 ### Type annotations
 
 A binding can state its type after the name, in the same `name: type` form used for fields and parameters. The annotation is optional.
@@ -99,8 +143,8 @@ A binding can state its type after the name, in the same `name: type` form used 
 ```
 let count: lng = 0
 var ratio: flt = 0.5
-const MAX_USERS: int = 100
-let users: Vec<User> = Vec<User>()
+const maxUsers: int = 100
+let users: Vec[User] = Vec[User]()
 ```
 
 Without an annotation the type comes from the value.
@@ -151,9 +195,10 @@ write the update as a separate statement.
 
 Assignment (`=`) and compound assignment (`+=`, `-=`, `*=`, `/=`, `%=`) are
 standalone statements, not expressions. They produce no value and do not chain.
-The target must be a binding, field, or indexed element. For example, `a = b`
-and `user.age += 1` are statements, but `a = b = c`, `if a = b { }`, and
-`f(a = 1)` are syntax errors. Use `==` to compare values in a condition.
+The target must be a binding, field, or indexed element. For example, `a = b`,
+`user.age += 1` and `arr.(i) = 0` are statements, but `a = b = c`,
+`if a = b { }`, and `f(a = 1)` are syntax errors. Use `==` to compare values in
+a condition.
 
 Comparison:
 
@@ -177,51 +222,67 @@ x << y    // shift left
 x >> y    // shift right
 ```
 
+`|` is the bitwise or in expressions and joins a union in types. Types are only read where a type is expected, so the two do not clash.
+
 ### Logical operators
 
-Logical operators are the keywords `and` and `or`. Logical not is a prefix `!`.
+Logical operators are the keywords `and`, `or` and `not`.
 
 ```
 if age >= 18 and age < 100 {
   ret true
 }
 
-if !user.isActive() or user.isBanned() {
+if not user.isActive() or user.isBanned() {
   ret false
 }
 ```
 
-`&&` and `||` are not part of the language.
+`&&`, `||` and a prefix `!` are not part of the language. `!` is only about failure: after a call it unwraps a success or panics, and in `:!` it marks an error symbol (`lang-symbols.txt`). A prefix `!`, as in `!user.isActive()`, is a compile error that suggests `not`.
+
+## What each bracket and symbol means
+
+- `()` calls a function. After a `.`, it indexes: `arr.(i)` (`lang-types.txt`, "Arrays and vectors").
+- `[]` gives type arguments: `Vec[T]`, `Arr[T]`. It also holds a symbol's payload, in types and in values: `:ok[Date]`, `:!badYear[year]`.
+- `{}` is a block, whose meaning depends on what it follows: a function body, a struct or trait, a match, an `if` or a loop, or a literal.
+- `.` reaches into anything with members: a field (`date.year`), a method (`date.label()`), an associated function (`Date.new(...)`), an item of a module (`Json.parse(...)`) or an element (`arr.(i)`).
+- `:` gives a type (`year: int`), lists the traits a struct conforms to (`Admin: Printable`) or starts a neutral symbol (`:more`). It is not used for values.
+- `:!` starts an error symbol (`:!badYear`).
+- `->` gives a function's return type.
+- `|` joins symbols into a union, in types (`:ok[Date] | DateError`).
+- `=` gives a value, including struct fields in a literal: `Date { year = year, month = month, day = day }`. In a type declaration it gives a type: `DateError = ...`.
 
 ## Operator precedence
 
 Operators earlier in this list bind tighter than operators after them.
 
-1. Postfix: `f()` `x.y` `x[i]` `?` `!`
+1. Postfix: `f()` `x.y` `x.(i)` `?` `!`
 2. Power: `**`
-3. Prefix: `-x` `!x` `~x`
+3. Prefix: `-x` `not x` `~x`
 4. `*` `/` `%`
 5. `+` `-`
 6. `<<` `>>`
 7. `&`
 8. `^`
 9. `|`
-10. Range: `..`
+10. Range: `..` `..=`
 11. Pipeline: `|>`
 12. Comparison: `==` `!=` `<` `<=` `>` `>=`
 13. `and`
 14. `or`
 
-Operators on the same level group left to right. `**` groups right to left. `..` and the comparison operators do not chain. Assignment, increment, and decrement are statement-only, so they have no expression precedence.
+Operators on the same level group left to right. `**` groups right to left. Ranges and the comparison operators do not chain. Assignment, increment, and decrement are statement-only, so they have no expression precedence.
+
+`not` binds as tightly as the other prefix operators, so `not a == b` is `(not a) == b`. Write `a != b`, or `not (a == b)`.
 
 ### Arithmetic
 
 ```
-a + b * c        // a + (b * c)
-a - b - c        // (a - b) - c
-2 ** 3 ** 2      // 2 ** (3 ** 2)
--2 ** 2          // -(2 ** 2)
-!user.isActive() // !(user.isActive())
+a + b * c          // a + (b * c)
+a - b - c          // (a - b) - c
+2 ** 3 ** 2        // 2 ** (3 ** 2)
+-2 ** 2            // -(2 ** 2)
+not user.isActive() // not (user.isActive())
 ```
 
 ### Bitwise operators and comparisons
@@ -229,7 +290,7 @@ a - b - c        // (a - b) - c
 Bitwise operators bind tighter than comparisons, so a mask test needs no parentheses.
 
 ```
-flags & MASK == 0     // (flags & MASK) == 0
+flags & mask == 0     // (flags & mask) == 0
 a | b ^ c & d         // a | (b ^ (c & d))
 ```
 
@@ -242,7 +303,7 @@ a < b and b < c       // write this instead
 
 ### Ranges
 
-`..` binds looser than arithmetic and tighter than `|>` and comparisons.
+`..` and `..=` bind looser than arithmetic and tighter than `|>` and comparisons.
 
 ```
 0..count + 1          // 0..(count + 1)
@@ -305,7 +366,7 @@ if age < 18 {
 
 `if` produces a value, so it can be assigned. Each branch's last expression is that branch's value.
 When the value is used, branches that reach their end must have compatible
-types. When it is discarded, including at the tail of a `: ()` function,
+types. When it is discarded, including at the tail of a `-> ()` function,
 branch values are ignored individually.
 
 ```
@@ -345,16 +406,32 @@ for i in 0..10 {
   print(str(i))     // 0 through 9
 }
 
+for i in 1..=10 {
+  print(str(i))     // 1 through 10
+}
+
 for user in users {
   print(user.getName())
 }
 ```
 
-A range `a..b` includes `a` and excludes `b`. Its bounds are integers of the
-same type and are evaluated once, left to right, before the loop starts. It
-walks upward by one; when `a >= b`, the body does not run. The iteration binding
-is immutable and is visible only in the loop body. `continue` advances to the
-next value before testing the bound again.
+A range `a..b` includes `a` and excludes `b`; `a..=b` includes both. Its bounds
+are integers of the same type and are evaluated once, left to right, before the
+loop starts. It walks upward by one; when `a >= b` (for `..=`, when `a > b`),
+the body does not run. The iteration binding is immutable and is visible only
+in the loop body. `continue` advances to the next value before testing the
+bound again.
+
+The iteration binding takes the type of the bounds. When both bounds are
+literals, they are `int` unless the binding is given a type:
+
+```
+for n: lng in 2..10000 {
+  ...
+}
+```
+
+Over an array or vector, `for x in arr` gives the elements, and `for i in 0..arr.len()` gives the indices.
 
 `while` and `for` are statements producing `()`, not value-producing
 expressions; their results cannot be assigned or passed as arguments.
@@ -396,14 +473,15 @@ for row in rows {
 }
 ```
 
-## Struct literals and blocks
+## Literals and blocks
 
 A bare `{ ... }` is not a general expression or a standalone statement.
-Blocks must be introduced by a function header, `if`/`else`, `while`, `for`,
-a match arm's `=>`, or `|>`. For example, `print({ ... })` is a syntax error.
-An `if` or pipeline match can still produce a value as described above.
+Blocks must be introduced by a function header, a struct or trait name,
+`if`/`else`, `while`, `for`, a match arm's `=>`, or `|>`. For example,
+`print({ ... })` is a syntax error. An `if` or pipeline match can still produce
+a value as described above.
 
-`Name { ... }` defines a struct where a declaration is expected and creates a value where an expression is expected.
+`Name { ... }` defines a struct or trait where a declaration is expected and creates a value where an expression is expected. A literal of an array or vector also ends in braces: `Arr[int] {1, 2, 3}`, `Vec[str] {"a", "b"}`.
 
 After `if`, `for`, and `while`, the first `{` always starts the body.
 
@@ -413,36 +491,33 @@ for user in users {
 }
 ```
 
-A struct literal in the condition or iterable must be wrapped in `( )` or appear inside a call's arguments.
+A literal that ends in `{ ... }` in a condition or iterable must be wrapped in `( )` or appear inside a call's arguments. The compiler's error says what to wrap.
 
 ```
-if Guest { name: name }.isAllowed() {     // Compiler error: the first { starts the body
+if Guest { name = name }.isAllowed() {     // Compiler error: the first { starts the body
 }
 
-if (Guest { name: name }).isAllowed() {   // allowed: wrapped in ( )
+if (Guest { name = name }).isAllowed() {   // allowed: wrapped in ( )
 }
 
-if isAllowed(Guest { name: name }) {      // allowed: inside call arguments
+if isAllowed(Guest { name = name }) {      // allowed: inside call arguments
+}
+
+for x in (Arr[int] {1, 2, 3}) {            // allowed: wrapped in ( )
 }
 ```
 
 The same rule applies to any future keyword that is followed by an expression and then a block.
 
-## Generic calls in expressions
+## Type arguments in expressions
 
-`Vec<User>()` uses the same `<` and `>` as a comparison. The parser decides as follows: after a name and `<`, it tries to read type arguments. If they close with `>` and the next token is `(`, the expression is a generic call. Otherwise `<` is a comparison.
-
-```
-let users = Vec<User>()         // generic call
-let grid = Vec<Vec<int>>()      // generic call
-let smaller = a < b             // comparison
-let inside = a < b and b > c    // two comparisons
-```
-
-One form is read as a generic call even though it could be meant as two comparisons.
+Type arguments are written in square brackets, in types and in expressions. Square brackets are never used for indexing, so `Vec[User]()` cannot be confused with an index or a comparison.
 
 ```
-check(a < b, c > (d))           // read as the generic call a<b, c>(d)
-check(a < b, c > d)             // two comparisons: no ( after >
-check((a < b), (c > (d)))       // two comparisons
+let users = Vec[User]()         // an empty vector of User
+let grid = Vec[Vec[int]]()      // a vector of vectors
+let smaller = a < b             // always a comparison
+let first = users.(0)           // indexing uses .( )
 ```
+
+A generic function called with explicit type arguments writes them the same way: `parse[int](text)`. `lang-traits.txt` describes generics.

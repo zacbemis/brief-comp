@@ -1,4 +1,4 @@
-# Error Handling with `Sym`
+# Errors and Outcomes
 
 > **Status: Accepted for now**
 >
@@ -12,39 +12,35 @@ The goals are:
 
 ---
 
-## 1. `:ok` is the success tag
+## 1. Error symbols mark failure
 
-`?` and `!` look for `:ok`. Every other variant counts as not-success.
+An error symbol is written with `:!` (`lang-symbols.txt`, "Symbol kinds"). A union that contains at least one error symbol is an outcome.
+
+`?` returns the errors early, and `!` panics on them.
 
 ```
-parse(text: str): Sym<:ok(Json), :syntax(int)>
+parse(text: str) -> :ok[Json] | :!syntax[int]
 
-load(text: str): Sym<:ok(Json), :syntax(int)> {
+load(text: str) -> :ok[Json] | :!syntax[int] {
   let json = parse(text)?
-  :ok(json)
+  json
 }
 ```
 
-If `parse` produces `:ok(json)`, `?` unwraps it. If `parse` produces `:syntax(line)`, `load` returns `:syntax(line)` immediately.
+If `parse` produces `:ok[json]`, `?` gives the `Json`. If `parse` produces `:!syntax[line]`, `load` returns `:!syntax[line]` immediately.
 
-Ending a function with a plain value returns `:ok` of that value, so `load` can also be written:
-
-```
-load(text: str): Sym<:ok(Json), :syntax(int)> {
-  parse(text)?          // the same as ending with :ok(json)
-}
-```
+Ending a function whose result contains `:ok[T]` with a plain value returns `:ok` of that value, so `load` above ends with `json` rather than `:ok[json]`.
 
 `?` is shorthand for this match:
 
 ```
 let json = parse(text) |> {
-  :ok(value) => value
-  other => ret other
+  :ok[value] => value
+  :!syntax[line] => ret :!syntax[line]
 }
 ```
 
-`!` unwraps `:ok` the same way and panics on anything else.
+`!` takes out the success the same way and panics on an error.
 
 ```
 let json = parse(text)!
@@ -52,30 +48,57 @@ let json = parse(text)!
 
 A panic prints a message to standard error naming the file and line where it happened, then ends the program with a non-zero exit status. Integer overflow and division by zero panic in the same way.
 
-Optional values follow the same rule. `:none` is not `:ok`, so `?` returns it.
+What is left after `?` or `!`:
+
+- one tag with a payload gives the payload;
+- one tag without a payload gives nothing;
+- several tags give the union of those tags, which must then be matched with an arm for each one. This holds even when two tags carry the same payload type: `:created[Id]` and `:updated[Id]` are still different cases.
 
 ```
-greet(users: Vec<User>): Sym<:ok(str), :none> {
-  let user = users.find((user) => user.getName() == "Bob")?
-  :ok("Hello " + user.getName())
+save(user: User) -> :created[Id] | :updated[Id] | :!conflict[Id]
+
+let change = save(user)?                // change is :created[Id] | :updated[Id]
+change |> {
+  :created[id] => print("created {id}")
+  :updated[id] => print("updated {id}")
 }
+```
+
+`:ok` is the success tag by convention, and the one used for implicit wrapping. It does not make a union an outcome; only error symbols do. A union without errors that contains `:ok` is ordinary data.
+
+```
+Health = :ok | :degraded | :down        // no errors: data, no handling needed
 ```
 
 `:ok` may carry no payload.
 
 ```
-close(file: &File): Sym<:ok, :ioError(str)>
+// a method of File, in File.brf
+close(&self) -> :ok | :!ioError[str]
 
 file.close()!
 ```
 
-A `Sym` with no `:ok` variant cannot use `?` or `!`.
+A union with no error symbols cannot use `?` or `!`.
 
 ```
-getAgeRange(user: User): Sym<:adult, :senior>
+getAgeRange(user: User) -> :adult | :senior
 
-let range = user.getAgeRange()?   // Compiler error: no :ok variant to unwrap
+let range = user.getAgeRange()?   // Compiler error: there are no errors to return
 ```
+
+Optional values are not outcomes. `:none` is not an error, so `?` never returns early on it, and an optional is matched like any data (section 10).
+
+```
+greet(users: Vec[User]) -> :ok[str] | :none {
+  users.find((user) => user.getName() == "Bob") |> {
+    :ok[user] => "Hello " + user.getName()
+    :none => :none
+  }
+}
+```
+
+Error symbols are written with `:!` wherever they appear: in types, in `ret` and in patterns.
 
 ---
 
@@ -84,52 +107,52 @@ let range = user.getAgeRange()?   // Compiler error: no :ok variant to unwrap
 Given these two functions:
 
 ```
-readFile(path: str): Sym<:ok(str), :notFound(str), :permissionDenied(str)>
-parse(text: str): Sym<:ok(Json), :syntax(int)>
+readFile(path: str) -> :ok[str] | :!notFound[str] | :!permissionDenied[str]
+parse(text: str) -> :ok[Json] | :!syntax[int]
 ```
 
-A function that uses `?` on both must declare the not-ok variants of both.
+A function that uses `?` on both must declare the errors of both.
 
 ```
-loadJson(path: str): Sym<:ok(Json), :notFound(str), :permissionDenied(str), :syntax(int)> {
-  let text = readFile(path)?   // may return :notFound or :permissionDenied
-  let json = parse(text)?      // may return :syntax
-  :ok(json)
+loadJson(path: str) -> :ok[Json] | :!notFound[str] | :!permissionDenied[str] | :!syntax[int] {
+  let text = readFile(path)?   // may return :!notFound or :!permissionDenied
+  let json = parse(text)?      // may return :!syntax
+  json
 }
 ```
 
 The pipeline form accumulates the same way.
 
 ```
-loadJson(path: str): Sym<:ok(Json), :notFound(str), :permissionDenied(str), :syntax(int)> {
+loadJson(path: str) -> :ok[Json] | :!notFound[str] | :!permissionDenied[str] | :!syntax[int] {
   path |> readFile()? |> parse()?
 }
 ```
 
-Leaving a variant out is a compile error.
+Leaving an error out is a compile error.
 
 ```
-loadJson(path: str): Sym<:ok(Json), :syntax(int)> {
+loadJson(path: str) -> :ok[Json] | :!syntax[int] {
   let text = readFile(path)?   // Compiler error: loadJson does not declare
-                               // :notFound(str) or :permissionDenied(str)
+                               // :!notFound[str] or :!permissionDenied[str]
   parse(text)?
 }
 ```
 
-The return type can also be left out, and the compiler builds the same set.
+The return type can also be left out, and the compiler builds the same union.
 
 ```
 loadJson(path: str) {
   path |> readFile()? |> parse()?
 }
 
-// inferred: Sym<:ok(Json), :notFound(str), :permissionDenied(str), :syntax(int)>
+// inferred: :ok[Json] | :!notFound[str] | :!permissionDenied[str] | :!syntax[int]
 ```
 
 Or the success type can be written and the rest left to the compiler with `_`.
 
 ```
-loadJson(path: str): Sym<:ok(Json), _> {
+loadJson(path: str) -> :ok[Json] | _ {
   path |> readFile()? |> parse()?
 }
 ```
@@ -137,132 +160,132 @@ loadJson(path: str): Sym<:ok(Json), _> {
 All three forms are allowed on any function. A written type is always checked against the body.
 
 `_` is allowed only in function return types and must accompany a written `:ok`
-variant fixing the success type. It adds inferred error variants to any written
-ones; it is not an open set usable in aliases, fields, parameters or local annotations.
-Only reachable returns and propagation paths contribute to inference; unreachable
-syntax is still checked.
+tag fixing the success type. It adds inferred tags to any written ones; it is
+not an open union usable in type declarations, fields, parameters or local
+annotations. Only reachable returns and propagation paths contribute to
+inference; unreachable syntax is still checked.
 
 ---
 
-## 3. Named sets
+## 3. Named unions
 
-Listing every variant in a written return type gets long. A module can name its error set once.
+Listing every tag in a written return type gets long. A module can name its errors once. A type declaration needs no keyword.
 
 ```
 // file: File.brf
 
-pub type Error = Sym<:notFound(str), :permissionDenied(str)>
+Error = :!notFound[str] | :!permissionDenied[str]
 
-pub read(path: str): Sym<:ok(str), Error>
+pub read(path: str) -> :ok[str] | Error
 
 // file: Json.brf
 
-pub type Error = Sym<:syntax(int), :missingKey(str), :wrongType(str)>
+Error = :!syntax[int] | :!missingKey[str] | :!wrongType[str]
 
-pub parse(text: str): Sym<:ok(Json), Error>
+pub parse(text: str) -> :ok[Json] | Error
 ```
 
-Inside `Sym<...>`, an entry that starts with `:` is one variant. An entry that is a type name includes every variant of that set.
+In a union, an entry that starts with `:` is one tag. An entry that is a type name includes every tag of that union.
 
 ```
-pub loadUser(path: str): Sym<:ok(User), File.Error, Json.Error, :invalidAge(int)> {
+// file: User.brf
+
+pub loadUser(path: str) -> :ok[User] | File.Error | Json.Error | :!invalidAge[int] {
   let text = File.read(path)?
   let json = Json.parse(text)?
   let name = json.getStr("name")?
   let age = json.getInt("age")?
 
-  User.new(name, age)?
+  User.new(name, age)
 }
 ```
 
 That return type is the same as writing:
 
 ```
-Sym<:ok(User), :notFound(str), :permissionDenied(str), :syntax(int), :missingKey(str), :wrongType(str), :invalidAge(int)>
+:ok[User] | File.:!notFound[str] | File.:!permissionDenied[str] |
+  Json.:!syntax[int] | Json.:!missingKey[str] | Json.:!wrongType[str] |
+  :!invalidAge[int]
 ```
-
-This replaces the earlier `Json.sym()` placeholder. It needs one new keyword, `type`.
 
 ---
 
-## 4. Collisions
+## 4. Tags from different modules
 
-The same tag with the same payload is one variant.
+A tag belongs to the module it is written in (`lang-symbols.txt`, "Tags belong to modules"). Two modules can use the same tag name, even with the same payload type, and the tags stay different.
 
 ```
-File.read(path: str): Sym<:ok(str), :notFound(str)>
-Http.get(url: str): Sym<:ok(str), :notFound(str)>
+// File.read -> :ok[str] | File.:!notFound[str]
+// Http.get -> :ok[str] | Http.:!notFound[str]
 
-fetch(source: str): Sym<:ok(str), :notFound(str)> {
+fetch(source: str) {
   let local = File.read(source)?
-  let remote = Http.get(local)?
-  :ok(remote)
+  Http.get(local)
+}
+
+// inferred: :ok[str] | File.:!notFound[str] | Http.:!notFound[str]
+```
+
+The caller can tell which call failed.
+
+```
+fetch("config") |> {
+  :ok[text] => print(text)
+  File.:!notFound[path] => print("no file {path}")
+  Http.:!notFound[url] => print("no page {url}")
 }
 ```
 
-`fetch` has a single `:notFound(str)`. The caller cannot tell which call produced it.
+A merged symbol matches both with one name, and gives each payload type its own arm when they differ (`lang-symbols.txt`, "Merged symbols").
 
-Payload types must match exactly when sets are combined. No payload and a `()`
-payload are different: `:missing` and `:missing(())` cannot be combined as one
-variant. Different payload types for the same tag may exist in disjoint sets,
-but combining them is a compile error.
+Within one module, a tag has the same payload types everywhere. No payload and a `()` payload are different: `:!missing` and `:!missing[()]` cannot both be used in one module.
 
 ```
-parse(text: str): Sym<:ok(Json), :invalid(int)>
-validate(json: Json): Sym<:ok(User), :invalid(str)>
+// one module
 
-load(text: str): Sym<:ok(User), :invalid(int), :invalid(str)> {   // Compiler error:
-  let json = parse(text)?                                         // :invalid has two payload types
-  validate(json)?
-}
+parse(text: str) -> :ok[Json] | :!invalid[int]
+validate(json: Json) -> :ok[User] | :!invalid[str]   // Compiler error: :!invalid already
+                                                      // has the payload int in this module
 ```
 
-The fix is to rename one where the two meet.
+The fix is to rename one of them.
 
 ```
-load(text: str): Sym<:ok(User), :syntax(int), :invalid(str)> {
-  let json = parse(text) |> {
-    :ok(json) => json
-    :invalid(line) => ret :syntax(line)
-  }
-
-  validate(json)?
-}
+parse(text: str) -> :ok[Json] | :!syntax[int]
+validate(json: Json) -> :ok[User] | :!invalid[str]
 ```
 
 ---
 
 ## 5. Specific tags in the standard library
 
-A generic tag tells the caller nothing and collides as soon as two libraries meet.
+A generic tag tells the caller nothing.
 
 ```
-open(path: str): Sym<:ok(File), :err(str)>   // avoid
+open(path: str) -> :ok[File] | :!err[str]   // avoid
 ```
 
 A specific tag says what happened and lets the caller choose a response.
 
 ```
-open(path: str): Sym<:ok(File), :notFound(str), :permissionDenied(str)>
+// file: File.brf
+pub open(path: str) -> :ok[File] | :!notFound[str] | :!permissionDenied[str]
 
+// in another module
 File.open("data.txt") |> {
-  :ok(file) => print("Opened")
-  :notFound(path) => print("No file at " + path)
-  :permissionDenied(path) => print("Cannot read " + path)
+  :ok[file] => print("Opened")
+  File.:!notFound[path] => print("No file at " + path)
+  File.:!permissionDenied[path] => print("Cannot read " + path)
 }
 ```
 
 ---
 
-## 6. A `Sym` that can fail cannot be discarded
+## 6. Handling outcomes
 
-A call whose result can fail, meaning it has an `:ok` variant and at least one other variant, must be handled where it is made.
+An outcome can never be ignored. It is handled in one of three ways.
 
-```
-file.close()                // Compiler error: the result is not handled
-```
-
-Each of these is accepted.
+**Where the call is made**, with `?`, `!` or a match.
 
 ```
 file.close()!               // panic on failure
@@ -271,132 +294,43 @@ file.close()?               // return the failure to the caller
 
 file.close() |> {           // handle each outcome
   :ok => print("Closed")
-  :ioError(message) => print(message)
+  File.:!ioError[message] => print(message)
 }
 ```
 
-Storing the result in a variable, passing it to another function, or returning it unchanged does not count as handling it. Section 10 describes this rule in full.
+**By returning it as it is.** A call that is the function's final expression, the last expression of a branch that ends the function, or the value of `ret` counts as handled. Its errors join the function's result, as with `?`, and the outcome is returned unchanged rather than wrapped in `:ok`.
 
 ```
-let result = file.close()   // Compiler error: the result is not handled
-```
-
-A result that can only be `:ok` cannot fail, and may be ignored.
-
-```
-print("Hello")              // allowed: print returns Sym<:ok>
-```
-
----
-
-## 7. Handling an error removes it
-
-A catch-all arm receives only the variants that earlier arms did not handle.
-
-```
-loadOrEmpty(path: str): Sym<:ok(Json), :permissionDenied(str), :syntax(int)> {
-  let text = readFile(path) |> {
-    :ok(text) => text
-    :notFound(missing) => "{}"
-    other => ret other
-  }
-
-  parse(text)?
+load(path: str) -> :ok[str] | :!notFound[str] {
+  readFile(path)            // returned as it is: no ? needed
 }
 ```
 
-`:notFound` is handled inside the function, so it does not appear in the return type. `other` has the type `Sym<:permissionDenied(str)>`.
-
-Without this rule a function that uses a catch-all would have to declare errors it has already dealt with.
-
----
-
-## 8. A smaller set fits a larger one
-
-`User.new` produces fewer variants than `fromJson` declares. That is allowed.
+**Later, from a binding.** A binding that holds an outcome must be handled exactly once, on every path, before it goes out of scope: by a match, `?`, `!` or returning it. Until then it cannot be passed to a function, stored in a field, copied to another binding or reassigned. The check is the flow analysis that declared-then-assigned bindings already need, run the other way: instead of "assigned before every read", it is "handled before every exit". Passing a stored outcome to a function may be allowed later.
 
 ```
-pub new(name: str, age: int): Sym<:ok(User), :invalidAge(int)>
+let result = Loan.new(0, 500, 10)
+print("trying a zero balance")
+result |> {                 // handled before the scope ends
+  :ok[loan] => print("ok")
+  problem => print("refused")
+}
 
-pub fromJson(json: Json): Sym<:ok(User), Json.Error, :invalidAge(int)> {
-  let name = json.getStr("name")?
-  let age = json.getInt("age")?
-
-  User.new(name, age)?
+let other = Loan.new(1, 2, 3)
+if done {
+  ret                       // Compiler error: other is not handled on this path
 }
 ```
 
-The reverse is a compile error.
+A call that is neither handled nor bound is a compile error, in every position, including the body of a lambda.
 
 ```
-make(): Sym<:ok(User)> {
-  User.new("Bob", 20)?  // Compiler error: :invalidAge(int) is not declared
-}
+file.close()                // Compiler error: the outcome is not handled
 ```
 
-For this to cost nothing at runtime, each tag name has one number across the whole program, so a value never needs converting when it moves to a larger set.
+As a result, every point where a function can fail is visible in its body: each `?`, each returned call, and each `ret` of an error symbol.
 
----
-
-## 9. Every function returns a symbol
-
-Every function returns a `Sym`. A function that cannot fail returns a `Sym` whose only variant is `:ok`.
-
-```
-double(x: int): int {
-  x * 2
-}
-
-// double returns Sym<:ok(int)>
-// a written return type of int is short for Sym<:ok(int)>
-// a function that returns nothing returns Sym<:ok>, written ()
-```
-
-Ending a function with a plain value `x` returns `:ok(x)`.
-
-`x` and `:ok(x)` are still different things: `x` is a value, and `:ok(x)` is a symbol carrying it. Because a result with only `:ok` cannot fail, the compiler lets it be used directly as its value, without `?` or `!`.
-
-```
-let y = double(3) + 1       // allowed: double cannot fail
-
-double(3) |> {              // also allowed: it is still a symbol
-  :ok(value) => print(value |> str())
-}
-```
-
-The compiler stores such a result as the plain value, so this costs nothing at runtime.
-
-A collection function returns `Sym<:ok(Vec<U>), E>`, where `E` is the error variants of the lambda it was given. When the lambda cannot fail, `E` is empty, so the result can be used directly as a `Vec<U>`.
-
-```
-users |> select((user) => user.getName())          // can be used as Vec<str>
-items |> select((json) => User.fromJson(json)?)    // Sym<:ok(Vec<User>), Json.Error, :invalidAge(int)>
-```
-
----
-
-## 10. A call that can fail is handled where it is made
-
-A call whose result can fail must be handled at the call, with `?`, `!`, or a match block. This applies in every position, including the last line of a function and the body of a lambda.
-
-```
-loadJson(path: str) {
-  path |> readFile()? |> parse()     // Compiler error: the errors from parse are not handled
-}
-
-loadJson(path: str) {
-  path |> readFile()? |> parse()?    // allowed: returns :ok(json), or parse's error
-}
-```
-
-```
-items |> select((json) => User.fromJson(json))     // Compiler error: not handled
-items |> select((json) => User.fromJson(json)?)    // allowed
-```
-
-As a result, every point where a function can fail is visible in its body: each `?`, and each `ret` of an error symbol.
-
-A `Sym` that has no `:ok` variant, such as `Sym<:adult, :senior>`, is ordinary data. It can be stored, passed, and returned freely.
+A union without error symbols, such as `:adult | :senior`, is ordinary data. It can be stored, passed, and returned freely.
 
 ```
 describe(user: User) {
@@ -404,34 +338,142 @@ describe(user: User) {
 }
 ```
 
----
-
-## 11. Named sets as patterns
-
-A named set can be used as a pattern in a match block. It matches any variant in the set.
+A result that is not an outcome may be ignored.
 
 ```
-User.fromJson(json) |> {
-  :ok(user) => print(user.getName())
-  Json.Error => print("The JSON was not valid")    // :syntax, :missingKey, or :wrongType
-  :invalidAge(age) => print("Age is not allowed")
+print("Hello")              // allowed: print returns ()
+```
+
+---
+
+## 7. Handling an error removes it
+
+A catch-all arm receives only the tags that earlier arms did not handle.
+
+```
+loadOrEmpty(path: str) -> :ok[Json] | :!permissionDenied[str] | :!syntax[int] {
+  let text = readFile(path) |> {
+    :ok[text] => text
+    :!notFound[missing] => "\{}"
+    other => ret other
+  }
+
+  parse(text)?
 }
 ```
 
-Exhaustiveness still applies. Leaving out `:invalidAge(age)` above is a compile error.
+`:!notFound` is handled inside the function, so it does not appear in the return type. `other` has the type `:!permissionDenied[str]`.
+
+Without this rule a function that uses a catch-all would have to declare errors it has already dealt with.
+
+---
+
+## 8. A smaller union fits a larger one
+
+`User.new` produces fewer tags than `fromJson` declares. That is allowed.
+
+```
+pub new(name: str, age: int) -> :ok[User] | :!invalidAge[int]
+
+pub fromJson(json: Json) -> :ok[User] | Json.Error | :!invalidAge[int] {
+  let name = json.getStr("name")?
+  let age = json.getInt("age")?
+
+  User.new(name, age)
+}
+```
+
+The reverse is a compile error.
+
+```
+make() -> User {
+  User.new("Bob", 20)?  // Compiler error: :!invalidAge[int] is not declared
+}
+```
+
+For this to cost nothing at runtime, each tag has one number across the whole program, so a value never needs converting when it moves to a larger union.
+
+---
+
+## 9. Functions return exactly their type
+
+A function returns its type and nothing else. `double(x: int) -> int` returns an `int`, and its result cannot be matched as `:ok[v]`.
+
+```
+double(x: int) -> int {
+  x * 2
+}
+
+let y = double(3) + 1       // an int
+```
+
+A plain value is wrapped in `:ok[...]` only when the function's result is a union that contains `:ok[T]`.
+
+A union whose only tag is `:ok[T]` is the same type as `T`, and `:ok` alone is the same as `()`. This lets a generic function return `:ok[U] | E`: when `E` is empty, the result is a plain `U`. A collection function returns `:ok[Vec[U]] | E`, where `E` is the errors of the lambda it was given.
+
+```
+users |> select((user) => user.getName())          // Vec[str]
+items |> select((json) => User.fromJson(json))     // :ok[Vec[User]] | Json.Error | User.:!invalidAge[int]
+```
+
+---
+
+## 10. `:none` and ending without a value
+
+`:none` means that there is no value (`lang-symbols.txt`). A function whose result includes `:none`, because its written type says so or because some `ret :none` puts it there, returns `:none` when it ends without a value.
+
+```
+find(id: int) -> :ok[User] | :none {
+  for user in users {
+    if user.id == id {
+      ret user
+    }
+  }
+}                                       // ends without a value: :none
+```
+
+A function whose result includes a payload-less `:ok` returns `:ok` when it ends without a value. Other functions that end without a value return `()`.
+
+A union with a payload-less `:ok` and `:none` together is a compile error: ending without a value would mean either.
+
+`?` acts on errors only. It never returns early on `:none`.
+
+Taking the value out of an optional, or leaving when there is none, is planned as `let ... else`, as in Rust. It binds the payload when there is a value and runs the block otherwise. The block must leave the scope, with `ret`, `break` or `continue`. Until it exists, a match does the same job.
+
+```
+let user = find(7) else { ret :!notFound[7] }
+```
+
+This is how a missing value becomes an error with a message: `scope.get(name) else { ret :!undefined[name] }`.
+
+---
+
+## 11. Named unions as patterns
+
+A named union can be used as a pattern in a match block. It matches any tag in the union.
+
+```
+User.fromJson(json) |> {
+  :ok[user] => print(user.getName())
+  Json.Error => print("The JSON was not valid")    // :!syntax, :!missingKey, or :!wrongType
+  User.:!invalidAge[age] => print("Age is not allowed")
+}
+```
+
+Exhaustiveness still applies. Leaving out `User.:!invalidAge[age]` above is a compile error.
 
 ---
 
 ## 12. Entry results
 
 `main()` takes no parameters. Its ordinary result is released and discarded, and
-execution exits 0. This includes a data-only `Sym` with no `:ok` variant: ending
-with `classify(1)` or `:adult` does not turn ordinary data into an error.
+execution exits 0. This includes a union without error symbols: ending with
+`classify(1)` or `:adult` does not turn ordinary data into an error.
 
-When `main()` has a fallible result type, containing both `:ok` and other variants,
-`:ok` exits 0. An active non-`:ok` variant prints `error: :tag(payload)` to standard
-error, releases the result and exits 1. Prior standard output is flushed before
-error or panic output. A panic does not unwind owners.
+When `main()` ends on an error symbol, it prints `error: ` and the symbol with
+its payload to standard error, releases the result and exits 1. Any other
+result, including `:ok`, exits 0. Prior standard output is flushed before error
+or panic output. A panic does not unwind owners.
 
 Error diagnostics quote and escape string/character payloads and show fields of
 structs and nested symbols. Diagnostic formatting may abbreviate large or deeply
@@ -441,18 +483,18 @@ nested values with `...`; it is not a serialization API or a general `str` conve
 
 ## Putting it together
 
-`loadUser` from section 3 declares seven outcomes. A caller that matches on it must cover all seven.
+`loadUser` from section 3 declares seven outcomes. A caller in another module that matches on it must cover all seven.
 
 ```
-loadUser("bob.json") |> {
-  :ok(user) => print(user.getName())
-  :notFound(path) => print("Missing file " + path)
-  :permissionDenied(path) => print("Cannot read " + path)
-  :syntax(line) => print("The file is not valid JSON")
-  :missingKey(key) => print("Missing field " + key)
-  :wrongType(key) => print("Wrong type for field " + key)
-  :invalidAge(age) => print("Age is not allowed")
+User.loadUser("bob.json") |> {
+  :ok[user] => print(user.getName())
+  File.:!notFound[path] => print("Missing file " + path)
+  File.:!permissionDenied[path] => print("Cannot read " + path)
+  Json.:!syntax[line] => print("The file is not valid JSON")
+  Json.:!missingKey[key] => print("Missing field " + key)
+  Json.:!wrongType[key] => print("Wrong type for field " + key)
+  User.:!invalidAge[age] => print("Age is not allowed")
 }
 ```
 
-Removing any arm is a compile error. Adding a new variant to `Json.Error` makes this match a compile error until the new variant is handled.
+Removing any arm is a compile error. Adding a new tag to `Json.Error` makes this match a compile error until the new tag is handled.

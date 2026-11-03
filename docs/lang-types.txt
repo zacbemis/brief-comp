@@ -11,7 +11,7 @@
 | `int` / `uint` | 32 bits | Signed / unsigned integer |
 | `lng` / `ulng` | 64 bits | Long signed / unsigned integer |
 | `flt` | 32 bits | Floating-point number |
-| `dub` | 64 bits | Double-precision floating-point number |
+| `dbl` | 64 bits | Double-precision floating-point number |
 | `chr` | 8 bits | One byte of text |
 | `str` | | Immutable text |
 | `()` | | The empty type |
@@ -37,15 +37,15 @@ setAge(user, 20)           // 20 is a shrt
 let total = count + 1      // 1 is a lng, because count is a lng
 ```
 
-When nothing in the context fixes the type, a whole number is an `int` and a number with a decimal point is a `dub`.
+When nothing in the context fixes the type, a whole number is an `int` and a number with a decimal point is a `dbl`.
 
 ```
 let count = 10             // int
-let ratio = 0.5            // dub
+let ratio = 0.5            // dbl
 ```
 
-Whole-number literals may take any numeric type, including `flt` or `dub`.
-A literal with a decimal point takes `flt` or `dub`, not an integer type.
+Whole-number literals may take any numeric type, including `flt` or `dbl`.
+A literal with a decimal point takes `flt` or `dbl`, not an integer type.
 An integer literal outside its contextual integer type's range is a compile
 error; a directly negated literal may represent the signed minimum. Floating
 literals round directly to their destination precision, without an intermediate
@@ -56,8 +56,8 @@ than the largest finite value is allowed if it still rounds to that value.
 A constant that is meant to be a `flt` therefore needs the annotation.
 
 ```
-const VERSION = 0.5        // dub
-const VERSION: flt = 0.5   // flt
+const version = 0.5        // dbl
+const version: flt = 0.5   // flt
 ```
 
 ### Conversions
@@ -71,7 +71,7 @@ let big: lng = small       // Compiler error: int is not lng
 let sum = small + big      // Compiler error: int + lng
 
 let half: flt = 0.5
-let whole: dub = half      // Compiler error: flt is not dub
+let whole: dbl = half      // Compiler error: flt is not dbl
 ```
 
 A conversion is a call to a function named after the target type. It can be written as a call or as a pipeline stage.
@@ -81,14 +81,14 @@ let big = lng(small)              // int to lng
 let total = small |> lng()        // the same, as a pipeline
 let label = str(count)            // a number to text
 let label = count |> str()
-let precise = dub(ratio)          // flt to dub
+let precise = dbl(ratio)          // flt to dbl
 ```
 
-A conversion that cannot lose information always succeeds. A conversion that can fail returns a symbol, which must be handled like any other call that can fail.
+A conversion that cannot lose information always succeeds. A conversion that can fail returns an outcome, which must be handled like any other (`lang-errors.txt`).
 
 ```
-let age = int(text)?              // Sym<:ok(int), :invalid(str)>: text may not be a number
-let small = int(big)?             // Sym<:ok(int), :overflow>: big may not fit in an int
+let age = int(text)?              // :ok[int] | :!invalid[str]: text may not be a number
+let small = int(big)?             // :ok[int] | :!overflow: big may not fit in an int
 
 print(str(count))                 // always succeeds
 ```
@@ -97,7 +97,7 @@ print(str(count))                 // always succeeds
 
 Converting a value of your own type, as in `str(user)`, will need a way for the type to say how it converts. That is planned as a trait.
 
-Numeric converters (`shrt`, `ushrt`, `int`, `uint`, `lng`, `ulng`, `flt`, `dub`)
+Numeric converters (`shrt`, `ushrt`, `int`, `uint`, `lng`, `ulng`, `flt`, `dbl`)
 accept exactly one number, `chr`, or string. Their outcome depends on the source and
 target types, not the particular argument value. A direct numeric literal argument
 (including parentheses or a leading minus) takes the converter's target type when
@@ -106,31 +106,31 @@ error, and `lng(4294967296)` does not first need to fit an `int`. Pipeline input
 follow the same rule: `1 |> shrt()` succeeds directly. Typed values and computed
 expressions keep their source type; `let n = 1` followed by `shrt(n)` is fallible.
 Decimal-point literals still require a floating type, so `int(2.5)` converts a
-`dub` and returns `:overflow` rather than truncating.
+`dbl` and returns `:!overflow` rather than truncating.
 
 Integer widening succeeds when the target contains the entire source range.
 Unsigned-to-signed widening requires a strictly wider target; signed-to-unsigned
 conversion is fallible. Every integer-to-floating conversion always succeeds,
-rounding to the nearest destination value when necessary. `flt` to `dub` and
-same-type conversions also always succeed and can use their success value directly.
+rounding to the nearest destination value when necessary. `flt` to `dbl` and
+same-type conversions also always succeed and return the plain value.
 A `chr` converts to its unsigned byte value, 0 to 255, which every numeric type
 holds, so `int('a')` always succeeds with `97`.
 
-Other numeric conversions return `Sym<:ok(Target), :overflow>`. Integer targets
+Other numeric conversions return `:ok[Target] | :!overflow`. Integer targets
 require finite integral input in range: no wrapping or fractional truncation;
-signed floating zero becomes integer zero. `dub` to `flt` rounds to nearest,
+signed floating zero becomes integer zero. `dbl` to `flt` rounds to nearest,
 including subnormals and underflow to signed zero, and fails only if a finite
 input would round to infinity. Values just beyond the largest finite `flt` may
 still round to it. Floating targets preserve signed zero and admit infinities
 and NaNs, without promising preservation of NaN payload bits. Ties round to even,
 matching literals and floating text parsing.
 
-String-to-number conversions return `Sym<:ok(Target), :invalid(str)>`; failure
+String-to-number conversions return `:ok[Target] | :!invalid[str]`; failure
 carries the original immutable string, including any embedded zero bytes.
 Parsing consumes the whole byte string, with no whitespace trimming. Integer
 text is an optional `+`/`-` followed by ASCII decimal digits; leading zeroes are
 allowed, and unsigned targets accept `-0` but not negative nonzero values.
-Malformed and out-of-range text both produce `:invalid`.
+Malformed and out-of-range text both produce `:!invalid`.
 
 Floating text accepts an optional sign, decimal digits with an optional decimal
 point (at least one digit total), and an optional `e`/`E` exponent with an optional
@@ -143,7 +143,7 @@ This text grammar does not add exponent syntax to source number literals.
 Numbers and `bool` convert to `str` with exactly one argument.
 Integers use ordinary decimal notation; bools produce `true` or `false`.
 Floating formatting is an explicit initial implementation choice: use the first
-C-locale `%g` precision (1–9 significant digits for `flt`, 1–17 for `dub`) that
+C-locale `%g` precision (1–9 significant digits for `flt`, 1–17 for `dbl`) that
 round-trips at the source width. Prefer fixed decimal notation when it is no
 longer than that exponent form. No `.0` is appended; signed zero becomes `-0`,
 and nonfinite values are `inf`, `-inf`, and `nan` (without a NaN sign).
@@ -166,12 +166,12 @@ Overflow is never silent and never wraps around.
 Code that wants to handle overflow itself, or wants arithmetic that wraps on purpose (as hash functions do), calls a library function instead of using the operator.
 
 ```
-checkedAdd(a, b)           // Sym<:ok(int), :overflow>
+checkedAdd(a, b)           // :ok[int] | :!overflow
 wrappingMul(a, b)          // wraps around instead of panicking
 
 checkedAdd(count, 1) |> {
-  :ok(next) => next
-  :overflow => ret :tooMany
+  :ok[next] => next
+  :!overflow => ret :!tooMany
 }
 ```
 
@@ -200,8 +200,10 @@ let ratio = total / count  // panics when count is 0
 ### Power, bitwise operators, and shifts
 
 Both operands of an arithmetic or bitwise operator have the same numeric type;
-literals take that type from their context. `%` and the bitwise operators
-require integers. `chr` and `bool` are not numeric types.
+literals take that type from their context. A shift is the exception: its count
+can be any integer type, and the result has the left side's type, as in
+`ulng(1) << (r * 8 + c)`. `%` and the bitwise operators require integers.
+`chr` and `bool` are not numeric types.
 
 Integer `**` takes a nonnegative exponent; a negative exponent panics. It uses
 checked multiplication, and `0 ** 0` is `1`. Floating-point power accepts
@@ -215,7 +217,7 @@ Unsigned right shift fills with zeroes.
 
 ### Floating-point arithmetic
 
-`flt` and `dub` use IEEE binary32 and binary64 arithmetic. Overflow produces
+`flt` and `dbl` use IEEE binary32 and binary64 arithmetic. Overflow produces
 infinity, and invalid real operations produce NaN. Floating-point division by
 zero does not panic: a nonzero numerator produces signed infinity, and zero
 divided by zero produces NaN. Signed zero is preserved. NaN compares unequal
@@ -243,6 +245,21 @@ let other = name                 // shares the same text, no copy
 
 A string stores its text as UTF-8 bytes together with its length. Its length is counted in bytes.
 
+### Interpolation
+
+`{...}` inside a string literal puts the value of an expression in the text.
+
+```
+let total = 42
+print("total {total}")                 // total 42
+print("{user.getName()} is {age}")     // any expression
+print("a set: \{1, 2}")                // a literal brace
+```
+
+An interpolated value is converted as `str(...)` converts it, so it accepts the same types: numbers, `bool`, `chr` and `str`. Values of your own types follow once that conversion is designed (`lang-desc.txt`, open question 11).
+
+### Escapes
+
 String and character literals accept these escapes:
 
 | Escape | Meaning |
@@ -253,6 +270,7 @@ String and character literals accept these escapes:
 | `\"` | Double quote |
 | `\'` | Single quote |
 | `\0` | Zero byte |
+| `\{` | A literal `{` in a string |
 
 Any other character after a backslash is a compile error.
 
@@ -285,10 +303,10 @@ let letter: chr = 'a'
 
 ## The empty type
 
-`()` is the type of a function that returns nothing useful. It has exactly one value, also written `()`. It is the named tuple with no fields.
+`()` is the type of a function that returns nothing useful. It has exactly one value, also written `()`.
 
 ```
-pub add(collection: &UserCollection, user: &User): () {
+pub add(collection: &UserCollection, user: &User) -> () {
   collection.userVec.add(user)
 }
 ```
@@ -297,19 +315,21 @@ pub add(collection: &UserCollection, user: &User): () {
 
 ## Named tuples
 
-A named tuple groups values under names without declaring a type first.
+> Named tuples are on hold. This section records how they will be written when they return.
+
+A named tuple groups values under names without declaring a type first. Its values are given with `=`, like a struct literal's.
 
 ```
-let row = (name: "Bob", age: 20)
+let row = (name = "Bob", age = 20)
 row.name                   // "Bob"
 row.age                    // 20
 ```
 
-Its type is written the same way, with types in place of values.
+Its type is written with `:`, as fields are declared.
 
 ```
-divide(a: int, b: int): (quotient: int, remainder: int) {
-  (quotient: a / b, remainder: a % b)
+divide(a: int, b: int) -> (quotient: int, remainder: int) {
+  (quotient = a / b, remainder = a % b)
 }
 
 let result = divide(7, 2)
@@ -323,20 +343,20 @@ Tuple fields are always public, because no module owns a tuple type.
 Tuples are compared field by field, in the order the fields are written: the first field decides, and each later field is only compared when all earlier ones are equal.
 
 ```
-(last: "Jones", first: "Bob") < (last: "Smith", first: "Al")   // true: Jones < Smith
-(last: "Jones", first: "Amy") < (last: "Jones", first: "Bob")  // true: last is equal, Amy < Bob
+(last = "Jones", first = "Bob") < (last = "Smith", first = "Al")   // true: Jones < Smith
+(last = "Jones", first = "Amy") < (last = "Jones", first = "Bob")  // true: last is equal, Amy < Bob
 ```
 
-The parser tells `(name: "Bob")`, a tuple, from `(name: str) => ...`, a lambda, by whether `=>` follows the closing `)`.
+Until tuples return, a symbol payload carries several values by position: `:pair[int, str]` (`lang-symbols.txt`).
 
 ## Function types
 
-The type of a function is written `Fn<(parameter types): return type>`. `lang-functions.txt` describes function types and lambdas.
+The type of a function is a declaration with its name replaced by `Fn`. `lang-functions.txt` describes function types and lambdas.
 
 ```
-Fn<(User): bool>
-Fn<(int, int): int>
-Fn<(): ()>
+Fn(User) -> bool
+Fn(int, int) -> int
+Fn()
 ```
 
 ## Equality
@@ -354,14 +374,14 @@ same(a, b)        // false: different objects
 same(a, c)        // true: the same object
 ```
 
-The compiler generates `==` for every struct and named tuple. `same` compares identity, and its name is not final.
+The compiler generates `==` for every struct, array, vector and named tuple. `same` compares identity, and its name is not final.
 
 A type that can be part of a reference cycle (`lang-memory.txt`) has no generated `==`, because comparing its contents could follow the cycle forever.
 
 ```
-pub Node {
+Node {
   value: int
-  next: Sym<:ok(Node), :none>
+  next: :none | :more[Node]
 }
 
 nodeA == nodeB    // Compiler error: Node can be part of a cycle
@@ -372,40 +392,82 @@ A way for a type to provide its own equality, for example comparing users only b
 
 ## Maps
 
-`Map<K, V>` stores values under keys.
+`Map[K, V]` stores values under keys.
 
 ```
-let ages = Map<str, int>()
+let ages = Map[str, int]()
 ages |> set("Bob", 20)
 
 ages |> get("Bob") |> {
-  :ok(age) => print(str(age))
+  :ok[age] => print(str(age))
   :none => print("No Bob")
 }
 ```
 
-- A lookup returns `Sym<:ok(V), :none>`.
+- A lookup returns `:ok[V] | :none`.
 - Walking a map visits entries in the order their keys were first added, so a program behaves the same on every run.
 - A key can be a number, `str`, `chr`, `bool`, a symbol without a payload, or a struct or named tuple made only of these. The compiler generates the hash for each key type.
 - There is no map literal syntax yet.
 
-## Arrays and collections
+## Arrays and vectors
 
-Proposed syntax includes:
+`Arr[T]` is a fixed-length array and `Vec[T]` a vector that grows. Both are shared references, like structs: passing one never copies it, and `.clone()` makes an independent copy.
 
-```
-int[5]            // Fixed-size array
-Vec<int>          // Dynamic vector
-Vec<User>         // Vector of User objects
-```
+An array can be thought of as a struct whose fields are named by position, each holding a `T`. Elements follow the same permission rules as fields (`lang-memory.txt`).
 
-Generic type arguments are written in angle brackets. A new vector is created with `Vec<User>()`.
+### Creating
+
+An array or vector is created from a literal or by filling a sized, unfilled one.
 
 ```
-let users = Vec<User>()
-let grid = Vec<Vec<int>>()
+let primes = Arr[int] {2, 3, 5, 7}
+let zeros = Arr[int](100).fill(0)
+let names = Vec[str]()                 // empty
+let counts = Vec[int](10).fill(0)      // ten elements, and can grow
 ```
 
-`lang-syntax.txt` describes how the parser tells `Vec<User>()` apart from a comparison.
+`Arr[int](100)` has its own unfilled type: it cannot be read, indexed, stored or passed anywhere, and its only operation is a fill.
 
-The exact relationship between array shorthand such as `User[]` and generic collections is still under consideration.
+```
+let bad = Arr[int](100)                // Compiler error: fill the array first
+```
+
+### Indexing
+
+`arr.(i)` reads the element at `i`, and `arr.(i) = x` writes it. The index can be any expression and any integer type. Indices start at 0.
+
+```
+let first = primes.(0)
+zeros.(i + 1) = 5
+```
+
+An index outside the array panics, naming the file and line. `arr.get(i)` returns `:ok[T] | :none` instead.
+
+```
+primes.(10)                            // panics: index 10 is outside 0..4
+
+primes.get(10) |> {
+  :ok[p] => print(str(p))
+  :none => print("no tenth prime")
+}
+```
+
+### Lengths
+
+`len()` returns an `int`, and a length given at creation can be any integer type. An `int` length matches loop counters, which are `int` by default, so `for i in 0..arr.len()` and `var i = 0` work without conversions. A length that does not fit in an `int` panics at creation.
+
+### Loops
+
+`for x in arr` gives the elements; `for i in 0..arr.len()` gives the indices.
+
+```
+for p in primes {
+  print(str(p))
+}
+
+for i in 0..primes.len() {
+  print("{i}: {primes.(i)}")
+}
+```
+
+`lang-collections.txt` describes the operations on vectors.

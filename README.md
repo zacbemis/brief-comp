@@ -250,12 +250,15 @@ Wide and combining characters do not yet have special display-width handling.
 
 ## Design and implementation plan
 
-- [Language overview and first-version scope](docs/v0/lang-desc.txt)
+- [First-version language overview and scope](docs/v0/lang-desc.txt), with the
+  rest of the first version's documents in [`docs/v0/`](docs/v0/)
+- [Next-version language overview](docs/lang-desc.txt), with the decisions
+  behind it in [`docs/lang-post-0-notes.txt`](docs/lang-post-0-notes.txt)
 - [Syntax](docs/lang-syntax.txt)
 - [Types](docs/lang-types.txt)
 - [Functions](docs/lang-functions.txt)
 - [Symbols](docs/lang-symbols.txt)
-- [Error handling](docs/lang-errors.txt)
+- [Errors and outcomes](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
 - [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
 

@@ -10,7 +10,7 @@ The goal is predictable, efficient memory management without requiring programme
 
 ### Reference semantics
 
-Objects use shared-reference semantics by default.
+Objects use shared-reference semantics by default. Structs, arrays and vectors are all shared references.
 
 ```
 let user = User.new("Bob", 20)!
@@ -52,7 +52,7 @@ The compiler may eliminate unnecessary operations through ownership transfer, es
 
 Passing an object to a plain parameter is a borrow. When the compiler can prove the caller's reference stays alive for the whole call, no count needs to change.
 
-M4's initial ownership pass is conservative: reference-valued reads produce owned
+The initial ownership pass is conservative: reference-valued reads produce owned
 temporary snapshots. This pins field arguments even if a later argument or the
 callee overwrites their owner's field. The callee still borrows its parameters;
 returned references are owned. Stores retain the new value before releasing the
@@ -61,7 +61,7 @@ scope exits, returns, break, and continue; reused loop slots release their previ
 values. Lifetime/count elimination is a future optimization.
 
 ```
-getAge(user: User): int {
+getAge(user: User) -> int {
   user.age
 }
 
@@ -90,7 +90,7 @@ Weak references may also be provided for explicitly non-owning relationships.
 The compiler works out from the type definitions which types can be part of a cycle. A type can only be part of a cycle if a value of that type can reach another value of the same type.
 
 ```
-pub User {
+User {
   name: str
   age: int
 }
@@ -100,9 +100,9 @@ pub User {
 ```
 
 ```
-pub Node {
+Node {
   value: int
-  next: Sym<:ok(Node), :none>
+  next: :none | :more[Node]
 }
 
 // A Node can reach another Node, so two nodes can point at each other.
@@ -130,7 +130,7 @@ The language uses lightweight borrowing rules rather than requiring programmers 
 An ordinary object parameter represents immutable borrowed access.
 
 ```
-getAge(user: User): int {
+getAge(user: User) -> int {
   user.age
 }
 ```
@@ -149,12 +149,25 @@ setAge(user: &User, age: int) {
 
 The caller does not need to explicitly transfer ownership.
 
+A method that changes its struct takes `&self`, with the same meaning (`lang-modules.txt`, "Methods").
+
+```
+User {
+  name: str
+  age: int
+
+  setAge(&self, age: int) {
+    self.age = age
+  }
+}
+```
+
 `&` grants writable access, not exclusivity. A plain parameter and direct aliases
 read from it have read-only access. A `&` parameter grants writable access.
 
 Other references to the same object may exist while it is borrowed.
 
-For struct and symbol parameters, `&` grants writable access to reachable objects,
+For struct, array, vector and symbol parameters, `&` grants writable access to reachable objects,
 including objects in symbol payloads. The parameter binding itself remains
 immutable. The caller writes an ordinary argument; `&` appears only in the
 parameter declaration. Field paths rooted in an ordinary parameter
@@ -168,7 +181,7 @@ payload before cleaning up the returning scope; it never upgrades permission.
 An ordinary symbol parameter containing an object cannot be
 forwarded to an `&` parameter or stored in a writable field. Copied primitive
 values and symbols containing only immutable/value payloads do not carry this
-restriction.
+restriction. Elements of an array or vector follow the same rules as fields.
 
 A `var` binding can be rebound; its current reference's permission follows the
 new value. Rebinding restores writable access only when the new value has no
@@ -178,7 +191,7 @@ Loops conservatively include zero iterations and backedges; `break`/`continue`
 states are included, and returning paths do not restrict continuing paths.
 
 A struct call result is read-only when it could hold an object from a
-read-only argument (including the receiver): when some struct type can be
+read-only argument (including `self`): when some struct type can be
 reached, through fields, both from the result's type and from that argument's
 type. The compiler works this out from the type definitions, as it does for
 cycles. An identity call `same(p)` and a getter returning `q.p` stay
@@ -213,8 +226,10 @@ read-only value cannot pass it to `attach`; it needs a value it may change,
 such as a fresh object or, once cloning exists, a copy.
 
 This is an access-path rule, not a purity promise or transitive `const`.
-Other writable aliases can still change the data. M4 does not implement
-`const` or cloning.
+Other writable aliases can still change the data. ARC handles the shared
+ownership that storing creates: a `&` parameter makes the holder a shared
+owner that may change the object, and `.clone()` makes an independent copy to
+store instead.
 
 ### Shared aliases
 

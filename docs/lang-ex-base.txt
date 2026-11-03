@@ -11,10 +11,14 @@ ushrt x
 lng x
 ulng x
 flt x
-dub x
+dbl x
 chr x
 str x
-int[5]
+Arr[int] x // fixed length
+Vec[int] x // grows
+
+// types, modules and traits start with a capital
+// functions, variables, constants, fields and tags start lowercase
 
 let // immutable binding mutable data
 var // mutable binding mutable data
@@ -24,30 +28,41 @@ const // immutable binding immutable data
 let count: lng = 0
 var ratio: flt = 0.5
 
+// a binding can be declared first and assigned before it is read
+let label: str
+label = "ready"
+
 // a number takes the type its context expects
-// otherwise a whole number is an int and a decimal is a dub
+// otherwise a whole number is an int and a decimal is a dbl
 let small = 10 // int
-let half = 0.5 // dub
+let half = 0.5 // dbl
 
 // no implicit conversions between number types
 let total: lng = small // error
 let total = lng(small) // converters are named after the type
-let label = small |> str()
-let parsed = int("42")? // a conversion that can fail returns a symbol
+let text = small |> str()
+let parsed = int("42")? // a conversion that can fail returns an outcome
+
+// strings put values in with {}
+print("small is {small}")
 
 // integer overflow panics
 
 & // mutable borrow of data
 
-Animal { // object definition
+Animal { // a struct: at least one field, no keyword
   id: int
   species: Species
 }
 
-// there is no enum: a named symbol set does the same job
-type Color = Sym<:red, :green, :blue>
+// there is no enum: a union of symbols does the same job
+// a type declaration needs no keyword
+Color = :red | :green | :blue
 
-add(x: int, y: int): int {
+// :name is a neutral symbol, :!name is an error symbol
+ParseError = :!empty | :!badDigit[chr]
+
+add(x: int, y: int) -> int {
   x + y
 }
 
@@ -67,6 +82,7 @@ x /= y
 
 x and y
 x or y
+not x
 
 // precedence: arithmetic, then .., then |>, then comparisons, then and, then or
 count |> double() > 10 // (count |> double()) > 10
@@ -94,39 +110,84 @@ for i in 0..10 { // 0 through 9
   }
 }
 
+for i in 1..=10 { // 1 through 10
+  print(str(i))
+}
+
+// arrays and vectors are indexed with .( ) from 0
+let squares = Arr[int] {1, 4, 9}
+let zeros = Arr[int](100).fill(0)
+zeros.(0) = squares.(2)
+
 // () is the empty type
 // with () written the last value is dropped
 // with no return type the last value is returned
-log(message: str): () {
+log(message: str) -> () {
   print(message)
 }
 
 // each file is a module named after the file, with the extension .brf
-// variables are default private and can be used in the same module
+// functions, constants and fields are private unless marked pub
+// types, traits and symbols are always public
 // modules are found by name, so no import is needed
 // file: User.brf
 
-pub User {
+User: HasUser {
   name: str
-  age: int
+  pub age: int
   userVer: flt
+
+  getUser() -> User { self }
+
+  // does not use self: an associated function, called as User.new(...)
+  pub new(name: str, age: int) -> :ok[User] | :!tooYoung[int] {
+    if age < 18 {
+      ret :!tooYoung[age]
+    }
+
+    User { name = name, age = age, userVer = version }
+  }
+
+  pub fromJson(json: Json) -> :ok[User] | Json.Error | :!tooYoung[int] {
+    let name = json.getStr("name")?
+    let age = json.getInt("age")?
+
+    User.new(name, age) // an outcome on the last line is returned as it is
+  }
+
+  // uses self: a method, called as user.toJson()
+  pub toJson() -> Json {
+    Json.object()
+      |> set("name", Json.str(self.name))
+      |> set("age", Json.int(self.age))
+      |> set("Version", Json.flt(self.userVer))
+  }
+
+  // changes self, so it takes &self
+  pub birthday(&self) {
+    self.age++
+  }
 }
 
-pub type Tier = Sym<:tier1, :tier2, :tier3>
+pub const version: flt = 0.5
 
-pub trait HasUser{
-  getUser(value: Self): User
+Tier = :tier1 | :tier2 | :tier3
 
-  pub getName(value: Self): str {
-    value.getUser().name
+// a declaration with functions and no fields is a trait
+// a function without a body is required, one with a body is a default
+HasUser {
+  getUser(self) -> User
+
+  getName(self) -> str {
+    self.getUser().name
   }
 
-  pub getAge(value: Self): int {
-    value.getUser().age
+  getAge(self) -> int {
+    self.getUser().age
   }
 
-  pub getAgeRange(value: Self): Sym<:negative, :ofAge, :old> {
-    value.getAge() |> {
+  getAgeRange(self) -> :negative | :ofAge | :old {
+    self.getAge() |> {
       < 0 => :negative
       0..100 => :ofAge
       >= 100 => :old
@@ -134,81 +195,46 @@ pub trait HasUser{
   }
 }
 
-impl User: HasUser {
-  pub const VERSION: flt = 0.5
-
-  getUser(user: User): User {user}
-
-  pub new(name: str, age: int): Sym<:ok(User), :err(str)> {
-    if age < 18 {
-      ret :err("Age is too low")
-    }
-
-    :ok(User {
-      name: name
-      age: age
-      userVer: VERSION
-    })
-  }
-
-  pub fromJson(json: Json): Sym<:ok(User), Json.Error, :err(str)> {
-    let name = json.getStr("name")?
-    let age = json.getInt("age")?
-
-    User.new(name, age)? // a call that can fail is handled, even on the last line
-  }
-
-  pub toJson(user: User): Json {
-    Json.object()
-      |> set("name", Json.str(user.name))
-      |> set("age", Json.int(user.age))
-      |> set("Version", Json.flt(user.userVer))
-  }
-}
-
 // file: Admin.brf
 
-// User.brf is in the same folder, so User needs no import
+// User.brf is in the project, so User needs no import
 // only the name User comes in; everything else is User.something
 
-pub Admin {
+Admin: User.HasUser {
   user: User
   userTier: User.Tier
-}
 
-impl Admin: User.HasUser {
-  getUser(admin: Admin): User {admin.user}
+  getUser() -> User { self.user }
 
-  ovr pub getName(admin: Admin): str {
-    admin.getUser().name
+  // replaces the default getName from HasUser
+  getName() -> str {
+    "Admin " + self.user.getName()
   }
 
   // ending with a plain value returns :ok of it
-  pub new(name: str, age: int): Sym<:ok(Admin), :err(str)> {
-    Admin { user: User.new(name, age)?, userTier: :tier1 }
+  pub new(name: str, age: int) -> :ok[Admin] | User.:!tooYoung[int] {
+    Admin { user = User.new(name, age)?, userTier = :tier1 }
   }
 }
 
 // file: UserCollection.brf
 
-pub UserCollection {
-  userVec: Vec<User>
+UserCollection {
+  userVec: Vec[User]
   userVersion: flt
-}
 
-impl UserCollection {
-  pub new(): UserCollection {
+  pub new() -> UserCollection {
     UserCollection {
-      userVec: Vec<User>()
-      userVersion: User.VERSION
+      userVec = Vec[User]()
+      userVersion = User.version
     }
   }
 
-  pub add(collection: &UserCollection, user: &User): () {
-    collection.userVec.add(user)
+  pub add(&self, user: &User) -> () {
+    self.userVec.add(user)
   }
 
-  pub fromJson(json: Json): Sym<:ok(UserCollection), Json.Error>{
+  pub fromJson(json: Json) -> :ok[UserCollection] | Json.Error | User.:!tooYoung[int] {
     let users = json.getArray("users")?
     let collection = UserCollection.new()
 
@@ -217,32 +243,32 @@ impl UserCollection {
       collection.add(user)
     }
 
-    :ok(collection)
+    collection
   }
 
-  pub toJson(collection: UserCollection): Json {
+  pub toJson() -> Json {
     Json.object()
-      |> set("users", Json.array(collection.userVec |> select((user) => user.toJson())))
+      |> set("users", Json.array(self.userVec |> select((user) => user.toJson())))
   }
 
-  pub findByName(collection: UserCollection, name: str): Sym<:found(User), :missing> {
-    collection.userVec.find((user) => user.getName() == name) |> {
-      :ok(user) => :found(user)
+  pub findByName(name: str) -> :found[User] | :missing {
+    self.userVec.find((user) => user.getName() == name) |> {
+      :ok[user] => :found[user]
       :none => :missing
     }
   }
 
   // remove takes out every match and returns them
-  pub removeByName(collection: &UserCollection, name: str): Vec<User> {
-    collection.userVec |> remove((user) => user.getName() == name)
+  pub removeByName(&self, name: str) -> Vec[User] {
+    self.userVec |> remove((user) => user.getName() == name)
   }
 
-  pub count(collection: UserCollection): int {
-    collection.userVec.len()
+  pub count() -> int {
+    self.userVec.len()
   }
 
-  pub olderThan(collection: UserCollection, age: int): Vec<User> {
-    collection.userVec |> where((user) => user.getAge() > age)
+  pub olderThan(age: int) -> Vec[User] {
+    self.userVec |> where((user) => user.getAge() > age)
   }
 }
 
@@ -256,13 +282,13 @@ main() {
 }
 
 // in a function in another file
-const user = User.new("Bob", 20)? // shorthand for error matching and propagates errors
+const user = User.new("Bob", 20)? // returns the errors early
 // or
-const user = User.new("Bob", 20)! // panic
+const user = User.new("Bob", 20)! // panic on an error
 // or
 const user = User.new("Bob", 20) |> {
-  :ok(user) => user
-  :err(error) => ret :err(error)
+  :ok[user] => user
+  User.:!tooYoung[age] => ret User.:!tooYoung[age]
 }
 
 const message = user.getAgeRange() |> {
@@ -271,7 +297,7 @@ const message = user.getAgeRange() |> {
   :old => "Age is above 100"
 }
 
-// x.f() only works when f belongs to x
+// x.f() only works when f is a method of x's type
 user.getName()
 // otherwise call it directly or pipe it
 save(user)
@@ -295,6 +321,3 @@ const frozen = user.clone()
 
 // a const can only go to another const or a param without &
 let other = frozen // error
-
-
-

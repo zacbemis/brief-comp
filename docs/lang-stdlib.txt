@@ -11,38 +11,29 @@ JSON is a representative example.
 ```
 // file: User.brf
 
-pub User {
+User {
   name: str
   age: int
-}
 
-impl User {
-  pub new(name: str, age: int):
-    Sym<:ok(User), :invalidAge(int)> {
-
+  pub new(name: str, age: int) -> :ok[User] | :!invalidAge[int] {
     if age < 18 {
-      ret :invalidAge(age)
+      ret :!invalidAge[age]
     }
 
-    :ok(User {
-      name: name
-      age: age
-    })
+    User { name = name, age = age }
   }
 
-  pub fromJson(json: Json):
-    Sym<:ok(User), Json.Error, :invalidAge(int)> {
-
+  pub fromJson(json: Json) -> :ok[User] | Json.Error | :!invalidAge[int] {
     let name = json.getStr("name")?
     let age = json.getInt("age")?
 
-    User.new(name, age)?
+    User.new(name, age)
   }
 
-  pub toJson(user: User): Json {
+  pub toJson() -> Json {
     Json.object()
-      |> set("name", Json.str(user.name))
-      |> set("age", Json.int(user.age))
+      |> set("name", Json.str(self.name))
+      |> set("age", Json.int(self.age))
   }
 }
 ```

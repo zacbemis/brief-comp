@@ -2,103 +2,171 @@
 
 > Part of the language design. `lang-desc.txt` has the overview and the list of documents.
 
-Objects are defined using a concise struct-like syntax.
+Objects are defined using a concise struct-like syntax, with no keyword.
 
 ```
-pub User {
+User {
   name: str
   age: int
   userVer: flt
 }
 ```
 
-Fields are private by default.
+A struct has at least one field. Functions that share no data go in a module, which is reached by name ("Modules" below). A declaration with functions and no fields is a trait (`lang-traits.txt`).
 
-The `pub` keyword controls visibility outside the defining module.
+## Type declarations
 
-Making a type public does not automatically make its fields public.
+A top-level `Name = ...` declares a type. The right side is always read as a type, so `Id = int` names the type `int`, not the `int` converter. A union of symbols is declared the same way (`lang-symbols.txt`).
+
+```
+Id = int
+DateError = :!badYear[int] | :!badMonth[int] | :!badDay[int]
+```
+
+Constants keep `const`: `const maxYear = 9999`.
 
 ## Struct literals
 
-A struct literal sets each field by name, exactly once; there are no defaults.
+A struct literal sets each field by name with `=`, exactly once; there are no defaults.
 Missing, duplicate, and unknown fields are compile errors. Field initializers run
 in their written order, not declaration order. Fields are separated by a comma or
 a newline in literals (declarations use newlines).
 
-M4 compiles single-file structs and `impl` blocks, including `Self` in their type
-positions, associated calls such as `User.new(...)`, and receiver calls. `Self`
-can also name the enclosing struct in literals and associated calls. Return
-inference includes nominal struct types. There is no implicit receiver: it is an
-explicit first parameter, and calls within `impl` use the same receiver or
-associated-call syntax (for example, `Self.new(...)`). All code is in one module, so visibility
-across files and external `impl` blocks remain later-version work.
-
 ```
-let user = User { name: "Bob", age: 20, userVer: 0.5 }
+let user = User { name = "Bob", age = 20, userVer = 0.5 }
 
 let user = User {
-  name: "Bob"
-  age: 20
-  userVer: 0.5
+  name = "Bob"
+  age = 20
+  userVer = 0.5
 }
 ```
+
+## Methods
+
+There is no `impl` block. A struct declares its fields and its functions together.
+
+- `self` is the instance. There is no `Self`: a function that needs the type names it, such as `Date`.
+- A function that uses `self` is a method, called on a value. One that does not is an associated function, called on the type. This is inferred from the body; the function's name should make clear which it is.
+- A method that changes the instance takes `&self` as its first parameter, so the mutation is visible in the signature. The `&` permission rules are otherwise unchanged (`lang-memory.txt`).
+- Inside the struct, its functions are called the same way as outside: methods on `self` (`self.label()`), associated functions on the type (`Date.new(...)`).
+
+```
+Date {
+  year: int
+  month: int
+  day: int
+
+  new(year: int, month: int, day: int) -> :ok[Date] | DateError {
+    if year < 1 or year > 9999 {
+      ret :!badYear[year]
+    }
+    if month < 1 or month > 12 {
+      ret :!badMonth[month]
+    }
+    if day < 1 or day > daysIn(year, month) {
+      ret :!badDay[day]
+    }
+    Date { year = year, month = month, day = day }
+  }
+
+  label() -> str {                      // uses self: a method
+    "{self.year}-{self.month}-{self.day}"
+  }
+
+  nextYear(&self) {                     // changes self
+    self.year++
+  }
+}
+
+let date = Date.new(2026, 10, 27)!     // associated function, on the type
+print(date.label())                    // method, on a value
+date.nextYear()
+```
+
+Calling a method on the type, or an associated function on a value, is a compile error that says why and shows the fix.
+
+```
+Date.label()       // Compiler error: label uses self, so it is a method:
+                   // call it on a value, as in date.label()
+date.new(1, 2, 3)  // Compiler error: new does not use self, so it is an
+                   // associated function: call it as Date.new(...)
+```
+
+Adding the first use of `self` to a function changes how its callers must call it.
 
 ## Modules
 
 Each source file is one module, named after the file. There is no wrapper block around a module's contents.
 
-A module usually defines one main type that shares the module's name, as in Elixir.
+A module usually defines one main type that shares the module's name, as in Elixir. The main type is the module name itself: `Json` is the type, with no `Json.Json`.
 
 ```
 // file: User.brf
 
-pub User {
+User {
   name: str
-  age: int
-}
+  pub age: int
 
-impl User {
-  pub new(name: str, age: int): User {
-    User {
-      name: name
-      age: age
-    }
+  pub new(name: str, age: int) -> User {
+    User { name = name, age = age }
   }
+
+  pub getName() -> str { self.name }
+}
+
+pub const version: flt = 0.5
+
+HasUser {
+  getUser(self) -> User
 }
 ```
 
-`User` in a type position means that type. `User.name` reaches any public item in the module: a top-level function or one from `impl User`, a constant, or another type.
+`User` in a type position means that type. `User.name` reaches any public item in the module: a top-level function or constant, an associated function of the main type, another type, a trait, or a symbol tag.
 
 ```
-User.new("Bob", 20)   // function
-User.VERSION          // constant
+User.new("Bob", 20)   // associated function of the main type
+User.version          // constant
 User.HasUser          // trait
+User.:!invalidAge     // symbol tag
 ```
 
-Modules provide the primary privacy boundary, inspired by Rust. A declaration is private to its module unless marked `pub`.
+The module's top-level functions and types and its main type's associated functions share one set of names, reached the same way: `Json.new()` and `Json.parse()` look alike because they are the same kind of thing. Using one name for two of them is a compile error.
 
-Code outside the module can use the public `User` type and call its public functions, but cannot directly initialize or modify private fields.
+## Visibility
+
+Modules provide the primary privacy boundary, inspired by Rust.
+
+- Types, traits and symbols are always public: structs, named unions, traits, tags and merged symbols. Code that receives a value must be able to name its type and match its tags, and a trait is only useful where it can be seen. Writing `pub` on them is a compile error.
+- Everything else is private to its module unless marked `pub`: top-level functions and constants, and a struct's fields and functions. A public type does not make its fields or functions public.
+- A trait's functions are public, and so are the functions a struct writes to conform to it.
+
+Code outside the module can use the `User` type and call its public functions, but cannot directly initialize or modify private fields.
 
 ```
-// file: Report
+// file: Report.brf
 
-describe(user: User): str {
+describe(user: User) -> str {
   user.name                 // Compiler error: name is private to User
 }
 
-describe(user: User): str {
+describe(user: User) -> str {
   user.getName()            // allowed: getName is pub
 }
 
-makeGuest(): User {
-  User {                    // Compiler error: the fields of User are private
-    name: "Guest"
-    age: 0
+makeGuest() -> User {
+  User {                    // Compiler error: name is private to User
+    name = "Guest"
+    age = 0
   }
 }
 
-makeGuest(): User {
+makeGuest() -> User {
   User.new("Guest", 0)      // allowed: new is pub
+}
+
+pub Report {                // Compiler error: a type is always public
+  title: str
 }
 ```
 
@@ -113,15 +181,11 @@ A module is used by writing its name. No `import` is needed.
 ```
 // file: Admin.brf
 
-pub Admin {
-  user: User                 // the module User, from User.brf in the same folder
+Admin: User.HasUser {
+  user: User                 // the module User, from User.brf in the project
   tier: int
-}
 
-impl Admin: User.HasUser {
-  getUser(admin: Admin): User {
-    admin.user
-  }
+  getUser() -> User { self.user }
 }
 
 load(text: str) {
@@ -129,24 +193,19 @@ load(text: str) {
 }
 ```
 
-When a name is not defined in the current file, the compiler looks for a module with that name:
+When a capitalized name is not defined in the current file, the compiler looks for a module with that name among:
 
-1. A file with that name in the same folder.
-2. A module of that name in the standard library.
+1. The project's files: the folder of the main file and every folder below it.
+2. The standard library.
 
-A module in another folder is reached by its path. Each folder in the path is written before the module name, separated by `.`.
+An item from another module is always written with the module's name. There are no imports that bring single items or whole modules into scope, and folder paths are not written in code.
 
-```
-models.User.new("Bob", 20)         // the module User in the models folder
-std.net.Http.get(url)              // the module Http in the standard library's net folder
-```
-
-A name that matches both a module in the project and a module in the standard library is a compile error, until an `import` says which one is meant. Without this rule, adding a file such as `Json.brf` would silently change the meaning of every `Json` in the project.
+A name that matches more than one module is a compile error. That happens when two project folders have a module of the same name, such as `models/User.brf` and `endpoints/User.brf`, or when a project module has the same name as a standard-library module. Without this rule, adding a file such as `Json.brf` would silently change the meaning of every `Json` in the project. The error says to choose one with an `import`, or to rename one of them.
 
 ```
-// the project has its own Json.brf
+// the project has models/User.brf and endpoints/User.brf
 
-Json.parse(text)                   // Compiler error: Json could be the project's or the standard library's
+User.new("Bob", 20)                // Compiler error: User could be models/User.brf or endpoints/User.brf
 ```
 
 A misspelled module name is reported as such.
@@ -157,12 +216,12 @@ Usr.new("Bob", 20)                 // Compiler error: no module named Usr
 
 ## Imports
 
-`import` is optional. It makes a module available under its last name, so a long path does not need to be repeated, and it settles which module a name means.
+`import` only chooses which module a name means, when it matches more than one. The code still writes the module's name.
 
 ```
 import models.User
 
-User.new("Bob", 20)                // the same as models.User.new("Bob", 20)
+User.new("Bob", 20)                // the User in the models folder
 ```
 
 ```
@@ -174,32 +233,34 @@ Json.parse(text)                   // the standard library's Json, even though t
 Using a module brings in only its name. Everything else in it is reached through that name.
 
 ```
-impl Admin: HasUser {              // Compiler error: HasUser is not in scope
+Admin: HasUser {                   // Compiler error: HasUser is not in scope
+  ...
 }
 
-impl Admin: User.HasUser {         // allowed
+Admin: User.HasUser {              // allowed
+  ...
 }
 ```
 
-Modules cannot depend on each other in a cycle. The compiler finds the dependencies from the names each file uses, with or without `import`, and a cycle is a compile error.
+Modules cannot depend on each other in a cycle. The compiler finds the dependencies from the names each file uses, and a cycle is a compile error.
 
 ```
 // file: User.brf
-makeAdmin(user: User) {
+makeAdmin(user: &User) {
   Admin.new(user)                  // User uses Admin
 }
 
 // file: Admin.brf
-pub Admin {
+Admin {
   user: User                       // Compiler error: Admin and User use each other
 }
 ```
 
-Because there may be no `import` lines, the compiler can print the list of modules each file depends on.
+Because there are usually no `import` lines, the compiler can print the list of modules each file depends on.
 
 ## Program entry
 
-The top level of a module contains only declarations: imports, named types, structs, traits, `impl` blocks, functions, and constants.
+The top level of a module contains only declarations: imports, type declarations, structs, traits, functions, and constants.
 
 ```
 // file: Main.brf
@@ -216,7 +277,7 @@ the compiler. Returning a plain value (including `()`) is successful: the value
 is discarded and the process exits with status 0. A numeric result is not a
 process exit status.
 
-`main()` may return errors without handling them. If it does, the program prints the error symbol and its payload to standard error and exits with status 1.
+`main()` may return errors without handling them. If it ends on an error symbol, the program prints it and its payload to standard error and exits with status 1.
 
 ```
 main() {
@@ -225,10 +286,10 @@ main() {
 }
 
 // when the file is missing, prints:
-// error: :notFound("data.txt")
+// error: File.:!notFound["data.txt"]
 ```
 
-When `main()` returns `:ok`, the program exits with status 0.
+Any other result, including `:ok`, exits with status 0.
 
 ```
 main() {
@@ -244,20 +305,22 @@ Constructors are ordinary associated functions, conventionally named `new`.
 They are not required to have special object-oriented inheritance behavior.
 
 ```
-pub new(name: str, age: int): Sym<:ok(User), :invalidAge(int)> {
-  if age < 18 {
-    ret :invalidAge(age)
-  }
+User {
+  name: str
+  age: int
 
-  :ok(User {
-    name: name
-    age: age
-  })
+  pub new(name: str, age: int) -> :ok[User] | :!invalidAge[int] {
+    if age < 18 {
+      ret :!invalidAge[age]
+    }
+
+    User { name = name, age = age }
+  }
 }
 ```
 
-Constructors may validate data and enforce invariants.
+Constructors may validate data and enforce invariants. Ending with the plain `User` value returns `:ok[User]`.
 
-Fallible construction is represented explicitly through typed return symbols.
+Fallible construction is represented explicitly through error symbols in the return type.
 
 The language favors named functions for operations with meaningful external side effects, such as opening files or establishing network connections.

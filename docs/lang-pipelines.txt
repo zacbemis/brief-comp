@@ -15,10 +15,11 @@ The right-hand side takes one of two forms:
 - A function call. The value becomes the call's first argument, as in Elixir.
 - A block of pattern arms. The value is matched against the arms.
 
-The pipeline itself does not automatically unwrap fallible symbols. Success-only
-function calls can use their plain success value, just as ordinary calls do.
-A stage returning both `:ok` and errors must use `?`, `!`, or a following match;
-for example, `input |> read()? |> parse()!`.
+The pipeline itself does not automatically unwrap outcomes. A stage that returns
+plain values passes them on, just as ordinary calls do. A stage returning an
+outcome must use `?`, `!`, or a following match, unless it is the last stage and
+the pipeline is returned as it is (`lang-errors.txt`, "Handling outcomes"); for
+example, `input |> read()? |> parse()!`.
 
 ## Function calls
 
@@ -51,7 +52,7 @@ A pipeline can call any function, including one that does not belong to the type
 
 A call stage's callee must be a name or dotted path, such as `f()` or
 `Report.summary()`. A call result or indexed value cannot be the callee of a
-stage. In particular, `x |> f().g()` and `x |> functions[0]()` are syntax errors.
+stage. In particular, `x |> f().g()` and `x |> functions.(0)()` are syntax errors.
 Write `x |> f() |> g()` for two stages, or `(x |> f()).g()` to call a method on
 the pipeline result. `?` and `!` may still follow a stage's call.
 
@@ -59,11 +60,11 @@ the pipeline result. `?` and `!` may still follow a stage's call.
 
 In `x |> f()`, the name `f` is looked up in two places, in order:
 
-1. The functions that belong to the type of `x`: those in an `impl` block for that type, or in a trait the type implements. This is the same set `x.f()` can call.
+1. The methods of the type of `x`: those written in its struct, or in a trait the type conforms to. This is the same set `x.f()` can call, and `x` becomes `self`.
 2. The names in scope in the current module.
 
 ```
-users |> where((user) => user.getAge() >= 18)   // where belongs to Vec<User>
+users |> where((user) => user.getAge() >= 18)   // where belongs to Vec[User]
 users |> summary()                              // a function in this module
 users |> Report.summary()                       // a function in another module
 ```
@@ -84,17 +85,17 @@ is equivalent to:
 validate(parse(json)?)?
 ```
 
-Outcomes propagate and accumulate exactly as they do for ordinary calls: the return type of the enclosing function includes the non-success outcomes of every stage.
+Outcomes propagate and accumulate exactly as they do for ordinary calls: the return type of the enclosing function includes the errors of every stage.
 
 ```
 loadUser(path: str) {
   path
     |> File.read()?
     |> Json.parse()?
-    |> User.fromJson()?
+    |> User.fromJson()
 }
 
-// inferred: Sym<:ok(User), File.Error, Json.Error, :invalidAge(int)>
+// inferred: :ok[User] | File.Error | Json.Error | User.:!invalidAge[int]
 ```
 
 A stage can end the pipeline with a match block.
@@ -104,7 +105,7 @@ let name = path
   |> File.read()?
   |> Json.parse()
   |> {
-    :ok(json) => json.getStr("name")!
+    :ok[json] => json.getStr("name")!
     other => "unknown"
   }
 ```
@@ -149,9 +150,15 @@ age |> {
   18..100 => "Adult"
   >= 100 => "Senior"
 }
+
+digit |> {
+  0..=4 => "low"
+  5..=9 => "high"
+  _ => "not a digit"
+}
 ```
 
-A range `a..b` includes `a` and excludes `b`. Range and comparison patterns
+A range `a..b` includes `a` and excludes `b`; `a..=b` includes both. Range and comparison patterns
 apply to numbers and `chr`, not strings or `bool`.
 
 String literal patterns compare the complete decoded byte sequence, including
@@ -165,29 +172,34 @@ unreachable.
 
 ```
 users.find(predicate) |> {
-  :ok(user) => :found(user)
+  :ok[user] => :found[user]
   :none => :missing
 }
 ```
 
-Pattern arms can destructure payloads.
+Pattern arms can destructure payloads, by position when there are several values.
 
 ```
-:ok(user) => user.getName()
+:ok[user] => user.getName()
+:rect[w, h] => w * h
 ```
+
+A tag from another module is written with the module's name, as in `File.:!notFound[path] =>`. A named union matches any of its tags, and a merged symbol any of its members (`lang-symbols.txt`).
 
 An arm's body may also be a block, with its last expression providing the arm's
-value, or a statement, such as `ret :invalid`, `break`,
+value, or a statement, such as `ret :!invalid`, `break`,
 `continue`, or `count += 1`. An assignment statement produces no value, just as
 it does in an ordinary block; assignments cannot occur inside value expressions.
 
 Patterns are evaluated in order, and the first applicable pattern is selected.
 
+Each arm goes on its own line. Short matches cannot be put on one line.
+
 ## Exhaustiveness
 
 Every match block must cover every possible value, whether or not its result is used. A match that misses a case is a compile error.
 
-For symbols, every variant of the input type must have an arm, or a catch-all arm must follow.
+For symbols, every tag of the input type must have an arm, or a catch-all arm must follow. This holds even when two tags carry the same payload type.
 
 For strings, a finite list of literal patterns cannot cover every value. A
 wildcard `_` or name-binding catch-all arm is required.

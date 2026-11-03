@@ -1,0 +1,625 @@
+# Language notes after the first version
+
+> These are the design decisions for the next version of the language, and the
+> reasons for them. The `lang-*.txt` documents have been rewritten to follow
+> them. The first version's documents, which the current compiler implements
+> and the document-acceptance tests check, are kept unchanged in `docs/v0/`
+> until the compiler and its tests move to the new design.
+
+## Decided
+
+### Names and casing
+
+Casing is part of the grammar, and breaking it is a compile error.
+
+- Types, modules and traits start with a capital: `Date`, `Json`, `HasUser`.
+- Functions, variables, constants, fields, parameters and tags start with a
+  lowercase letter: `daysIn`, `date`, `maxYear`, `year`, `:badYear`.
+- The primitive types (see "Primitive types") are keywords and stay lowercase.
+
+The first letter tells a reader, and the parser, what a name is: `Date.new()`
+is called on a type and `date.label()` on a value, and `Date { ... }` is a
+literal while `ready { ... }` is not.
+
+### Type declarations need no keyword
+
+A top-level `Name = ...` declares a type. The right side is always read as a
+type, so `Id = int` names the type `int`, not the `int` converter. Constants
+keep `const`.
+
+```
+// before
+type DateError = Sym<:badYear(int), :badMonth(int), :badDay(int)>
+
+// after
+DateError = :!badYear[int] | :!badMonth[int] | :!badDay[int]
+const maxYear = 9999
+```
+
+### Primitive types
+
+```
+bool
+shrt  ushrt
+int   uint
+lng   ulng
+flt   dbl
+chr
+str
+```
+
+`dub` becomes `dbl`. `chr` is still one byte.
+
+### `not` replaces prefix `!`
+
+`not` is the logical not, like `and` and `or`. `!` is then only about failure:
+after a call it unwraps a success or panics, and after `:` it marks an error
+symbol (see "Symbol kinds"). `!=` and the bitwise `~` are unchanged.
+
+```
+// before
+if !user.isActive() { ... }
+
+// after
+if not user.isActive() { ... }
+let user = User.new("Bob", 20)!     // unchanged: panic on failure
+```
+
+A prefix `!` in the old style, such as `!user.isActive()`, is a compile error
+that suggests `not`.
+
+### Methods live inside the struct
+
+There is no `impl` block. A struct declares its fields and its functions
+together.
+
+- `self` (lowercase) is the instance. `Self` is removed: a function that needs
+  the type names it, such as `Date`.
+- A function that uses `self` is a method, called on a value. One that does not
+  is an associated function, called on the type. This is inferred from the
+  body; the function's name should make clear which it is.
+- A method that changes the instance takes `&self` as its first parameter, so
+  the mutation is visible in the signature. The `&` permission rules are
+  otherwise unchanged.
+- Calling a method on the type, or an associated function on a value, is a
+  compile error that says why and shows the fix: "`label` uses `self`, so it is
+  a method: call it on a value, as in `date.label()`". Adding the first use of
+  `self` to a function changes how its callers must call it.
+
+```
+Date {
+  year: int
+  month: int
+  day: int
+
+  new(year: int, month: int, day: int) -> :ok[Date] | DateError {
+    if year < 1 or year > 9999 {
+      ret :!badYear[year]
+    }
+    if month < 1 or month > 12 {
+      ret :!badMonth[month]
+    }
+    if day < 1 or day > daysIn(year, month) {
+      ret :!badDay[day]
+    }
+    Date {
+      year = year,
+      month = month,
+      day = day
+    }
+  }
+
+  label() -> str {                      // uses self: a method
+    str(self.year) + "-" + str(self.month) + "-" + str(self.day)
+  }
+
+  nextYear(&self) {                     // changes self
+    self.year++
+  }
+}
+
+let date = Date.new(2026, 10, 27)!     // associated function, on the type
+print(date.label())                    // method, on a value
+date.nextYear()
+```
+
+### Return types use `->`
+
+```
+// before
+daysIn(year: int, month: int): int { ... }
+
+// after
+daysIn(year: int, month: int) -> int { ... }
+```
+
+### Function types
+
+A function type is a declaration with its name replaced by `Fn`. A function
+that returns nothing leaves out `->`. Lambdas are unchanged.
+
+```
+// before
+let isSmall: Fn<(int): bool> = (x) => x < 10
+
+// after
+let isSmall: Fn(int) -> bool = (x) => x < 10
+onClick: Fn()
+parse: Fn(str) -> :ok[Json] | Json.Error
+makeAdder: Fn(int) -> Fn(int) -> int    // returns a function
+checks: Vec[Fn(User) -> bool]
+```
+
+Parameter names may still be written to document the parameters, and do not
+change the type: `Fn(from: Account, to: Account, amount: int)`.
+
+### What each bracket and symbol means
+
+- `()` calls a function. After a `.`, it indexes: `arr.(i)` (see "Arrays and
+  vectors").
+- `[]` gives type arguments: `Vec[T]`, `Arr[T]`. It also holds a symbol's
+  payload, in types and in values: `:ok[Date]`, `:!badYear[year]`.
+- `{}` is a block, whose meaning depends on what it follows: a function body, a
+  struct or trait, a match, an `if` or a loop, or a literal.
+- `.` reaches into anything with members: a field (`date.year`), a method
+  (`date.label()`), an associated function (`Date.new(...)`), an item of a
+  module (`Json.parseJson(...)`) or an element (`arr.(i)`).
+- `:` gives a type (`year: int`), lists the traits a struct conforms to
+  (`Admin: Printable`) or starts a neutral symbol (`:more`). It is not used for
+  values.
+- `:!` starts an error symbol (`:!badYear`).
+- `|` joins symbols into a union, in types (`:ok[Date] | DateError`).
+- `=` gives a value, including struct fields in a literal:
+  `Date { year = year, month = month, day = day }`. In a type declaration it
+  gives a type: `DateError = ...`.
+
+### Modules
+
+- A module is a file. Code reaches its items through the module's name and `.`:
+  `Json.parseJson(text)`, `Json.Value`, `Json.:!badJson`.
+- A module's main type, the one sharing the file's name, is the module name
+  itself: `Json` is the type, with no `Json.Json`.
+- The module's top-level functions and types and its main type's associated
+  functions share one set of names, reached the same way: `Json.new()` and
+  `Json.parseJson()` look alike because they are the same kind of thing. Using
+  one name for two of them is a compile error.
+- Modules are found automatically. A capitalized name that is not defined in
+  the current file is looked up as a module among the project's files (the
+  folder of the main file and the folders below it) and the standard library.
+- An item from another module is always written with the module's name. There
+  are no imports that bring single items or whole modules into scope.
+- When the name matches more than one module, such as `models/User.brf` and
+  `endpoints/User.brf`, or a project module and a standard-library module of
+  the same name, it is a compile error. The error says to choose one with an
+  import, `import models.User`, or to rename one of them. An import only
+  chooses a module; the code still writes `User.new()`.
+- Types, traits and symbols are always public: structs, named unions, traits,
+  tags and merged symbols. Code that receives a value must be able to name its
+  type and match its tags, and a trait is only useful where it can be seen.
+  Writing `pub` on them is a compile error.
+- Everything else is private to its module unless marked `pub`: top-level
+  functions and constants, and a struct's fields and functions. A public type
+  does not make its fields or functions public.
+- A trait's functions are public, and so are the functions a struct writes to
+  conform to it.
+
+```
+// User.brf
+User {                          // a type: always public
+  name: str                     // private: only User.brf can read it
+  pub age: int
+
+  pub new(name: str, age: int) -> User {
+    User { name = name, age = age }
+  }
+
+  pub greeting() -> str { "hello {self.name}" }
+}
+
+HasUser {                       // a trait: always public
+  getUser(self) -> User
+}
+
+// Main.brf
+let user = User.new("Ada", 36)
+print(user.greeting())          // allowed: greeting is pub
+print(user.name)                // error: name is private to User
+```
+
+### Structs and traits
+
+A struct has at least one field, and every function in it has a body.
+Functions that share no data go in a module, which is already reached by name
+(see "Modules").
+
+A declaration with functions and no fields is a trait. Its functions without a
+body must be provided by every conforming struct; functions with a body are
+defaults. A struct replaces a default by writing a function of the same name;
+there is no `ovr` keyword.
+
+```
+Printable {
+  show(self) -> str
+  printLine(self) { print(self.show()) }  // a default
+}
+
+Ord[T] {
+  compare(self, other: T) -> :less | :equal | :greater
+}
+```
+
+- A trait that needs to name the conforming type takes it as its first type
+  parameter, as `Ord[T]` does for `other: T`. A trait that does not, such as
+  `Printable`, has no parameter. The first parameter is never written when
+  conforming: a struct writes `Date: Ord`, and `T` is `Date` in its `compare`.
+- Further type parameters are ordinary and are written when conforming:
+  `Query[T, Item]` is conformed to as `UserCollection: Query[User]`, where
+  `T` is `UserCollection` and `Item` is `User`.
+- A trait signature has no body to infer `self` from, so its methods write
+  `self` or `&self` explicitly. A function without `self` is an associated
+  function, such as `new() -> T`.
+- A struct lists the traits it conforms to after `:`, joined with `and`, since
+  it must satisfy all of them. Its own functions follow the struct rules: a
+  method is still recognized by its use of `self`, so `show(self) -> str` in the
+  trait is written `show() -> str` in the struct.
+
+```
+// before
+impl Admin: User.HasUser { ... }
+
+// after
+Admin: User.HasUser and Printable {
+  user: User
+  getUser() -> User { self.user }
+  show() -> str { "admin " + self.user.name }
+}
+```
+
+### Unions replace `Sym<...>`
+
+A set of symbols is written as its symbols joined with `|`. `Sym` is removed.
+
+```
+// before
+type Health = Sym<:healthy, :degraded, :down>
+new(...): Sym<:ok(Self), DateError>
+
+// after
+Health = :healthy | :degraded | :down
+new(...) -> :ok[Date] | DateError
+```
+
+- A named union inside another union adds its members: `:ok[Date] | DateError`
+  has four tags.
+- A union can be partly written: `:ok[Date] | _` leaves the rest to inference,
+  as `Sym<:ok(T), _>` does today.
+- `|` is still the bitwise or in expressions. Types are only read where a type
+  is expected (after `:` and `->`, on the right of a type declaration and
+  inside the `[]` of a type), so the two do not clash.
+- A union holds only symbols and named unions of symbols, never plain types
+  such as `int | str`. A plain value goes in a payload,
+  `:num[int] | :text[str]`, so every member has a name to match on, and a
+  union inside a payload never merges with the union around it: in
+  `:ok[T] | :none`, a `:none` inside `T` stays distinct from the outer one.
+- A line that ends with `|` continues on the next line, as after other binary
+  operators. A long union is usually better given a name.
+
+```
+read(path: str) -> :ok[str] | :!notFound[str] |
+  :!denied[str] | :!failed[str] {
+```
+
+### Symbol kinds
+
+Every symbol starts with `:`, and the character after it gives its kind. There
+are two kinds. The `:` keeps every symbol recognizable as a symbol, and the `!`
+makes an error stand out among them.
+
+- `:name` is a neutral symbol, for ordinary data: `:healthy`, `:more[Node]`.
+- `:!name` is an error symbol: `:!badYear[int]`, `:!notFound[str]`.
+- A name has one kind within a module. A module cannot use both `:notFound` and
+  `:!notFound`, so a typo cannot quietly create a second tag.
+
+### Payloads
+
+A tag carries zero or more values, written like type arguments and matched by
+position. Tuples are on hold. When they return, a named tuple's values are
+given with `=`, like a struct literal's: `(name = "Bob", age = 20)`.
+
+```
+Shape = :circle[dbl] | :rect[dbl, dbl] | :triangle[dbl, dbl, dbl]
+
+area(s: Shape) -> dbl {
+  s |> {
+    :circle[r] => 3.14159 * r * r
+    :rect[w, h] => w * h
+    :triangle[a, b, c] => heron(a, b, c)
+  }
+}
+```
+
+A union cannot contain itself through its payloads, directly or through other
+unions. Recursion goes through a struct, which is a shared reference, as today:
+
+```
+Expr = :num[lng] | :neg[Neg] | :binary[Binary]
+Neg { inner: Expr }
+Binary {
+  op: Op
+  left: Expr
+  right: Expr
+}
+
+Node {
+  value: int
+  next: :none | :more[Node]
+}
+```
+
+### Errors and outcomes
+
+Errors are marked by their own kind instead of by reserving `:ok`.
+
+- A union that contains at least one error symbol is an outcome. It must be
+  handled (see "Handling outcomes").
+- `?` returns the errors early, and `!` panics on them. What is left:
+  - one tag with a payload gives the payload;
+  - one tag without a payload gives nothing;
+  - several tags give the union of those tags, which must then be matched with
+    an arm for each one. This holds even when two tags carry the same payload
+    type: `:created[Id]` and `:updated[Id]` are still different cases.
+- `:ok` does not make a union an outcome; only error symbols do. It is the
+  success tag by convention, and the one used for implicit wrapping, as today:
+  a function whose result contains `:ok[T]` wraps a plain value it returns in
+  `:ok[...]`, and one whose result contains a payload-less `:ok` returns `:ok`
+  when it ends without a value. A union without errors that contains `:ok` is
+  ordinary data.
+- Error symbols are written with `:!` wherever they appear: in types, in `ret`
+  and in patterns.
+- A function returns exactly its type. The first version's rule that every
+  function returns a symbol, with `-> int` short for `:ok[int]`, is dropped:
+  `double(x: int) -> int` returns an `int`, and its result cannot be matched
+  as `:ok[v]`.
+- A union whose only tag is `:ok[T]` is the same type as `T`, and `:ok` alone
+  is the same as `()`. This lets a generic function return `:ok[U] | E`: when
+  `E` is empty, as for `users |> select(...)` with a lambda that cannot fail,
+  the result is a plain `Vec[str]`.
+- `main()` exits with status 1 when it ends on an error symbol, printing it to
+  standard error, and with 0 otherwise.
+
+```
+Health = :ok | :degraded | :down        // no errors: data, no handling needed
+
+parse(text: str) -> :ok[Date] | DateError { ... }
+let date = parse("2026-10-29")?         // errors return early; date is a Date
+
+save(user: User) -> :created[Id] | :updated[Id] | :!conflict[Id] { ... }
+let change = save(user)?                // change is :created[Id] | :updated[Id]
+change |> {
+  :created[id] => print("created {id}")
+  :updated[id] => print("updated {id}")
+}
+```
+
+### Handling outcomes
+
+An outcome can never be ignored. It is handled in one of three ways.
+
+- **Where the call is made**, with `?`, `!` or a match.
+- **By returning it as it is.** A call that is the function's final
+  expression, the last expression of a branch that ends the function, or the
+  value of `ret` counts as handled. Its errors join the function's result, as
+  with `?`, and the outcome is returned unchanged rather than wrapped in `:ok`.
+- **Later, from a binding.** A binding that holds an outcome must be handled
+  exactly once, on every path, before it goes out of scope: by a match, `?`,
+  `!` or returning it. Until then it cannot be passed to a function, stored in
+  a field, copied to another binding or reassigned. The check is the flow
+  analysis that declare-then-assign already needs, run the other way: instead
+  of "assigned before every read", it is "handled before every exit". Passing a
+  stored outcome to a function may be allowed later.
+
+```
+load(path: str) -> :ok[str] | :!notFound[str] {
+  readFile(path)                        // returned as it is: no ? needed
+}
+
+let result = Loan.new(0, 500, 10)
+print("trying a zero balance")
+result |> {                             // handled before the scope ends
+  :ok[loan] => ...
+  problem => ...
+}
+
+let other = Loan.new(1, 2, 3)
+if done { ret }                         // error: other is not handled on this path
+```
+
+### `:none`
+
+- `:none` means that there is no value. It never carries a payload, and the name
+  is reserved for this meaning.
+- It can appear in any union, with or without `:ok`, as in
+  `next: :none | :more[Node]`.
+- A function whose result includes `:none`, because its written type says so or
+  because some `ret :none` puts it there, returns `:none` when it ends without a
+  value. Other functions that end without a value return `:ok` or `()`, as
+  today.
+- A union with a payload-less `:ok` and `:none` together is a compile error:
+  ending without a value would mean either.
+- `:none` is not an error, so `:ok[User] | :none` is not an outcome. It does
+  not have to be handled at the call and is matched like any data.
+- `?` acts on errors only. It never returns early on `:none`.
+
+```
+find(id: int) -> :ok[User] | :none {
+  for user in users {
+    if user.id == id { ret user }
+  }
+}                                       // ends without a value: :none
+```
+
+### `let ... else` (planned)
+
+Taking the value out of an optional, or leaving when there is none, will be
+written with `let ... else`, as in Rust. It binds the payload when there is a
+value and runs the block otherwise. The block must leave the scope, with `ret`,
+`break` or `continue`. Until it exists, a match does the same job.
+
+```
+let user = find(7) else { ret :!notFound[7] }
+```
+
+This is how a missing value becomes an error with a message, which is the
+common case in a compiler: `scope.get(name) else { ret :!undefined[name] }`.
+
+### Tags belong to modules
+
+- A tag belongs to the module it is written in. `:!notFound` in `File` and
+  `:!notFound` in `Db` are different tags, even with the same payload type.
+- Within one module, a tag has the same payload types everywhere, as today.
+- A tag from another module is written with the module's name, like any other
+  item: `Db.:!notFound[id]`, `File.:healthy`.
+- `:ok` and `:none` are shared by every module and never take a module name.
+
+### Merged symbols
+
+Tags from several modules can be gathered under one name. The name is itself a
+symbol, of the same kind as its members, because a symbol is what gets matched:
+
+```
+:!notFound = File.:!notFound[str] | Db.:!notFound[int]
+```
+
+- **Matching.** `:!notFound` in a pattern matches any member.
+- **Payloads.** When every member has the same payload types, `:!notFound[p]`
+  binds them. When they differ, each payload type gets its own arm, with the
+  type written on the binding, and the arms together must cover every member.
+  Members with the same payload types share an arm.
+- **Types.** A merged symbol can appear in types and stands for all its
+  members: `-> :ok[User] | :!notFound` has three tags.
+- **Returning.** As in OCaml, a merged symbol is never returned or built as a
+  value; the code always names the member, `ret Db.:!notFound[id]`. So the
+  compiler never has to pick a member.
+- **Short names.** A merged symbol with one member gives a tag from another
+  module a local name: `:!notFound = Db.:!notFound[int]`. Since there is only
+  one member, this kind can also be returned: `ret :!notFound[id]`.
+
+```
+lookup(key: str) -> :ok[User] | :!notFound {
+  ...
+  ret Db.:!notFound[id]
+}
+
+lookup("ada") |> {
+  :ok[user] => ...
+  :!notFound[path: str] => print("no file {path}")
+  :!notFound[id: int] => print("no record {id}")
+}
+```
+
+### String interpolation
+
+`"total {x}"` puts the value of `x` in the text. A literal brace is written
+`\{`. It accepts the types that `str(...)` accepts; values of your own types
+follow once that conversion is designed (open question 11 in `lang-desc.txt`).
+
+### Inclusive ranges
+
+`a..=b` includes `b`, in loops and in patterns. `a..b` stays half-open.
+
+### Numbers
+
+- `for n: lng in 2..10000` gives the loop variable a type. It is needed only
+  when both bounds are literals; a typed bound sets the type, as today.
+- A shift count can be any integer type. The result has the left side's type,
+  and a negative or oversized count still fails at run time:
+  `ulng(1) << (r * 8 + c)`.
+- There is still no implicit widening, and every signed-to-unsigned conversion
+  is still fallible.
+
+### Arrays and vectors
+
+`Arr[T]` is a fixed-length array and `Vec[T]` a vector that grows. Both are
+shared references, like structs: passing one never copies it, and `.clone()`
+makes an independent copy.
+
+An array can be thought of as a struct whose fields are named by position,
+each holding a `T`. Elements follow the same permission rules as fields.
+
+- **Creating.** An array or vector is created from a literal or by filling a
+  sized, unfilled one. `Arr[int](100)` has its own unfilled type: it cannot be
+  read, indexed, stored or passed anywhere, and its only operation is a fill.
+  `Vec[int]()` is an empty vector; `Vec[int](10).fill(0)` starts with ten
+  elements and can grow from there.
+- **Indexing.** `arr.(i)` reads the element at `i` and `arr.(i) = x` writes it.
+  The index can be any expression, `arr.(i + 1)`, and any integer type.
+  Indices start at 0. An index outside the array panics, naming the file and
+  line; `arr.get(i)` returns `:ok[T] | :none` instead.
+- **Lengths.** `len()` returns an `int`, and a length given at creation can be
+  any integer type. An `int` length matches loop counters, which are `int` by
+  default, so `for i in 0..arr.len()` and `var i = 0` work without
+  conversions. A length that does not fit in an `int` panics at creation.
+- **Loops.** `for x in arr` gives the elements; `for i in 0..arr.len()` gives
+  the indices.
+- **Declare-then-assign.** A binding can be declared without a value and
+  assigned later, as in Rust. It must be assigned as a whole before it is read,
+  or it is a compile error.
+
+```
+let squares: Arr[int]                 // declared, not yet assigned
+squares = Arr[int] {1, 4, 9}          // assigned as a whole before use
+
+let zeros = Arr[int](100).fill(0)
+let bad = Arr[int](100)               // compile error: fill the array first
+
+let names = Vec[str]()
+names.add("Ada")
+for i in 0..squares.len() {
+  print("{i}: {squares.(i)}")
+}
+```
+
+### Literals in conditions
+
+A literal that ends in `{ ... }`, such as `Date { ... }`, `Arr[int] {1, 2}` or
+`Vec[int] {1, 2}`, must be parenthesized when it appears in an `if`, `while`,
+`for` or match condition, as today. Otherwise its braces would be read as the
+body. The compiler's error says what to wrap.
+
+### Kept as they are
+
+- `let` prevents rebinding but does not freeze the object; only `const` is
+  deeply immutable.
+- A plain parameter is a read-only borrow and cannot be kept in a field. To keep
+  a value, take it as `&`, which makes the holder a shared owner that may change
+  it, or store `.clone()`. ARC handles the shared ownership.
+- Each match arm goes on its own line. Short matches cannot be put on one line.
+
+## Open questions and comments
+
+These are left for after the bootstrap starts; the compiler does not need
+them.
+
+1. **Traits for built-in types.** Conformance written on a struct means
+   built-in types such as `int` can never conform. Rust allows conformance in
+   the trait's module or the type's module, and Elixir allows it anywhere.
+   Proposed: allow it in the trait's module, `int: Printable { ... }`, so that
+   interpolation and other trait-based features can cover every type.
+2. **Generics.** Bounds are written `max[T: Ord and Printable](a: T, b: T)`.
+   Proposed: type arguments are inferred from a call's arguments, as in Rust,
+   and each generic function is compiled once per type it is used with, which
+   suits a compiler that emits C.
+
+### Related
+
+- The bootstrap plan (`docs/plans/bootstrap-readiness.txt`) has its own open
+  questions, Q1–Q16, about strings, `Vec` and `Map` operations, program input
+  and output, and scope. Q1 records the preference for `size()` for a byte
+  count and `len()` for a length. Its examples still use the current syntax.
+  Several of its questions are answered here: Q5 and Q8 by "Numbers", Q6 and Q7
+  by "Handling outcomes", Q10 by string interpolation and D12 by "Modules".
+- Order of work: settle these notes; apply them to the `lang-*.txt` documents
+  (done, with the first version's documents kept in `docs/v0/`); plan the
+  changes to the C compiler and its tests; rewrite the bootstrap plan for the
+  new syntax; then start the bootstrap. The Brief-written compiler should not
+  be started in syntax that is about to change.

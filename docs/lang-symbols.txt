@@ -1,26 +1,26 @@
-# Symbols (`Sym`)
+# Symbols and Unions
 
 > Part of the language design. `lang-desc.txt` has the overview and the list of documents.
 
 One of the language's central features is its typed symbol system.
 
-`Sym` is a tagged union that can represent multiple possible outcomes.
+A symbol is a tag, written with a leading `:`, that may carry a payload. A union joins symbols with `|` into a type whose values are exactly one of them.
 
 ```
-Sym<:ok(User), :invalidAge(int)>
+:ok[User] | :!invalidAge[int]
 ```
 
 A function returning this type can produce either:
 
 ```
-:ok(user)
-:invalidAge(15)
+:ok[user]
+:!invalidAge[15]
 ```
 
 Symbols can also carry no payload.
 
 ```
-Sym<:found(User), :missing>
+:found[User] | :missing
 ```
 
 They are not exclusively an error-handling mechanism.
@@ -28,21 +28,21 @@ They are not exclusively an error-handling mechanism.
 For example:
 
 ```
-Sym<:negative, :adult, :senior>
+:negative | :adult | :senior
 ```
 
 can represent a classification.
 
-There is no `enum`. A named set of symbols does the same job.
+There is no `enum`. A named union does the same job. A type declaration needs no keyword.
 
 ```
-pub type Tier = Sym<:bronze, :silver, :gold>
+Tier = :bronze | :silver | :gold
 
-pub Account {
+Account {
   tier: Tier
 }
 
-let account = Account { tier: :gold }
+let account = Account { tier = :gold }
 
 account.tier |> {
   :bronze => print("Bronze")
@@ -52,6 +52,119 @@ account.tier |> {
 ```
 
 Tags without a payload sort in the order they are listed in their type, so `:bronze` comes before `:gold`.
+
+## Symbol kinds
+
+Every symbol starts with `:`, and the character after it gives its kind. There are two kinds. The `:` keeps every symbol recognizable as a symbol, and the `!` makes an error stand out among them.
+
+- `:name` is a neutral symbol, for ordinary data: `:healthy`, `:more[Node]`.
+- `:!name` is an error symbol: `:!badYear[int]`, `:!notFound[str]`.
+
+A name has one kind within a module. A module cannot use both `:notFound` and `:!notFound`, so a typo cannot quietly create a second tag.
+
+A union that contains at least one error symbol is an outcome, which must be handled (`lang-errors.txt`).
+
+## Payloads
+
+A tag carries zero or more values, written in `[]` like type arguments and matched by position.
+
+```
+Shape = :circle[dbl] | :rect[dbl, dbl] | :triangle[dbl, dbl, dbl]
+
+area(s: Shape) -> dbl {
+  s |> {
+    :circle[r] => 3.14159 * r * r
+    :rect[w, h] => w * h
+    :triangle[a, b, c] => heron(a, b, c)
+  }
+}
+```
+
+Within one module, a tag has the same payload types everywhere. An absent payload and a `()` payload are different.
+
+Payload expressions receive the tag's contextual type, which can widen a nested
+union payload. Inferred nested payload types do not themselves grow
+covariantly: write a common payload type when branches construct different
+nested unions.
+
+## Unions
+
+- A named union inside another union adds its members: `:ok[Date] | DateError` has four tags when `DateError` has three.
+- A union holds only symbols and named unions of symbols, never plain types such as `int | str`. A plain value goes in a payload, `:num[int] | :text[str]`, so every member has a name to match on.
+- A union inside a payload never merges with the union around it: in `:ok[T] | :none`, a `:none` inside `T` stays distinct from the outer one.
+- `|` is still the bitwise or in expressions. Types are only read where a type is expected (after `:` and `->`, on the right of a type declaration and inside the `[]` of a type), so the two do not clash.
+- A line that ends with `|` continues on the next line. A long union is usually better given a name.
+
+Named unions are transparent aliases and may refer forward to other unions or structs.
+
+A union cannot contain itself through its payloads, directly or through other unions. Recursion goes through a struct, which is a shared reference:
+
+```
+Expr = :num[lng] | :neg[Neg] | :binary[Binary]
+
+Neg {
+  inner: Expr
+}
+
+Binary {
+  op: Op
+  left: Expr
+  right: Expr
+}
+
+Node {
+  value: int
+  next: :none | :more[Node]
+}
+```
+
+## `:none`
+
+`:none` means that there is no value. It never carries a payload, and the name is reserved for this meaning. It can appear in any union, with or without `:ok`, as in `next: :none | :more[Node]` or `:ok[User] | :none`.
+
+`:none` is not an error, so `:ok[User] | :none` is not an outcome. It does not have to be handled at the call and is matched like any data. `lang-errors.txt` describes how a function returns it.
+
+## Tags belong to modules
+
+A tag belongs to the module it is written in. `:!notFound` in `File` and `:!notFound` in `Db` are different tags, even with the same payload type.
+
+A tag from another module is written with the module's name, like any other item: `Db.:!notFound[id]`, `File.:healthy`. `:ok` and `:none` are shared by every module and never take a module name.
+
+```
+File.read(path) |> {
+  :ok[text] => print(text)
+  File.:!notFound[p] => print("no file at {p}")
+  File.:!denied[p] => print("cannot read {p}")
+  File.:!failed[p] => print("could not read {p}")
+}
+```
+
+## Merged symbols
+
+Tags from several modules can be gathered under one name. The name is itself a symbol, of the same kind as its members, because a symbol is what gets matched.
+
+```
+:!notFound = File.:!notFound[str] | Db.:!notFound[int]
+```
+
+- **Matching.** `:!notFound` in a pattern matches any member.
+- **Payloads.** When every member has the same payload types, `:!notFound[p]` binds them. When they differ, each payload type gets its own arm, with the type written on the binding, and the arms together must cover every member. Members with the same payload types share an arm.
+- **Types.** A merged symbol can appear in types and stands for all its members: `-> :ok[User] | :!notFound` has three tags.
+- **Returning.** As in OCaml, a merged symbol is never returned or built as a value; the code always names the member, `ret Db.:!notFound[id]`. So the compiler never has to pick a member.
+- **Short names.** A merged symbol with one member gives a tag from another module a local name: `:!missing = Db.:!notFound[int]`. Since there is only one member, this kind can also be returned: `ret :!missing[id]`.
+
+```
+lookup(key: str) -> :ok[User] | :!notFound {
+  ...
+  ret Db.:!notFound[id]
+}
+
+lookup("ada") |> {
+  :ok[user] => print(user.getName())
+  :!notFound[path: str] => print("no file {path}")
+  :!notFound[id: int] => print("no record {id}")
+}
+```
 
 ## Why symbols exist
 
@@ -68,13 +181,13 @@ This reduces the need for separate `Result`, `Option`, exception, and ad hoc sta
 
 ## Error handling
 
-Functions returning recoverable errors must expose them through their types.
+Functions returning recoverable errors must expose them through their types, as error symbols.
 
-The compiler prevents those errors from being silently discarded: a call that can fail must be handled where it is made.
+The compiler prevents those errors from being silently discarded: an outcome must be handled.
 
-The standard library reports errors through the same `Sym` mechanism as user programs. There is no separate error system for library code.
+The standard library reports errors through the same symbols as user programs. There is no separate error system for library code.
 
-Three primary mechanisms are available.
+Three primary mechanisms are available at the call.
 
 **Propagation using `?`:**
 
@@ -84,7 +197,7 @@ let user = User.new("Bob", 20)?
 
 On success, `?` extracts the value.
 
-On failure, it propagates the non-success outcome to the enclosing function. The enclosing function must declare compatible outcomes.
+On failure, it returns the error symbol from the enclosing function. The enclosing function must declare compatible tags.
 
 **Explicit panic using `!`:**
 
@@ -92,44 +205,37 @@ On failure, it propagates the non-success outcome to the enclosing function. The
 let user = User.new("Bob", 20)!
 ```
 
-This extracts the successful value or panics on failure.
+This extracts the successful value or panics on an error.
 
 **Explicit matching:**
 
 ```
 User.new("Bob", 20) |> {
-  :ok(user) => print(user.getName())
-  :invalidAge(age) => print("Not a valid age: " + str(age))
+  :ok[user] => print(user.getName())
+  User.:!invalidAge[age] => print("Not a valid age: {age}")
 }
 ```
 
 Every match must cover every outcome (`lang-pipelines.txt`, "Exhaustiveness").
 
-## Composable error variants
+An outcome can also be returned as it is, or bound and handled later (`lang-errors.txt`, "Handling outcomes").
+
+## Composable error tags
 
 A module can name a group of symbols, and other return types can include the whole group.
 
 ```
-pub type Error = Sym<:syntax(int), :missingKey(str), :wrongType(str)>
+// file: Json.brf
+
+Error = :!syntax[int] | :!missingKey[str] | :!wrongType[str]
 ```
 
 ```
-Sym<:ok(User), Json.Error, :invalidAge(int)>
+:ok[User] | Json.Error | :!invalidAge[int]
 ```
 
-Inside `Sym<...>`, an entry that starts with `:` is one variant. An entry that is a type name includes every variant of that group.
+In a union, an entry that starts with `:` is one tag. An entry that is a type name includes every tag of that group.
 
-This composes error variants without repeatedly listing every possible JSON error.
+This composes error tags without repeatedly listing every possible JSON error.
 
-Named sets are transparent aliases and may refer forward to other sets or structs.
-Recursive value shapes require a struct indirection rather than a direct cycle
-through aliases and payload types.
-
-A tag's payload type must match exactly wherever sets are combined; an absent
-payload and a `()` payload are different. Disjoint sets may use the same tag with
-different payload types, but their union is invalid. Payload expressions receive
-the variant's contextual type, which can widen a nested symbol payload. Inferred
-nested payload types do not themselves grow covariantly: write a common payload
-type when branches construct different nested sets.
-
-The full rules for the success tag, accumulation, and duplicate symbols are in `lang-errors.txt`. They are accepted for now and may be refined.
+The full rules for errors, accumulation, and handling are in `lang-errors.txt`. They are accepted for now and may be refined.

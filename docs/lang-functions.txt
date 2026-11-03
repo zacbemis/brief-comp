@@ -2,10 +2,10 @@
 
 > Part of the language design. `lang-desc.txt` has the overview and the list of documents.
 
-Functions are declared without a `fn` or `function` keyword.
+Functions are declared without a `fn` or `function` keyword. The return type follows `->`.
 
 ```
-add(x: int, y: int): int {
+add(x: int, y: int) -> int {
   x + y
 }
 ```
@@ -20,10 +20,12 @@ read-only struct cannot be stored in a field, so a function that keeps an
 argument takes it as `&`. This is not deep `const` or a purity guarantee.
 `lang-memory.txt` describes the rules.
 
+Functions written inside a struct are its methods and associated functions (`lang-modules.txt`, "Methods").
+
 Explicit returns use `ret`.
 
 ```
-validate(age: int): bool {
+validate(age: int) -> bool {
   if age < 18 {
     ret false
   }
@@ -40,29 +42,29 @@ let add = (x: int, y: int) => x + y
 
 ### Function types
 
-The type of a function is written `Fn<(parameter types): return type>`, the same form as a declaration with the name removed.
+The type of a function is a declaration with its name replaced by `Fn`. A function that returns nothing leaves out `->`.
 
 ```
-let isSmall: Fn<(int): bool> = (x) => x < 10
+let isSmall: Fn(int) -> bool = (x) => x < 10
 
-pub where(items: Self, keep: Fn<(T): bool>): Vec<T>
+where(self, keep: Fn(Item) -> bool) -> Vec[Item]
 
-pub Button {
+Button {
   label: str
-  onClick: Fn<(): ()>
+  onClick: Fn()
 }
 
-add: Fn<(int, int): int>
-parse: Fn<(str): Sym<:ok(Json), Json.Error>>
-makeAdder: Fn<(int): Fn<(int): int>>     // returns a function
-checks: Vec<Fn<(User): bool>>
+add: Fn(int, int) -> int
+parse: Fn(str) -> :ok[Json] | Json.Error
+makeAdder: Fn(int) -> Fn(int) -> int     // returns a function
+checks: Vec[Fn(User) -> bool]
 ```
 
 Parameter names may be written inside the type to document what each parameter is. They are optional and do not change the type.
 
 ```
-transfer: Fn<(from: Account, to: Account, amount: int): ()>
-transfer: Fn<(Account, Account, int): ()>     // the same type
+transfer: Fn(from: Account, to: Account, amount: int)
+transfer: Fn(Account, Account, int)     // the same type
 ```
 
 ### Lambda parameter types
@@ -72,7 +74,7 @@ A lambda's parameter types may be left out when the lambda is written where a fu
 ```
 users |> where((user) => user.getAge() >= 18)                   // user is a User, from where
 
-let isAdult: Fn<(User): bool> = (user) => user.getAge() >= 18   // from the annotation
+let isAdult: Fn(User) -> bool = (user) => user.getAge() >= 18   // from the annotation
 
 let isAdult = (user) => user.getAge() >= 18                     // Compiler error: the type of user is unknown
 let isAdult = (user: User) => user.getAge() >= 18               // allowed
@@ -97,7 +99,7 @@ for tier in tiers {
 }
 
 var count = 0
-let show = () => print(count)                                    // Compiler error: count is a var
+let show = () => print(str(count))                               // Compiler error: count is a var
 ```
 
 Because a captured name can never be reassigned, the lambda always sees the same value as the code around it.
@@ -121,25 +123,27 @@ An object that stores a lambda which captures that same object forms a reference
 
 The language is expression-oriented wherever practical.
 
-Functions can accept objects, borrow mutable objects, return typed symbols, and participate in pipelines.
+Functions can accept objects, borrow mutable objects, return symbols, and participate in pipelines.
 
 ## Return types
 
 Parameter types are always written. A return type may be written in full, written in part, or left out. All three forms are allowed on any function, including `pub` functions.
 
 ```
-pub loadUser(path: str) {                         // inferred
-pub loadUser(path: str): Sym<:ok(User), _> {      // success type written, other variants inferred
-pub loadUser(path: str): Sym<:ok(User), File.Error, Json.Error, :invalidAge(int)> {
+pub loadUser(path: str) {                                     // inferred
+pub loadUser(path: str) -> :ok[User] | _ {                    // success type written, the rest inferred
+pub loadUser(path: str) -> :ok[User] | File.Error | Json.Error | :!invalidAge[int] {
 ```
 
 When the return type is left out, the compiler infers it from the body. Leaving it out does not mean the function returns nothing.
 
-Inside `Sym<...>`, `_` stands for whatever other variants the body produces. The variants that are written must match the body.
+In a union, `_` stands for whatever other tags the body produces. The tags that are written must match the body.
 
-A written return type is checked against the body. A variant the body produces that the written type does not list is a compile error at the function, not at its callers.
+A written return type is checked against the body. A tag the body produces that the written type does not list is a compile error at the function, not at its callers.
 
-A trait method without a body has nothing to infer from, so its return type must be written in full.
+A function returns exactly its type: `-> int` returns an `int`. A plain value is wrapped in `:ok[...]` only when the function's result is a union that contains `:ok` (`lang-errors.txt`, "Functions return exactly their type").
+
+A trait function without a body has nothing to infer from, so its return type must be written in full.
 
 Exhaustive matching, `?`, and `!` behave the same whichever form is used.
 
@@ -177,18 +181,20 @@ describe(age: int) {
   :adult
 }
 
-// inferred: Sym<:minor, :adult>
+// inferred: :minor | :adult
 ```
 
 ```
+// file: User.brf
+
 loadUser(path: str) {
   let text = File.read(path)?
   let json = Json.parse(text)?
 
-  User.fromJson(json)?
+  User.fromJson(json)
 }
 
-// inferred: Sym<:ok(User), File.Error, Json.Error, :invalidAge(int)>
+// inferred: :ok[User] | File.Error | Json.Error | :!invalidAge[int]
 ```
 
 ### Written in part
@@ -196,35 +202,35 @@ loadUser(path: str) {
 The success type is fixed and the compiler fills in the rest.
 
 ```
-loadUser(path: str): Sym<:ok(User), _> {
+loadUser(path: str) -> :ok[User] | _ {
   let text = File.read(path)?
   let json = Json.parse(text)?
 
-  User.fromJson(json)?
+  User.fromJson(json)
 }
 ```
 
 The written part is still checked.
 
 ```
-loadUser(path: str): Sym<:ok(Admin), _> {
+loadUser(path: str) -> :ok[Admin] | _ {
   let text = File.read(path)?
   let json = Json.parse(text)?
 
-  User.fromJson(json)?  // Compiler error: the body produces :ok(User), not :ok(Admin)
+  User.fromJson(json)   // Compiler error: the body produces :ok[User], not :ok[Admin]
 }
 ```
 
 ### Written in full
 
 ```
-double(x: int): str {
+double(x: int) -> str {
   x * 2                 // Compiler error: the body produces int, not str
 }
 ```
 
 ```
-describe(age: int): Sym<:adult> {
+describe(age: int) -> :adult {
   if age < 18 {
     ret :minor          // Compiler error: :minor is not declared
   }
@@ -233,14 +239,14 @@ describe(age: int): Sym<:adult> {
 }
 ```
 
-### Trait methods
+### Trait functions
 
 ```
-pub trait HasUser {
-  getUser(value: Self): User   // no body, so the return type is required
+HasUser {
+  getUser(self) -> User         // no body, so the return type is required
 
-  pub getName(value: Self) {   // has a body, so the return type can be inferred
-    value.getUser().name
+  getName(self) {               // has a body, so the return type can be inferred
+    self.getUser().name
   }
 }
 ```
@@ -280,37 +286,39 @@ pub add(collection: &UserCollection, user: &User) {
 Writing `()` as the return type drops the value of the last expression.
 
 ```
-pub add(collection: &UserCollection, user: &User): () {
+pub add(collection: &UserCollection, user: &User) -> () {
   collection.userVec.add(user)
 }
 
 // returns nothing
 ```
 
-A `Sym` that can fail, one with an `:ok` variant and at least one other variant, is never dropped this way.
+An outcome, a union with at least one error symbol, is never dropped this way.
 
 ```
-closeLog(file: &File): () {
-  file.close()          // Compiler error: the result is not used
+closeLog(file: &File) -> () {
+  file.close()          // Compiler error: the outcome is not handled
 }
 
-closeLog(file: &File): () {
+closeLog(file: &File) -> () {
   file.close()!         // allowed
 }
 ```
 
+A function whose result includes `:none` returns `:none` when it ends without a value; one whose result includes a payload-less `:ok` returns `:ok` (`lang-errors.txt`).
+
 ## Unused values
 
-Every function returns a `Sym` (`lang-errors.txt`, section 9), but only a result that can fail must be handled. A call whose result cannot fail may be written as a statement, and its result is ignored. That includes a result that can only be `:ok`, and a `Sym` with no `:ok` variant, which is ordinary data.
+Only an outcome must be handled. A call whose result is not an outcome may be written as a statement, and its result is ignored. That includes plain values and unions without error symbols, which are ordinary data.
 
 ```
 users.len()             // allowed: the int is ignored
 ```
 
-A call whose result can fail must be handled where it is made. `lang-errors.txt` lists the accepted ways.
+An outcome must be handled: where the call is made, by returning it, or later from a binding. `lang-errors.txt` lists the accepted ways.
 
 ```
-file.close()            // Compiler error: the result is not used
+file.close()            // Compiler error: the outcome is not handled
 ```
 
 ## Evaluation order
@@ -323,27 +331,29 @@ reads the target's old value before evaluating the right side.
 ## Call syntax
 
 ```
-user.getName()     // getName belongs to User
+user.getName()     // getName is a method of User
 save(user)         // save does not belong to User
 user |> save()     // the same call, written as a pipeline
 ```
 
-Method-call syntax `x.f()` is only valid when `f` belongs to the type of `x`: it is defined in an `impl` block for that type, or in a trait the type implements, and takes the value as its first parameter.
+Method-call syntax `x.f()` is only valid when `f` is a method of the type of `x`: a function written in its struct that uses `self`, or a method of a trait the type conforms to.
 
 A function that does not belong to the type must be called directly as `f(x)` or through a pipeline as `x |> f()`.
 
 ```
 // file: Report.brf
 
-pub summary(user: User): str {
+pub summary(user: User) -> str {
   "User: " + user.getName()
 }
 ```
 
-`summary` takes a `User` first but is not defined in `impl User` or in a trait `User` implements.
+`summary` takes a `User` first but is not written in the `User` struct or in a trait `User` conforms to.
 
 ```
 user.summary()            // Compiler error: summary does not belong to User
 Report.summary(user)      // allowed
 user |> Report.summary()  // allowed
 ```
+
+Calling a method on the type, or an associated function on a value, is a compile error that says why and shows the fix (`lang-modules.txt`, "Methods").
