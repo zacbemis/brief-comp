@@ -108,6 +108,19 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR tokens STREQUAL "")
     message(FATAL_ERROR "operator syntax must not affect lexer-only dumping (${status}):\n${errors}")
 endif()
 
+# Structured fixes reach the CLI without changing failure status or publishing
+# an AST/C output. Replacements also separate unspaced keyword operands.
+set(fix_source "${TEST_DIR}/ast-fixes.brf")
+file(WRITE "${fix_source}" "main() {\r\n  true&&false\r\n  true || false\r\n}\r\n")
+set(expected "error: Use 'and' instead of '&&'.\n  --> ${fix_source}:2:7\n  |\n2 |   true&&false\n  |       ^~\nhelp: write `  true and false`\nerror: Use 'or' instead of '||'.\n  --> ${fix_source}:3:8\n  |\n3 |   true || false\n  |        ^~\nhelp: write `  true or false`\n")
+foreach(command IN ITEMS dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${fix_source}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} fix-its (${status}):\n${errors}\nexpected:\n${expected}")
+    endif()
+endforeach()
+
 # Named-field literals in control headers require parentheses. Check the
 # opening-brace location/highlight exactly, without the old recovery cascade.
 set(hint "Wrap struct literals in conditions or iterables in parentheses.")

@@ -303,7 +303,13 @@ int main(void) {
                  {"items[++x]", "++", prefix},
                  {"x |> { _ => ++x }", "++", prefix},
                  {"true && false", "&&", and_hint},
+                 {"true&&false", "&&", and_hint},
                  {"true||false", "||", or_hint},
+                 {"true ||false", "||", or_hint},
+                 {"true|| false", "||", or_hint},
+                 {"true\t&&\tfalse", "&&", and_hint},
+                 {"true/*left*/&&/*right*/false", "&&", and_hint},
+                 {"(true)&&(false)", "&&", and_hint},
                  {"f(true && false)", "&&", and_hint},
                  {"let y = true || false", "||", or_hint},
                  {"ret true && false", "&&", and_hint},
@@ -339,6 +345,26 @@ int main(void) {
           ASSERT_EQ_INT(start, d->span.start);
           ASSERT_EQ_INT(start + 2, d->span.end);
           ASSERT_EQ_INT(2, source_position(v->source, d->span.start).line);
+          if (cases[i].message == prefix) {
+            // Moving an update is not safe in an arbitrary expression.
+            ASSERT_TRUE(d->fixes == NULL);
+          } else {
+            ASSERT_TRUE(d->fixes != NULL && d->fixes == d->last_fix);
+            if (d->fixes) {
+              const DiagnosticFix *fix = d->fixes;
+              ASSERT_TRUE(fix->span.file == v->source);
+              ASSERT_EQ_INT(start, fix->span.start);
+              ASSERT_EQ_INT(start + 2, fix->span.end);
+              ASSERT_TRUE(fix->next == NULL);
+              char rewritten[1100];
+              snprintf(rewritten, sizeof(rewritten), "%.*s%s%s", (int)start,
+                       source, fix->replacement, source + start + 2);
+              Parsed *fixed = parse(&arena, rewritten);
+              if (fixed->diagnostics.count)
+                diagnostics_print(&fixed->diagnostics, stderr);
+              ASSERT_EQ_INT(0, fixed->diagnostics.count);
+            }
+          }
         }
         ASSERT_EQ_INT(2, v->program->count);
         if (v->program->count == 2) {
@@ -366,10 +392,12 @@ int main(void) {
       snprintf(text, sizeof(text), "main() { %s }", separated[i]);
       Parsed *v = parse(&arena, text);
       ASSERT_EQ_INT(1, v->diagnostics.count);
-      if (v->diagnostics.count)
+      if (v->diagnostics.count) {
         ASSERT_EQ_STRN("Expected an expression.",
                        v->diagnostics.items[0]->message,
                        strlen(v->diagnostics.items[0]->message));
+        ASSERT_TRUE(v->diagnostics.items[0]->fixes == NULL);
+      }
     }
     expression_dump(&arena, "a & b | c", "(| (& (name a) (name b)) (name c))");
     expression_dump(&arena, "a & // gap\nb", "(& (name a) (name b))");

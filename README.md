@@ -67,7 +67,7 @@ with status 1. Invalid command arguments exit with status 2.
 Diagnostics can carry machine-applicable fixes as byte spans and replacement
 text. These print as `help:` previews below the error and its notes. Previews
 escape control bytes and line breaks, while structured edits preserve exact
-replacement bytes.
+replacement bytes. The `&&` and `||` errors show the corrected `and`/`or` source.
 
 `dump-ast` filters continuation newlines and parses first-version syntax into
 an arena-owned tree, printed as a stable S-expression. Syntax errors are
@@ -265,7 +265,8 @@ Wide and combining characters do not yet have special display-width handling.
 - [Symbols](docs/lang-symbols.txt)
 - [Errors and outcomes](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
-- [Next-version compiler plan](docs/plans/next-version.txt) (proposed)
+- [Next-version compiler plan](docs/plans/next-version.txt) (N0 in progress;
+  diagnostic fix-it groundwork complete)
 - [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
 
 The overview links the remaining topic documents. Milestone 5 is complete for

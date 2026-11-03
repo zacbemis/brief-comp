@@ -63,10 +63,14 @@ static int match(Parser *p, TokenType type) {
   take(p);
   return 1;
 }
-static void error_at(Parser *p, Span span, const char *message) {
+// strchr would also match the terminating NUL, so a zero byte in the
+// source would count as a space.
+static int blank(char c) {
+  return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
+static Diagnostic *error_at(Parser *p, Span span, const char *message) {
   p->errors++;
-  if (!p->probing)
-    diagnostics_error(p->diagnostics, span, message);
+  return p->probing ? NULL : diagnostics_error(p->diagnostics, span, message);
 }
 static void error(Parser *p, const char *message) {
   // Still mark speculative parses as failed, but do not repeat a lexer error
@@ -1312,9 +1316,22 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
       Token next = p->tokens.items[p->position + 1];
       if (next.type == token.type && next.span.file == token.span.file &&
           next.span.start == token.span.end) {
-        error_at(p, through(token.span, next.span),
-                 token.type == TOK_BIT_AND ? "Use 'and' instead of '&&'."
-                                           : "Use 'or' instead of '||'.");
+        Span span = through(token.span, next.span);
+        Diagnostic *d =
+            error_at(p, span,
+                     token.type == TOK_BIT_AND ? "Use 'and' instead of '&&'."
+                                               : "Use 'or' instead of '||'.");
+        if (d) {
+          // A keyword needs separation even in unspaced input such as a&&b.
+          const SourceFile *file = span.file;
+          int before = span.start && !blank(file->text[span.start - 1]);
+          int after = span.end < file->length && !blank(file->text[span.end]);
+          char replacement[8];
+          snprintf(replacement, sizeof(replacement), "%s%s%s",
+                   before ? " " : "", token.type == TOK_BIT_AND ? "and" : "or",
+                   after ? " " : "");
+          diagnostic_fix(p->diagnostics, d, span, replacement);
+        }
         return NULL;
       }
     }
