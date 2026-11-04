@@ -190,7 +190,7 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 ### New test forms
 
 - **Several errors per fixture.** The existing `// error:` markers are already tied to lines, like the `// ERROR` comments in Go's `test/` directory and the `//~ ERROR` annotations in rustc's UI tests ([rustc-dev-guide, UI tests](https://rust.googlesource.com/rust-lang/rustc-dev-guide/+show/refs/heads/main/src/tests/ui.md)). New rejection tests put independent errors in one file where they cannot cascade, instead of one file per error.
-- **Fix-it markers.** A new `// fix:` marker gives the expected replacement for the diagnostic on its line, so every documented fix is tested.
+- **Fix-it markers.** A `// fix:` marker after an `// error:` marker gives the code that the diagnostic's `help:` line must show, so every documented fix is tested. The program runner checks it against the printed help line, so no separate runner is needed, and every printed fix must have a marker.
 - **Flow analysis.** For each rule, a valid and an invalid fixture: every branch shape (`if`, `else if`, match, loops with `break` and `continue`, early `ret`) for definite assignment and for outcome handling, including nesting and recovery after the first error.
 - **Edge values.** These run under sanitizers:
   - `..=` up to each integer type's maximum and down from its minimum;
@@ -317,6 +317,10 @@ files (including audit copies) found identical `emit-c` status, stdout and stder
 
 All three N0 items are complete. The next milestone is N1's syntax switch and
 manual conversion of the fixtures, examples and C tests; it has not started.
+
+The `// fix:` marker from "New test forms" is in the program runner already, so
+N1's fixes can be tested as they are added. The `&&` and `||` fixtures and the
+first-version syntax audit's two logical-operator cases carry markers.
 
 ## Risks
 

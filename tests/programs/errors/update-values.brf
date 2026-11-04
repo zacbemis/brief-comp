@@ -4,10 +4,10 @@ main() {
   --count // error: Increment and decrement must be postfix standalone statements (x++ or x--).
   print(++count) // error: Increment and decrement must be postfix standalone statements (x++ or x--).
   let prefix = --count // error: Increment and decrement must be postfix standalone statements (x++ or x--).
-  true && false // error: Use 'and' instead of '&&'.
-  true || false // error: Use 'or' instead of '||'.
-  print(true && false) // error: Use 'and' instead of '&&'.
-  if true || false {} // error: Use 'or' instead of '||'.
+  true && false // error: Use 'and' instead of '&&'. // fix: true and false
+  true || false // error: Use 'or' instead of '||'. // fix: true or false
+  print(true && false) // error: Use 'and' instead of '&&'. // fix: print(true and false)
+  if true || false {} // error: Use 'or' instead of '||'. // fix: if true or false {}
   let old = count++ // error: Increment and decrement are only allowed as standalone statements.
   while count++ < 3 {} // error: Increment and decrement are only allowed as standalone statements.
   print(count--) // error: Increment and decrement are only allowed as standalone statements.

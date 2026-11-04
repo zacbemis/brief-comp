@@ -7,12 +7,16 @@ typedef struct ExpectedMessage ExpectedMessage;
 struct ExpectedMessage {
   size_t line;
   TestBytes text;
+  // An error's expected fixes: each is the code its help line shows, after
+  // the indentation and before any trailing comment. index counts all fixes.
+  ExpectedMessage *fixes;
+  size_t index;
   ExpectedMessage *next;
 };
 typedef struct {
   TestBytes output, standard_error;
   ExpectedMessage *errors, *panics;
-  size_t error_count, panic_count;
+  size_t error_count, panic_count, fix_count;
   int has_exit, exit_status;
 } Expectations;
 

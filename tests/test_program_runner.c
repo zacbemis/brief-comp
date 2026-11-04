@@ -94,6 +94,64 @@ int main(void) {
                 "error: Unknown function.\n  --> test.brf:1:1\nerror: extra\n"),
             empty, empty, 0, 0) != NULL);
   }
+  TEST("fix expectations match each diagnostic's help lines exactly once") {
+    const char *source = "  a && b // error: bad // fix: a and b\n";
+    TestBytes base = TEST_BYTES("error: bad\n  --> f.brf:1:5\n"
+                                "  |\n1 |   a && b\n  |     ^~\n");
+    TestBytes fixed =
+        TEST_BYTES("error: bad\n  --> f.brf:1:5\n"
+                   "help: write `  a and b // error: bad // fix: a and b`\n");
+    ASSERT_TRUE(validate(&a, source, 1, fixed, empty, empty, 0, 0) == NULL);
+    // A fix with no marker, a marker with no fix, and a different fix fail.
+    ASSERT_TRUE(validate(&a, "  a && b // error: bad\n", 1, fixed, empty, empty,
+                         0, 0) != NULL);
+    ASSERT_TRUE(validate(&a, source, 1, base, empty, empty, 0, 0) != NULL);
+    ASSERT_TRUE(validate(&a, "  a && b // error: bad // fix: a or b\n", 1,
+                         fixed, empty, empty, 0, 0) != NULL);
+    // The code must be the whole line before the fixture's own comment.
+    ASSERT_TRUE(validate(&a, "  a && b // error: bad // fix: a and\n", 1, fixed,
+                         empty, empty, 0, 0) != NULL);
+    ASSERT_TRUE(validate(&a, "  a && b // error: bad // fix: a and b c\n", 1,
+                         fixed, empty, empty, 0, 0) != NULL);
+    // Several fixes match in any order, and a location prefix is allowed.
+    ASSERT_TRUE(validate(&a, "x // error: bad // fix: one // fix: two\n", 1,
+                         TEST_BYTES("error: bad\n  --> f.brf:1:1\n"
+                                    "help: f.brf:2:1: write `two`\n"
+                                    "help: write `one`\n"),
+                         empty, empty, 0, 0) == NULL);
+    ASSERT_TRUE(validate(&a, "x // error: bad // fix: one // fix: one\n", 1,
+                         TEST_BYTES("error: bad\n  --> f.brf:1:1\n"
+                                    "help: write `one`\n"),
+                         empty, empty, 0, 0) != NULL);
+    // Fixes belong to the error on their own line.
+    ASSERT_TRUE(validate(&a, "x // error: a // fix: y\nz // error: b\n", 1,
+                         TEST_BYTES("error: a\n  --> f.brf:1:1\n"
+                                    "error: b\n  --> f.brf:2:1\n"
+                                    "help: write `y`\n"),
+                         empty, empty, 0, 0) != NULL);
+    ASSERT_TRUE(validate(&a, "x // error: bad // fix: y\n", 1,
+                         TEST_BYTES("help: write `y`\nerror: bad\n"
+                                    "  --> f.brf:1:1\n"),
+                         empty, empty, 0, 0) != NULL);
+    ASSERT_TRUE(validate(&a, "x // error: bad // fix: y\n", 1,
+                         TEST_BYTES("error: bad\n  --> f.brf:1:1\n"
+                                    "help: write y\n"),
+                         empty, empty, 0, 0) != NULL);
+    Expectations e;
+    const char *bad[] = {"x // fix: y", "x // error: bad // fix:",
+                         "x // error: bad // fix:   // fix: y"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++)
+      ASSERT_TRUE(parse_expectations(&a,
+                                     (TestBytes){(const unsigned char *)bad[i],
+                                                 strlen(bad[i])},
+                                     &e) != NULL);
+    ASSERT_TRUE(parse_expectations(&a, TEST_BYTES("x // error: bad  // fix: y"),
+                                   &e) == NULL);
+    ASSERT_EQ_INT(1, e.error_count);
+    ASSERT_EQ_INT(1, e.fix_count);
+    ASSERT_EQ_STRN("bad", (const char *)e.errors->text.data,
+                   e.errors->text.length);
+  }
   TEST("CRLF and standalone CR preserve compiler line numbers") {
     ASSERT_TRUE(validate(&a, "// expect: ok\r\n", 0, empty, TEST_BYTES("ok\n"),
                          empty, 0, 1) == NULL);

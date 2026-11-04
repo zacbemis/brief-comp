@@ -15,6 +15,14 @@ or third-party packages are required.
 - `// error: message`: compilation must fail with this exact diagnostic on
   this source line. Every diagnostic must be listed; ordering does not matter.
   No executable may be published. Do not combine these with runtime expectations.
+- `// fix: code`: follows an `// error:` marker on the same line, once for each
+  fix that diagnostic offers. The diagnostic must print a `help:` line whose
+  preview, without its indentation, is this code followed by nothing but the
+  fixture's own comment. Every printed fix must be listed:
+
+  ```
+  true && false // error: Use 'and' instead of '&&'. // fix: true and false
+  ```
 - `// panic: message`: execution must fail and stderr must contain the message.
   Arithmetic panic fixtures under `panics/` exercise this in both normal and
   sanitized builds.

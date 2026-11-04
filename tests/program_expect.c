@@ -22,8 +22,9 @@ static TestBytes next_line(TestBytes b, size_t *offset) {
     --end;
   return (TestBytes){b.data + start, end - start};
 }
-static void append(Arena *a, ExpectedMessage **head, ExpectedMessage **tail,
-                   size_t line, TestBytes text) {
+static ExpectedMessage *append(Arena *a, ExpectedMessage **head,
+                               ExpectedMessage **tail, size_t line,
+                               TestBytes text) {
   ExpectedMessage *m = arena_calloc(a, 1, sizeof(*m));
   m->line = line;
   m->text = text;
@@ -32,6 +33,45 @@ static void append(Arena *a, ExpectedMessage **head, ExpectedMessage **tail,
   else
     *head = m;
   *tail = m;
+  return m;
+}
+static size_t find(TestBytes b, const char *s) {
+  size_t n = strlen(s);
+  for (size_t i = 0; i + n <= b.length; i++)
+    if (memcmp(b.data + i, s, n) == 0)
+      return i;
+  return b.length;
+}
+static TestBytes trim_end(TestBytes b) {
+  while (b.length &&
+         (b.data[b.length - 1] == ' ' || b.data[b.length - 1] == '\t'))
+    b.length--;
+  return b;
+}
+// "message // fix: code // fix: code": an error and the fixes it offers.
+static const char *error_expectation(Arena *a, Expectations *e,
+                                     ExpectedMessage **tail, size_t line,
+                                     TestBytes value) {
+  size_t at = find(value, "// fix:");
+  ExpectedMessage *error =
+      append(a, &e->errors, tail, line,
+             at < value.length ? trim_end((TestBytes){value.data, at}) : value);
+  e->error_count++;
+  ExpectedMessage *fix_tail = NULL;
+  while (at < value.length) {
+    TestBytes rest = {value.data + at + 7, value.length - at - 7};
+    if (rest.length && rest.data[0] == ' ') {
+      rest.data++;
+      rest.length--;
+    }
+    at = find(rest, "// fix:");
+    TestBytes code = trim_end((TestBytes){rest.data, at});
+    if (!code.length)
+      return "empty fix expectation";
+    append(a, &error->fixes, &fix_tail, line, code)->index = e->fix_count++;
+    value = rest;
+  }
+  return NULL;
 }
 const char *parse_expectations(Arena *a, TestBytes source, Expectations *e) {
   memset(e, 0, sizeof(*e));
@@ -39,15 +79,15 @@ const char *parse_expectations(Arena *a, TestBytes source, Expectations *e) {
   unsigned char *standard_error = arena_alloc(a, source.length + 1);
   size_t used = 0, err_used = 0, offset = 0, number = 0;
   ExpectedMessage *error_tail = NULL, *panic_tail = NULL;
-  const char *markers[] = {
-      "// expect:", "// error:", "// panic:", "// exit:", "// stderr:"};
+  const char *markers[] = {"// expect:", "// error:",  "// panic:",
+                           "// exit:",   "// stderr:", "// fix:"};
   while (offset < source.length) {
     TestBytes line = next_line(source, &offset);
     number++;
     int kind = -1;
     size_t pos = 0;
     for (; pos < line.length && kind < 0; pos++)
-      for (int k = 0; k < 5; k++)
+      for (int k = 0; k < 6; k++)
         if (starts((TestBytes){line.data + pos, line.length - pos},
                    markers[k])) {
           kind = k;
@@ -79,8 +119,11 @@ const char *parse_expectations(Arena *a, TestBytes source, Expectations *e) {
       }
       bytes[(*length)++] = '\n';
     } else if (kind == 1) {
-      append(a, &e->errors, &error_tail, number, value);
-      e->error_count++;
+      const char *failure = error_expectation(a, e, &error_tail, number, value);
+      if (failure)
+        return failure;
+    } else if (kind == 5) {
+      return "fix expectations must follow an error expectation on its line";
     } else if (kind == 2) {
       append(a, &e->panics, &panic_tail, number, value);
       e->panic_count++;
@@ -147,6 +190,40 @@ static int location_line(TestBytes b, size_t *number) {
                  number) &&
          decimal((TestBytes){b.data + last + 1, b.length - last - 1}, &column);
 }
+// A help line previews the source line with the fix applied, as
+// "help: [path:line:column: ]write `text`". The fixture's own markers are part
+// of that line, so the expected code must be followed by a comment or nothing.
+static int fix_matches(TestBytes preview, TestBytes code) {
+  while (preview.length && (*preview.data == ' ' || *preview.data == '\t')) {
+    preview.data++;
+    preview.length--;
+  }
+  if (preview.length < code.length ||
+      memcmp(preview.data, code.data, code.length) != 0)
+    return 0;
+  TestBytes rest = {preview.data + code.length, preview.length - code.length};
+  while (rest.length && (*rest.data == ' ' || *rest.data == '\t')) {
+    rest.data++;
+    rest.length--;
+  }
+  return !rest.length || starts(rest, "//");
+}
+static const char *check_fix(TestBytes line, const ExpectedMessage *error,
+                             unsigned char *fixed) {
+  if (!error)
+    return "fix preview without a diagnostic";
+  size_t at = find(line, "write `");
+  if (at == line.length || line.data[line.length - 1] != '`' ||
+      at + 7 > line.length - 1)
+    return "malformed fix preview";
+  TestBytes preview = {line.data + at + 7, line.length - 1 - (at + 7)};
+  for (const ExpectedMessage *fix = error->fixes; fix; fix = fix->next)
+    if (!fixed[fix->index] && fix_matches(preview, fix->text)) {
+      fixed[fix->index] = 1;
+      return NULL;
+    }
+  return "unexpected fix";
+}
 const char *check_result(Arena *a, const Expectations *e,
                          const ProcessResult *compiled,
                          const ProcessResult *ran, int executable_exists) {
@@ -162,9 +239,18 @@ const char *check_result(Arena *a, const Expectations *e,
     if (executable_exists)
       return "failed compilation published an executable";
     unsigned char *matched = arena_calloc(a, e->error_count, 1);
-    size_t offset = 0, count = 0;
+    unsigned char *fixed = arena_calloc(a, e->fix_count, 1);
+    size_t offset = 0, count = 0, fixes = 0;
+    const ExpectedMessage *current = NULL;
     while (offset < compiled->err.length) {
       TestBytes line = next_line(compiled->err, &offset);
+      if (starts(line, "help: ")) {
+        const char *failure = check_fix(line, current, fixed);
+        if (failure)
+          return failure;
+        fixes++;
+        continue;
+      }
       if (!starts(line, "error:"))
         continue;
       if (!starts(line, "error: "))
@@ -183,9 +269,12 @@ const char *check_result(Arena *a, const Expectations *e,
       if (!expected)
         return "unexpected diagnostic message or source line";
       matched[index] = 1;
+      current = expected;
       count++;
     }
-    return count == e->error_count ? NULL : "missing expected diagnostic";
+    if (count != e->error_count)
+      return "missing expected diagnostic";
+    return fixes == e->fix_count ? NULL : "missing expected fix";
   }
   if (compiled->status != 0 || compiled->err.length)
     return "compilation failed or was not silent";
