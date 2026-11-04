@@ -172,6 +172,22 @@ int main(void) {
             "Index assignments are not implemented yet.");
     invalid(&a, "main() { 0.(0)++ }", "Index updates are not implemented yet.");
   }
+  TEST("declaration casing errors disable lowering without changing lookup") {
+    const char *sources[] = {
+        "date { day: int }\nmain() {}", "Read() {}\nmain() {}",
+        "P { Field: int }\nmain() {}",  "f(Param: int) {}\nmain() {}",
+        "main() { let Count = 0 }",     "main() { for Index in 0..2 {} }"};
+    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
+      Result r = check(&a, sources[i]);
+      ASSERT_EQ_INT(1, r.errors.count);
+      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+      if (r.errors.count)
+        ASSERT_TRUE(r.errors.items[0]->fixes != NULL);
+    }
+    valid(&a, "P { value: int }\nread(p: P) -> int { p.value }\nmain() { "
+              "read(P { value = 1 }) }");
+  }
   TEST("old literal field colons cannot reach lowering") {
     Result r = check(&a, "P { x: int }\nmain() { let p = P { x: 1 } }");
     ASSERT_EQ_INT(1, r.errors.count);
@@ -254,7 +270,7 @@ int main(void) {
                  {"P.missing[int]()", "P.missing[int]()"},
                  {"let p = P {}\np.read[int](true)", "p.read[int](true)"},
                  {"let p = P {}\np.missing[int]()", "p.missing[int]()"},
-                 {"let P = 1\nP.read[int]()", "P.read[int]()"},
+                 {"let p = 1\np.read[int]()", "p.read[int]()"},
                  {"1 |> missing[int]()", "missing[int]()"},
                  {"let f = 0\n1 |> f[int]()", "f[int]()"},
                  {"P {} |> P.make[int]()", "P.make[int]()"},
@@ -379,8 +395,8 @@ int main(void) {
   }
   TEST("global const still parses but is rejected as an unimplemented "
        "declaration") {
-    const char *sources[] = {"const VALUE = 1\nmain() {}",
-                             "pub const VALUE = 1\nmain() {}"};
+    const char *sources[] = {"const value = 1\nmain() {}",
+                             "pub const value = 1\nmain() {}"};
     for (size_t i = 0; i < sizeof(sources) / sizeof(sources[0]); i++) {
       Result r = check(&a, sources[i]);
       ASSERT_EQ_INT(1, r.errors.count);

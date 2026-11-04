@@ -1,0 +1,9 @@
+date { day: int } // error: Type names must start with an uppercase letter. // fix: Date { day: int }
+Read() {} // error: Function names must start with a lowercase letter. // fix: read() {}
+P { Field: int } // error: Field names must start with a lowercase letter. // fix: P { field: int }
+f(Param: int) {} // error: Parameter names must start with a lowercase letter. // fix: f(param: int) {}
+const MAX_USERS = 100 // error: Binding names must start with a lowercase letter. // fix: const maxUsers = 100
+main() {
+  let Count = 0 // error: Binding names must start with a lowercase letter. // fix: let count = 0
+  for Index in 0..2 {} // error: Loop variables must start with a lowercase letter. // fix: for index in 0..2 {}
+}

@@ -12,7 +12,9 @@ Every file must parse with no diagnostics: `brief dump-ast` exits with status 0
 and prints a tree. Files use N1's `not`, `dbl`, `->` returns, keyword-free
 aliases, `=` literal fields, `.()` indexing and `Name[Type]` arguments. Array
 annotations use `Arr[Type]`; indexing/generics/collections are syntax-only,
-not supported runtime operations. Symbol/type/member grammar remains pending.
+not supported runtime operations. Structs require uppercase names; functions,
+fields, parameters, bindings and loops require lowercase names. Symbol/type/member
+grammar and tag/pattern-binding/module casing remain pending.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
@@ -28,7 +30,8 @@ not supported runtime operations. Symbol/type/member grammar remains pending.
 
 ## `fail/`
 
-There are 89 rejection fixtures, including `old-type-arguments.brf`,
+There are 91 rejection fixtures, including `declaration-casing.brf`,
+`declaration-wildcard.brf`, `old-type-arguments.brf`,
 `old-array-type.brf`, `old-index.brf`,
 `index-missing-close.brf`, `pub-struct.brf`, `old-return-colon.brf`,
 `old-alias-keyword.brf`, `pub-alias.brf` and `struct-literal-old-colon.brf`.

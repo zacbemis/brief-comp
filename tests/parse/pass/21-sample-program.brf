@@ -4,8 +4,8 @@
 Tier = Sym<:tier1, :tier2, :tier3>
 Error = Sym<:invalidAge(int), :emptyName>
 
-const MIN_AGE = 0
-const MAX_AGE: int = 150
+const minAge = 0
+const maxAge: int = 150
 
 User {
   name: str
@@ -23,7 +23,7 @@ impl User {
     if name == "" {
       ret :emptyName
     }
-    if age < MIN_AGE or age > MAX_AGE {
+    if age < minAge or age > maxAge {
       ret :invalidAge(age)
     }
     User { name = name, age = age, tier = :tier1 }

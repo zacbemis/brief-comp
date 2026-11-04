@@ -5,7 +5,7 @@
 The manifest in `test_doc_parser.cmake` classifies all **239 code fences** and
 the two unfenced chapters. It runs **101 successful parses and four intentional
 syntax rejections**. The other **134 fences** are explicit listings, not passing
-parser tests: 55 await N1/N4/N5 syntax, 66 need later features, and 13 are
+parser tests: 54 await N1/N4/N5 syntax, 66 need later features, and 14 are
 incomplete signatures/operator/context fragments. The overview and raw base
 sample have separate zero-fence listings.
 
@@ -19,12 +19,16 @@ only an enclosing `main` for statements, no wrapper for declarations, or a
 `main` around the usage after a complete function. No syntax is rewritten, no
 helper library is synthesized and no function body is extracted. Intentional
 syntax errors must reject with no AST. Semantic-error examples can parse: this
-is **not** proof of typing, casing, outcomes, ownership, modules or library APIs.
-In particular, some unimplemented payload/interpolation syntax could otherwise
-be mistaken for an old index or a plain string; those fences remain listed.
+is **not** proof of typing, complete casing rules, outcomes, ownership, modules
+or library APIs. In particular, some unimplemented payload/interpolation syntax
+could otherwise be mistaken for an old index or a plain string; those fences
+remain listed.
 The `.()` index and bracketed-constructor fences check syntax only; collection
 operations remain unsupported. The interleaved syntax example with an ellipsis
 function body is a fragment, not a future passing test or an extracted stub.
+The casing fence also mixes local bindings with a top-level struct: declaration
+casing is implemented, but the whole fence remains a context fragment rather
+than being extracted or accepted for the wrong error.
 
 | Chapter | Parser checks | Listings (including unfenced chapters) |
 |---|---:|---:|

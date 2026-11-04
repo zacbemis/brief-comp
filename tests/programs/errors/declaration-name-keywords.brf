@@ -1,0 +1,7 @@
+Not() {} // error: Function names must start with a lowercase letter.
+f(True: int) {} // error: Parameter names must start with a lowercase letter.
+P { Bool: int } // error: Field names must start with a lowercase letter.
+main() {
+  let Int = 0 // error: Binding names must start with a lowercase letter.
+  for For in 0..2 {} // error: Loop variables must start with a lowercase letter.
+}

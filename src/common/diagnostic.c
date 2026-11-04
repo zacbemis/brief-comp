@@ -28,6 +28,15 @@ Diagnostic *diagnostics_error(Diagnostics *diagnostics, Span span,
   return error;
 }
 
+void diagnostics_move_last(Diagnostics *diagnostics, size_t index) {
+  if (index >= diagnostics->count)
+    return;
+  Diagnostic *last = diagnostics->items[diagnostics->count - 1];
+  memmove(diagnostics->items + index + 1, diagnostics->items + index,
+          (diagnostics->count - 1 - index) * sizeof(*diagnostics->items));
+  diagnostics->items[index] = last;
+}
+
 void diagnostic_note(Diagnostics *diagnostics, Diagnostic *error, Span span,
                      const char *message) {
   DiagnosticNote *note = arena_calloc(diagnostics->arena, 1, sizeof(*note));

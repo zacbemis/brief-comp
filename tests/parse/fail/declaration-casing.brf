@@ -1,0 +1,3 @@
+// parse-error: line 3
+// Why: A struct type name must start with an uppercase letter.
+date { day: int }

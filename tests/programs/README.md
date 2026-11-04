@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **103 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **106 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -330,8 +330,22 @@ speculation. `errors/old-type-arguments.brf` checks grouped delimiter previews;
 Existing generic-scope errors and `dub` fixes retain their observations under the
 new spelling. `bracket-comparisons.brf` observes formerly ambiguous comparisons,
 ordinary shifts and unchanged angle/bracket-looking strings. Runtime generics and
-collections remain unimplemented. The inventory is now 103 files. Symbol payloads/
-unions, struct methods/receiver inference, other declarations and casing remain pending.
+collections remain unimplemented. The inventory was then 103 files.
+
+N1's declaration-casing slice requires uppercase struct names and lowercase
+functions, fields, parameters, bindings/constants and loop variables. `_` cannot
+stand in for a declared name. `declaration-names.brf` observes ordinary reads,
+loops and valid mixed-case/underscore suffixes; the rule concerns the first byte,
+not a general camel-case style check. Two error fixtures check seven casing fixes
+and suppression of replacements that would create keywords. `MAX_USERS` suggests
+`maxUsers`, but there is no automatic whole-program reference renaming.
+
+`object-c-names.brf` retains its outputs, C-keyword field `auto`, naive joined-name
+collision (`A_b.c` versus `A.b_c`) and generated/global function-name collision.
+Lowercase type `string` is no longer expressible, so it becomes `String`; emitted
+names change, not runtime observations. The inventory is now 106 files. Tag,
+pattern-binding/module casing, unions/payloads and members/receivers remain
+pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

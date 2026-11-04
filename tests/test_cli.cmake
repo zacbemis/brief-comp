@@ -211,6 +211,23 @@ foreach(command IN ITEMS dump-ast emit-c)
     endif()
 endforeach()
 
+set(casing "${TEST_DIR}/declaration-casing.brf")
+file(WRITE "${casing}" "main() { let Count = 0 }\r\n")
+set(expected "error: Binding names must start with a lowercase letter.\n  --> ${casing}:1:14\n  |\n1 | main() { let Count = 0 }\n  |              ^~~~~\nhelp: write `main() { let count = 0 }`\n")
+foreach(command IN ITEMS dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${casing}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} name fix (${status}):\n${errors}")
+    endif()
+endforeach()
+file(WRITE "${casing}" "main() { let count = 0 }\r\n")
+execute_process(COMMAND "${BRIEF}" emit-c "${casing}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")
+    message(FATAL_ERROR "corrected declaration casing failed (${status}):\n${errors}")
+endif()
+
 set(invalid "${TEST_DIR}/invalid.brf")
 file(WRITE "${invalid}" "main() {\n  \"\\q\"\n  @\n  /* unfinished\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"

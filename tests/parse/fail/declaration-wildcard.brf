@@ -1,0 +1,4 @@
+// parse-error: line 3
+// Why: A wildcard is not a declared parameter name.
+f(_: int) {
+}

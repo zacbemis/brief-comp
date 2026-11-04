@@ -77,7 +77,7 @@ chapter(lang-syntax 35 52c72b9f8efc492e3426186b6bb7265453516d281337714480bff4bd0
 fences(body "Complete statement/expression syntax; casing/types/flow and loop semantics are not asserted" "1;5;6;9;10;11;12;13;14;15;16;17;19;20;21;23;24;25;26;27;30;32;33")
 fences(top "Function declaration with semantically misplaced break" "31")
 fences(error-body "Documented chained comparison or non-call pipeline-stage syntax error" "18;22")
-fences(n1 "Declaration casing" "2")
+fences(fragment "Mixed local binding and top-level struct contexts; casing is implemented, but no extraction/context-rewriting adapter is used" "2")
 fences(later "Mixed header-literal error/escape examples also require generic array literals" "34")
 fences(n4 "Uninitialized bindings, inclusive ranges and typed loop variables" "7;28;29")
 fences(body "Bindings, constructor/method calls, bracketed type arguments and indexing syntax only; APIs are not asserted" "3;8;35")

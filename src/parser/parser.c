@@ -1,4 +1,5 @@
 #include "parser/parser.h"
+#include "lexer/lexer.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -122,8 +123,8 @@ static const char *name(Parser *p, Token token) {
   }
   return intern_n(p->names, token.start, token.length);
 }
-// Until the syntax switch, identifier positions still accept both name cases
-// and leave '_' to the current pattern/partial-type checks.
+// Recovery accepts both name classes. Declaration roles validate the consumed
+// token once their syntax is complete; use sites and patterns keep their rules.
 static int expect_identifier(Parser *p, const char *message) {
   if (token_is_identifier(peek(p).type)) {
     take(p);
@@ -131,6 +132,56 @@ static int expect_identifier(Parser *p, const char *message) {
   }
   error(p, message);
   return 0;
+}
+// Checks a declared name once its construct's syntax is complete, so
+// broken syntax keeps its primary error alone. `mark` is the diagnostic count
+// when the name was read: the error is placed there, before any errors from
+// later source. Returns a safe correction, but callers decide whether recovery
+// renames the AST node (legacy aliases do). No use-site lookup or reference
+// rewriting happens here.
+static const char *check_name_case(Parser *p, Token token, size_t mark,
+                                   TokenType wanted, const char *message) {
+  if (token.type == wanted)
+    return NULL;
+  Diagnostic *d = error_at(p, token.span, message);
+  diagnostics_move_last(p->diagnostics, mark);
+  if (!token_is_name(token.type))
+    return NULL; // '_' has no certain replacement.
+  char *fixed = arena_alloc(p->arena, token.length + 1);
+  size_t count = 0;
+  if (wanted == TOK_UPPER_NAME) {
+    memcpy(fixed, token.start, token.length);
+    fixed[0] = (char)(fixed[0] - 'a' + 'A');
+    count = token.length;
+  } else {
+    int all_caps = 1;
+    for (size_t i = 0; i < token.length; i++)
+      if (token.start[i] >= 'a' && token.start[i] <= 'z')
+        all_caps = 0;
+    int capitalize = 0;
+    for (size_t i = 0; i < token.length; i++) {
+      char c = token.start[i];
+      if (all_caps && c == '_' && i + 1 < token.length) {
+        capitalize = 1;
+        continue;
+      }
+      if ((all_caps || !i) && c >= 'A' && c <= 'Z' && !capitalize)
+        c = (char)(c - 'A' + 'a');
+      fixed[count++] = c;
+      capitalize = 0;
+    }
+  }
+  fixed[count] = 0;
+  // Ask the lexer instead of maintaining a second keyword list. In particular,
+  // Int/Not/True and self/sym/fn must not receive edits that create keywords.
+  SourceFile *candidate = source_create(p->arena, "<name fix>", fixed, count);
+  Lexer lexer;
+  lexer_init(&lexer, candidate, NULL);
+  Token checked = lexer_next_token(&lexer);
+  if (checked.type != wanted || checked.length != count)
+    return NULL;
+  diagnostic_fix(p->diagnostics, d, token.span, fixed);
+  return fixed;
 }
 static int type_name_token(TokenType t) {
   return token_is_identifier(t) || (t >= TOK_BOOL && t <= TOK_STR) ||
@@ -644,7 +695,9 @@ static Decl *binding(Parser *p, Visibility visibility) {
                                                : BIND_CONST;
   if (!expect_identifier(p, "Expected a binding name."))
     return NULL;
-  d->name = name(p, p->previous);
+  Token declared = p->previous;
+  size_t mark = p->diagnostics->count;
+  d->name = name(p, declared);
   if (match(p, TOK_COLON)) {
     d->as.binding.annotation = type(p);
     if (!d->as.binding.annotation)
@@ -656,6 +709,8 @@ static Decl *binding(Parser *p, Visibility visibility) {
   if (!d->as.binding.value)
     return NULL;
   d->span = through(start.span, d->as.binding.value->span);
+  check_name_case(p, declared, mark, TOK_LOWER_NAME,
+                  "Binding names must start with a lowercase letter.");
   return d;
 }
 
@@ -718,7 +773,9 @@ static int parameter(Parser *p, Parameter *param, int field) {
   if (!expect_identifier(p, field ? "Expected a field name."
                                   : "Expected a parameter name."))
     return 0;
-  param->name = name(p, p->previous);
+  Token declared = p->previous;
+  size_t mark = p->diagnostics->count;
+  param->name = name(p, declared);
   if (!expect(p, TOK_COLON, "Expected ':' before type."))
     return 0;
   if (!field && match(p, TOK_BIT_AND))
@@ -727,6 +784,10 @@ static int parameter(Parser *p, Parameter *param, int field) {
   if (!param->type)
     return 0;
   param->span = through(param->span, param->type->span);
+  check_name_case(p, declared, mark, TOK_LOWER_NAME,
+                  field
+                      ? "Field names must start with a lowercase letter."
+                      : "Parameter names must start with a lowercase letter.");
   return 1;
 }
 
@@ -858,6 +919,7 @@ static Decl *declaration(Parser *p, int in_impl) {
       return NULL;
     }
     Token declared = take(p);
+    size_t mark = p->diagnostics->count;
     Decl *d = new_decl(p, DECL_TYPE, start.span, VISIBILITY_PRIV);
     d->name = name(p, declared);
     if (!expect(p, TOK_EQUAL, "Expected '=' in named type declaration."))
@@ -865,28 +927,20 @@ static Decl *declaration(Parser *p, int in_impl) {
     d->as.alias = type(p);
     if (!d->as.alias)
       return NULL;
-    if (old_type)
+    if (old_type) {
       remove_modifier(
           p,
           error_at(p, keyword.span,
                    "Declare an alias as 'Name = type', without 'type'."),
           keyword);
-    if (declared.type == TOK_LOWER_NAME) {
-      char *upper = arena_alloc(p->arena, declared.length + 1);
-      memcpy(upper, declared.start, declared.length);
-      upper[0] = (char)(upper[0] - 'a' + 'A');
-      upper[declared.length] = 0;
-      Diagnostic *error = error_at(
-          p, declared.span, "Type names must start with an uppercase letter.");
-      // Capitalizing must not turn the name into a current keyword. Self/Sym
-      // lose keyword status in a later N1 slice; Fn remains reserved.
-      if (strcmp(upper, "Self") && strcmp(upper, "Sym") &&
-          strcmp(upper, "Fn")) {
-        if (error)
-          diagnostic_fix(p->diagnostics, error, declared.span, upper);
-        d->name = intern(p->names, upper);
-      }
+      // The keyword precedes the name and the aliased type in source.
+      diagnostics_move_last(p->diagnostics, mark++);
     }
+    const char *upper =
+        check_name_case(p, declared, mark, TOK_UPPER_NAME,
+                        "Type names must start with an uppercase letter.");
+    if (upper)
+      d->name = intern(p->names, upper);
     if (visibility == VISIBILITY_PUB)
       remove_modifier(
           p, error_at(p, start.span, "Type aliases cannot be marked 'pub'."),
@@ -928,7 +982,9 @@ static Decl *declaration(Parser *p, int in_impl) {
                      : "Expected a declaration (function, struct, named "
                        "type, or impl)."))
     return NULL;
-  const char *decl_name = name(p, p->previous);
+  Token declared = p->previous;
+  size_t mark = p->diagnostics->count;
+  const char *decl_name = name(p, declared);
   if (!in_impl && match(p, TOK_LBRACE)) {
     Decl *d = new_decl(p, DECL_STRUCT, start.span, VISIBILITY_PRIV);
     d->name = decl_name;
@@ -948,6 +1004,8 @@ static Decl *declaration(Parser *p, int in_impl) {
       return NULL;
     d->as.structure.fields = fields.data;
     d->as.structure.count = fields.count;
+    check_name_case(p, declared, mark, TOK_UPPER_NAME,
+                    "Type names must start with an uppercase letter.");
     if (visibility == VISIBILITY_PUB)
       remove_modifier(
           p, error_at(p, start.span, "Struct types cannot be marked 'pub'."),
@@ -991,6 +1049,8 @@ static Decl *declaration(Parser *p, int in_impl) {
   if (!d->as.function.body)
     return NULL;
   d->span = through(start.span, d->as.function.body->span);
+  check_name_case(p, declared, mark, TOK_LOWER_NAME,
+                  "Function names must start with a lowercase letter.");
   return d;
 }
 
@@ -1178,7 +1238,9 @@ static Expr *primary(Parser *p, int allow_struct) {
     Expr *e = new_expr(p, EXPR_FOR, token.span);
     if (!expect_identifier(p, "Expected a loop variable."))
       return NULL;
-    e->as.for_loop.name = name(p, p->previous);
+    Token declared = p->previous;
+    size_t mark = p->diagnostics->count;
+    e->as.for_loop.name = name(p, declared);
     if (!expect(p, TOK_IN, "Expected 'in' after loop variable."))
       return NULL;
     e->as.for_loop.iterable = expression(p, 0, 0);
@@ -1188,6 +1250,8 @@ static Expr *primary(Parser *p, int allow_struct) {
     if (!e->as.for_loop.body)
       return NULL;
     e->span = through(token.span, e->as.for_loop.body->span);
+    check_name_case(p, declared, mark, TOK_LOWER_NAME,
+                    "Loop variables must start with a lowercase letter.");
     return e;
   }
   if (token.type == TOK_MINUS || token.type == TOK_NOT ||

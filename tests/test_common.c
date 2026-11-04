@@ -437,6 +437,29 @@ int main(void) {
     }
   }
 
+  TEST("the newest diagnostic moves to an earlier index in order") {
+    Diagnostics diagnostics;
+    diagnostics_init(&diagnostics, &arena);
+    const char *names[] = {"a", "b", "c", "late"};
+    for (size_t i = 0; i < 4; i++)
+      diagnostics_error(&diagnostics, span_make(NULL, 0, 0), names[i]);
+    Diagnostic *late = diagnostics.items[3];
+    diagnostics_move_last(&diagnostics, 1);
+    const char *moved[] = {"a", "late", "b", "c"};
+    ASSERT_EQ_INT(4, diagnostics.count);
+    for (size_t i = 0; i < 4; i++)
+      ASSERT_EQ_INT(0, strcmp(moved[i], diagnostics.items[i]->message));
+    ASSERT_TRUE(late == diagnostics.items[1]);
+    // The last index, and indices past the end, leave the list unchanged.
+    diagnostics_move_last(&diagnostics, 3);
+    diagnostics_move_last(&diagnostics, 4);
+    for (size_t i = 0; i < 4; i++)
+      ASSERT_EQ_INT(0, strcmp(moved[i], diagnostics.items[i]->message));
+    diagnostics_move_last(&diagnostics, 0);
+    ASSERT_EQ_INT(0, strcmp("c", diagnostics.items[0]->message));
+    ASSERT_EQ_INT(0, strcmp("b", diagnostics.items[3]->message));
+  }
+
   TEST("fixes reject invalid source spans instead of changing their offsets") {
     Diagnostics diagnostics;
     diagnostics_init(&diagnostics, &arena);

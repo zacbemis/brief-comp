@@ -1,8 +1,8 @@
 // Every kind of first-version top-level declaration, with each return-type
 // form: inferred, written, partial (`_`), and the empty type.
 
-const LIMIT = 100
-pub const VERSION: flt = 0.5
+const limit = 100
+pub const version: flt = 0.5
 
 Tier = Sym<:bronze, :silver, :gold>
 Error = Sym<:notFound(str), :denied(str)>

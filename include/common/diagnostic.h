@@ -47,6 +47,9 @@ void diagnostic_note(Diagnostics *diagnostics, Diagnostic *error, Span span,
 // missing source or invalid offsets (fix spans are never silently clamped).
 int diagnostic_fix(Diagnostics *diagnostics, Diagnostic *error, Span span,
                    const char *replacement);
+// Moves the newest diagnostic to `index`, keeping the others in order. A check
+// made after a construct is complete can then still report in source order.
+void diagnostics_move_last(Diagnostics *diagnostics, size_t index);
 void diagnostics_print(const Diagnostics *diagnostics, FILE *output);
 
 #endif

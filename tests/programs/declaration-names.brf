@@ -1,0 +1,9 @@
+Data_HTTP { auto: int }
+read_HTTP(arg_HTTP: Data_HTTP) -> int { arg_HTTP.auto }
+main() {
+  let data_HTTP = Data_HTTP { auto = 7 }
+  var total_HTTP = read_HTTP(data_HTTP)
+  for item_HTTP in 0..3 { total_HTTP += item_HTTP }
+  print(str(total_HTTP)) // expect: 10
+  print("Count MAX_USERS date Read") // expect: Count MAX_USERS date Read
+}
