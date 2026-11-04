@@ -1,0 +1,4 @@
+main() {
+  0[0] // error: Indexing is written '.(...)', not '[...]'. // fix: 0.(0)
+  "data[0]"[1] // error: Indexing is written '.(...)', not '[...]'. // fix: "data[0]".(1)
+}

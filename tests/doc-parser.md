@@ -3,9 +3,9 @@
 `test_doc_parser` reads the 13 language chapters in `docs/lang-*.txt`, not
 `docs/v0/`. The rationale file `lang-post-0-notes.txt` is not a language chapter.
 The manifest in `test_doc_parser.cmake` classifies all **239 code fences** and
-the two unfenced chapters. It runs **95 successful parses and four intentional
-syntax rejections**. The other **140 fences** are explicit listings, not passing
-parser tests: 56 await N1/N4/N5 syntax, 72 need later features, and 12 are
+the two unfenced chapters. It runs **96 successful parses and four intentional
+syntax rejections**. The other **139 fences** are explicit listings, not passing
+parser tests: 55 await N1/N4/N5 syntax, 72 need later features, and 12 are
 incomplete signatures/operator/context fragments. The overview and raw base
 sample have separate zero-fence listings.
 
@@ -21,7 +21,8 @@ helper library is synthesized and no function body is extracted. Intentional
 syntax errors must reject with no AST. Semantic-error examples can parse: this
 is **not** proof of typing, casing, outcomes, ownership, modules or library APIs.
 In particular, some unimplemented payload/interpolation syntax could otherwise
-be misread as an old index or a plain string; those fences are listed instead.
+be mistaken for an old index or a plain string; those fences remain listed.
+The `.()` index fence checks syntax only; collection operations remain unsupported.
 
 | Chapter | Parser checks | Listings (including unfenced chapters) |
 |---|---:|---:|
@@ -37,7 +38,7 @@ be misread as an old index or a plain string; those fences are listed instead.
 | symbols | 2 | 13 |
 | syntax | 26 | 9 |
 | traits | 1 | 9 |
-| types | 14 | 14 |
+| types | 15 | 13 |
 
 Chapter hashes force classification review after document edits; counts, index
 bounds, duplicate/missing classifications, nonempty reasons and the complete

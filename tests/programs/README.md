@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **98 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **100 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -305,7 +305,7 @@ parameter and binding annotations unchanged. `literal-fields.brf` observes neste
 initialization, side-effect order, owned strings, field reads and assignment-only
 control bodies; literal text with old-looking colons stays unchanged.
 `errors/old-literal-colons.brf` checks four exact fixes with comments/continuation.
-Existing initialization/ownership observations are unchanged. The inventory is
+Existing initialization/ownership observations are unchanged. The inventory
 was then 96 files.
 
 N1's visibility slice removes `pub` from converted struct type declarations.
@@ -314,8 +314,16 @@ including heap strings, private-field reads/writes and unchanged `pub`-looking
 literal text. `errors/pub-structs.brf` requires three exact modifier-removal
 previews, including a valid public field and retained comment. This records
 visibility, not cross-module privacy enforcement; borrowing permissions remain
-independent. The inventory is now 98 files. Struct methods/receiver inference,
-other declaration/type syntax and general casing remain pending.
+independent. The inventory was then 98 files.
+
+N1's indexing slice uses `value.(index)`, with an adjacent two-byte opener.
+`errors/old-indexes.brf` requires paired one-byte delimiter fixes: each help line
+previews one edit, and both edits together correct an index. They leave old-looking
+brackets in strings untouched. `errors/indexing.brf` keeps index reads, writes and
+updates explicitly unimplemented; this slice adds no collection runtime behavior.
+The existing unsupported-index case preserves its original semantic message/line.
+The inventory is now 100 files. Square-bracket type arguments/payloads, struct
+methods/receiver inference, other declaration/type syntax and casing remain pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

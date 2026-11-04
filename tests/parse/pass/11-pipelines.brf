@@ -13,7 +13,7 @@ main() {
   path |> readFile()? |> parse()?
   (x |> f()).g()
   (x |> f())?
-  (x |> f())[0]
+  (x |> f()).(0)
   x |> f(y |> g())
   x |> f(y |> {
     _ => 1

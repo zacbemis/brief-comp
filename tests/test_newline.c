@@ -38,7 +38,23 @@ int main(void) {
     check(&arena, "\nlet x = 1\n\nlet y = 2\n", "\nlet x = 1\n\nlet y = 2\n");
   }
   TEST("parentheses and brackets suppress newlines") {
-    check(&arena, "f(\n1,\n a[\n2\n]\n)\n", "f(1, a[2])\n");
+    check(&arena, "f(\n1,\n a.(\n2\n)\n)\n", "f(1, a.(2))\n");
+  }
+  TEST("index openers enclose expressions and continue a previous line") {
+    check(&arena, "rows\n\n // gap\n .(\nindices.(\n0\n)\n)\nnext()\n",
+          "rows .(indices.(0))\nnext()\n");
+    check(&arena, "rows\r\n .(\r\n0 +\r\n1\r\n)\r\nnext()\r\n",
+          "rows .(0 + 1)\r\nnext()\r\n");
+    check(&arena, "rows.(P {\nx = (\n0\n)\ny = 1\n}.x)\nnext()\n",
+          "rows.(P {\nx = (0)\ny = 1\n}.x)\nnext()\n");
+    check(&arena, "rows.(value |> {\n:a => 0\n:b => 1\n})\nnext()\n",
+          "rows.(value |> {\n:a => 0\n:b => 1\n})\nnext()\n");
+    // Removing trivia must not manufacture a lexical .( token.
+    check(&arena, "rows.\n(\n0\n)\n", "rows. (0)\n");
+    check(&arena, "rows.(0)\nnot\nflag\n", "rows.(0)\nnot flag\n");
+    // An unmatched index cannot swallow the next top-level declaration.
+    check(&arena, "main() { rows.(\n0\n}\nafter() {}\n",
+          "main() { rows.(0 }\nafter() {}\n");
   }
   TEST("innermost braces restore arm and field separators") {
     check(&arena, "f(\nx |> {\n:ok(x) => x\n:none => 0\n}\n)\n",

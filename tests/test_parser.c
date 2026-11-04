@@ -791,7 +791,7 @@ int main(void) {
           "Assignment is only allowed as a standalone, non-chaining statement, "
           "with a name, field, or index on the left.");
     invalid(&arena, "main() { 1 = 2 }", "assignment target");
-    Parsed *v = parse(&arena, "main() {\nuser.age = 1\nitems[0] += 2\n}");
+    Parsed *v = parse(&arena, "main() {\nuser.age = 1\nitems.(0) += 2\n}");
     ASSERT_EQ_INT(0, v->diagnostics.count);
     Expr *body = v->program->items[0]->as.function.body;
     ASSERT_EQ_INT(2, body->as.block.count);
@@ -806,11 +806,149 @@ int main(void) {
                     "(|> (name x) (match (arm (wildcard) (block (+= (name "
                     "count) (int 1))))))");
   }
+  TEST("postfix indices compose with calls, fields, operators and control "
+       "flow") {
+    expression_dump(&arena, "rows.(i + 1).(f(j)).name?",
+                    "(? (field (index (index (name rows) (+ (name i) (int 1))) "
+                    "(call (name f) (name j))) name))");
+    expression_dump(&arena, "not f().(0)! != other.(1)",
+                    "(!= (not (panic (index (call (name f)) (int 0)))) (index "
+                    "(name other) (int 1)))");
+    expression_dump(&arena, "rows\n .(\n0\n)", "(index (name rows) (int 0))");
+    expression_dump(&arena, "rows .(0)", "(index (name rows) (int 0))");
+    expression_dump(
+        &arena, "rows.(P { x = 0\ny = 1 }.x)",
+        "(index (name rows) (field (struct-value (name P) (x (int 0)) "
+        "(y (int 1))) x))");
+    expression_dump(&arena, "if rows.(0) { items.(1) }",
+                    "(if (index (name rows) (int 0)) (block (index (name "
+                    "items) (int 1))) none)");
+    expression_dump(&arena, "for x in rows.(0) { x }",
+                    "(for x (index (name rows) (int 0)) (block (name x)))");
+    invalid(&arena, "main() { if P { x = 1 }.(0) {} }", "Wrap struct literals");
+  }
+  TEST(
+      "old index delimiters carry composable one-byte fixes and stable trees") {
+    struct {
+      const char *body;
+      size_t count;
+    } cases[] = {{"items[0]", 1},
+                 {"rows[cols[0]][next[1]]", 4},
+                 {"f()[i].items[j].name", 2},
+                 {"items /* before */ [ /* inside */ i +\n1 /* tail */ ]", 1},
+                 {"items[\nP { x = 0\ny = 1 }.x\n]", 1},
+                 {"items[if flag { 0 } else { 1 }]", 1},
+                 {"a[values |> { :a => 0\n_ => 1 }]", 1},
+                 {"not rows[0] != other[1]", 2}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned crlf = 0; crlf < 2; crlf++) {
+        char lf[2048], text[4096], rewritten[8192];
+        snprintf(lf, sizeof(lf), "main() {\n%s\nlet kept = 1\n}\nafter() {}\n",
+                 cases[i].body);
+        size_t length = 0;
+        for (size_t j = 0; lf[j]; j++) {
+          if (crlf && lf[j] == '\n')
+            text[length++] = '\r';
+          text[length++] = lf[j];
+        }
+        text[length] = 0;
+        Parsed *v = parse(&arena, text);
+        ASSERT_EQ_INT(cases[i].count, v->diagnostics.count);
+        ASSERT_EQ_INT(2, v->program->count);
+        const char *edits[4096] = {0};
+        for (size_t j = 0; j < v->diagnostics.count; j++) {
+          const Diagnostic *d = v->diagnostics.items[j];
+          ASSERT_EQ_INT(0, strcmp("Indexing is written '.(...)', not '[...]'.",
+                                  d->message));
+          ASSERT_TRUE(d->span.file == v->source);
+          ASSERT_EQ_INT(d->span.start + 1, d->span.end);
+          ASSERT_TRUE(d->fixes && d->fixes->next && !d->fixes->next->next);
+          size_t k = 0;
+          for (const DiagnosticFix *fix = d->fixes; fix; fix = fix->next, k++) {
+            ASSERT_TRUE(fix->span.file == v->source);
+            ASSERT_TRUE(fix->span.start < length);
+            ASSERT_EQ_INT(fix->span.start + 1, fix->span.end);
+            if (fix->span.start >= length)
+              continue;
+            ASSERT_EQ_INT(k ? ']' : '[', text[fix->span.start]);
+            ASSERT_EQ_INT(0, strcmp(k ? ")" : ".(", fix->replacement));
+            if (!k)
+              ASSERT_EQ_INT(d->span.start, fix->span.start);
+            else
+              ASSERT_TRUE(fix->span.start > d->span.start);
+            ASSERT_TRUE(edits[fix->span.start] == NULL);
+            edits[fix->span.start] = fix->replacement;
+          }
+        }
+        size_t count = 0;
+        for (size_t j = 0; j < length; j++) {
+          if (edits[j]) {
+            size_t n = strlen(edits[j]);
+            memcpy(rewritten + count, edits[j], n);
+            count += n;
+          } else
+            rewritten[count++] = text[j];
+        }
+        rewritten[count] = 0;
+        Parsed *fixed = parse(&arena, rewritten);
+        ASSERT_EQ_INT(0, fixed->diagnostics.count);
+        char *before = dump(&arena, v->program),
+             *after = dump(&arena, fixed->program);
+        ASSERT_TRUE(before && after);
+        if (before && after)
+          ASSERT_EQ_INT(0, strcmp(before, after));
+        TokenArray filtered = newline_filter(&arena, v->raw);
+        Token *raw = arena_alloc(&arena, v->raw.count * sizeof(*raw));
+        Token *saved = arena_alloc(&arena, filtered.count * sizeof(*saved));
+        memcpy(raw, v->raw.items, v->raw.count * sizeof(*raw));
+        memcpy(saved, filtered.items, filtered.count * sizeof(*saved));
+        Diagnostics again;
+        diagnostics_init(&again, &arena);
+        parse_program(&arena, &v->names, filtered, &again);
+        ASSERT_EQ_INT(cases[i].count, again.count);
+        ASSERT_TRUE(memcmp(raw, v->raw.items, v->raw.count * sizeof(*raw)) ==
+                    0);
+        ASSERT_TRUE(memcmp(saved, filtered.items,
+                           filtered.count * sizeof(*saved)) == 0);
+      }
+    }
+  }
+  TEST("malformed indices preserve the primary error and later declarations") {
+    struct {
+      const char *body, *message;
+    } cases[] = {
+        {"a.()", "Expected an expression."},
+        {"a.(0", "Expected ')' after index."},
+        {"a.(0]", "Expected ')' after index."},
+        {"a.(0, 1)", "Expected ')' after index."},
+        {"a.(@)", "Unexpected character."},
+        {"a[]", "Expected an expression."},
+        {"a[0", "Expected ']' after index."},
+        {"a. (0)", "Expected a field or method name after '.'."},
+        {"a. /* gap */ (0)", "Expected a field or method name after '.'."},
+        {"a.\n(0)", "Expected a field or method name after '.'."}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      char text[256];
+      snprintf(text, sizeof(text), "main() { %s }\nafter() {}\n",
+               cases[i].body);
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(1, v->diagnostics.count);
+      ASSERT_EQ_INT(2, v->program->count);
+      if (v->diagnostics.count) {
+        ASSERT_EQ_INT(
+            0, strcmp(cases[i].message, v->diagnostics.items[0]->message));
+        ASSERT_TRUE(!v->diagnostics.items[0]->fixes);
+      }
+      if (v->program->count == 2)
+        ASSERT_EQ_INT(0, strcmp("after", v->program->items[1]->name));
+    }
+  }
   TEST("increment and decrement are standalone statements, not unary values") {
     expression_dump(&arena, "x++", "(inc (name x))");
     expression_dump(&arena, "x--", "(dec (name x))");
     expression_dump(&arena, "user.age++", "(inc (field (name user) age))");
-    expression_dump(&arena, "items[0]--", "(dec (index (name items) (int 0)))");
+    expression_dump(&arena, "items.(0)--",
+                    "(dec (index (name items) (int 0)))");
     expression_dump(
         &arena, "x |> { _ => count++ }",
         "(|> (name x) (match (arm (wildcard) (block (inc (name count))))))");
@@ -827,7 +965,7 @@ int main(void) {
                          "main() { if x++ {} }",
                          "main() { while count++ < 3 {} }",
                          "main() { for i in 0..n++ {} }",
-                         "main() { a[x++] }",
+                         "main() { a.(x++) }",
                          "main() { (x++) }",
                          "main() { x++ + y }",
                          "main() { x + y++ }",
@@ -871,7 +1009,7 @@ int main(void) {
                  {"x + --y", "--", prefix},
                  {"(++x)", "++", prefix},
                  {":ok(--x)", "--", prefix},
-                 {"items[++x]", "++", prefix},
+                 {"items.(++x)", "++", prefix},
                  {"x |> { _ => ++x }", "++", prefix},
                  {"true && false", "&&", and_hint},
                  {"true&&false", "&&", and_hint},
@@ -1011,7 +1149,7 @@ int main(void) {
   }
   TEST("postfix chains distinguish panic, logical not, and !=") {
     expression_dump(
-        &arena, "items[0].get()?!",
+        &arena, "items.(0).get()?!",
         "(panic (? (call (field (index (name items) (int 0)) get))))");
     expression_dump(&arena, "not x != y!",
                     "(!= (not (name x)) (panic (name y)))");
@@ -1115,7 +1253,7 @@ int main(void) {
     expression_dump(&arena, "if isAllowed(Guest { name = name }) {}",
                     "(if (call (name isAllowed) (struct-value (name Guest) "
                     "(name (name name)))) (block) none)");
-    expression_dump(&arena, "if items[Guest { name = name }] {}",
+    expression_dump(&arena, "if items.(Guest { name = name }) {}",
                     "(if (index (name items) (struct-value (name Guest) (name "
                     "(name name)))) (block) none)");
     invalid(&arena, "main() { if Guest { name = name }.isAllowed() {} }",
@@ -1251,9 +1389,9 @@ int main(void) {
         "if check(Guest { name = name }) {}",
         "while check(Guest { name = name }) {}",
         "for i in bounds(Limit { n = 2 }) {}",
-        "if items[Guest { name = name }] {}",
-        "while items[Guest { name = name }] {}",
-        "for x in items[Guest { name = name }] {}",
+        "if items.(Guest { name = name }) {}",
+        "while items.(Guest { name = name }) {}",
+        "for x in items.(Guest { name = name }) {}",
         "if check<Sym<:ok(Sym<:inner(int)>)>>(Guest { name = name }) {}"};
     for (size_t i = 0; i < sizeof(valid) / sizeof(valid[0]); i++) {
       char source[512];
@@ -1346,7 +1484,7 @@ int main(void) {
   }
   TEST("pipeline call stages have only name or dotted-path callees") {
     const char *bad[] = {"x |> f().g()", "x |> f().g()?", "x |> f()()",
-                         "x |> functions[0]()", "x |> f()[0].g()"};
+                         "x |> functions.(0)()", "x |> f().(0).g()"};
     for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
       char text[96];
       snprintf(text, sizeof(text), "main() { %s }", bad[i]);
@@ -1388,7 +1526,10 @@ int main(void) {
                                 "value = 1",
                                 "value += 1",
                                 "value++",
-                                "value[0] = 1",
+                                "value.(0) = 1",
+                                "value.(0)",
+                                "call(value.(0))",
+                                "call(value.(other.(0)))",
                                 "if true { print(\"if\") }",
                                 "while false { tick() }",
                                 "for i in 0..2 { print(str(i)) }",
@@ -1582,6 +1723,11 @@ int main(void) {
       n += (size_t)sprintf(text + n, " + 1");
     strcpy(text + n, " }");
     invalid(&arena, text, "nesting limit");
+    n = (size_t)sprintf(text, "main() { value");
+    for (size_t i = 0; i < 1000; i++)
+      n += (size_t)sprintf(text + n, ".(0)");
+    strcpy(text + n, " }\nafter() {}\n");
+    invalid(&arena, text, "nesting limit");
     n = (size_t)sprintf(text, "Big = int");
     for (size_t i = 0; i < 1000; i++)
       n += (size_t)sprintf(text + n, "[1]");
@@ -1590,7 +1736,7 @@ int main(void) {
   }
   TEST("malformed and arbitrary token streams terminate under sanitizers") {
     uint32_t state = 7;
-    const char alphabet[] = "abc012{}()[]\n<>=:,!?+-*/|&\"'";
+    const char alphabet[] = "abc012{}()[]\n<>=:,.!?+-*/|&\"'";
     for (size_t sample = 0; sample < 1000; sample++) {
       Arena temporary;
       arena_init(&temporary);

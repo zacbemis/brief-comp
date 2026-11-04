@@ -1,0 +1,6 @@
+// parse-error: line 5
+// Why: An index needs its closing parenthesis; the next declaration survives.
+main() {
+  items.(0
+}
+after() {}

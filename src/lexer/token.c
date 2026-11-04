@@ -176,6 +176,8 @@ const char *token_type_name(TokenType type) {
     return "TOK_PERIOD";
   case TOK_DOT_DOT:
     return "TOK_DOT_DOT";
+  case TOK_DOT_LPAREN:
+    return "TOK_DOT_LPAREN";
   case TOK_LPAREN:
     return "TOK_LPAREN";
   case TOK_RPAREN:

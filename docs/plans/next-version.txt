@@ -177,14 +177,14 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (98 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases and `=` literal fields; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
-| `tests/parse/pass/` (26) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
-| `tests/parse/fail/` (85) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
+| `tests/programs/` (100 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility and `.()` index syntax; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/parse/pass/` (27) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
+| `tests/parse/fail/` (87) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
 | CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
 | Document acceptance (13 v0 audits, now retired) | Scripts, bridges and registrations deleted in N1; records retained as historical evidence | Each new document's audit is written in the milestone that implements its rules (see "Milestones"), so document coverage returns chapter by chapter instead of all at the end. |
-| `test_doc_parser` | Reads 13 current chapters: 239 fences, 99 parser checks, 140 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
+| `test_doc_parser` | Reads 13 current chapters: 239 fences, 100 parser checks, 139 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
 | `examples/*.brf` | Not run in CI | Converted in N1, and added to the program runner with their output as expectations, so the examples cannot rot again. |
 
 ### New test forms
@@ -216,9 +216,10 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 ## Implementation progress
 
 N0 is complete. N1's identifier tokens, `not`, `dbl`, `->` returns, keyword-free
-aliases and `=` struct literal fields are implemented. Structs/aliases reject
-`pub`; checked fields/functions retain written visibility. The v0 scripts/bridges
-are retired and the current-document parser inventory is active. Other
+aliases, `=` struct literal fields and `.()` index syntax are implemented.
+Structs/aliases reject `pub`; checked fields/functions retain written
+visibility. The v0 scripts/bridges are retired and the current-document parser
+inventory is active. Other
 declaration/type structure, remaining keywords, receiver/general casing rules,
 source conversion and the replacement native chapter audits remain pending.
 
@@ -336,6 +337,7 @@ first-version syntax audit's two logical-operator cases carry markers.
 - [x] Keyword-free uppercase aliases, `type` as an ordinary name, modifier rejection/fixes.
 - [x] `=` struct literal fields, old-colon rejection/fixes and source conversion.
 - [x] Reject `pub` on struct/alias types; retain checked field/function visibility.
+- [x] `.()` postfix indexing, old-bracket rejection/fixes and source conversion.
 - [x] Retire all v0 document scripts/bridges and inventory the current documents.
 - [ ] Remaining keyword/declaration/type/expression grammar changes, contextual
   casing checks/fixes, struct methods and receiver inference.
@@ -671,6 +673,50 @@ rejection renderings; all 78 previous successes emit byte-identical C. All six
 examples have identical sanitized stdout/stderr/status. N1 is incomplete:
 receiver/method inference, other declaration/type grammar, general casing,
 trait detection and replacement native chapter audits are still pending.
+
+### N1 (in progress): postfix indexing uses `.()`
+
+The lexer emits one `TOK_DOT_LPAREN` for adjacent `.(` bytes. The parser uses
+it to build the existing `EXPR_INDEX`, ending at `)`. Calls, members, operators,
+control headers, chained indices and index assignments/updates keep their trees
+and existing not-implemented semantics. No array/vector runtime or new checking,
+lowering, ownership or code emission behavior is introduced.
+
+Old `[index]` expressions recover only with `Indexing is written '.(...)', not
+'[...]'.` and two disjoint one-byte delimiter fixes (`[` to `.(`, `]` to `)`).
+Both edits show as one corrected line in a single help preview.
+Nested index edits do not overlap and preserve all interior trivia/string text.
+Missing operands/closers keep their primary errors with no speculative fix.
+Syntax errors prevent successful AST/C output and leave lowering disabled.
+
+The newline filter treats the new opener as a parenthesis and a leading `.(`
+as member continuation. Nested literal/match braces retain their separators,
+and unmatched indices cannot swallow later declarations. Parser recovery and
+file-level call/declaration disambiguation count the opener too; unmistakable
+header literals followed by indexing retain the parentheses advice. Whitespace,
+comments or newlines between `.` and `(` cannot manufacture the new token.
+
+Converted postfix, continuation, pipeline, match, assignment and unsupported
+fixtures keep their old observations/error lines. Lexer tests cover exact spans,
+streamed/array tokens, numeric prefixes, range punctuation and trivia boundaries.
+Parser tests apply complete fix groups, including nested indices under LF/CRLF,
+then compare ASTs and token immutability; malformed inputs, top-level detection,
+header ambiguity and flat/deep nesting retain dedicated coverage. CLI and native
+error fixtures verify the combined preview and the unchanged scope boundary. There are
+100 program fixtures, 27 parse-pass and 87 parse-fail files. The current types
+chapter's indexing fence moves to a syntax-only check: 96 parses plus four
+rejections, 139 listed fences (55 pending syntax, 72 later features, 12 fragments)
+and two unfenced listings. No native chapter audit is newly complete.
+
+Validation: fresh `-Werror` GCC/Clang Debug ASan/UBSan and GCC Release builds pass
+25/25 each; GCC Debug without sanitizers passes 24/24. clang-format 23.1.3 and
+`git diff --check` pass. Across 235 retained sources, statuses, successful ASTs,
+diagnostic text/order and error lines are unchanged; all 80 previous C successes
+emit identical bytes. Six rejection renderings change only source excerpts,
+columns or underline widths. All six examples preserve sanitized stdout/stderr/
+status. N1 remains in progress: square-bracket type arguments/payloads (and
+removal of accepted generic-call speculation), other declaration/type grammar,
+receiver/casing rules and replacement native chapter audits are still pending.
 
 ## Risks
 

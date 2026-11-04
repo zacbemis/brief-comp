@@ -174,6 +174,32 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")
     message(FATAL_ERROR "corrected type visibility failed (${status}):\n${errors}")
 endif()
 
+# A legacy index requires both non-overlapping delimiter edits. Each help line
+# previews its own edit; the structured fix group applies them together.
+set(old_index "${TEST_DIR}/old-index.brf")
+file(WRITE "${old_index}" "main() { 0[0] }\r\n")
+set(expected "error: Indexing is written '.(...)', not '[...]'.\n  --> ${old_index}:1:11\n  |\n1 | main() { 0[0] }\n  |           ^\nhelp: write `main() { 0.(0) }`\n")
+foreach(command IN ITEMS dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${old_index}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} index fixes (${status}):\n${errors}")
+    endif()
+endforeach()
+file(WRITE "${old_index}" "main() { 0.(0) }\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${old_index}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
+   NOT output STREQUAL "(program (fn main (params) _ (block (index (int 0) (int 0)))))\n")
+    message(FATAL_ERROR "corrected index failed to parse (${status}):\n${errors}")
+endif()
+execute_process(COMMAND "${BRIEF}" emit-c "${old_index}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
+   NOT errors MATCHES "error: This expression is not implemented yet\\.")
+    message(FATAL_ERROR "corrected index lost its scope rejection (${status}):\n${errors}")
+endif()
+
 set(invalid "${TEST_DIR}/invalid.brf")
 file(WRITE "${invalid}" "main() {\n  \"\\q\"\n  @\n  /* unfinished\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"

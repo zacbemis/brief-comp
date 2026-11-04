@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: Square brackets are not indexing; use the adjacent .( opener and ).
+main() {
+  items[0]
+}

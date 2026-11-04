@@ -56,17 +56,17 @@ main() {
     // still the same statement
     |> double()
 
-  // Inside parentheses and brackets every newline is ignored.
+  // Inside calls, groups and index parentheses every newline is ignored.
   let created = User.new(
     "Bob",
     20
   )!
 
-  let indexed = grid[
+  let indexed = grid.(
     row
-  ][
+  ).(
     column
-  ]
+  )
 
   let grouped = (
     a

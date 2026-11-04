@@ -1,0 +1,5 @@
+main() {
+  0.(0) // error: This expression is not implemented yet.
+  0.(0) = 1 // error: Index assignments are not implemented yet.
+  0.(0)++ // error: Index updates are not implemented yet.
+}

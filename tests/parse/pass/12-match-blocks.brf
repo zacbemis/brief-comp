@@ -69,7 +69,7 @@ main() {
       :count => total += 1
       :reset => total = 0
       :field => stats.count += 1
-      :index => counts[0] = 1
+      :index => counts.(0) = 1
       :block => {
         print("one")
         print("two")

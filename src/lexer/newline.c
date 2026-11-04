@@ -129,7 +129,7 @@ TokenArray newline_filter(Arena *arena, TokenArray raw) {
       TokenType next = end < raw.count ? raw.items[end].type : TOK_EOF;
       int enclosed = depth && brackets[depth - 1] != TOK_LBRACE;
       if (!enclosed && !continues(previous, closed_type, prefix_bang) &&
-          next != TOK_PIPE && next != TOK_PERIOD) {
+          next != TOK_PIPE && next != TOK_PERIOD && next != TOK_DOT_LPAREN) {
         for (; i < end; i++)
           out.items[out.count++] = raw.items[i];
         angle_depth = 0;
@@ -155,8 +155,9 @@ TokenArray newline_filter(Arena *arena, TokenArray raw) {
       while (n-- && angle_depth)
         closed_type |= angles[--angle_depth];
     }
-    if (t == TOK_LPAREN || t == TOK_LBRACKET || t == TOK_LBRACE)
-      brackets[depth++] = t;
+    if (t == TOK_LPAREN || t == TOK_DOT_LPAREN || t == TOK_LBRACKET ||
+        t == TOK_LBRACE)
+      brackets[depth++] = t == TOK_DOT_LPAREN ? TOK_LPAREN : t;
     else if (t == TOK_RPAREN || t == TOK_RBRACKET || t == TOK_RBRACE) {
       TokenType wanted = t == TOK_RPAREN     ? TOK_LPAREN
                          : t == TOK_RBRACKET ? TOK_LBRACKET

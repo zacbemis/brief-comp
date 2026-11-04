@@ -10,11 +10,11 @@ main() {
   a.b
   a.b.c.d
   a.b().c().d()
-  a[0]
-  a[i][j]
-  a[i + 1][f(j)]
-  f()[0]
-  a.items[0].name
+  a.(0)
+  a.(i).(j)
+  a.(i + 1).(f(j))
+  f().(0)
+  a.items.(0).name
   parse(text)?
   parse(text)!
   parse(text)?.name
@@ -26,7 +26,7 @@ main() {
   count++
   count--
   user.age++
-  list[0]--
+  list.(0)--
   a != b                    // one token, not a panic followed by =
   a! != b                   // panic, then not-equal
   not a!                    // not (a!)

@@ -153,6 +153,25 @@ int main(void) {
     ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
     valid(&a, "P { pub x: int }\nmain() { P { x = 1 } }");
   }
+  TEST("index spelling errors block lowering; new indices remain unsupported") {
+    Result old = check(&a, "main() { 0[0] }");
+    // This helper intentionally resolves even after a parse error. The index's
+    // ordinary scope rejection may be collected too, but cannot enable
+    // lowering.
+    ASSERT_EQ_INT(2, old.errors.count);
+    ASSERT_TRUE(!old.program->resolved && !old.program->checked);
+    ASSERT_TRUE(ir_lower(&a, old.program) == NULL);
+    if (old.errors.count) {
+      Diagnostic *d = old.errors.items[0];
+      ASSERT_EQ_INT(
+          0, strcmp("Indexing is written '.(...)', not '[...]'.", d->message));
+      ASSERT_TRUE(d->fixes && d->fixes->next && !d->fixes->next->next);
+    }
+    invalid(&a, "main() { 0.(0) }", "This expression is not implemented yet.");
+    invalid(&a, "main() { 0.(0) = 1 }",
+            "Index assignments are not implemented yet.");
+    invalid(&a, "main() { 0.(0)++ }", "Index updates are not implemented yet.");
+  }
   TEST("old literal field colons cannot reach lowering") {
     Result r = check(&a, "P { x: int }\nmain() { let p = P { x: 1 } }");
     ASSERT_EQ_INT(1, r.errors.count);
@@ -195,7 +214,7 @@ int main(void) {
     invalid(&a, "main() { (1 + 2)++ }", "increment/decrement target");
     invalid(&a, "main() { var flag = false\nflag++ }", "numeric binding");
     invalid(&a, "main() { missing++ }", "Unknown binding");
-    invalid(&a, "main() { object[0]++ }", "Index updates");
+    invalid(&a, "main() { object.(0)++ }", "Index updates");
     Result updates = check(&a, "main() { var n = 0\nn++\nn-- }");
     ASSERT_EQ_INT(0, updates.errors.count);
     ASSERT_TRUE(updates.program->functions[0].symbol.return_type ==

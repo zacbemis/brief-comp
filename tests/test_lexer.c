@@ -130,6 +130,58 @@ int main(void) {
     }
   }
 
+  TEST("index opener is one adjacent two-byte token with exact spans") {
+    const char *text = "rows.(0) 1.(2) 1.5.(3) ..(4) .((5))";
+    const TokenType expected[] = {
+        TOK_LOWER_NAME, TOK_DOT_LPAREN, TOK_INT_LIT, TOK_RPAREN,
+        TOK_INT_LIT,    TOK_DOT_LPAREN, TOK_INT_LIT, TOK_RPAREN,
+        TOK_FLOAT_LIT,  TOK_DOT_LPAREN, TOK_INT_LIT, TOK_RPAREN,
+        TOK_DOT_DOT,    TOK_LPAREN,     TOK_INT_LIT, TOK_RPAREN,
+        TOK_DOT_LPAREN, TOK_LPAREN,     TOK_INT_LIT, TOK_RPAREN,
+        TOK_RPAREN,     TOK_EOF};
+    SourceFile *source =
+        source_create(&test_arena, "indices.brf", text, strlen(text));
+    Diagnostics diagnostics;
+    diagnostics_init(&diagnostics, &test_arena);
+    TokenArray tokens = lexer_tokenize(&test_arena, source, &diagnostics);
+    ASSERT_EQ_INT(0, diagnostics.count);
+    ASSERT_EQ_INT(sizeof(expected) / sizeof(*expected), tokens.count);
+    Lexer streamed;
+    lexer_init(&streamed, source, NULL);
+    for (size_t i = 0; i < tokens.count; i++) {
+      Token t = tokens.items[i], next = lexer_next_token(&streamed);
+      if (i < sizeof(expected) / sizeof(*expected))
+        ASSERT_EQ_INT(expected[i], t.type);
+      ASSERT_EQ_INT(t.type, next.type);
+      ASSERT_EQ_INT(t.span.start, next.span.start);
+      ASSERT_EQ_INT(t.span.end, next.span.end);
+      ASSERT_TRUE(t.span.file == source);
+      ASSERT_TRUE(t.start == source->text + t.span.start);
+      ASSERT_EQ_INT(t.length, t.span.end - t.span.start);
+      if (t.type == TOK_DOT_LPAREN) {
+        ASSERT_EQ_INT(2, t.length);
+        ASSERT_EQ_STRN(".(", t.start, t.length);
+      }
+    }
+    ASSERT_EQ_INT(0, strcmp("TOK_DOT_LPAREN", token_type_name(TOK_DOT_LPAREN)));
+    const char *gaps[] = {". (", ".\t(", ".\n(", ".\r\n(", ". /* keep */ ("};
+    for (size_t i = 0; i < sizeof(gaps) / sizeof(*gaps); i++) {
+      Lexer lx;
+      init_lexer(&lx, gaps[i]);
+      expect(&lx, TOK_PERIOD, ".");
+      Token t = lexer_next_token(&lx);
+      if (t.type == TOK_NEWLINE)
+        t = lexer_next_token(&lx);
+      ASSERT_EQ_INT(TOK_LPAREN, t.type);
+      expect(&lx, TOK_EOF, NULL);
+    }
+    Lexer lx;
+    init_lexer(&lx, "\".(\" // .(\n/* .( */ .(");
+    expect(&lx, TOK_STR_LIT, "\".(\"");
+    expect(&lx, TOK_NEWLINE, NULL);
+    expect(&lx, TOK_DOT_LPAREN, ".(");
+    expect(&lx, TOK_EOF, NULL);
+  }
   TEST("single-char punctuation and operators") {
     Lexer lx;
     init_lexer(&lx, "=+-*/%;:,.?(){}[]");

@@ -488,6 +488,7 @@ static void recover(Parser *p, size_t start, int enclosed) {
         braces--;
       break;
     case TOK_LPAREN:
+    case TOK_DOT_LPAREN:
       parens++;
       break;
     case TOK_RPAREN:
@@ -653,7 +654,8 @@ static int top_level_statement(Parser *p) {
   if (next != TOK_LPAREN)
     return !type_keyword && next != TOK_LESS_THAN &&
            (next == TOK_NEWLINE || next == TOK_EOF || next == TOK_PERIOD ||
-            next == TOK_LBRACKET || next == TOK_QUESTION || next == TOK_PIPE ||
+            next == TOK_LBRACKET || next == TOK_DOT_LPAREN ||
+            next == TOK_QUESTION || next == TOK_PIPE ||
             (next >= TOK_EQUAL && next <= TOK_RSHIFT));
   size_t parens = 0, braces = 0, brackets = 0;
   for (size_t i = p->position + 1; i < p->tokens.count; i++) {
@@ -663,7 +665,7 @@ static int top_level_statement(Parser *p) {
     if (t == TOK_COLON && parens == 1 && !braces && !brackets &&
         token_is_identifier(p->tokens.items[i - 1].type))
       return 0;
-    if (t == TOK_LPAREN)
+    if (t == TOK_LPAREN || t == TOK_DOT_LPAREN)
       parens++;
     else if (t == TOK_RPAREN) {
       if (!--parens) {
@@ -1382,7 +1384,7 @@ static int header_literal(Parser *p) {
     else if (t == TOK_RBRACE && !--braces) {
       TokenType next =
           i + 1 < p->tokens.count ? p->tokens.items[i + 1].type : TOK_EOF;
-      return next == TOK_PERIOD || next == TOK_LBRACE;
+      return next == TOK_PERIOD || next == TOK_DOT_LPAREN || next == TOK_LBRACE;
     }
   }
   return 0;
@@ -1447,10 +1449,22 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
           return NULL;
         }
       }
-      if (match(p, TOK_LBRACKET)) {
+      if (token.type == TOK_DOT_LPAREN || token.type == TOK_LBRACKET) {
+        take(p);
+        int old = token.type == TOK_LBRACKET;
         Expr *index = expression(p, 0, 1);
-        if (!index || !expect(p, TOK_RBRACKET, "Expected ']' after index."))
+        if (!index || !expect(p, old ? TOK_RBRACKET : TOK_RPAREN,
+                              old ? "Expected ']' after index."
+                                  : "Expected ')' after index."))
           return NULL;
+        if (old) {
+          Diagnostic *d = error_at(
+              p, token.span, "Indexing is written '.(...)', not '[...]'.");
+          if (d) {
+            diagnostic_fix(p->diagnostics, d, token.span, ".(");
+            diagnostic_fix(p->diagnostics, d, p->previous.span, ")");
+          }
+        }
         Expr *e =
             new_expr(p, EXPR_INDEX, through(left->span, p->previous.span));
         e->as.index.object = left;
