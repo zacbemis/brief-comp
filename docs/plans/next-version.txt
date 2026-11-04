@@ -177,14 +177,14 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (96 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases and `=` literal fields; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/programs/` (98 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases and `=` literal fields; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
 | `tests/parse/pass/` (26) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
-| `tests/parse/fail/` (84) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
+| `tests/parse/fail/` (85) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
 | CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
 | Document acceptance (13 v0 audits, now retired) | Scripts, bridges and registrations deleted in N1; records retained as historical evidence | Each new document's audit is written in the milestone that implements its rules (see "Milestones"), so document coverage returns chapter by chapter instead of all at the end. |
-| `test_doc_parser` | Reads 13 current chapters: 239 fences, 98 parser checks, 141 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
+| `test_doc_parser` | Reads 13 current chapters: 239 fences, 99 parser checks, 140 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
 | `examples/*.brf` | Not run in CI | Converted in N1, and added to the program runner with their output as expectations, so the examples cannot rot again. |
 
 ### New test forms
@@ -216,7 +216,8 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 ## Implementation progress
 
 N0 is complete. N1's identifier tokens, `not`, `dbl`, `->` returns, keyword-free
-aliases and `=` struct literal fields are implemented. The v0 scripts/bridges
+aliases and `=` struct literal fields are implemented. Structs/aliases reject
+`pub`; checked fields/functions retain written visibility. The v0 scripts/bridges
 are retired and the current-document parser inventory is active. Other
 declaration/type structure, remaining keywords, receiver/general casing rules,
 source conversion and the replacement native chapter audits remain pending.
@@ -334,6 +335,7 @@ first-version syntax audit's two logical-operator cases carry markers.
 - [x] `->` return annotations, old `:` rejection/fixes and affected source conversion.
 - [x] Keyword-free uppercase aliases, `type` as an ordinary name, modifier rejection/fixes.
 - [x] `=` struct literal fields, old-colon rejection/fixes and source conversion.
+- [x] Reject `pub` on struct/alias types; retain checked field/function visibility.
 - [x] Retire all v0 document scripts/bridges and inventory the current documents.
 - [ ] Remaining keyword/declaration/type/expression grammar changes, contextual
   casing checks/fixes, struct methods and receiver inference.
@@ -626,6 +628,49 @@ source/columns/fix previews (including the renamed fixture). All six examples
 retain identical sanitized stdout/stderr/status. No backend/outcome rule changed.
 N1 remains incomplete: struct methods/receivers, other declaration/type grammar,
 general casing and replacement native chapter audits are still pending.
+
+### N1 (in progress): visibility on implemented declarations
+
+Struct types now reject `pub` with `Struct types cannot be marked 'pub'.` and
+a removal fix. Like aliases, a recovered struct omits the written modifier;
+this does not make its type private. Types are inherently public. The fix
+removes the keyword and following horizontal whitespace, not comments/newlines
+or a valid public field modifier. Old public struct headers in the native/parser
+fixtures and C tests were converted with observations unchanged. Field-less
+struct/trait recognition and `pub` rejection on future trait syntax remain part
+of the pending declaration switch; this slice does not implement traits.
+
+Field and function visibility was already recorded by the AST/parser. Resolution
+now retains it in `SemaField.visibility` and the `SemaSymbol.visibility` of
+user-defined functions (including current impl functions). Default fields and
+functions remain module-private in that metadata; builtin export rules are not
+introduced. Comments clarify that declaration flags on types are not an access
+policy. No code emission, call lookup, ownership or borrowing rule changes.
+With one source file, private and public members remain accessible alike;
+cross-module privacy enforcement is explicitly out of scope.
+
+Parser tests inspect the exact three-byte diagnostic span, whitespace-only
+removal extension, LF/CRLF, comments, retained field modifiers, later declarations
+and recovered/reparsed AST equality. Parameter and initializer positions still
+reject `pub`. Checked-tree tests cover public/private fields, top-level/impl
+functions, IDs/spans, metadata after rechecking, same-file private access and
+unchanged read-only errors even on public fields. CLI/semantic tests forbid
+emitting or lowering an invalid type modifier. `visibility.brf` observes ordinary
+same-module operations and heap strings; three invalid headers have exact fix
+markers in `errors/pub-structs.brf`. There are 98 native fixtures and 85
+parse-fail files. The public-Report example moves from a listing to a syntax
+rejection check, not a module-privacy test: 95 parses plus four rejections now
+run, with 140 listed fences and two unfenced listings. Replacement native
+chapter audits remain pending, and no v0 bridge/test is restored.
+
+Validation: fresh `-Werror` GCC and Clang Debug ASan/UBSan and GCC Release
+configurations pass 25/25; GCC Debug without sanitizers passes 24/24.
+clang-format 23.1.3 and `git diff --check` pass. All 231 retained baseline sources
+keep their status, diagnostic messages/order and error lines, with identical
+rejection renderings; all 78 previous successes emit byte-identical C. All six
+examples have identical sanitized stdout/stderr/status. N1 is incomplete:
+receiver/method inference, other declaration/type grammar, general casing,
+trait detection and replacement native chapter audits are still pending.
 
 ## Risks
 

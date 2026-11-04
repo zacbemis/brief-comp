@@ -3,9 +3,9 @@
 `test_doc_parser` reads the 13 language chapters in `docs/lang-*.txt`, not
 `docs/v0/`. The rationale file `lang-post-0-notes.txt` is not a language chapter.
 The manifest in `test_doc_parser.cmake` classifies all **239 code fences** and
-the two unfenced chapters. It runs **95 successful parses and three intentional
-syntax rejections**. The other **141 fences** are explicit listings, not passing
-parser tests: 56 await N1/N4/N5 syntax, 73 need later features, and 12 are
+the two unfenced chapters. It runs **95 successful parses and four intentional
+syntax rejections**. The other **140 fences** are explicit listings, not passing
+parser tests: 56 await N1/N4/N5 syntax, 72 need later features, and 12 are
 incomplete signatures/operator/context fragments. The overview and raw base
 sample have separate zero-fence listings.
 
@@ -31,7 +31,7 @@ be misread as an old index or a plain string; those fences are listed instead.
 | raw base sample | 0 | 1 |
 | functions | 15 | 12 |
 | memory | 16 | 2 |
-| modules | 5 | 14 |
+| modules | 6 | 13 |
 | pipelines | 11 | 6 |
 | standard library | 0 | 1 |
 | symbols | 2 | 13 |

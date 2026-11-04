@@ -24,7 +24,7 @@ conversion.
 
 ## `fail/`
 
-There are 84 rejection fixtures, including `old-return-colon.brf`,
+There are 85 rejection fixtures, including `pub-struct.brf`, `old-return-colon.brf`,
 `old-alias-keyword.brf`, `pub-alias.brf` and `struct-literal-old-colon.brf`.
 `struct-literal-missing-equals.brf` retains the old missing-delimiter rule under
 its new spelling/name. The converted

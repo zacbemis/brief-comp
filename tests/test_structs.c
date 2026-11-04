@@ -148,6 +148,46 @@ static Result recursive_lookup_error(Arena *a, const char *text,
 int main(void) {
   Arena a;
   arena_init(&a);
+  TEST("checked fields and functions retain written visibility without access "
+       "changes") {
+    Result r = check(
+        &a, "Vault { pub visible: int\nhidden: int }\n"
+            "pub exported(v: Vault) -> int { v.hidden }\n"
+            "local(v: &Vault) { v.hidden = v.visible }\n"
+            "impl Vault { pub new(n: int) -> Self { Self { visible = n, hidden "
+            "= 0 } }\n"
+            "read(v: Self) -> int { v.hidden } }\n"
+            "main() { let v = Vault.new(7)\nlocal(v)\nv.read()\nexported(v) }");
+    if (r.errors.count)
+      diagnostics_print(&r.errors, stderr);
+    ASSERT_EQ_INT(0, r.errors.count);
+    ASSERT_TRUE(r.program->checked);
+    ASSERT_EQ_INT(1, r.program->struct_count);
+    ASSERT_EQ_INT(5, r.program->count);
+    if (r.program->struct_count == 1 && r.program->count == 5) {
+      SemaStruct *s = &r.program->structs[0];
+      ASSERT_EQ_INT(VISIBILITY_PUB, s->fields[0].visibility);
+      ASSERT_EQ_INT(VISIBILITY_PRIV, s->fields[1].visibility);
+      ASSERT_EQ_INT(0, s->fields[0].id);
+      ASSERT_EQ_INT(1, s->fields[1].id);
+      ASSERT_EQ_INT(s->syntax->as.structure.fields[0].span.start,
+                    s->fields[0].span.start);
+      ASSERT_EQ_INT(VISIBILITY_PUB, r.program->functions[0].symbol.visibility);
+      ASSERT_EQ_INT(VISIBILITY_PRIV, r.program->functions[1].symbol.visibility);
+      ASSERT_EQ_INT(VISIBILITY_PUB, r.program->functions[2].symbol.visibility);
+      ASSERT_EQ_INT(VISIBILITY_PRIV, r.program->functions[3].symbol.visibility);
+      ASSERT_EQ_INT(VISIBILITY_PRIV, r.program->functions[4].symbol.visibility);
+      Diagnostics again;
+      diagnostics_init(&again, &a);
+      sema_check(r.program, &again);
+      ASSERT_EQ_INT(0, again.count);
+      ASSERT_EQ_INT(VISIBILITY_PUB, s->fields[0].visibility);
+      ASSERT_EQ_INT(VISIBILITY_PUB, r.program->functions[2].symbol.visibility);
+    }
+    // Visibility does not grant mutation through an ordinary parameter.
+    invalid(&a, "P { pub x: int }\nf(p: P) { p.x = 1 }\nmain() {}",
+            "Cannot mutate through an ordinary parameter");
+  }
   TEST("struct types are canonical, nominal, and visible before their "
        "definitions") {
     Result r =

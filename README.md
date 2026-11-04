@@ -72,8 +72,10 @@ and conversion calls; old `dub` uses are rejected with fixes. Function return
 types follow `->`, with a fix for old `:` annotations. Aliases use `Name = type`,
 without `type` or `pub` modifiers; both get removal fixes. `type` is an ordinary
 name. Struct literals use `field = value`, with fixes for old `field: value`;
-field declarations and type annotations keep their colons. Other declaration/type
-structure, receiver rules and general casing await the full syntax switch.
+field declarations and type annotations keep their colons. Struct types also
+reject `pub`; field/function visibility is retained in the checked tree, with
+no cross-module access enforcement yet. Other declaration/type structure,
+receiver rules and general casing await the full syntax switch.
 
 Diagnostics can carry machine-applicable fixes as byte spans and replacement
 text. These print as `help:` previews below the error and its notes. Previews
@@ -250,12 +252,12 @@ Panics terminate the process without unwinding owners.
 - `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
   native driver tests; program tests in normal and sanitizer configurations;
   and the [current-document parser inventory](tests/doc-parser.md): 239 fences
-  across 13 chapters, with 98 parser checks and 141 explicit fence listings,
+  across 13 chapters, with 99 parser checks and 140 explicit fence listings,
   plus two unfenced-chapter listings. Listed examples are not passing coverage.
   N1 retired all v0 native chapter scripts and bridges; replacement native audits
   return milestone by milestone. Run the inventory and its structural guards with
   `ctest --test-dir build -L doc-parser --output-on-failure`.
-- `tests/parse/`: 110 parser example files that must parse or be rejected
+- `tests/parse/`: 111 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
 
@@ -280,7 +282,8 @@ Wide and combining characters do not yet have special display-width handling.
 - [First compiler plan](docs/plans/first-version.txt)
 - [Next-version compiler plan](docs/plans/next-version.txt) (N0 complete;
   N1 identifier tokens, `not`, `dbl`, `->` returns, keyword-free aliases and
-  `=` literal fields implemented; full syntax/native audits pending)
+  `=` literal fields and single-file visibility metadata implemented;
+  full syntax/native audits pending)
 - [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
 
 The overview links the remaining topic documents. Milestone 5 is complete for

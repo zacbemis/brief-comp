@@ -323,6 +323,72 @@ int main(void) {
                  "(let dblx _ (name dubx)) (call (name print) "
                  "(str \"dub dbl\")))))\n");
   }
+  TEST("pub is recorded on fields/functions but rejected on struct types") {
+    program_dump(
+        &arena,
+        "P { pub value: int\nhidden: int }\npub read(p: P) -> int { p.hidden "
+        "}\n",
+        "(program (struct P (field pub value int) (field hidden int)) "
+        "(fn pub read (params (p P)) int (block (field (name p) hidden))))\n");
+    const char *cases[] = {"pub P { pub value: int }\n",
+                           "pub\t P { value: int }\n",
+                           "pub/* keep */P { value: int }\n",
+                           "\tpub\nP { pub\nvalue: int }\n", "pub P {}\n"};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned ending = 0; ending < 2; ending++) {
+        char text[1024];
+        size_t count = 0;
+        for (size_t j = 0; cases[i][j]; j++) {
+          if (ending && cases[i][j] == '\n')
+            text[count++] = '\r';
+          text[count++] = cases[i][j];
+        }
+        strcpy(text + count, "after() {}\n");
+        Parsed *v = parse(&arena, text);
+        ASSERT_EQ_INT(1, v->diagnostics.count);
+        ASSERT_EQ_INT(2, v->program->count);
+        if (v->diagnostics.count != 1)
+          continue;
+        const Diagnostic *d = v->diagnostics.items[0];
+        size_t start = (size_t)(strstr(text, "pub") - text);
+        ASSERT_EQ_INT(
+            0, strcmp("Struct types cannot be marked 'pub'.", d->message));
+        ASSERT_TRUE(d->span.file == v->source);
+        ASSERT_EQ_INT(start, d->span.start);
+        ASSERT_EQ_INT(start + 3, d->span.end);
+        ASSERT_TRUE(d->fixes && d->fixes == d->last_fix);
+        if (d->fixes) {
+          const DiagnosticFix *fix = d->fixes;
+          size_t end = start + 3;
+          while (text[end] == ' ' || text[end] == '\t')
+            end++;
+          ASSERT_TRUE(fix->span.file == v->source && !fix->next);
+          ASSERT_EQ_INT(start, fix->span.start);
+          ASSERT_EQ_INT(end, fix->span.end);
+          ASSERT_EQ_INT(0, strcmp("", fix->replacement));
+          char rewritten[1024];
+          snprintf(rewritten, sizeof(rewritten), "%.*s%s", (int)start, text,
+                   text + end);
+          Parsed *fixed = parse(&arena, rewritten);
+          ASSERT_EQ_INT(0, fixed->diagnostics.count);
+          char *before = dump(&arena, v->program),
+               *after = dump(&arena, fixed->program);
+          ASSERT_TRUE(before && after);
+          if (before && after)
+            ASSERT_EQ_INT(0, strcmp(before, after));
+          if (v->program->count) {
+            ASSERT_EQ_INT(VISIBILITY_PRIV, v->program->items[0]->visibility);
+            for (size_t j = 0; j < v->raw.count; j++)
+              if (v->raw.items[j].span.start == start)
+                ASSERT_EQ_INT(TOK_PUB, v->raw.items[j].type);
+          }
+        }
+      }
+    }
+    invalid(&arena, "pub f(pub value: int) {}", "Expected a parameter name.");
+    invalid(&arena, "main() { P { pub value = 1 } }",
+            "Expected a struct literal's field name.");
+  }
   TEST("keyword-free aliases reject legacy modifiers and preserve recovery") {
     const struct {
       const char *code;
@@ -973,7 +1039,7 @@ int main(void) {
   TEST("bindings, typed fields, methods, written and partial return types") {
     const char *text =
         "Error = Sym<:bad(str), :missing>\n"
-        "pub User {\nname: str\nresult: Sym<:ok(User), Error>\ncount: int\n}\n"
+        "User {\nname: str\nresult: Sym<:ok(User), Error>\ncount: int\n}\n"
         "impl User {\npub new(name: str) -> Sym<:ok(User), _> {\n"
         "var count: shrt = 0\ncount += 1\n:ok(User { name = name, count = "
         "count "

@@ -7,13 +7,13 @@ Error = Sym<:invalidAge(int), :emptyName>
 const MIN_AGE = 0
 const MAX_AGE: int = 150
 
-pub User {
+User {
   name: str
   age: int
   tier: Tier
 }
 
-pub Admin {
+Admin {
   user: User
   level: int
 }

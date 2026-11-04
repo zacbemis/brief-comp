@@ -810,7 +810,7 @@ static Decl *declaration(Parser *p, int in_impl) {
     return NULL;
   const char *decl_name = name(p, p->previous);
   if (!in_impl && match(p, TOK_LBRACE)) {
-    Decl *d = new_decl(p, DECL_STRUCT, start.span, visibility);
+    Decl *d = new_decl(p, DECL_STRUCT, start.span, VISIBILITY_PRIV);
     d->name = decl_name;
     List fields = {0};
     newlines(p);
@@ -828,6 +828,10 @@ static Decl *declaration(Parser *p, int in_impl) {
       return NULL;
     d->as.structure.fields = fields.data;
     d->as.structure.count = fields.count;
+    if (visibility == VISIBILITY_PUB)
+      remove_modifier(
+          p, error_at(p, start.span, "Struct types cannot be marked 'pub'."),
+          start);
     d->span = through(start.span, p->previous.span);
     return d;
   }

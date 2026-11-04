@@ -1,0 +1,4 @@
+pub A { x: int } // error: Struct types cannot be marked 'pub'. // fix: A { x: int }
+pub B { pub x: int } // error: Struct types cannot be marked 'pub'. // fix: B { pub x: int }
+pub/* keep */C { x: int } // error: Struct types cannot be marked 'pub'. // fix: /* keep */C { x: int }
+main() {}

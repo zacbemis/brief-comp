@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **96 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **98 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -306,8 +306,16 @@ initialization, side-effect order, owned strings, field reads and assignment-onl
 control bodies; literal text with old-looking colons stays unchanged.
 `errors/old-literal-colons.brf` checks four exact fixes with comments/continuation.
 Existing initialization/ownership observations are unchanged. The inventory is
-now 96 files. Other declaration/type structure and receiver/general casing rules
-remain pending.
+was then 96 files.
+
+N1's visibility slice removes `pub` from converted struct type declarations.
+`visibility.brf` observes public/private fields and functions within one file,
+including heap strings, private-field reads/writes and unchanged `pub`-looking
+literal text. `errors/pub-structs.brf` requires three exact modifier-removal
+previews, including a valid public field and retained comment. This records
+visibility, not cross-module privacy enforcement; borrowing permissions remain
+independent. The inventory is now 98 files. Struct methods/receiver inference,
+other declaration/type syntax and general casing remain pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

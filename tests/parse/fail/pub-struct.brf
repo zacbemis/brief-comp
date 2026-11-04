@@ -1,0 +1,3 @@
+// parse-error: line 3
+// Why: Struct types are inherently public, so an explicit pub is rejected.
+pub P { x: int }

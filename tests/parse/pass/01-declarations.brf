@@ -7,7 +7,7 @@ pub const VERSION: flt = 0.5
 Tier = Sym<:bronze, :silver, :gold>
 Error = Sym<:notFound(str), :denied(str)>
 
-pub User {
+User {
   name: str
   age: int
   tier: Tier

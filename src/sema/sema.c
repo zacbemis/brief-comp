@@ -767,6 +767,7 @@ static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
                            .span = d->span,
                            .id = p->count++,
                            .arity = d->as.function.count,
+                           .visibility = d->visibility,
                            .owner = owner};
   name_map_put(&p->function_names, owner, d->name, &f->symbol);
   if (owner) {
@@ -903,8 +904,11 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
       if (f.borrow == BORROW_MUT)
         diagnostics_error(errors, f.span,
                           "Struct fields cannot be borrowed parameters.");
-      s->fields[j] = (SemaField){
-          .name = f.name, .span = f.span, .id = j, .type = type(&r, f.type)};
+      s->fields[j] = (SemaField){.name = f.name,
+                                 .span = f.span,
+                                 .id = j,
+                                 .type = type(&r, f.type),
+                                 .visibility = f.visibility};
     }
   }
   sema_update_equatable(p);

@@ -146,6 +146,13 @@ int main(void) {
     }
     invalid(&a, "main() { let dbl = 1 }", "Expected a binding name.");
   }
+  TEST("pub on a struct type blocks lowering, not field visibility") {
+    Result r = check(&a, "pub P { pub x: int }\nmain() { P { x = 1 } }");
+    ASSERT_EQ_INT(1, r.errors.count);
+    ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+    ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+    valid(&a, "P { pub x: int }\nmain() { P { x = 1 } }");
+  }
   TEST("old literal field colons cannot reach lowering") {
     Result r = check(&a, "P { x: int }\nmain() { let p = P { x: 1 } }");
     ASSERT_EQ_INT(1, r.errors.count);

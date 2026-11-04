@@ -65,6 +65,8 @@ typedef struct {
   Span span;
   size_t id;
   const SemaType *type;
+  // Recorded now; cross-module access is not implemented.
+  Visibility visibility;
 } SemaField;
 struct SemaStruct {
   SemaType type;
@@ -89,6 +91,7 @@ struct SemaSymbol {
   const char *name;
   Span span;
   size_t id, arity;
+  Visibility visibility; // Written visibility of user-defined functions.
   int builtin;
   SemaVar **params;
   const SemaType *return_type, *outcome_type; // ABI type and full outcome set.

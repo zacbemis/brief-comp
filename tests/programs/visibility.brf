@@ -1,0 +1,23 @@
+Box {
+  pub shown: int
+  hidden: str
+}
+impl Box {
+  pub new(shown: int) -> Self {
+    Self { shown = shown, hidden = "heap" + " secret" }
+  }
+  read(box: Self) -> int { box.shown }
+}
+pub label(box: Box) -> str { box.hidden }
+replace(box: &Box) { box.hidden = "new" + " secret" }
+main() {
+  let box = Box.new(7)
+  print(str(box.read())) // expect: 7
+  print(label(box)) // expect: heap secret
+  // Both private and public fields are reachable within this one module.
+  replace(box)
+  print(box.hidden) // expect: new secret
+  box.shown = 9
+  print(str(box.shown)) // expect: 9
+  print("pub Box") // expect: pub Box
+}

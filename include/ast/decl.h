@@ -3,7 +3,8 @@
 
 typedef struct Decl Decl;
 
-// Private to the enclosing module unless marked pub.
+// Visibility of functions, fields and bindings. Types are inherently public;
+// their Decl.visibility only records the absence of a written pub modifier.
 typedef enum {
   VISIBILITY_PRIV,
   VISIBILITY_PUB,
@@ -25,7 +26,7 @@ typedef enum {
   DECL_BINDING,
   DECL_FN,
   DECL_STRUCT,
-  DECL_TYPE, // type Error = Sym<...>
+  DECL_TYPE, // Error = Sym<...>
   DECL_MODULE,
   DECL_TRAIT,
   DECL_IMPL,

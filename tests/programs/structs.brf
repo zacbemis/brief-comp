@@ -1,4 +1,4 @@
-pub User {
+User {
   name: str
   age: int
   ignored: ()

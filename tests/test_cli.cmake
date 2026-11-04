@@ -156,6 +156,24 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")
     message(FATAL_ERROR "corrected literal failed (${status}):\n${errors}")
 endif()
 
+# Remove only the type modifier, retaining the field's valid pub modifier.
+set(pub_struct "${TEST_DIR}/pub-struct.brf")
+file(WRITE "${pub_struct}" "pub P { pub x: int }\r\nmain() {}\r\n")
+set(expected "error: Struct types cannot be marked 'pub'.\n  --> ${pub_struct}:1:1\n  |\n1 | pub P { pub x: int }\n  | ^~~\nhelp: write `P { pub x: int }`\n")
+foreach(command IN ITEMS dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${pub_struct}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} type-pub fix (${status}):\n${errors}")
+    endif()
+endforeach()
+file(WRITE "${pub_struct}" "P { pub x: int }\r\nmain() {}\r\n")
+execute_process(COMMAND "${BRIEF}" emit-c "${pub_struct}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")
+    message(FATAL_ERROR "corrected type visibility failed (${status}):\n${errors}")
+endif()
+
 set(invalid "${TEST_DIR}/invalid.brf")
 file(WRITE "${invalid}" "main() {\n  \"\\q\"\n  @\n  /* unfinished\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"
