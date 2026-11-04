@@ -185,7 +185,7 @@ int main(void) {
                  {"if 1e2 > 0 {}", "1e2"},
                  {"while 1E2 > 0 {}", "1E2"},
                  {"for i in 0..1e2 {}", "1e2"},
-                 {"P { n: 1E2 }", "1E2"},
+                 {"P { n = 1E2 }", "1E2"},
                  {"1 |> {\n1e2 => 0\n_ => 1\n}", "1e2"},
                  {"1 |> {\n-1E2 => 0\n_ => 1\n}", "1E2"},
                  {"let value: int[1e2] = ()", "1e2"},
@@ -400,6 +400,115 @@ int main(void) {
         &arena, "type() {}\nmain() { let type = 1\ntype }\n",
         "(program (fn type (params) _ (block)) (fn main (params) _ (block "
         "(let type _ (int 1)) (name type))))\n");
+  }
+  TEST("struct literal colons have exact fixes without touching annotations") {
+    const struct {
+      const char *body;
+      size_t count;
+    } cases[] = {{"P { x:1 }", 1},
+                 {"P { x: 1 }", 1},
+                 {"P { x :1 }", 1},
+                 {"P { x : 1 }", 1},
+                 {"P { x/* before */:/* after */1 }", 1},
+                 {"P { x:\n// value\n1 }", 1},
+                 {"P { x::none }", 1},
+                 {"P { x: Q { value: 1 }, y: 2 }", 3},
+                 {":outer(P { x: 1 })", 1},
+                 {"let x: P = P { x: 1 }", 1}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned ending = 0; ending < 2; ending++) {
+        char lf[1024], text[2048];
+        snprintf(lf, sizeof(lf),
+                 "P { x: int }\nmain() {\n%s\nlet kept = 1\n}\nafter() {}\n",
+                 cases[i].body);
+        size_t length = 0;
+        for (size_t j = 0; lf[j]; j++) {
+          if (ending && lf[j] == '\n')
+            text[length++] = '\r';
+          text[length++] = lf[j];
+        }
+        text[length] = 0;
+        Parsed *v = parse(&arena, text);
+        if (v->diagnostics.count != cases[i].count)
+          diagnostics_print(&v->diagnostics, stderr);
+        ASSERT_EQ_INT(cases[i].count, v->diagnostics.count);
+        ASSERT_EQ_INT(3, v->program->count);
+        char rewritten[4096];
+        size_t out = 0;
+        for (size_t at = 0; text[at];) {
+          const DiagnosticFix *found = NULL;
+          for (size_t j = 0; j < v->diagnostics.count; j++) {
+            const Diagnostic *d = v->diagnostics.items[j];
+            ASSERT_EQ_INT(0, strcmp("Struct literal fields use '=', not ':'.",
+                                    d->message));
+            ASSERT_EQ_INT(1, d->span.end - d->span.start);
+            ASSERT_TRUE(d->fixes && d->fixes == d->last_fix);
+            if (d->fixes && d->fixes->span.start == at) {
+              found = d->fixes;
+              ASSERT_TRUE(found->span.file == v->source && !found->next);
+              ASSERT_EQ_INT(d->span.start, found->span.start);
+              ASSERT_EQ_INT(d->span.end, found->span.end);
+              ASSERT_EQ_INT(':', text[at]);
+              size_t expected_length = 1;
+              int before = text[at - 1] != ' ' && text[at - 1] != '\t' &&
+                           text[at - 1] != '\n' && text[at - 1] != '\r';
+              int after = text[at + 1] != ' ' && text[at + 1] != '\t' &&
+                          text[at + 1] != '\n' && text[at + 1] != '\r';
+              expected_length += before + after;
+              ASSERT_EQ_INT(expected_length, strlen(found->replacement));
+              ASSERT_EQ_INT('=', found->replacement[before]);
+            }
+          }
+          if (found) {
+            size_t size = strlen(found->replacement);
+            memcpy(rewritten + out, found->replacement, size);
+            out += size;
+            at = found->span.end;
+          } else
+            rewritten[out++] = text[at++];
+        }
+        rewritten[out] = 0;
+        Parsed *fixed = parse(&arena, rewritten);
+        ASSERT_EQ_INT(0, fixed->diagnostics.count);
+        char *before = dump(&arena, v->program),
+             *after = dump(&arena, fixed->program);
+        ASSERT_TRUE(before && after);
+        if (before && after)
+          ASSERT_EQ_INT(0, strcmp(before, after));
+        TokenArray filtered = newline_filter(&arena, v->raw);
+        size_t bytes = filtered.count * sizeof(Token);
+        Token *saved = arena_alloc(&arena, bytes);
+        memcpy(saved, filtered.items, bytes);
+        Diagnostics again;
+        diagnostics_init(&again, &arena);
+        parse_program(&arena, &v->names, filtered, &again);
+        ASSERT_EQ_INT(cases[i].count, again.count);
+        ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+      }
+    }
+    Parsed *missing = parse(&arena, "main() { P { x: } }\nafter() {}\n");
+    ASSERT_EQ_INT(1, missing->diagnostics.count);
+    if (missing->diagnostics.count) {
+      ASSERT_EQ_INT(0, strcmp("Expected an expression.",
+                              missing->diagnostics.items[0]->message));
+      ASSERT_TRUE(!missing->diagnostics.items[0]->fixes);
+    }
+    ASSERT_EQ_INT(2, missing->program->count);
+    invalid(&arena, "main() { P { x 1 } }", "Expected '=' after field name.");
+    const char *bodies[] = {
+        "if ready { field = value }", "while ready { field = value }",
+        "for i in 0..2 { field = value }",
+        "if ready { field = P { x = 1 } } else { field = P { x = 2 } }",
+        ("let p = if ready { field = 1\nP { x = 1 } } else { P { x = 2 } "
+         "}\np.x")};
+    for (size_t i = 0; i < sizeof(bodies) / sizeof(*bodies); i++) {
+      char text[512];
+      snprintf(text, sizeof(text), "main() { %s }", bodies[i]);
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(0, v->diagnostics.count);
+    }
+    // Old unwrapped headers retain their primary parentheses advice.
+    invalid(&arena, "main() { if P { x: 1 }.ok {} }", "Wrap struct literals");
   }
   TEST("return arrows reject old colons with local, layout-preserving fixes") {
     const struct {
@@ -866,7 +975,8 @@ int main(void) {
         "Error = Sym<:bad(str), :missing>\n"
         "pub User {\nname: str\nresult: Sym<:ok(User), Error>\ncount: int\n}\n"
         "impl User {\npub new(name: str) -> Sym<:ok(User), _> {\n"
-        "var count: shrt = 0\ncount += 1\n:ok(User { name: name, count: count "
+        "var count: shrt = 0\ncount += 1\n:ok(User { name = name, count = "
+        "count "
         "})\n}\n"
         "setAge(user: &User, age: int) -> () { user.count = age }\n}\n";
     Parsed *v = parse(&arena, text);
@@ -933,20 +1043,20 @@ int main(void) {
   }
   TEST(
       "struct-literal suppression resets inside grouping, calls, and indices") {
-    expression_dump(&arena, "if (Guest { name: name }).isAllowed() {}",
+    expression_dump(&arena, "if (Guest { name = name }).isAllowed() {}",
                     "(if (call (field (struct-value (name Guest) (name (name "
                     "name))) isAllowed)) (block) none)");
-    expression_dump(&arena, "if isAllowed(Guest { name: name }) {}",
+    expression_dump(&arena, "if isAllowed(Guest { name = name }) {}",
                     "(if (call (name isAllowed) (struct-value (name Guest) "
                     "(name (name name)))) (block) none)");
-    expression_dump(&arena, "if items[Guest { name: name }] {}",
+    expression_dump(&arena, "if items[Guest { name = name }] {}",
                     "(if (index (name items) (struct-value (name Guest) (name "
                     "(name name)))) (block) none)");
-    invalid(&arena, "main() { if Guest { name: name }.isAllowed() {} }",
+    invalid(&arena, "main() { if Guest { name = name }.isAllowed() {} }",
             "Wrap struct literals in conditions or iterables in parentheses.");
-    invalid(&arena, "main() { while Guest { name: name }.ok {} }",
+    invalid(&arena, "main() { while Guest { name = name }.ok {} }",
             "Wrap struct literals in conditions or iterables in parentheses.");
-    invalid(&arena, "main() { for x in Guest { name: name }.items {} }",
+    invalid(&arena, "main() { for x in Guest { name = name }.items {} }",
             "Wrap struct literals in conditions or iterables in parentheses.");
   }
   TEST("struct header hints have exact spans and recover without token "
@@ -954,23 +1064,23 @@ int main(void) {
     const char *message =
         "Wrap struct literals in conditions or iterables in parentheses.";
     const char *cases[] = {
-        "if Guest { name: name }.isAllowed() {}",
-        "while Guest { name: name }.ok {}",
-        "for x in Guest { name: name }.items {}",
-        "for i in 0..Limit { n: 2 }.n {}",
-        "if ready and Guest { name: name }.ok {}",
-        "if not Guest { name: name }.ok {}",
-        "if module.Guest { name: name }.ok {}",
-        "if (Guest) { name: name }.ok {}",
-        "if Guest { /* comment */ name: name }.ok {}",
-        "if Guest {\n// comment\nname: name, other: P { n: 1 }\n}.ok {}",
-        "let value = if Guest { name: name }.ok {} else {}",
-        "ret if Guest { name: name }.ok {} else {}",
-        "sink(if Guest { name: name }.ok {})",
-        "if outer(if Guest { name: name }.ok {}) {}",
+        "if Guest { name = name }.isAllowed() {}",
+        "while Guest { name = name }.ok {}",
+        "for x in Guest { name = name }.items {}",
+        "for i in 0..Limit { n = 2 }.n {}",
+        "if ready and Guest { name = name }.ok {}",
+        "if not Guest { name = name }.ok {}",
+        "if module.Guest { name = name }.ok {}",
+        "if (Guest) { name = name }.ok {}",
+        "if Guest { /* comment */ name = name }.ok {}",
+        "if Guest {\n// comment\nname = name, other = P { n = 1 }\n}.ok {}",
+        "let value = if Guest { name = name }.ok {} else {}",
+        "ret if Guest { name = name }.ok {} else {}",
+        "sink(if Guest { name = name }.ok {})",
+        "if outer(if Guest { name = name }.ok {}) {}",
         // Parenthesized: one case, intentionally split across two literals.
         ("if test<Sym<:ok(Sym<:inner(int)>)>>(0) and "
-         "Guest { name: name }.ok {}")};
+         "Guest { name = name }.ok {}")};
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       char text[1024], crlf[2048];
       snprintf(text, sizeof(text),
@@ -1036,7 +1146,7 @@ int main(void) {
       }
     }
     Parsed *v =
-        parse(&arena, "main() {\nif Guest { name: name }.ok {}\nlet broken 1\n"
+        parse(&arena, "main() {\nif Guest { name = name }.ok {}\nlet broken 1\n"
                       "let kept = 1\n}\nafter() {}\n");
     ASSERT_EQ_INT(2, v->diagnostics.count);
     if (v->diagnostics.count == 2) {
@@ -1046,7 +1156,7 @@ int main(void) {
                      v->diagnostics.items[1]->message,
                      strlen(v->diagnostics.items[1]->message));
     }
-    v = parse(&arena, "main() {\nif Guest { name: @ }.ok {}\nlet kept = 1\n}");
+    v = parse(&arena, "main() {\nif Guest { name = @ }.ok {}\nlet kept = 1\n}");
     ASSERT_EQ_INT(2, v->diagnostics.count);
     if (v->diagnostics.count == 2) {
       ASSERT_EQ_STRN("Unexpected character.", v->diagnostics.items[0]->message,
@@ -1068,17 +1178,17 @@ int main(void) {
         "if ready { field }",
         "if ready { :tag }",
         "if ready { let field: int = 1\nfield }",
-        "if ready { Guest { name: name } }",
-        "if (Guest { name: name }).ok {}",
-        "while (Guest { name: name }).ok {}",
-        "for i in 0..(Limit { n: 2 }).n {}",
-        "if check(Guest { name: name }) {}",
-        "while check(Guest { name: name }) {}",
-        "for i in bounds(Limit { n: 2 }) {}",
-        "if items[Guest { name: name }] {}",
-        "while items[Guest { name: name }] {}",
-        "for x in items[Guest { name: name }] {}",
-        "if check<Sym<:ok(Sym<:inner(int)>)>>(Guest { name: name }) {}"};
+        "if ready { Guest { name = name } }",
+        "if (Guest { name = name }).ok {}",
+        "while (Guest { name = name }).ok {}",
+        "for i in 0..(Limit { n = 2 }).n {}",
+        "if check(Guest { name = name }) {}",
+        "while check(Guest { name = name }) {}",
+        "for i in bounds(Limit { n = 2 }) {}",
+        "if items[Guest { name = name }] {}",
+        "while items[Guest { name = name }] {}",
+        "for x in items[Guest { name = name }] {}",
+        "if check<Sym<:ok(Sym<:inner(int)>)>>(Guest { name = name }) {}"};
     for (size_t i = 0; i < sizeof(valid) / sizeof(valid[0]); i++) {
       char source[512];
       snprintf(source, sizeof(source), "main() { %s }", valid[i]);
@@ -1207,7 +1317,7 @@ int main(void) {
                                 "print(value)",
                                 "User.new(\"Bob\", 20)",
                                 "str(1)",
-                                "print(User { name: \"Bob\", age: 20 })",
+                                "print(User { name = \"Bob\", age = 20 })",
                                 "print(nested(1, (2)))",
                                 "value = 1",
                                 "value += 1",

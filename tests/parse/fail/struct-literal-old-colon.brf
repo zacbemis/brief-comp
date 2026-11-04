@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: Struct literal fields use name = value; annotations keep their colons.
+main() {
+  let point = Point { x: 1 }
+}

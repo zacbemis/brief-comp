@@ -26,7 +26,7 @@ impl User {
     if age < MIN_AGE or age > MAX_AGE {
       ret :invalidAge(age)
     }
-    User { name: name, age: age, tier: :tier1 }
+    User { name = name, age = age, tier = :tier1 }
   }
 
   pub getName(user: User) -> str {
@@ -60,7 +60,7 @@ impl User {
 
 impl Admin {
   pub new(name: str, age: int) -> Sym<:ok(Admin), Error> {
-    Admin { user: User.new(name, age)?, level: 1 }
+    Admin { user = User.new(name, age)?, level = 1 }
   }
 }
 

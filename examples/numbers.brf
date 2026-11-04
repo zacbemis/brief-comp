@@ -85,7 +85,7 @@ impl Fraction {
     let sign: lng = if bottom < 0 { -1 } else { 1 }
     let g = gcd(top, bottom)
     let common = if g == 0 { 1 } else { g }
-    Self { top: sign * top / common, bottom: sign * bottom / common }
+    Self { top = sign * top / common, bottom = sign * bottom / common }
   }
 
   plus(a: Self, b: Self) -> Self {

@@ -8,7 +8,7 @@ value(a: A) {
   x.n++ // error: Cannot mutate through an ordinary parameter; use &.
 }
 join(a: A, flag: bool) {
-  var x = A { n: 0 }
+  var x = A { n = 0 }
   flag |> { true => x = a
     false => () }
   x.n++ // error: Cannot mutate through an ordinary parameter; use &.
@@ -17,7 +17,7 @@ borrow(a: A) {
   a |> mut() // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
 backedge(a: A, flag: bool) {
-  var x = A { n: 0 }
+  var x = A { n = 0 }
   while flag {
     mut(x) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
     flag |> { true => { x = a

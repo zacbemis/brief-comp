@@ -2,7 +2,7 @@ Child { name: str }
 Parent { child: Child }
 store(parent: &Parent, child: &Child) { parent.child = child }
 replace(child: Child, parent: &Parent) {
-  parent.child = Child { name: "replacement" + "!" }
+  parent.child = Child { name = "replacement" + "!" }
   print(child.name)
 }
 replaceString(name: str, child: &Child) {
@@ -10,7 +10,7 @@ replaceString(name: str, child: &Child) {
   print(name)
 }
 replaceLater(parent: &Parent) -> Parent {
-  parent.child = Child { name: "later" + " argument" }
+  parent.child = Child { name = "later" + " argument" }
   parent
 }
 compound(child: &Child) -> str {
@@ -18,7 +18,7 @@ compound(child: &Child) -> str {
   "!"
 }
 main() {
-  let parent = Parent { child: Child { name: "original" + " child" } }
+  let parent = Parent { child = Child { name = "original" + " child" } }
   replace(parent.child, parent) // expect: original child
   print(parent.child.name) // expect: replacement!
   replaceString(parent.child.name, parent.child) // expect: replacement!
@@ -30,11 +30,11 @@ main() {
   var current = parent.child
   let old = current
   current.name = if true {
-    current = Child { name: "different" + " object" }
+    current = Child { name = "different" + " object" }
     "target" + " captured"
   } else { "unreachable" }
   print(old.name) // expect: target captured
   print(current.name) // expect: different object
-  store(parent, Child { name: "stored" + " borrowed argument" })
+  store(parent, Child { name = "stored" + " borrowed argument" })
   print(parent.child.name) // expect: stored borrowed argument
 }

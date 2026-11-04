@@ -15,7 +15,7 @@ main() {
   show(:text("heap" + " text")) // expect: heap text
   show(:number(type(4))) // expect: 5
   show(:done) // expect: done
-  let box = Box { type: 7 }
+  let box = Box { type = 7 }
   print(str(box.type)) // expect: 7
   let type = 9
   print(str(type)) // expect: 9

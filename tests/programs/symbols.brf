@@ -40,7 +40,7 @@ nested(b: bool) -> Sym<:outer(Inner)> {
 }
 main() -> () {
   for i in 0..3 { choose(i) |> describe() |> print() }
-  let account = Account { tier: :gold }
+  let account = Account { tier = :gold }
   account.tier = :bronze
   let extended: Extended = account.tier
   extended |> { Tier => ()
@@ -50,9 +50,9 @@ main() -> () {
   print(str(:a == :a))
   print(str(:a == :b))
   print(str(:text("ab") == :text("a" + "b")))
-  print(str(:object(Payload { value: 1 }) == :object(Payload { value: 2 })))
-  let a = Container { value: :object(Payload { value: 1 }) }
-  let b = Container { value: :object(Payload { value: 1 }) }
+  print(str(:object(Payload { value = 1 }) == :object(Payload { value = 2 })))
+  let a = Container { value = :object(Payload { value = 1 }) }
+  let b = Container { value = :object(Payload { value = 1 }) }
   print(str(a == b))
   let nan = 0.0 / 0.0
   let x = :number(nan)

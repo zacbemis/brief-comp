@@ -2,7 +2,7 @@ P { x: int }
 Choice = Sym<:some(P), :none>
 Holder { value: Choice }
 get(s: Choice) { s |> { :some(p) => p
-  :none => P { x: 0 } } }
+  :none => P { x = 0 } } }
 wrap(p: P) { :some(p) }
 write(s: &Choice) {}
 ordinary(s: Choice) {

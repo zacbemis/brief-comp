@@ -29,8 +29,8 @@ escape(s: Choice) {
   }
 }
 main() -> () {
-  let h = Holder { value: :empty }
-  let node = Node { name: "ke" + "pt" }
+  let h = Holder { value = :empty }
+  let node = Node { name = "ke" + "pt" }
   set(h, wrap(node))
   get(h.value) |> print()
   h.value = :text("o" + "ld")
@@ -41,7 +41,7 @@ main() -> () {
   for i in 0..1000 {
     var value: Choice = :empty
     if i % 2 == 0 {
-      value = :node(Node { name: "a" + "b" })
+      value = :node(Node { name = "a" + "b" })
     } else { value = :text("a" + "b") }
     value |> {
       :node(n) => { total += 1
@@ -65,11 +65,11 @@ main() -> () {
   let nested = :a(:b("nest" + "ed"))
   nested |> { :a(inner) => inner |> { :b(text) => print(text) } }
   // Borrowed symbol parameters grant mutable payload access only with &.
-  let object = Counter { count: 0 }
+  let object = Counter { count = 0 }
   bump(:counter(object))
   print(str(object.count))
   // Ordinary immutable-only symbols may be retained and passed to & parameters.
-  let atoms = AtomHolder { value: :number(0) }
+  let atoms = AtomHolder { value = :number(0) }
   copyImmutable(atoms, :text("copied" + " text"))
   atoms.value |> {
     :text(text) => print(text)

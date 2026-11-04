@@ -9,8 +9,9 @@ one run.
 ## `pass/`
 
 Every file must parse with no diagnostics: `brief dump-ast` exits with status 0
-and prints a tree. Files use N1's `not`, `dbl`, `->` returns and keyword-free
-aliases; other declaration/type structure awaits the full grammar conversion.
+and prints a tree. Files use N1's `not`, `dbl`, `->` returns, keyword-free
+aliases and `=` literal fields; other declaration/type structure awaits
+conversion.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
@@ -23,8 +24,10 @@ aliases; other declaration/type structure awaits the full grammar conversion.
 
 ## `fail/`
 
-There are 83 rejection fixtures, including `old-return-colon.brf`,
-`old-alias-keyword.brf` and `pub-alias.brf`. The converted
+There are 84 rejection fixtures, including `old-return-colon.brf`,
+`old-alias-keyword.brf`, `pub-alias.brf` and `struct-literal-old-colon.brf`.
+`struct-literal-missing-equals.brf` retains the old missing-delimiter rule under
+its new spelling/name. The converted
 function headers retain each existing fixture's original error rule and line.
 
 Every file must be rejected: `brief dump-ast` exits with status 1 and prints no

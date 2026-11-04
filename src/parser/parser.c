@@ -68,6 +68,26 @@ static int match(Parser *p, TokenType type) {
 static int blank(char c) {
   return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 }
+// Preserve existing trivia, adding only missing separation around punctuation.
+static void separator_fix(Parser *p, Diagnostic *d, Token token,
+                          const char *replacement) {
+  if (!d || !token.span.file)
+    return;
+  const SourceFile *file = token.span.file;
+  size_t start = token.span.start, end = token.span.end;
+  int before = start && !blank(file->text[start - 1]);
+  int after = end < file->length && !blank(file->text[end]);
+  size_t length = strlen(replacement), at = 0;
+  char *text = arena_alloc(p->arena, length + 3);
+  if (before)
+    text[at++] = ' ';
+  memcpy(text + at, replacement, length);
+  at += length;
+  if (after)
+    text[at++] = ' ';
+  text[at] = 0;
+  diagnostic_fix(p->diagnostics, d, token.span, text);
+}
 static Diagnostic *error_at(Parser *p, Span span, const char *message) {
   p->errors++;
   return p->probing ? NULL : diagnostics_error(p->diagnostics, span, message);
@@ -836,19 +856,10 @@ static Decl *declaration(Parser *p, int in_impl) {
     d->as.function.return_type = type(p);
     if (!d->as.function.return_type)
       return NULL;
-    if (separator.type == TOK_COLON) {
-      Diagnostic *error =
-          error_at(p, separator.span, "Return types follow '->', not ':'.");
-      if (error) {
-        const SourceFile *file = separator.span.file;
-        size_t start = separator.span.start, end = separator.span.end;
-        int before = start && !blank(file->text[start - 1]);
-        int after = end < file->length && !blank(file->text[end]);
-        const char *replacement =
-            before ? (after ? " -> " : " ->") : (after ? "-> " : "->");
-        diagnostic_fix(p->diagnostics, error, separator.span, replacement);
-      }
-    }
+    if (separator.type == TOK_COLON)
+      separator_fix(
+          p, error_at(p, separator.span, "Return types follow '->', not ':'."),
+          separator, "->");
   }
   d->as.function.params = params.data;
   d->as.function.count = params.count;
@@ -894,11 +905,18 @@ static Expr *struct_literal(Parser *p, Expr *head) {
     if (!expect_identifier(p, "Expected a struct literal's field name."))
       return NULL;
     field.name = name(p, p->previous);
-    if (!expect(p, TOK_COLON, "Expected ':' after field name."))
+    Token delimiter = peek(p);
+    if (!match(p, TOK_COLON) &&
+        !expect(p, TOK_EQUAL, "Expected '=' after field name."))
       return NULL;
     field.value = expression(p, 0, 1);
     if (!field.value)
       return NULL;
+    if (delimiter.type == TOK_COLON)
+      separator_fix(p,
+                    error_at(p, delimiter.span,
+                             "Struct literal fields use '=', not ':'."),
+                    delimiter, "=");
     field.span = through(field.span, field.value->span);
     PUSH(p, fields, field);
     if (match(p, TOK_COMMA)) {
@@ -1335,6 +1353,36 @@ static int update(TokenType t) {
 }
 static const char update_message[] =
     "Increment and decrement are only allowed as standalone statements.";
+// Colons cannot start block assignments. Equals can: only offer the header
+// hint when a member suffix or second body follows the matching brace. Never
+// reinterpret an ordinary `if flag { field = value }` body as a literal.
+static int header_literal(Parser *p) {
+  size_t field = p->position + 1;
+  while (field < p->tokens.count && p->tokens.items[field].type == TOK_NEWLINE)
+    field++;
+  if (field + 1 >= p->tokens.count ||
+      !token_is_identifier(p->tokens.items[field].type))
+    return 0;
+  TokenType separator = p->tokens.items[field + 1].type;
+  if (separator == TOK_COLON)
+    return 1; // Primary advice for an unwrapped old-style header literal.
+  if (separator != TOK_EQUAL)
+    return 0;
+  size_t braces = 1;
+  for (size_t i = p->position + 1; i < p->tokens.count; i++) {
+    TokenType t = p->tokens.items[i].type;
+    if (t == TOK_EOF)
+      break;
+    if (t == TOK_LBRACE)
+      braces++;
+    else if (t == TOK_RBRACE && !--braces) {
+      TokenType next =
+          i + 1 < p->tokens.count ? p->tokens.items[i + 1].type : TOK_EOF;
+      return next == TOK_PERIOD || next == TOK_LBRACE;
+    }
+  }
+  return 0;
+}
 static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
   Expr *left = primary(p, allow_struct);
   if (!left)
@@ -1389,16 +1437,7 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
             return NULL;
           continue;
         }
-        // A named field cannot start an ordinary block item. Only diagnose
-        // that unmistakable literal shape; empty blocks and normal bodies
-        // must retain the existing condition/body ambiguity rule.
-        size_t field = p->position + 1;
-        while (field < p->tokens.count &&
-               p->tokens.items[field].type == TOK_NEWLINE)
-          field++;
-        if (field + 1 < p->tokens.count &&
-            token_is_identifier(p->tokens.items[field].type) &&
-            p->tokens.items[field + 1].type == TOK_COLON) {
+        if (header_literal(p)) {
           error(p, "Wrap struct literals in conditions or iterables in "
                    "parentheses.");
           return NULL;

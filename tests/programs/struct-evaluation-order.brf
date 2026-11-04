@@ -7,7 +7,7 @@ mark(label: str) -> str { print(label)
 label + "!" }
 unit() -> () { print("unit") }
 main() {
-  let pair = Pair { b: mark("b"), ignored: unit(), a: mark("a") }
+  let pair = Pair { b = mark("b"), ignored = unit(), a = mark("a") }
   // expect: b
   // expect: unit
   // expect: a

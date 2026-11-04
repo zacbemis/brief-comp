@@ -43,8 +43,8 @@ int main(void) {
   TEST("innermost braces restore arm and field separators") {
     check(&arena, "f(\nx |> {\n:ok(x) => x\n:none => 0\n}\n)\n",
           "f(x |> {\n:ok(x) => x\n:none => 0\n})\n");
-    check(&arena, "f(User {\nx: (\n1 +\n2\n)\ny: 3\n})\n",
-          "f(User {\nx: (1 + 2)\ny: 3\n})\n");
+    check(&arena, "f(User {\nx = (\n1 +\n2\n)\ny = 3\n})\n",
+          "f(User {\nx = (1 + 2)\ny = 3\n})\n");
   }
   TEST("continuation tokens and lines cross blank lines and comments") {
     check(&arena, "let x =\n\na +\n b\n\n|> f()\n .g()\n",
@@ -71,8 +71,8 @@ int main(void) {
     check(&arena, "!\n!\nflag\nx!\n!\nflag", "!!flag\nx!\n!flag");
     check(&arena, "let first = :a < :b\nlet next = x >\n 0\n",
           "let first = :a < :b\nlet next = x > 0\n");
-    check(&arena, "User { flag: a < b and c >\n d }\n",
-          "User { flag: a < b and c > d }\n");
+    check(&arena, "User { flag = a < b and c >\n d }\n",
+          "User { flag = a < b and c > d }\n");
   }
   TEST("documented continuation keywords do not end statements") {
     const char *keywords[] = {"let",  "var", "const", "impl",  "pub", "if",

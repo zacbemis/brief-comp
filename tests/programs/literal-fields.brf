@@ -1,0 +1,40 @@
+Counter { calls: int }
+Pair { first: int
+  second: int }
+Box { pair: Pair
+  label: str }
+Flag { ready: bool }
+read(counter: &Counter, value: int) -> int {
+  counter.calls++
+  print(str(value))
+  value
+}
+main() {
+  let counter = Counter { calls = 0 }
+  let box = Box {
+    pair = Pair { first = read(counter, 1), second = read(counter, 2) },
+    label = "heap" + " label"
+  }
+  // Initializer effects run first, then their stored values are observed.
+  print(str(box.pair.first + box.pair.second))
+  print(box.label)
+  print(str(counter.calls))
+  var count = 0
+  let ready = true
+  if ready { count = 1 } else { count = 2 }
+  var running = true
+  while running { count = count + 1
+    running = count < 3 }
+  for i in 0..2 { count = count + i }
+  if (Flag { ready = count == 4 }).ready { print("ready") }
+  print(str(count))
+  print("Pair { first: 1 }")
+}
+// expect: 1
+// expect: 2
+// expect: 3
+// expect: heap label
+// expect: 2
+// expect: ready
+// expect: 4
+// expect: Pair { first: 1 }

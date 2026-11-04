@@ -3,10 +3,10 @@ Empty {}
 save(value: Num, label: str) {}
 main() -> () {
   Num {} // error: Missing struct field initializer.
-  Num { n: true } // error: Struct field initializer has the wrong type.
-  Num { n: 0, n: 1 } // error: Duplicate struct field initializer.
-  Empty { unknown: () } // error: Unknown struct field.
-  let value = Num { n: 0 }
+  Num { n = true } // error: Struct field initializer has the wrong type.
+  Num { n = 0, n = 1 } // error: Duplicate struct field initializer.
+  Empty { unknown = () } // error: Unknown struct field.
+  let value = Num { n = 0 }
   value.missing // error: Unknown struct field.
   value.n = true // error: Assignment value has the wrong type.
   value.n += false // error: Assignment value has the wrong type.

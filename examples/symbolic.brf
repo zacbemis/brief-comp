@@ -19,12 +19,12 @@ Unary { value: Expr }
 
 num(v: dbl) -> Expr { :num(v) }
 x() -> Expr { :x }
-add(a: Expr, b: Expr) -> Expr { :add(Pair { left: a, right: b }) }
-sub(a: Expr, b: Expr) -> Expr { :sub(Pair { left: a, right: b }) }
-mul(a: Expr, b: Expr) -> Expr { :mul(Pair { left: a, right: b }) }
-div(a: Expr, b: Expr) -> Expr { :div(Pair { left: a, right: b }) }
-pow(a: Expr, n: int) -> Expr { :pow(Power { base: a, exponent: n }) }
-neg(a: Expr) -> Expr { :neg(Unary { value: a }) }
+add(a: Expr, b: Expr) -> Expr { :add(Pair { left = a, right = b }) }
+sub(a: Expr, b: Expr) -> Expr { :sub(Pair { left = a, right = b }) }
+mul(a: Expr, b: Expr) -> Expr { :mul(Pair { left = a, right = b }) }
+div(a: Expr, b: Expr) -> Expr { :div(Pair { left = a, right = b }) }
+pow(a: Expr, n: int) -> Expr { :pow(Power { base = a, exponent = n }) }
+neg(a: Expr) -> Expr { :neg(Unary { value = a }) }
 
 // ---- Printing -----------------------------------------------------------
 

@@ -19,14 +19,14 @@ choose(s: str) { s |> {
   other => other + "!"
 } }
 parse(s: str) {
-  let scratch = Node { text: "scratch" + " space" }
+  let scratch = Node { text = "scratch" + " space" }
   s |> {
     "none" => ret :none
     other => int(other)?
   }
 }
 main() {
-  let h = Holder { text: "be" + "fore" }
+  let h = Holder { text = "be" + "fore" }
   print(snapshot(h))
   print(h.text)
   print(choose("r" + "et"))

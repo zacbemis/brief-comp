@@ -7,7 +7,7 @@ main() {
   let single: flt = 0.25
   single |> dbl() |> str() |> print() // expect: 0.25
   "1e+2" |> dbl()! |> str() |> print() // expect: 100
-  let box = Box { value: dbl("-0")! }
+  let box = Box { value = dbl("-0")! }
   print(str(box.value)) // expect: -0
   let nan = dbl("nan")!
   print(str(nan != nan)) // expect: true

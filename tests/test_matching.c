@@ -370,7 +370,7 @@ int main(void) {
         "A { n: int }\nf(a: A) { let x = a |> { x => x }\nx.n++ }\nmain() {}",
         "Cannot mutate through");
     invalid(&a,
-            "A { n: int }\nf(a: A, b: bool) { var x = A { n: 0 }\nb |> { true "
+            "A { n: int }\nf(a: A, b: bool) { var x = A { n = 0 }\nb |> { true "
             "=> x = a\nfalse => () }\nx.n++ }\nmain() {}",
             "Cannot mutate through");
     invalid(
@@ -378,13 +378,13 @@ int main(void) {
         "A {}\nQ { p: A }\nf(a: A, q: &Q) { a |> { x => q.p = x } }\nmain() {}",
         "cannot be stored in a field");
     valid(&a,
-          "A { n: int }\nf(a: A, b: bool) { var x = A { n: 0 }\n"
+          "A { n: int }\nf(a: A, b: bool) { var x = A { n = 0 }\n"
           "b |> { true => { x = a\nret }\nfalse => () }\nx.n++ }\nmain() {}");
     invalid(&a, "A {}\nmut(a: &A) {}\nf(a: A) { a |> mut() }\nmain() {}",
             "read-only value cannot be passed");
     valid(&a, "A { n: int }\nf(a: &A) { a |> { x => x.n++ } }\nmain() {}");
     valid(&a, "A { n: int }\nf(a: A, b: bool) { var x = a\nb |> { true => x = "
-              "A { n: 1 }\nfalse => x = A { n: 2 } }\nx.n++ }\nmain() {}");
+              "A { n = 1 }\nfalse => x = A { n = 2 } }\nx.n++ }\nmain() {}");
   }
   arena_destroy(&a);
   RUN_TESTS();

@@ -2,7 +2,7 @@ Box { n: int }
 impl Box {
   value(box: Self) { box.n }
   add(box: &Self, n: int) { box.n += n }
-  make(n: int) -> Self { Self { n: n } }
+  make(n: int) -> Self { Self { n = n } }
   small(box: Self, n: flt) -> flt { n }
 }
 value(box: Box) { -1 }
@@ -17,9 +17,9 @@ argument() -> int { print("argument")
   3 }
 main() {
   print(str(1 + 2 |> double() |> plus(4))) // expect: 10
-  print(str(Box { n: 8 } |> value())) // expect: 8
+  print(str(Box { n = 8 } |> value())) // expect: 8
   print(str(7 |> Box.make() |> value())) // expect: 7
-  let box = Box { n: 1 }
+  let box = Box { n = 1 }
   box |> add(2)
   print(str(box.n)) // expect: 3
   print(str(4294967296 |> wide())) // expect: 4294967296

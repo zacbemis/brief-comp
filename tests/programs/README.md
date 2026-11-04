@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **94 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **96 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -297,8 +297,16 @@ N1's alias slice uses `Name = type`, removes `type` keyword status and rejects
 `pub` on aliases. `aliases.brf` observes composition, forward aliases, payloads,
 ordinary names spelled `type` and unchanged literal text. `errors/old-aliases.brf`
 checks modifier-removal previews while preserving comments. Existing aliases,
-including old public aliases, retain their runtime behavior. There are now 94
-fixtures. Other declaration/type structure and receiver/general casing rules
+including old public aliases, retain their runtime behavior. That checkpoint
+brought the inventory to 94 fixtures.
+
+N1's literal-field slice converts initializers to `name = value`, leaving field,
+parameter and binding annotations unchanged. `literal-fields.brf` observes nested
+initialization, side-effect order, owned strings, field reads and assignment-only
+control bodies; literal text with old-looking colons stays unchanged.
+`errors/old-literal-colons.brf` checks four exact fixes with comments/continuation.
+Existing initialization/ownership observations are unchanged. The inventory is
+now 96 files. Other declaration/type structure and receiver/general casing rules
 remain pending.
 
 These are compilation/execution tests for the current subset, not the much

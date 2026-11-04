@@ -177,14 +177,14 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (94 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns and keyword-free aliases; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/programs/` (96 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases and `=` literal fields; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
 | `tests/parse/pass/` (26) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
-| `tests/parse/fail/` (83) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
+| `tests/parse/fail/` (84) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
 | CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
 | Document acceptance (13 v0 audits, now retired) | Scripts, bridges and registrations deleted in N1; records retained as historical evidence | Each new document's audit is written in the milestone that implements its rules (see "Milestones"), so document coverage returns chapter by chapter instead of all at the end. |
-| `test_doc_parser` | Reads 13 current chapters: 239 fences, 97 parser checks, 142 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
+| `test_doc_parser` | Reads 13 current chapters: 239 fences, 98 parser checks, 141 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
 | `examples/*.brf` | Not run in CI | Converted in N1, and added to the program runner with their output as expectations, so the examples cannot rot again. |
 
 ### New test forms
@@ -215,11 +215,11 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 
 ## Implementation progress
 
-N0 is complete. N1's identifier-token split, `not`, `dbl`, `->` returns and
-keyword-free aliases are implemented. The v0 scripts/bridges are retired and the
-current-document parser inventory is active. Other declaration/type structure,
-remaining keywords, receiver/general casing rules, source conversion and the
-replacement native chapter audits remain pending.
+N0 is complete. N1's identifier tokens, `not`, `dbl`, `->` returns, keyword-free
+aliases and `=` struct literal fields are implemented. The v0 scripts/bridges
+are retired and the current-document parser inventory is active. Other
+declaration/type structure, remaining keywords, receiver/general casing rules,
+source conversion and the replacement native chapter audits remain pending.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -333,6 +333,7 @@ first-version syntax audit's two logical-operator cases carry markers.
 - [x] `dbl` type/converter spelling, old `dub` rejection/fixes and source conversion.
 - [x] `->` return annotations, old `:` rejection/fixes and affected source conversion.
 - [x] Keyword-free uppercase aliases, `type` as an ordinary name, modifier rejection/fixes.
+- [x] `=` struct literal fields, old-colon rejection/fixes and source conversion.
 - [x] Retire all v0 document scripts/bridges and inventory the current documents.
 - [ ] Remaining keyword/declaration/type/expression grammar changes, contextual
   casing checks/fixes, struct methods and receiver inference.
@@ -572,6 +573,59 @@ intentionally retired generated v0 cases: all statuses, diagnostic messages/orde
 and error lines match; all 74 previous successes emit byte-identical C. Four
 rejection renderings change only source views/columns/fix previews. All six
 examples retain identical sanitized stdout/stderr/status. N1 is incomplete.
+
+### N1 (in progress): struct literal fields use `=`
+
+Struct literals now initialize fields as `name = value`. Field declarations,
+parameters and binding annotations keep `:`. The existing `EXPR_STRUCT_LIT`,
+field order, checking, permissions, lowering, RC and C/runtime code are unchanged.
+An old literal colon reports `Struct literal fields use '=', not ':'.` with a
+one-byte replacement span and layout-preserving spacing. The punctuation-fix
+helper is shared with return arrows, whose existing previews stay unchanged.
+If a field value cannot parse, its primary expression error is retained without
+a speculative delimiter fix. Recovery does not accept the old grammar silently;
+CLI emission and semantic lowering are blocked by diagnostics.
+
+The control-header hint needs special care: `if flag { field = value }` is an
+ordinary assignment body, not an unmistakable literal. For an equals-shaped
+header, the parser checks the matching brace for a member suffix or second body
+before offering the existing parentheses advice. Empty/ordinary blocks and
+`else` branches keep their interpretation, without guessing roles from casing.
+Unwrapped old-colon headers retain their primary parentheses advice. Tests cover
+nested braces, comments, LF/CRLF, qualified heads, grouping/call/index escapes,
+ordinary assignment-only bodies and object-valued conditional expressions.
+
+Affected examples, native/parser fixtures and Brief in C tests were converted
+using the compiler's field diagnostics and reviewed literal shapes. Declarations,
+symbol colons and literal text are not rewritten. All 300 literal initializers
+in the wide stress fixture use equals, while its 300 declared fields keep colons.
+The missing-delimiter rejection is renamed from `struct-literal-missing-colon`
+to `struct-literal-missing-equals`; its rule/error line is retained. Existing
+fix-preview markers quote the converted syntax. A new old-colon parser fixture
+and `errors/old-literal-colons.brf` check rejection/exact previews. The native
+`literal-fields.brf` observes nested/owned initializers, side-effect order,
+field reads, scalar control-body assignments and unchanged colon-looking text.
+There are 96 native fixtures and 84 parse-fail files.
+
+Parser tests apply all fixes, compare recovered/reparsed ASTs, check exact
+spans/spacing and token immutability, and retain later declarations after errors.
+CLI/semantic tests require rejection with no AST/C output or lowering. The current
+module chapter's literal fence moves from a listing to a parser check: 95 parses
+and three intentional syntax rejections now run, with 141 listed fences (56
+pending N1/N4/N5, 73 later-feature cases, 12 fragments), plus two unfenced listings.
+The mixed array/header example stays listed. No native chapter audit is claimed
+complete, and the v0 audits/bridges stay retired.
+
+Validation: four `-Werror` configurations pass, GCC and Clang Debug ASan/UBSan
+and GCC Release (25/25 each), GCC Debug without sanitizers (24/24).
+clang-format 23.1.3 and `git diff --check` pass. Across 227 retained sources,
+statuses, successful AST dumps and error lines match the baseline; all 76 old
+successes emit byte-identical C. Diagnostic messages/order are unchanged except
+for the quoted missing-field delimiter; twelve rejection renderings differ in
+source/columns/fix previews (including the renamed fixture). All six examples
+retain identical sanitized stdout/stderr/status. No backend/outcome rule changed.
+N1 remains incomplete: struct methods/receivers, other declaration/type grammar,
+general casing and replacement native chapter audits are still pending.
 
 ## Risks
 

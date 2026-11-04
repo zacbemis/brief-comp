@@ -146,6 +146,13 @@ int main(void) {
     }
     invalid(&a, "main() { let dbl = 1 }", "Expected a binding name.");
   }
+  TEST("old literal field colons cannot reach lowering") {
+    Result r = check(&a, "P { x: int }\nmain() { let p = P { x: 1 } }");
+    ASSERT_EQ_INT(1, r.errors.count);
+    ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+    ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+    valid(&a, "P { x: int }\nmain() { let p = P { x = 1 } }");
+  }
   TEST("legacy alias modifiers cannot reach lowering") {
     const char *sources[] = {"type A = Sym<:a>\nmain() {}",
                              "pub A = Sym<:a>\nmain() {}"};
@@ -380,7 +387,7 @@ int main(void) {
         "main() { let x: Bogus = 5000000000 }",
         "main() { let x: Bogus = -5000000000 }",
         "f(x: Bogus) {}\nmain() { f(5000000000) }",
-        "P { v: Bogus }\nmain() { let p = P { v: 99999999999 } }",
+        "P { v: Bogus }\nmain() { let p = P { v = 99999999999 } }",
         huge_real};
     for (size_t i = 0; i < sizeof(unknown_contexts) / sizeof(*unknown_contexts);
          i++) {

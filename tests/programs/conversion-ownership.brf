@@ -5,9 +5,9 @@ Node { text: str }
 Holder { text: str }
 parse(h: Holder) -> Sym<:ok(int), _> { int(h.text)? }
 wrap(h: Holder) {
-  let scratch = Node { text: "scratch" + " space" }
+  let scratch = Node { text = "scratch" + " space" }
   let count = parse(h)?
-  Node { text: str(count) }
+  Node { text = str(count) }
 }
 replace(h: &Holder) { h.text = "changed" }
 first(value: Sym<:ok(int), :invalid(str)>, ignored: ()) { value |> {
@@ -17,7 +17,7 @@ first(value: Sym<:ok(int), :invalid(str)>, ignored: ()) { value |> {
 main() {
   var total = 0
   for i in 0..1000 {
-    let h = Holder { text: if i % 2 == 0 { "bad" + str(i) } else { "1" + "2" } }
+    let h = Holder { text = if i % 2 == 0 { "bad" + str(i) } else { "1" + "2" } }
     wrap(h) |> {
       :ok(node) => { total += 1
         if i % 4 == 1 { continue } }
@@ -28,7 +28,7 @@ main() {
     }
   }
   print(str(total))
-  let h = Holder { text: "be" + "fore" }
+  let h = Holder { text = "be" + "fore" }
   int(h.text) |> { rest => rest |> first(replace(h)) |> print() }
   print(h.text)
 }

@@ -59,10 +59,10 @@ impl Account {
   record(account: &Self, label: str, amount: lng) {
     account.balance += amount
     account.history = :more(Entry {
-      label: label
-      amount: amount
-      balance: account.balance
-      older: account.history
+      label = label
+      amount = amount
+      balance = account.balance
+      older = account.history
     })
   }
 
@@ -79,26 +79,26 @@ impl Account {
     if amount <= 0 { ret :badAmount(amount) }
     if account.frozen { ret :frozen(account.id) }
     if amount > account.balance {
-      ret :insufficient(Shortfall { id: account.id, needed: amount - account.balance })
+      ret :insufficient(Shortfall { id = account.id, needed = amount - account.balance })
     }
     account.record(label, -amount)
   }
 }
 
 impl Bank {
-  new(name: str) -> Self { Self { name: name, accounts: :none, nextId: 100 } }
+  new(name: str) -> Self { Self { name = name, accounts = :none, nextId = 100 } }
 
   open(bank: &Self, owner: str, kind: Kind) -> Account {
     let account = Account {
-      id: bank.nextId
-      owner: owner
-      kind: kind
-      balance: 0
-      frozen: false
-      history: :none
+      id = bank.nextId
+      owner = owner
+      kind = kind
+      balance = 0
+      frozen = false
+      history = :none
     }
     bank.nextId++
-    bank.accounts = :more(Node { account: account, next: bank.accounts })
+    bank.accounts = :more(Node { account = account, next = bank.accounts })
     account
   }
 

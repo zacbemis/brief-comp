@@ -24,7 +24,7 @@ impl User {
     if age < 0 {
       ret :invalidAge(age)
     }
-    User { name: name, age: age, tier: :bronze }
+    User { name = name, age = age, tier = :bronze }
   }
 
   pub getName(user: User) -> str {

@@ -10,14 +10,14 @@ throughAlias(holder: &Q, q: Q) {
   holder.p = inner // error: A read-only value cannot be stored in a field; take the parameter it comes from as &.
 }
 localHolder(q: Q) {
-  var holder = Q { p: P { name: "fresh" } }
+  var holder = Q { p = P { name = "fresh" } }
   holder.p = q.p // error: A read-only value cannot be stored in a field; take the parameter it comes from as &.
 }
 throughCall(holder: &Q, q: Q) {
   holder.p = same(q.p) // error: A read-only value cannot be stored in a field; take the parameter it comes from as &.
 }
 throughLiteral(holder: &W, q: Q) {
-  holder.q = Q { p: q.p } // error: A read-only value cannot be stored in a field; take the parameter it comes from as &.
+  holder.q = Q { p = q.p } // error: A read-only value cannot be stored in a field; take the parameter it comes from as &.
 }
 readOnlyHolder(q: Q, p: P) {
   q.p = p // error: Cannot mutate through an ordinary parameter; use &.

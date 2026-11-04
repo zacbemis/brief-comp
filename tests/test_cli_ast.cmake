@@ -128,9 +128,9 @@ set(code "main() {\r\n")
 set(expected "")
 set(line_number 2)
 foreach(line IN ITEMS
-        "  if Guest { name: name }.isAllowed() {}"
-        "  while Guest { name: name }.ok {}"
-        "  for i in 0..Limit { n: 2 }.n {}")
+        "  if Guest { name = name }.isAllowed() {}"
+        "  while Guest { name = name }.ok {}"
+        "  for i in 0..Limit { n = 2 }.n {}")
     string(APPEND code "${line}\r\n")
     string(FIND "${line}" "{" brace)
     math(EXPR column "${brace} + 1")

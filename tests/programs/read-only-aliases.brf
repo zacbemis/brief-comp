@@ -1,22 +1,22 @@
 P { name: str }
 Q { p: P }
-make(name: str) -> P { P { name: name } }
+make(name: str) -> P { P { name = name } }
 same(p: P) -> P { p }
 text(p: P) -> str { p.name }
 // A Report holds only a str, so it cannot contain the read-only P it reads.
 Report { name: str }
-impl Report { new(p: P) -> Self { Self { name: p.name } } }
+impl Report { new(p: P) -> Self { Self { name = p.name } } }
 read(q: Q, flag: bool) {
   let inner = q.p
   print(inner.name)
   var replaced = inner
-  replaced = P { name: "fresh" }
+  replaced = P { name = "fresh" }
   replaced.name += "!"
   print(replaced.name)
   if flag { replaced = make("left") } else { replaced = make("right") }
   replaced.name += "!"
   print(replaced.name)
-  while true { replaced = P { name: "loop" }
+  while true { replaced = P { name = "loop" }
     break }
   replaced.name += "!"
   print(replaced.name)
@@ -29,7 +29,7 @@ read(q: Q, flag: bool) {
   let called = same(make(inner.name))
   called.name += " call"
   print(called.name)
-  let wrapper = Q { p: P { name: text(q.p) } }
+  let wrapper = Q { p = P { name = text(q.p) } }
   wrapper.p.name += " literal"
   print(wrapper.p.name)
   let report = Report.new(q.p)
@@ -38,11 +38,11 @@ read(q: Q, flag: bool) {
 }
 change(q: &Q) {
   let inner = same(q.p)
-  let wrapper = Q { p: inner }
+  let wrapper = Q { p = inner }
   wrapper.p.name = "allowed through &"
 }
 main() {
-  let q = Q { p: P { name: "original" } }
+  let q = Q { p = P { name = "original" } }
   read(q, true)
   // expect: original
   // expect: fresh!

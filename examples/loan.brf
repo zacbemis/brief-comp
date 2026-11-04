@@ -78,7 +78,7 @@ impl Loan {
     if principal <= 0 { ret :badPrincipal(principal) }
     if rateBps < 0 or rateBps > 5000 { ret :badRate(rateBps) }
     if years < 1 or years > 50 { ret :badTerm(years) }
-    Self { principal: principal, rateBps: rateBps, months: years * 12 }
+    Self { principal = principal, rateBps = rateBps, months = years * 12 }
   }
 
   // Simulates paying `payment` (plus `extra`) every month. Returns the months
@@ -93,7 +93,7 @@ impl Loan {
       balance += due
       balance -= payment + extra
       if balance <= 0 {
-        ret :ok(Summary { payment: payment, months: month, interest: paid })
+        ret :ok(Summary { payment = payment, months = month, interest = paid })
       }
     }
     :unpaid(balance)
@@ -116,7 +116,7 @@ impl Loan {
     let payment = loan.payment()
     loan.simulate(payment, extra) |> {
       :ok(result) => result
-      :unpaid(_) => Summary { payment: payment, months: loan.months, interest: 0 }
+      :unpaid(_) => Summary { payment = payment, months = loan.months, interest = 0 }
     }
   }
 

@@ -65,7 +65,7 @@ Cell {
 }
 
 cells(a: int, b: int, c: int) -> Sym<:none, :col(Cell)> {
-  :col(Cell { col: a, rest: :col(Cell { col: b, rest: :col(Cell { col: c, rest: :none }) }) })
+  :col(Cell { col = a, rest = :col(Cell { col = b, rest = :col(Cell { col = c, rest = :none }) }) })
 }
 
 show(board: ulng) {
@@ -102,7 +102,7 @@ Period {
 run(name: str, start: ulng, limit: int, frames: int) {
   print("== " + name + " (" + str(population(start)) + " cells)")
   show(start)
-  var history = History { board: start, generation: 0, older: :none }
+  var history = History { board = start, generation = 0, older = :none }
   var board = start
   for generation in 1..limit + 1 {
     board = step(board)
@@ -118,13 +118,13 @@ run(name: str, start: ulng, limit: int, frames: int) {
       :ok(earlier) => {
         let length = generation - earlier
         if length == 1 { describe(:still(earlier)) } else {
-          describe(:cycle(Period { start: earlier, length: length }))
+          describe(:cycle(Period { start = earlier, length = length }))
         }
         ret
       }
       :none => ()
     }
-    history = History { board: board, generation: generation, older: :more(history) }
+    history = History { board = board, generation = generation, older = :more(history) }
   }
   describe(:running(limit))
 }

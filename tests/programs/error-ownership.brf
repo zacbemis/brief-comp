@@ -13,10 +13,10 @@ fault(n: int) -> Sym<:ok(str), :bad(str)> {
   "o" + "k"
 }
 work(n: int) {
-  let scratch = Node { text: "scratch" + str(n) }
+  let scratch = Node { text = "scratch" + str(n) }
   Pair {
-    first: scratch
-    second: Node { text: fault(n)? + "!" }
+    first = scratch
+    second = Node { text = fault(n)? + "!" }
   }.second
 }
 partial(n: int) -> Sym<:ok(Node), _> { work(n)? }
@@ -37,19 +37,19 @@ observeFirst(a: Sym<:ok(str), :bad(str)>, ignored: ()) {
   first(a, ())
 }
 argumentWork(failed: bool) {
-  let h = Holder { value: :ok("argument" + " snapshot") }
+  let h = Holder { value = :ok("argument" + " snapshot") }
   h.value |> observeFirst(replaceOrFail(h, failed)?)
 }
 ownedCondition(n: int, failAt: int) -> Sym<:ok(bool), :bad(str)> {
-  let scratch = Node { text: "condition" + str(n) }
+  let scratch = Node { text = "condition" + str(n) }
   if n == failAt { ret :bad(scratch.text + ":stop") }
   n < 3
 }
 conditionWork(failAt: int) {
-  let guard = Node { text: "guard" + " owner" }
+  let guard = Node { text = "guard" + " owner" }
   var n = 0
   while ownedCondition(n, failAt)? {
-    let body = Node { text: "body" + str(n) }
+    let body = Node { text = "body" + str(n) }
     n++
     if n == 1 { continue }
   }
@@ -70,10 +70,10 @@ main() {
   print(work(1)!.text)
   work(0) |> { :ok(_) => ()
     other => other |> { :bad(message) => print(message) } }
-  let h = Holder { value: :ok("be" + "fore") }
+  let h = Holder { value = :ok("be" + "fore") }
   h.value |> first(replace(h)) |> print()
   // Propagation from an initializer must release the unfinished scope too.
-  let node = Node { text: fault(1)? }
+  let node = Node { text = fault(1)? }
   print(node.text)
   var n = start()?
   while ready(n)? { n++ }

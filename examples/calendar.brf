@@ -73,7 +73,7 @@ impl Date {
     if year < 1 or year > 9999 { ret :badYear(year) }
     if month < 1 or month > 12 { ret :badMonth(month) }
     if day < 1 or day > daysIn(year, month) { ret :badDay(day) }
-    Self { year: year, month: month, day: day }
+    Self { year = year, month = month, day = day }
   }
 
   // Days since 0001-01-01.
@@ -97,7 +97,7 @@ impl Date {
       rest -= daysIn(year, month)
       month++
     }
-    Self { year: year, month: month, day: rest + 1 }
+    Self { year = year, month = month, day = rest + 1 }
   }
 
   weekday(d: Self) -> int { d.ordinal() % 7 }
@@ -138,7 +138,7 @@ easter(year: int) -> Date {
   let l = (32 + 2 * (b % 4) + 2 * (c / 4) - h - c % 4) % 7
   let m = (a + 11 * h + 22 * l) / 451
   let n = h + l - 7 * m + 114
-  Date { year: year, month: n / 31, day: n % 31 + 1 }
+  Date { year = year, month = n / 31, day = n % 31 + 1 }
 }
 
 explain(e: DateError) -> str {

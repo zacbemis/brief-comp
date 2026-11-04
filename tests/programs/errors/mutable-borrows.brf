@@ -11,7 +11,7 @@ nested(value: Holder) {
   mutate(value.child) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
 replace(value: &Box) {
-  value = Box { n: 0 } // error: Cannot reassign an immutable binding.
+  value = Box { n = 0 } // error: Cannot reassign an immutable binding.
 }
 primitive(value: &int) {} // error: Mutable borrowing currently requires a struct or symbol type.
 main() {}

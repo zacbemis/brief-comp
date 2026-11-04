@@ -283,7 +283,7 @@ int main(void) {
     valid(&a, "Choice = Sym<:object(Node), :nested(Sym<:yes, :no>), "
               ":unit(()), :empty>\n"
               "Node { choice: Choice }\n"
-              "main() { let n = Node { choice: :empty }\n"
+              "main() { let n = Node { choice = :empty }\n"
               "let c: Choice = :object(n)\nc |> { :object(x) => x.choice\n"
               "other => other }\n() }");
     valid(&a, "main() { let a: Sym<:value(lng)> = :value(4294967296)\n"
@@ -341,7 +341,7 @@ int main(void) {
             "forward(b: bool) -> Tier { if b { ret :silver }\nchoose(b) }\n"
             "same(x: Tier) -> Tier { x }\n"
             "main() -> () { var x: Tier = :bronze\nx = :gold\n"
-            "let box = Box { tier: :silver }\nbox.tier = choose(false)\n"
+            "let box = Box { tier = :silver }\nbox.tier = choose(false)\n"
             "forward(true) |> same() |> { Tier => () } }");
     ASSERT_EQ_INT(2,
                   r.program->functions[0].symbol.return_type->symbols->count);
@@ -351,7 +351,7 @@ int main(void) {
             "Return value");
     invalid(&a, "f() -> Sym<:a> { :b }\nmain() {}", "body does not match");
     invalid(&a, "main() { var x = :a\nx = :b }", "Assignment value");
-    invalid(&a, "B { x: Sym<:a> }\nmain() { B { x: :b } }",
+    invalid(&a, "B { x: Sym<:a> }\nmain() { B { x = :b } }",
             "initializer has the wrong type");
   }
   TEST("sets grow across recursive SCCs without locking out later tags") {
@@ -523,8 +523,8 @@ int main(void) {
   }
   TEST("equality extends through finite symbols, never recursive shapes") {
     valid(&a, "B { value: Sym<:text(str), :unit(())> }\n"
-              "main() { let a = B { value: :text(\"a\") }\n"
-              "let b = B { value: :unit(()) }\nprint(str(a == b))\n"
+              "main() { let a = B { value = :text(\"a\") }\n"
+              "let b = B { value = :unit(()) }\nprint(str(a == b))\n"
               "print(str(:a == :b))\nprint(str(:n(1) == :n(2))) }");
     Result r = valid(&a, "Link = Sym<:none, :next(Node)>\nNode { link: "
                          "Link }\nmain() {}\n");
@@ -551,7 +551,7 @@ int main(void) {
             "Cannot mutate");
     invalid(
         &a,
-        CASE("get(s: Choice) { s |> { :some(p) => p\n:none => P { x: 0 } } }\n"
+        CASE("get(s: Choice) { s |> { :some(p) => p\n:none => P { x = 0 } } }\n"
              "f(s: Choice) { get(s).x = 1 }"),
         "Cannot mutate");
     invalid(&a,
@@ -569,7 +569,7 @@ int main(void) {
             CASE("f(s: Choice) { s |> { :none => ()\nother => other |> { "
                  ":some(p) => p.x = 1 } } }"),
             "Cannot mutate");
-    valid(&a, CASE("f(s: Choice) { var x = s\nx = :some(P { x: 1 })\n"
+    valid(&a, CASE("f(s: Choice) { var x = s\nx = :some(P { x = 1 })\n"
                    "x |> { :some(p) => p.x = 2\n:none => () } }"));
 #undef CASE
   }
@@ -621,15 +621,15 @@ int main(void) {
          "holder.nested = :outer(:some(value))", ":outer(:some(value))", 1},
         {"Choice", "holder.choice = sameChoice(value)",
          "holder.choice = sameChoice(value)", "sameChoice(value)", 1},
-        {"P", "holder.wrapper = Wrapper { part: value, marker: 1 }",
-         "holder.wrapper = Wrapper { part: value, marker: 1 }",
-         "Wrapper { part: value, marker: 1 }", 1},
+        {"P", "holder.wrapper = Wrapper { part = value, marker = 1 }",
+         "holder.wrapper = Wrapper { part = value, marker = 1 }",
+         "Wrapper { part = value, marker = 1 }", 1},
         {"P",
-         "var alias = P { n: 0 }\nwhile flag { holder.item = alias\n"
+         "var alias = P { n = 0 }\nwhile flag { holder.item = alias\n"
          "alias = value }",
          "holder.item = alias", "alias", 1},
         {"P",
-         "var alias = P { n: 0 }\nwhile flag { mut(alias)\nalias = value }",
+         "var alias = P { n = 0 }\nwhile flag { mut(alias)\nalias = value }",
          "mut(alias)", "alias", 0}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       char text[4096];
@@ -652,7 +652,7 @@ int main(void) {
              "f(value: P, holder: &Holder, text: str, scalar: Scalar) {\n"
              "holder.count = value.n\nholder.text = text\n"
              "holder.scalar = scalar\nmutScalar(scalar)\n"
-             "var alias = value\nalias = P { n: 1 }\nmut(alias)\n"
+             "var alias = value\nalias = P { n = 1 }\nmut(alias)\n"
              "holder.item = alias\n}\nmain() {}");
     valid(
         &a,

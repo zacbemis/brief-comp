@@ -1,0 +1,8 @@
+P { value: int }
+main() {
+  P { value:1 } // error: Struct literal fields use '=', not ':'. // fix: P { value = 1 }
+  P { value : 1 } // error: Struct literal fields use '=', not ':'. // fix: P { value = 1 }
+  P { value/* before */:/* after */1 } // error: Struct literal fields use '=', not ':'. // fix: P { value/* before */ = /* after */1 }
+  P { value: // error: Struct literal fields use '=', not ':'. // fix: P { value =
+    1 }
+}

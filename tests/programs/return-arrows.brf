@@ -1,6 +1,6 @@
 Box { value: int }
 impl Box {
-  new(value: int) -> Self { Self { value: value } }
+  new(value: int) -> Self { Self { value = value } }
   read(box: Self)->int { box.value }
 }
 double(value: int) ->

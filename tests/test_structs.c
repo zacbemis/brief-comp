@@ -150,8 +150,9 @@ int main(void) {
   arena_init(&a);
   TEST("struct types are canonical, nominal, and visible before their "
        "definitions") {
-    Result r = check(&a, "main() { make() }\nmake() { Box { child: Child { n: "
-                         "1 } } }\nBox { child: Child }\nChild { n: shrt }");
+    Result r =
+        check(&a, "main() { make() }\nmake() { Box { child = Child { n = "
+                  "1 } } }\nBox { child: Child }\nChild { n: shrt }");
     ASSERT_EQ_INT(0, r.errors.count);
     ASSERT_EQ_INT(2, r.program->struct_count);
     SemaStruct *box = &r.program->structs[0], *child = &r.program->structs[1];
@@ -178,22 +179,22 @@ int main(void) {
     invalid(&a, "A {}\nA {}\nmain() {}", "Duplicate or reserved");
     invalid(&a, "A {}\nA() {}\nmain() {}", "cannot share a name");
     invalid(&a, "A { x: int }\nmain() { A {} }", "Missing struct field");
-    invalid(&a, "A { x: int }\nmain() { A { x: 1, x: 2 } }",
+    invalid(&a, "A { x: int }\nmain() { A { x = 1, x = 2 } }",
             "Duplicate struct field initializer");
-    invalid(&a, "A {}\nmain() { A { x: 1 } }", "Unknown struct field");
-    invalid(&a, "A { x: int }\nmain() { A { x: true } }",
+    invalid(&a, "A {}\nmain() { A { x = 1 } }", "Unknown struct field");
+    invalid(&a, "A { x: int }\nmain() { A { x = true } }",
             "initializer has the wrong type");
     invalid(&a, "main() { Missing {} }", "Unknown struct type");
     invalid(&a, "A {}\nmain() { A {}.missing }", "Unknown struct field");
     invalid(&a, "main() { 1.missing }", "Field access requires");
-    invalid(&a, "A { x: int }\nmain() { let a = A { x: 0 }\na.x = true }",
+    invalid(&a, "A { x: int }\nmain() { let a = A { x = 0 }\na.x = true }",
             "Assignment value");
-    invalid(&a, "A { x: str }\nmain() { let a = A { x: \"x\" }\na.x++ }",
+    invalid(&a, "A { x: str }\nmain() { let a = A { x = \"x\" }\na.x++ }",
             "numeric binding");
-    valid(&a, "A { x: () }\nmain() { let a = A { x: () }\na.x = ()\na.x }");
+    valid(&a, "A { x: () }\nmain() { let a = A { x = () }\na.x = ()\na.x }");
   }
   TEST("impl membership, Self, associated calls and receiver calls") {
-    valid(&a, "A { x: int }\nimpl A { new() -> Self { Self { x: 1 } }\nget(a: "
+    valid(&a, "A { x: int }\nimpl A { new() -> Self { Self { x = 1 } }\nget(a: "
               "Self) { a.x } }\nmain() { A.new().get() }");
     valid(&a, "A {}\nB {}\nimpl A { get(a: Self) { 1 } }\nimpl B { get(b: "
               "Self) { true } }\nget() {}\nmain() { let n: int = A "
@@ -421,10 +422,10 @@ int main(void) {
               "f(p: Link, b: bool) { if b { ret p }\ng(p, b) }\n"
               "g(p: Link, b: bool) { f(p, true).next |> { :end => "
               "p\n:more(next) => next } }\n"
-              "main() { f(Link { next: :end }, false) }");
+              "main() { f(Link { next = :end }, false) }");
   }
   TEST("read-only aliases and immutable parameter bindings") {
-    valid(&a, "A { n: int }\nf(a: &A) { a.n++ }\nmain() { let a = A { n: 1 "
+    valid(&a, "A { n: int }\nf(a: &A) { a.n++ }\nmain() { let a = A { n = 1 "
               "}\nf(a) }");
     invalid(&a, "A { n: int }\nf(a: A) { a.n++ }\nmain() {}",
             "Cannot mutate through");
@@ -439,7 +440,7 @@ int main(void) {
     invalid(&a, "A {}\nf(a: &A) { a = A {} }\nmain() {}", "immutable binding");
     invalid(&a, "main() {}\nf(a: &str) {}", "requires a struct or symbol type");
     valid(&a, "A { n: int }\nimpl A { bump(a: &Self) { a.n++ } }\ng(a: &A) { "
-              "a.bump() }\nmain() { g(A { n: 1 }) }");
+              "a.bump() }\nmain() { g(A { n = 1 }) }");
     invalid(&a,
             "A { n: int }\nimpl A { bump(a: &Self) { a.n++ } }\ng(a: A) { "
             "a.bump() }\nmain() {}",
@@ -453,20 +454,21 @@ int main(void) {
         "f(q: Q) { let inner = q.p\ninner.n = 1 }",
         "f(q: Q) { var inner = q.p\nlet other = inner\nother.n++ }",
         "f(q: Q) { let inner = q.p\nmut(inner) }",
-        "f(q: Q) { var inner = A { n: 0 }\ninner = q.p\nmut(inner) }",
-        "f(q: Q, b: bool) { let inner = if b { q.p } else { A { n: 0 } "
+        "f(q: Q) { var inner = A { n = 0 }\ninner = q.p\nmut(inner) }",
+        "f(q: Q, b: bool) { let inner = if b { q.p } else { A { n = 0 } "
         "}\nmut(inner) }",
-        "f(q: Q, b: bool) { var inner = A { n: 0 }\nif b { inner = q.p "
+        "f(q: Q, b: bool) { var inner = A { n = 0 }\nif b { inner = q.p "
         "}\nmut(inner) }",
-        "f(q: Q, b: bool) { var inner = A { n: 0 }\nif b { inner = q.p } else "
-        "{ inner = A { n: 1 } }\nmut(inner) }",
-        "f(q: Q, b: bool) { var inner = A { n: 0 }\nif b { inner = A { n: 1 } "
+        "f(q: Q, b: bool) { var inner = A { n = 0 }\nif b { inner = q.p } else "
+        "{ inner = A { n = 1 } }\nmut(inner) }",
+        "f(q: Q, b: bool) { var inner = A { n = 0 }\nif b { inner = A { n = 1 "
+        "} "
         "} else { inner = q.p }\nmut(inner) }",
-        "f(q: Q, b: bool) { var inner = A { n: 0 }\nlet ignored = b and if "
+        "f(q: Q, b: bool) { var inner = A { n = 0 }\nlet ignored = b and if "
         "true { inner = q.p\ntrue } else { false }\nmut(inner) }",
         // Earlier argument permission must not change after a later rebind.
         "g(a: &A, u: ()) {}\nf(q: Q) { var inner = q.p\ng(inner, if true { "
-        "inner = A { n: 0 } } else {}) }"};
+        "inner = A { n = 0 } } else {}) }"};
     for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
       char text[2048];
       snprintf(text, sizeof(text), "%s%s", prefix, bad[i]);
@@ -478,13 +480,14 @@ int main(void) {
             "Cannot mutate through");
     valid(&a, "A { n: int }\nf(a: A) { var copy = a.n\ncopy++ }\nmain() {}");
     valid(&a, "A { n: int }\nf(a: &A) { let alias = a\nalias.n++ }\nmain() {}");
-    valid(&a, "A { n: int }\nf(a: A) { var alias = a\nalias = A { n: 1 "
+    valid(&a, "A { n: int }\nf(a: A) { var alias = a\nalias = A { n = 1 "
               "}\nalias.n++ }\nmain() {}");
     valid(&a,
           "A { n: int }\nf(a: A, b: bool) { var alias = a\nif b { alias = A { "
-          "n: 1 } } else { alias = A { n: 2 } }\nalias.n++ }\nmain() {}");
-    valid(&a, "A { n: int }\nf(a: A, b: bool) { var alias = A { n: 0 }\nif b { "
-              "alias = a\nret }\nalias.n++ }\nmain() {}");
+          "n = 1 } } else { alias = A { n = 2 } }\nalias.n++ }\nmain() {}");
+    valid(&a,
+          "A { n: int }\nf(a: A, b: bool) { var alias = A { n = 0 }\nif b { "
+          "alias = a\nret }\nalias.n++ }\nmain() {}");
     invalid(&a,
             "A { n: int }\nidentity(a: A) -> A { a }\nf(a: A) { let owned = "
             "identity(a)\nowned.n++ }\nmain() {}",
@@ -497,47 +500,48 @@ int main(void) {
         "pick(a: A, b: A) -> A { a }\nafter(a: A, u: ()) -> A { a }\n"
         "number(a: A) -> int { a.n }\nmut(a: &A) {}\n"
         "impl A { same(a: Self) -> Self { a }\n"
-        "new(a: Self) -> Self { Self { n: 0 } } }\nmain() {}\n";
+        "new(a: Self) -> Self { Self { n = 0 } } }\nmain() {}\n";
     const char *bad[] = {
         "f(q: Q) { let inner = identity(q.p)\ninner.n++ }",
         "f(q: Q) { identity(identity(q.p)).n++ }", "f(q: Q) { q.p.same().n++ }",
         "f(q: Q) { A.same(q.p).n++ }",
         // Even a genuinely fresh result is restricted if a struct argument is.
-        "f(q: Q) { A.new(q.p).n++ }", "f(q: Q) { pick(A { n: 0 }, q.p).n++ }",
-        "f(q: Q) { let wrapper = Q { p: q.p }\nwrapper.p.n++ }",
-        "f(q: Q) { let wrapper = R { p: q.p, other: A { n: 0 }, n: 0 }\n"
+        "f(q: Q) { A.new(q.p).n++ }", "f(q: Q) { pick(A { n = 0 }, q.p).n++ }",
+        "f(q: Q) { let wrapper = Q { p = q.p }\nwrapper.p.n++ }",
+        "f(q: Q) { let wrapper = R { p = q.p, other = A { n = 0 }, n = 0 }\n"
         "wrapper.other.n++ }",
-        "f(q: Q) { let wrapper = R { p: q.p, other: A { n: 0 }, n: 0 }\n"
+        "f(q: Q) { let wrapper = R { p = q.p, other = A { n = 0 }, n = 0 }\n"
         "wrapper.n++ }",
-        "f(q: Q) { let wrapper = Q { p: Q { p: q.p }.p }\nwrapper.p.n++ }",
+        "f(q: Q) { let wrapper = Q { p = Q { p = q.p }.p }\nwrapper.p.n++ }",
         // Capture argument/initializer permissions before later side effects.
-        "f(q: Q) { var x = q.p\nlet result = after(x, if true { x = A { n: 0 } "
+        "f(q: Q) { var x = q.p\nlet result = after(x, if true { x = A { n = 0 "
+        "} "
         "} else {})\nresult.n++ }",
-        "f(q: Q) { var x = q.p\nlet result = U { p: x, u: if true { "
-        "x = A { n: 0 } } else {} }\nresult.p.n++ }",
+        "f(q: Q) { var x = q.p\nlet result = U { p = x, u = if true { "
+        "x = A { n = 0 } } else {} }\nresult.p.n++ }",
         // Initializers follow written order, not field declaration order.
-        "f(q: Q) { var x = A { n: 0 }\nlet result = U { u: if true { "
-        "x = q.p } else {}, p: x }\nresult.p.n++ }"};
+        "f(q: Q) { var x = A { n = 0 }\nlet result = U { u = if true { "
+        "x = q.p } else {}, p = x }\nresult.p.n++ }"};
     for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
       char text[4096];
       snprintf(text, sizeof(text), "%s%s", prefix, bad[i]);
       invalid(&a, text, "Cannot mutate through");
     }
     const char *borrow[] = {"f(q: Q) { mut(identity(q.p)) }",
-                            "f(q: Q) { mut(Q { p: q.p }.p) }"};
+                            "f(q: Q) { mut(Q { p = q.p }.p) }"};
     for (size_t i = 0; i < sizeof(borrow) / sizeof(*borrow); i++) {
       char text[4096];
       snprintf(text, sizeof(text), "%s%s", prefix, borrow[i]);
       invalid(&a, text, "read-only value cannot be passed");
     }
     const char *good[] = {
-        "f(q: &Q) { identity(q.p).n++\nQ { p: q.p }.p.n++ }",
-        "f(q: Q) { identity(A { n: q.p.n }).n++ }",
-        "f(q: Q) { var n = number(q.p)\nn++\nA { n: n }.n++ }",
-        "f(q: Q) { var x = identity(q.p)\nx = A { n: 0 }\nx.n++ }",
-        "f(q: Q) { var x = A { n: 0 }\nlet result = after(x, if true { "
+        "f(q: &Q) { identity(q.p).n++\nQ { p = q.p }.p.n++ }",
+        "f(q: Q) { identity(A { n = q.p.n }).n++ }",
+        "f(q: Q) { var n = number(q.p)\nn++\nA { n = n }.n++ }",
+        "f(q: Q) { var x = identity(q.p)\nx = A { n = 0 }\nx.n++ }",
+        "f(q: Q) { var x = A { n = 0 }\nlet result = after(x, if true { "
         "x = q.p } else {})\nresult.n++ }",
-        "f(q: Q) { var x = A { n: 0 }\nlet result = U { p: x, u: if true { "
+        "f(q: Q) { var x = A { n = 0 }\nlet result = U { p = x, u = if true { "
         "x = q.p } else {} }\nresult.p.n++ }"};
     for (size_t i = 0; i < sizeof(good) / sizeof(*good); i++) {
       char text[4096];
@@ -549,25 +553,28 @@ int main(void) {
     const char *prefix = "A { n: int }\nQ { p: A }\nidentity(a: A) -> A { a }\n"
                          "mut(a: &A) {}\nmain() {}\n";
     const char *bad[] = {
-        "f(a: A, b: bool) { var alias = A { n: 0 }\nwhile b { "
+        "f(a: A, b: bool) { var alias = A { n = 0 }\nwhile b { "
         "mut(alias)\nalias = a } }",
-        "f(a: A) { var alias = A { n: 0 }\nfor i in 0..2 { mut(alias)\nalias = "
+        "f(a: A) { var alias = A { n = 0 }\nfor i in 0..2 { mut(alias)\nalias "
+        "= "
         "a\ncontinue } }",
-        "f(a: A, b: bool) { var alias = A { n: 0 }\nwhile b { alias = a\nbreak "
+        "f(a: A, b: bool) { var alias = A { n = 0 }\nwhile b { alias = "
+        "a\nbreak "
         "}\nmut(alias) }",
-        "f(a: A) { var alias = A { n: 0 }\nwhile true { alias = a\nbreak "
+        "f(a: A) { var alias = A { n = 0 }\nwhile true { alias = a\nbreak "
         "}\nmut(alias) }",
-        "f(a: A) { var alias = A { n: 0 }\nfor i in 0..2 { alias = a "
+        "f(a: A) { var alias = A { n = 0 }\nfor i in 0..2 { alias = a "
         "}\nmut(alias) }",
         // Propagation needs multiple iterations through two local names.
-        "f(a: A, b: bool) { var x = A { n: 0 }\nvar y = A { n: 1 }\nwhile b { "
+        "f(a: A, b: bool) { var x = A { n = 0 }\nvar y = A { n = 1 }\nwhile b "
+        "{ "
         "mut(x)\nx = y\ny = a } }",
-        "f(a: A, b: bool) { var alias = A { n: 0 }\nwhile b { for i in 0..2 { "
+        "f(a: A, b: bool) { var alias = A { n = 0 }\nwhile b { for i in 0..2 { "
         "alias = a\nbreak }\ncontinue }\nmut(alias) }",
-        "f(a: A, b: bool) { var alias = A { n: 0 }\nwhile b { "
+        "f(a: A, b: bool) { var alias = A { n = 0 }\nwhile b { "
         "mut(alias)\nalias = identity(a) } }",
-        "f(a: A, b: bool) { var box = Q { p: A { n: 0 } }\nwhile b { "
-        "mut(box.p)\nbox = Q { p: a }\ncontinue } }"};
+        "f(a: A, b: bool) { var box = Q { p = A { n = 0 } }\nwhile b { "
+        "mut(box.p)\nbox = Q { p = a }\ncontinue } }"};
     for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
       char text[2048];
       snprintf(text, sizeof(text), "%s%s", prefix, bad[i]);
@@ -583,10 +590,10 @@ int main(void) {
       ASSERT_EQ_INT(1, again.count);
     }
     valid(&a, "A { n: int }\nf(a: A, b: bool) { var alias = a\nwhile b { alias "
-              "= A { n: 0 }\nalias.n++ } }\nmain() {}");
+              "= A { n = 0 }\nalias.n++ } }\nmain() {}");
     valid(&a, "A { n: int }\nf(a: A) { var alias = a\nwhile true { alias = A { "
-              "n: 0 }\nbreak }\nalias.n++ }\nmain() {}");
-    valid(&a, "A { n: int }\nf(a: A) { var alias = A { n: 0 }\nwhile true { "
+              "n = 0 }\nbreak }\nalias.n++ }\nmain() {}");
+    valid(&a, "A { n: int }\nf(a: A) { var alias = A { n = 0 }\nwhile true { "
               "break\nalias = a }\nalias.n++ }\nmain() {}");
   }
   TEST(

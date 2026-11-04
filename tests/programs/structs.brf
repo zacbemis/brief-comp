@@ -4,7 +4,7 @@ pub User {
   ignored: ()
 }
 impl User {
-  pub new(name: str, age: int) -> Self { Self { age: age, ignored: (), name: name } }
+  pub new(name: str, age: int) -> Self { Self { age = age, ignored = (), name = name } }
   pub label(user: Self) { user.name + ": " + str(user.age) }
   pub birthday(user: &Self) { user.age++ }
   pub rename(user: &Self, name: str) { user.name = name }
@@ -33,8 +33,8 @@ fieldStep(link: Link, stop: bool) {
     :more(next) => next }
 }
 longChain(n: int) {
-  var head = Link { name: "e" + "nd", next: :end }
-  for i in 0..n { head = Link { name: "n" + str(i), next: :more(head) } }
+  var head = Link { name = "e" + "nd", next = :end }
+  for i in 0..n { head = Link { name = "n" + str(i), next = :more(head) } }
   head.name
 }
 main() {
@@ -46,7 +46,7 @@ main() {
   user.age += 2
   user.age--
   print(alias.label()) // expect: Robert!: 22
-  let box = Box { user: user }
+  let box = Box { user = user }
   box.user.age = 23
   print(user.label()) // expect: Robert!: 23
   print(str(User.label(user) == user.label())) // expect: true
@@ -55,9 +55,9 @@ main() {
   print(alias.label()) // expect: Robert!: 23
   print(throughMethod(user, false).label()) // expect: Robert!: 23
   print(throughPipe(user, false).label()) // expect: Robert!: 23
-  let chain = Link { name: "he" + "ad", next: :more(Link { name: "ta" + "il", next: :end }) }
+  let chain = Link { name = "he" + "ad", next = :more(Link { name = "ta" + "il", next = :end }) }
   print(throughField(chain, false).name) // expect: tail
-  let terminal = Link { name: "e" + "nd", next: :end }
+  let terminal = Link { name = "e" + "nd", next = :end }
   print(throughField(terminal, false).name) // expect: end
   // Releasing a long acyclic chain must not recurse once per link.
   print(longChain(200000)) // expect: n199999

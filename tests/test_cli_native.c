@@ -194,9 +194,9 @@ int main(int argc, char **argv) {
         input, TEST_BYTES("Link = Sym<:none, :child(Node)>\n"
                           "Node { left: Link\nright: Link }\n"
                           "main() -> Sym<:ok, :bad(Node)> {\n"
-                          "var node = Node { left: :none, right: :none }\n"
-                          "for i in 0..24 { node = Node { left: :child(node), "
-                          "right: :child(node) } }\n"
+                          "var node = Node { left = :none, right = :none }\n"
+                          "for i in 0..24 { node = Node { left = :child(node), "
+                          "right = :child(node) } }\n"
                           ":bad(node) }\n")));
     for (int debug = 0; debug < (argc == 5 ? 2 : 1); debug++) {
       ProcessResult r = call(

@@ -3,10 +3,10 @@ identity(box: Box) -> Box { box }
 choose(flag: bool) {
   let outer = "outer" + " owner"
   if flag {
-    let box = Box { text: outer }
+    let box = Box { text = outer }
     ret identity(box)
   }
-  Box { text: "tail" + " result" }
+  Box { text = "tail" + " result" }
 }
 step(box: &Box, index: int) -> str {
   if index == 2 { ret box.text }
@@ -16,13 +16,13 @@ step(box: &Box, index: int) -> str {
 main() {
   print(choose(true).text) // expect: outer owner
   print(choose(false).text) // expect: tail result
-  let box = Box { text: "x" + "y" }
+  let box = Box { text = "x" + "y" }
   for i in 0..100 {
-    let local = Box { text: str(i) }
+    let local = Box { text = str(i) }
     if i < 50 { continue }
     if i > 60 { break }
     for j in 0..3 {
-      let inner = Box { text: local.text + str(j) }
+      let inner = Box { text = local.text + str(j) }
       if j == 0 { continue }
       if j == 1 { break }
     }

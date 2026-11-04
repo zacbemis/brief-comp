@@ -19,7 +19,7 @@ getters() {
 }
 P { number: int }
 impl P { read(p: Self) -> int { p.number } }
-readObject() -> Sym<:ok(P), :bad> { P { number: 1 } }
+readObject() -> Sym<:ok(P), :bad> { P { number = 1 } }
 projection() {
   let value = readObject() // error: A call that can fail must be handled with ?, !, or a match.
   value.number

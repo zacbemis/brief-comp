@@ -155,7 +155,7 @@ int main(void) {
         "Result = Sym<:ok(int), :bad>\n"
         "source() -> Result { 1 }\n"
         "text() -> Sym<:ok(str), :bad> { \"owned\" + \" text\" }\n"
-        "object() -> Sym<:ok(P), :bad> { P { value: 1 } }\n"
+        "object() -> Sym<:ok(P), :bad> { P { value = 1 } }\n"
         "effect() -> Sym<:ok, :bad> { :ok }\n"
         "take(value: int, flag: bool) {}\ntakeFloat(value: flt) {}\n"
         "takeData(value: Result) {}\n"
@@ -252,7 +252,7 @@ int main(void) {
         {"f() { source()\ntake() }", "Wrong number of function arguments.", 1},
         {"f() { let value = source()\nlet wrong: int = false }",
          "Binding value does not match its annotation.", 1},
-        {"f() { Pair { number: source(), flag: \"wrong\" } }",
+        {"f() { Pair { number = source(), flag = \"wrong\" } }",
          "Struct field initializer has the wrong type.", 1},
         {"f() -> int { source()\nfalse }",
          "Function body does not match the written return type.", 1},

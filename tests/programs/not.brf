@@ -19,7 +19,7 @@ main() {
   print(str(not fallible(true)?)) // expect: false
   print(str(notifier())) // expect: true
   print(str(fallible(true)! != false)) // expect: true
-  let counter = Counter { hits: 0 }
+  let counter = Counter { hits = 0 }
   print(str(not true and touch(counter))) // expect: false
   print(str(not false or touch(counter))) // expect: true
   print(str(counter.hits)) // expect: 0

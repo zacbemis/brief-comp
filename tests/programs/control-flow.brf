@@ -108,10 +108,10 @@ main() {
   empty = ()
   check(empty == (), "unit bindings")
   var steps = 0
-  while (Gate { n: steps }).open() { steps++ }
+  while (Gate { n = steps }).open() { steps++ }
   var sum = 0
-  for i in 0..(Gate { n: 3 }).n { sum += i }
-  if (Gate { n: steps }).n == 2 {
+  for i in 0..(Gate { n = 3 }).n { sum += i }
+  if (Gate { n = steps }).n == 2 {
     check(steps == 2 and sum == 3, "parenthesized header literals")
   } else { print("parenthesized condition did not run") }
   print("control ok")
