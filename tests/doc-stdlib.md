@@ -1,5 +1,8 @@
 # M6 acceptance slice: `docs/v0/lang-stdlib.txt`
 
+> **Retired in N1.** Historical record; scripts/commands below are no longer
+> active. See [current document status](doc-acceptance.md).
+
 The chapter has **one code fence**, explicitly **partial** in this audit, and
 **no builtin examples**. `test_doc_stdlib.cmake` reads the fence directly and
 runs **17 native/diagnostic cases** for its first-version constructor, typed

@@ -69,56 +69,19 @@ add_test(NAME test_doc_parser
     COMMAND ${CMAKE_COMMAND}
         -DBRIEF=$<TARGET_FILE:brief>
         -DROOT=${CMAKE_SOURCE_DIR}
-        -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/doc-parser-fixtures
+        -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/current-doc-parser-fixtures
         -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_parser.cmake
 )
 
-function(add_doc_acceptance_test name script label debug)
-    add_test(NAME ${name}
-        COMMAND ${CMAKE_COMMAND}
-            -DBRIEF=$<TARGET_FILE:brief>
-            -DRUNNER=$<TARGET_FILE:run_programs>
-            -DCC=${CMAKE_C_COMPILER}
-            -DROOT=${CMAKE_SOURCE_DIR}
-            -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/${name}-fixtures
-            -DDEBUG=${debug}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/${script})
-    set_tests_properties(${name} PROPERTIES LABELS "doc-acceptance;${label}" TIMEOUT 120)
-endfunction()
-add_doc_acceptance_test(test_doc_errors test_doc_errors.cmake doc-errors OFF)
-add_doc_acceptance_test(test_doc_pipelines test_doc_pipelines.cmake doc-pipelines OFF)
-add_doc_acceptance_test(test_doc_functions test_doc_functions.cmake doc-functions OFF)
-add_doc_acceptance_test(test_doc_symbols test_doc_symbols.cmake doc-symbols OFF)
-add_doc_acceptance_test(test_doc_memory test_doc_memory.cmake doc-memory OFF)
-add_doc_acceptance_test(test_doc_syntax test_doc_syntax.cmake doc-syntax OFF)
-add_doc_acceptance_test(test_doc_types test_doc_types.cmake doc-types OFF)
-add_doc_acceptance_test(test_doc_overview test_doc_overview.cmake doc-overview OFF)
-add_doc_acceptance_test(test_doc_base test_doc_base.cmake doc-base OFF)
-add_doc_acceptance_test(test_doc_stdlib test_doc_stdlib.cmake doc-stdlib OFF)
-add_doc_acceptance_test(test_doc_modules test_doc_modules.cmake doc-modules OFF)
-add_doc_acceptance_test(test_doc_collections test_doc_collections.cmake doc-collections OFF)
-add_doc_acceptance_test(test_doc_traits test_doc_traits.cmake doc-traits OFF)
-if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
-    add_doc_acceptance_test(test_doc_errors_sanitized test_doc_errors.cmake doc-errors ON)
-    add_doc_acceptance_test(test_doc_pipelines_sanitized test_doc_pipelines.cmake doc-pipelines ON)
-    add_doc_acceptance_test(test_doc_functions_sanitized test_doc_functions.cmake doc-functions ON)
-    add_doc_acceptance_test(test_doc_symbols_sanitized test_doc_symbols.cmake doc-symbols ON)
-    add_doc_acceptance_test(test_doc_memory_sanitized test_doc_memory.cmake doc-memory ON)
-    add_doc_acceptance_test(test_doc_syntax_sanitized test_doc_syntax.cmake doc-syntax ON)
-    add_doc_acceptance_test(test_doc_types_sanitized test_doc_types.cmake doc-types ON)
-    add_doc_acceptance_test(test_doc_overview_sanitized test_doc_overview.cmake doc-overview ON)
-    add_doc_acceptance_test(test_doc_base_sanitized test_doc_base.cmake doc-base ON)
-    add_doc_acceptance_test(test_doc_stdlib_sanitized test_doc_stdlib.cmake doc-stdlib ON)
-    add_doc_acceptance_test(test_doc_modules_sanitized test_doc_modules.cmake doc-modules ON)
-    add_doc_acceptance_test(test_doc_collections_sanitized test_doc_collections.cmake doc-collections ON)
-    add_doc_acceptance_test(test_doc_traits_sanitized test_doc_traits.cmake doc-traits ON)
-endif()
-
-add_test(NAME test_doc_examples_support
+# Native v0 chapter audits/bridges are retired. New chapter audits return in
+# their implementation milestones; this parser manifest reads current docs only.
+set_tests_properties(test_doc_parser PROPERTIES LABELS doc-parser TIMEOUT 30)
+add_test(NAME test_doc_parser_manifest
     COMMAND ${CMAKE_COMMAND}
-        -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/doc-example-support-fixtures
-        -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_examples_support.cmake)
-set_tests_properties(test_doc_examples_support PROPERTIES LABELS doc-acceptance TIMEOUT 15)
+        -DROOT=${CMAKE_SOURCE_DIR}
+        -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/doc-parser-manifest-fixtures
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_parser_manifest.cmake)
+set_tests_properties(test_doc_parser_manifest PROPERTIES LABELS doc-parser TIMEOUT 15)
 
 # Run alone with `ctest -L parse-examples`, or skip with `-LE parse-examples`.
 add_test(NAME test_parse_examples

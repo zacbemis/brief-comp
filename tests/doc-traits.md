@@ -1,5 +1,8 @@
 # First-version scope audit: `lang-traits.txt`
 
+> **Retired in N1.** Historical record; scripts/commands below are no longer
+> active. See [current document status](doc-acceptance.md).
+
 `test_doc_traits.cmake` classifies **all six fences**. **Five (1–5) have
 explicitly partial coverage**, represented with derived nominal-type scenarios
 in **16 native/diagnostic cases**. Fence 6 is deferred. No unchanged trait

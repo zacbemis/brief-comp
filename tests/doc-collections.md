@@ -1,5 +1,8 @@
 # First-version scope audit: `lang-collections.txt`
 
+> **Retired in N1.** Historical record; scripts/commands below are no longer
+> active. See [current document status](doc-acceptance.md).
+
 `test_doc_collections.cmake` classifies **all 31 fences**. **Four are explicitly
 partial (7, 11, 22, 29), represented with two prose/derived scenarios in 14
 native/diagnostic cases; 27 fences are deferred.** No fence is accepted as an

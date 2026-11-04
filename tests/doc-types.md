@@ -1,5 +1,8 @@
 # M6 acceptance slice: `docs/v0/lang-types.txt`
 
+> **Retired in N1.** Historical record; scripts/commands below are no longer
+> active. See [current document status](doc-acceptance.md).
+
 `test_doc_types.cmake` reads all **24 code fences** directly from the chapter.
 Fifteen are represented in **64 native/diagnostic cases**; nine require deferred
 features or provisional library APIs. Fences **20 and 21 are partial**: content

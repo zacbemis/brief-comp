@@ -11,8 +11,8 @@ scalar/symbol/string matching, named symbol sets, success/error inference,
 `?`/`!` handling and numeric/string conversions.
 Compilation supports the subset below; the parser accepts much more syntax.
 The design docs also include deferred features and fragments needing context.
-The [document audits](tests/doc-acceptance.md) record executable coverage,
-scaffolding and exclusions.
+The [document status](tests/doc-acceptance.md) distinguishes retired v0 evidence
+from the current parser inventory and the pending replacement native audits.
 
 ## Build and test
 
@@ -247,16 +247,13 @@ Panics terminate the process without unwinding owners.
 - `include/driver/`, `src/driver/`: shell-free native compiler invocation.
 - `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
   native driver tests; program tests in normal and sanitizer configurations;
-  and 146 doc-example parsing cases, with wrappers for fragments and expected
-  failures for syntax-error examples. Later-version syntax and incomplete
-  API notation are excluded explicitly in the doc-test manifest. Native document
-  acceptance adds 49 error-handling, 20 pipeline/matching, 33 function, 32 symbol,
-  48 memory/permission, 65 syntax, 64 type, 24 overview prose-contract,
-  38 raw running-sample, 17 standard-library, 30 modules-chapter, 14
-  collections-chapter and 16 traits-chapter cases, with explicit
-  partial/deferred classifications and tested audit guards; run with
-  `ctest --test-dir build -L doc-acceptance --output-on-failure`.
-- `tests/parse/`: 106 parser example files that must parse or be rejected
+  and the [current-document parser inventory](tests/doc-parser.md): 239 fences
+  across 13 chapters, with 97 parser checks and 142 explicit fence listings,
+  plus two unfenced-chapter listings. Listed examples are not passing coverage.
+  N1 retired all v0 native chapter scripts and bridges; replacement native audits
+  return milestone by milestone. Run the inventory and its structural guards with
+  `ctest --test-dir build -L doc-parser --output-on-failure`.
+- `tests/parse/`: 107 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
 
@@ -287,12 +284,13 @@ Wide and combining characters do not yet have special display-width handling.
 The overview links the remaining topic documents. Milestone 5 is complete for
 the first-version scope: pipelines, scalar/symbol matching, named sets,
 success/error handling, numeric/string conversions and string literal patterns
-are implemented. The [error-example acceptance audit](tests/doc-errors.md)
-checks the in-scope `lang-errors.txt` examples, including their compile errors.
-**Milestone 6 is complete for that scope:** all thirteen chapters have guarded
-acceptance/scope audits, the tracked diagnostic gaps are addressed, and the
+are implemented. The retired [error-example audit](tests/doc-errors.md)
+checked the in-scope v0 examples, including compile errors. **Milestone 6
+completed that scope:** all thirteen chapters had guarded acceptance/scope
+audits and the tracked diagnostic gaps were addressed. N1 has now retired those
+executables; the
 [final implementation/status review](tests/first-version-review.md) is complete.
-The audits distinguish extracted examples, representative prose scenarios,
+Those historical audits distinguished extracted examples, prose scenarios,
 partial adaptations and deferred features; local library/module/collection/trait
 stand-ins are not implementations of those deferred features. Fresh GCC/Clang
 sanitized Debug, GCC Release and unsanitized Debug suites passed, alongside
@@ -320,5 +318,6 @@ and suggest direct/pipeline forms, without accepting dotted fallback.
 Unsupported generic calls no longer produce ordinary-callee cascades; their
 value expressions and surrounding calls remain checked, and generics remain
 deferred. The [document acceptance tracker](tests/doc-acceptance.md) records
-partial coverage and the completion evidence. Symbol ordering and
-refutable/nested payload patterns remain deferred, not M5 blockers.
+the retired evidence, current parser-only coverage and the intentional
+native-audit gap. Symbol ordering and refutable/nested payload patterns remain
+deferred, not M5 blockers.

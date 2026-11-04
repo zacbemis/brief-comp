@@ -1,5 +1,8 @@
 # M6 acceptance slice: `docs/v0/lang-ex-base.txt`
 
+> **Retired in N1.** This is a historical record; its scripts and commands are
+> no longer active. See [current document status](doc-acceptance.md).
+
 This chapter is a **raw running syntax sample**, not a fenced Markdown chapter
 or a complete single-source program. It combines notation, unrelated local
 fragments, intentional errors and proposed multiple-file APIs. Compiling the

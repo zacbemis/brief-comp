@@ -1,5 +1,8 @@
 # M6 acceptance slice: `docs/v0/lang-pipelines.txt`
 
+> **Retired in N1.** Historical record; scripts/commands below are no longer
+> active. See [current document status](doc-acceptance.md).
+
 `test_doc_pipelines.cmake` reads all 17 code fences directly from the document.
 Ten fences are represented in **20 native/diagnostic cases**: nine contain only
 first-version examples, and fence 11 is explicitly partial. Six fences require

@@ -1,5 +1,8 @@
 # M6 acceptance slice: `docs/v0/lang-syntax.txt`
 
+> **Retired in N1.** Historical record; scripts/commands below are no longer
+> active. See [current document status](doc-acceptance.md).
+
 `test_doc_syntax.cmake` reads all **33 code fences** directly from the document.
 Thirty are represented in **65 native/diagnostic cases**; three collection-only
 fences are deferred. Fences **3, 4, 6, 17, 26, 32 and 33 are explicitly partial**.

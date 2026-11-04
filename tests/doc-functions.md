@@ -1,5 +1,8 @@
 # M6 acceptance slice: `docs/v0/lang-functions.txt`
 
+> **Retired in N1.** Historical record; scripts/commands below are no longer
+> active. See [current document status](doc-acceptance.md).
+
 `test_doc_functions.cmake` reads all 27 code fences directly from the document.
 Twenty fences are represented in **33 native/diagnostic cases**; fences 9 and 27
 are explicitly partial. Seven fences require function values/lambdas, collection

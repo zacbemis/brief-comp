@@ -1,5 +1,8 @@
 # Native acceptance audit: `lang-modules.txt`
 
+> **Retired in N1.** Historical record; scripts/commands below are no longer
+> active. See [current document status](doc-acceptance.md).
+
 `test_doc_modules.cmake` reads all **17 fences** directly from the chapter.
 **Eight are represented in 30 native/diagnostic cases; nine are deferred.**
 Fences **3, 4 and 15 are partial**. The test's name identifies the chapter, not

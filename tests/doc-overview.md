@@ -1,5 +1,8 @@
 # M6 acceptance slice: `docs/v0/lang-desc.txt`
 
+> **Retired in N1.** Historical record; scripts/commands below are no longer
+> active. See [current document status](doc-acceptance.md).
+
 The overview contains **zero code fences**. `test_doc_overview.cmake` guards that
 count and checks **24 representative first-version prose-contract cases**.
 These are test scenarios assembled from the stated responsibilities, not
