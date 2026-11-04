@@ -4,6 +4,10 @@ int token_is_name(TokenType type) {
   return type == TOK_UPPER_NAME || type == TOK_LOWER_NAME;
 }
 
+int token_is_identifier(TokenType type) {
+  return token_is_name(type) || type == TOK_WILDCARD;
+}
+
 const char *token_type_name(TokenType type) {
   switch (type) {
   case TOK_EOF:

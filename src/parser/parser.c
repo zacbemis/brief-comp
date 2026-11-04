@@ -97,14 +97,10 @@ static Span through(Span first, Span last) {
 static const char *name(Parser *p, Token token) {
   return intern_n(p->names, token.start, token.length);
 }
-// This slice changes lexical classification, not declaration grammar. Until
-// the syntax switch, existing identifier positions still accept both cases
+// Until the syntax switch, identifier positions still accept both name cases
 // and leave '_' to the current pattern/partial-type checks.
-static int identifier_token(TokenType t) {
-  return token_is_name(t) || t == TOK_WILDCARD;
-}
 static int expect_identifier(Parser *p, const char *message) {
-  if (identifier_token(peek(p).type)) {
+  if (token_is_identifier(peek(p).type)) {
     take(p);
     return 1;
   }
@@ -112,7 +108,7 @@ static int expect_identifier(Parser *p, const char *message) {
   return 0;
 }
 static int type_name_token(TokenType t) {
-  return identifier_token(t) || (t >= TOK_BOOL && t <= TOK_STR) ||
+  return token_is_identifier(t) || (t >= TOK_BOOL && t <= TOK_STR) ||
          t == TOK_SELF;
 }
 static Expr *new_expr(Parser *p, ExprKind kind, Span span) {
@@ -632,7 +628,7 @@ static int top_level_statement(Parser *p) {
     if (t == TOK_EOF || t == TOK_ERR)
       return 0;
     if (t == TOK_COLON && parens == 1 && !braces && !brackets &&
-        identifier_token(p->tokens.items[i - 1].type))
+        token_is_identifier(p->tokens.items[i - 1].type))
       return 0;
     if (t == TOK_LPAREN)
       parens++;
@@ -1015,7 +1011,7 @@ static Expr *pattern_value(Parser *p) {
     e->as.unary.value = value;
     return e;
   }
-  if (identifier_token(t.type)) {
+  if (token_is_identifier(t.type)) {
     const char *text = path(p);
     if (!text)
       return NULL;
@@ -1067,7 +1063,7 @@ static Pattern *pattern_inner(Parser *p) {
     v->span = through(start.span, v->as.compare.value->span);
     return v;
   }
-  if (identifier_token(start.type)) {
+  if (token_is_identifier(start.type)) {
     const char *text = path(p);
     if (!text)
       return NULL;
@@ -1293,7 +1289,7 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
                p->tokens.items[field].type == TOK_NEWLINE)
           field++;
         if (field + 1 < p->tokens.count &&
-            identifier_token(p->tokens.items[field].type) &&
+            token_is_identifier(p->tokens.items[field].type) &&
             p->tokens.items[field + 1].type == TOK_COLON) {
           error(p, "Wrap struct literals in conditions or iterables in "
                    "parentheses.");

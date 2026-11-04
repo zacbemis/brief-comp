@@ -1,10 +1,7 @@
 #include "lexer/newline.h"
 
-static int identifier_token(TokenType t) {
-  return token_is_name(t) || t == TOK_WILDCARD;
-}
 static int name_token(TokenType t) {
-  return identifier_token(t) || (t >= TOK_BOOL && t <= TOK_SELF);
+  return token_is_identifier(t) || (t >= TOK_BOOL && t <= TOK_SELF);
 }
 
 // Distinguish a type argument's closing > from a comparison/shift. Without
@@ -43,13 +40,13 @@ static int type_angle(TokenArray raw, size_t i) {
   if (context == TOK_COLON) {
     // A symbol's prefix colon is not a type annotation.
     before = previous_token(raw, before - 1);
-    return before && (identifier_token(raw.items[before - 1].type) ||
+    return before && (token_is_identifier(raw.items[before - 1].type) ||
                       raw.items[before - 1].type == TOK_RPAREN);
   }
   if (context != TOK_EQUAL)
     return 0;
   before = previous_token(raw, before - 1); // alias name
-  if (!before || !identifier_token(raw.items[before - 1].type))
+  if (!before || !token_is_identifier(raw.items[before - 1].type))
     return 0;
   before = previous_token(raw, before - 1);
   return before && raw.items[before - 1].type == TOK_TYPE;

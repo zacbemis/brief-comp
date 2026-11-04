@@ -130,6 +130,8 @@ typedef struct {
 } TokenArray;
 
 int token_is_name(TokenType type); // Excludes keywords and the wildcard.
+// A name or the wildcard: every position that took a first-version identifier.
+int token_is_identifier(TokenType type);
 const char *token_type_name(TokenType type);
 
 #endif
