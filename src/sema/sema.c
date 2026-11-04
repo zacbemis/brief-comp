@@ -55,7 +55,7 @@ static SemaAlias *alias(SemaProgram *p, const char *name) {
   return name_map_get(&p->alias_names, NULL, name);
 }
 static SemaTag *tag(Resolver *r, const char *name, Span span) {
-  SemaTag *result = sema_tag(r->program, name);
+  SemaTag *result = sema_tag(r->program, r->program->module, name);
   if (!result)
     diagnostics_error(r->errors, span, "Too many symbol tags.");
   return result;
@@ -809,6 +809,7 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
                           Diagnostics *errors) {
   SemaProgram *p = arena_calloc(a, 1, sizeof(*p));
   p->arena = a;
+  p->module = syntax->span.file;
   name_map_init(&p->struct_names, a);
   name_map_init(&p->alias_names, a);
   name_map_init(&p->tag_names, a);
@@ -824,7 +825,7 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
                              .bits = bits[i],
                              .is_signed = i == SEMA_SHRT || i == SEMA_INT ||
                                           i == SEMA_LNG};
-  p->ok = sema_tag(p, "ok");
+  p->ok = sema_tag(p, NULL, "ok");
   p->print = (SemaSymbol){.name = "print",
                           .arity = 1,
                           .builtin = SEMA_BUILTIN_PRINT,

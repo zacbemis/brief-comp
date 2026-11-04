@@ -36,9 +36,12 @@ typedef struct {
   SemaStruct *structure;
   SemaSymSet *symbols;
 } SemaType;
+typedef enum { SEMA_TAG_NEUTRAL, SEMA_TAG_ERROR } SemaTagKind;
 typedef struct SemaTag SemaTag;
 struct SemaTag {
   const char *name;
+  const SourceFile *module; // Defining file identity; NULL for :ok and :none.
+  SemaTagKind kind;         // All tags remain neutral until the syntax switch.
   size_t id; // Program-global; zero is reserved for empty ownership slots.
   SemaTag *next;
 };
@@ -245,6 +248,7 @@ typedef struct {
 } SemaFunction;
 typedef struct {
   Arena *arena;
+  const SourceFile *module; // The single source file resolved by this program.
   SemaType types[SEMA_TYPE_COUNT]; // Primitive singletons; structs and symbol
                                    // sets use their own canonical types.
   SemaSymbol print, stringify, converters[SEMA_DUB - SEMA_SHRT + 1];
@@ -287,7 +291,13 @@ const SemaType *sema_failures(SemaProgram *program, const SemaType *type);
 int sema_equatable(const SemaType *type);
 void sema_update_equatable(SemaProgram *program);
 int sema_assignable(const SemaType *actual, const SemaType *wanted);
-SemaTag *sema_tag(SemaProgram *program, const char *name);
+// Interns by defining-file identity and name bytes. A new tag borrows its name,
+// which must outlive the program. :ok and :none use the shared NULL module
+// despite the argument. New tags are neutral; lookup never changes an existing
+// tag's kind. IDs stay program-global and creation-ordered; NULL means the
+// 32-bit limit.
+SemaTag *sema_tag(SemaProgram *program, const SourceFile *module,
+                  const char *name);
 const SemaVariant *sema_variant(const SemaType *type, const SemaTag *tag);
 // Interns a set; NULL indicates conflicting payloads. No empty sets are made.
 const SemaType *sema_symbol_set(SemaProgram *program,

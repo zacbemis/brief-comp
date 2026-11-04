@@ -1,6 +1,6 @@
 # Plan: Moving the Compiler to the Next-Version Language
 
-> **Status: N0 in progress.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
+> **Status: N0 complete; N1 not started.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
 
 ## Goal
 
@@ -215,11 +215,11 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 
 ## Implementation progress
 
-N0 has started; the compiler still accepts only the first version's language.
+N0 is complete; the compiler still accepts only the first version's language.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
-- [ ] N0 (3): neutral tag kinds and module identity.
+- [x] N0 (3): neutral tag kinds and module identity.
 
 ### N0 (1): diagnostic fixes
 
@@ -280,11 +280,43 @@ clang-format 23.1.3 and `git diff --check` passed. Comparing the pre-refactor an
 new compilers on 1,265 checked-in and generated source files (including audit
 copies) found identical status, stdout and stderr for `emit-c`: 638 emitted C
 and 627 rejected inputs, with no differences. No language, checking, ownership
-or runtime rules changed. N0 (3), tag metadata, remains pending.
+or runtime rules changed. This completed N0 (2).
 
 The plan review also corrected the fixture inventory and clarified `pub` newline
 continuation and trait/struct receiver parameters against the language documents.
 The revised manual conversion and staged document-audit scope is unchanged.
+
+### N0 (3): tag kind and module metadata
+
+`SemaTag` now records `SemaTagKind` and its defining source file. The source
+file's identity represents the module; no module loading or cross-file resolution
+is introduced. `SemaProgram` records its current source module, and `sema_tag`
+accepts an explicit module and interns by `(module, name)`, using the existing
+owner-aware name map. Resolution and implicit numeric/string conversion tags
+both use the current module.
+
+`:ok` and `:none` use the shared NULL module for every lookup. `:none` is created
+only when needed, so existing tag IDs do not shift. IDs remain program-global,
+creation-ordered and nonzero, with the existing 32-bit limit. Canonical sets still
+compare tag pointers and sort by those IDs. Every newly created tag is neutral;
+error-kind syntax/conflicts belong to N1, and kind-based outcome handling and
+`:none` payload restrictions belong to N2. The existing `:ok`-based rules and
+emitted C representation are unchanged.
+
+Symbol tests check neutral metadata on every resolved tag, distinct same-name
+tags in different modules, shared tags, canonical sets/subset checks across module
+identities, converter-created tags, rechecking, map growth and tag-ID exhaustion.
+The multi-module cases exercise the interning API only, not source-level modules.
+
+Validation: fresh `-Werror` builds passed GCC Debug with ASan/UBSan (51/51),
+Clang Debug with ASan/UBSan (51/51), GCC Release (51/51) and GCC Debug without
+sanitizers (37/37). clang-format 23.1.3 and `git diff --check` passed. Comparing
+the previous compiler with this change on 1,265 checked-in and generated source
+files (including audit copies) found identical `emit-c` status, stdout and stderr:
+638 emitted C and 627 rejected inputs, with no differences.
+
+All three N0 items are complete. The next milestone is N1's syntax switch and
+manual conversion of the fixtures, examples and C tests; it has not started.
 
 ## Risks
 

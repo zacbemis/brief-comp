@@ -18,6 +18,18 @@ static Result check(Arena *a, const char *text) {
       a, &names, newline_filter(a, lexer_tokenize(a, s, &r.errors)), &r.errors);
   r.program = sema_resolve(a, ast, &r.errors);
   sema_check(r.program, &r.errors);
+  ASSERT_TRUE(r.program->module == s);
+  ASSERT_EQ_INT(1, r.program->ok->id);
+  size_t id = r.program->tag_count;
+  for (const SemaTag *tag = r.program->tags; tag; tag = tag->next) {
+    ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, tag->kind);
+    ASSERT_EQ_INT(id, tag->id);
+    id--;
+    ASSERT_TRUE(
+        tag->module ==
+        ((!strcmp(tag->name, "ok") || !strcmp(tag->name, "none")) ? NULL : s));
+  }
+  ASSERT_EQ_INT(0, id);
   return r;
 }
 static Result valid(Arena *a, const char *text) {
@@ -108,9 +120,164 @@ int main(void) {
     ASSERT_EQ_INT(3, r.program->tag_count); // Includes the program's :ok tag.
     ASSERT_TRUE(type->symbols->variants[0].tag->id <
                 type->symbols->variants[1].tag->id);
-    ASSERT_TRUE(sema_variant(type, sema_tag(r.program, "a"))->payload == NULL);
-    ASSERT_TRUE(sema_variant(type, sema_tag(r.program, "b"))->payload ==
-                &r.program->types[SEMA_INT]);
+    ASSERT_TRUE(sema_variant(type, sema_tag(r.program, r.program->module, "a"))
+                    ->payload == NULL);
+    ASSERT_TRUE(sema_variant(type, sema_tag(r.program, r.program->module, "b"))
+                    ->payload == &r.program->types[SEMA_INT]);
+  }
+  TEST(
+      "tag identity includes its module while canonical sets keep global IDs") {
+    SemaProgram *p = valid(&a, "main() {}").program;
+    SourceFile *other = source_create(&a, "other.brf", "", 0);
+    ASSERT_EQ_INT(1, p->tag_count); // Do not eagerly create :none or shift IDs.
+    SemaTag *local = sema_tag(p, p->module, "found");
+    SemaTag *remote = sema_tag(p, other, "found");
+    ASSERT_TRUE(local != remote);
+    ASSERT_TRUE(local->module == p->module && remote->module == other);
+    ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, local->kind);
+    ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, remote->kind);
+    ASSERT_EQ_INT(2, local->id);
+    ASSERT_EQ_INT(3, remote->id);
+    ASSERT_TRUE(p->tags == remote && remote->next == local);
+    ASSERT_TRUE(sema_tag(p, p->module, arena_strdup(&a, "found")) == local);
+    ASSERT_TRUE(sema_tag(p, other, arena_strdup(&a, "found")) == remote);
+    ASSERT_EQ_INT(3, p->tag_count);
+    const SemaType *number = &p->types[SEMA_INT], *text = &p->types[SEMA_STR];
+    SemaVariant x = {local, number}, y = {remote, text};
+    const SemaType *left = sema_symbol_set(p, &x, 1);
+    const SemaType *right = sema_symbol_set(p, &y, 1);
+    ASSERT_TRUE(left != right);
+    ASSERT_TRUE(!sema_assignable(left, right));
+    ASSERT_TRUE(!sema_assignable(right, left));
+    ASSERT_TRUE(sema_variant(left, remote) == NULL);
+    const SemaType *both = sema_symbol_union(p, left, right);
+    ASSERT_TRUE(both != NULL);
+    if (both) {
+      ASSERT_EQ_INT(2, both->symbols->count);
+      ASSERT_TRUE(both->symbols->variants[0].tag == local);
+      ASSERT_TRUE(both->symbols->variants[1].tag == remote);
+      ASSERT_TRUE(sema_variant(both, local)->payload == number);
+      ASSERT_TRUE(sema_variant(both, remote)->payload == text);
+      ASSERT_TRUE(sema_assignable(left, both));
+      ASSERT_TRUE(sema_assignable(right, both));
+      SemaVariant reversed[] = {y, x, y};
+      ASSERT_TRUE(sema_symbol_set(p, reversed, 3) == both);
+      ASSERT_TRUE(sema_symbol_union(p, right, left) == both);
+      ASSERT_TRUE(sema_ok(both) == NULL);
+      ASSERT_TRUE(sema_failures(p, both) == NULL);
+    }
+    SemaVariant conflict[] = {x, {local, text}};
+    ASSERT_TRUE(sema_symbol_set(p, conflict, 2) == NULL);
+  }
+  TEST("ok and none are shared by every module without eager allocation") {
+    SemaProgram *p = valid(&a, "main() {}").program;
+    SourceFile *other = source_create(&a, "other.brf", "", 0);
+    SemaTag *none = sema_tag(p, p->module, "none");
+    ASSERT_EQ_INT(2, none->id);
+    const SourceFile *modules[] = {p->module, other, NULL};
+    for (size_t i = 0; i < sizeof(modules) / sizeof(modules[0]); i++) {
+      ASSERT_TRUE(sema_tag(p, modules[i], "ok") == p->ok);
+      ASSERT_TRUE(sema_tag(p, modules[i], "none") == none);
+    }
+    ASSERT_TRUE(p->ok->module == NULL && none->module == NULL);
+    ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, p->ok->kind);
+    ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, none->kind);
+    ASSERT_EQ_INT(2, p->tag_count);
+    ASSERT_EQ_INT(2, p->tag_names.count);
+    ASSERT_TRUE(name_map_get(&p->tag_names, NULL, "ok") == p->ok);
+    ASSERT_TRUE(name_map_get(&p->tag_names, NULL, "none") == none);
+    ASSERT_TRUE(name_map_get(&p->tag_names, other, "ok") == NULL);
+    ASSERT_TRUE(name_map_get(&p->tag_names, p->module, "none") == NULL);
+    ASSERT_TRUE(sema_tag(p, p->module, "okay") != sema_tag(p, other, "okay"));
+    ASSERT_TRUE(sema_tag(p, p->module, "noneThing") !=
+                sema_tag(p, other, "noneThing"));
+    // Reserving :none's meaning/payload is a semantic change for N2, not N0.
+    valid(&a, "main() { :none(7) }");
+  }
+  TEST("resolved and converter-created tags have neutral source-module "
+       "metadata") {
+    Result r =
+        valid(&a, "type Maybe = Sym<:ok(int), :none>\n"
+                  "parse(s: str): Sym<:ok(int), :invalid(str)> { int(s)? }\n"
+                  "small(n: lng): Sym<:ok(int), :overflow> { int(n)? }\n"
+                  "main() { :none }");
+    SemaProgram *p = r.program;
+    SemaTag *invalid_tag = sema_tag(p, p->module, "invalid");
+    SemaTag *overflow = sema_tag(p, p->module, "overflow");
+    const SemaType *number = &p->types[SEMA_INT], *text = &p->types[SEMA_STR];
+    const SemaType *parsed = sema_conversion(p, text, number);
+    const SemaType *narrowed = sema_conversion(p, &p->types[SEMA_LNG], number);
+    ASSERT_TRUE(sema_variant(parsed, invalid_tag)->payload == text);
+    ASSERT_TRUE(sema_variant(narrowed, overflow)->payload == NULL);
+    ASSERT_TRUE(invalid_tag->module == p->module &&
+                overflow->module == p->module);
+    ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, invalid_tag->kind);
+    ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, overflow->kind);
+    // Kind is metadata only: legacy :ok-based failure detection still applies.
+    ASSERT_TRUE(sema_failures(p, parsed) != NULL);
+    ASSERT_TRUE(sema_failures(p, narrowed) != NULL);
+    size_t count = p->tag_count;
+    sema_check(p, &r.errors);
+    ASSERT_EQ_INT(0, r.errors.count);
+    ASSERT_EQ_INT(count, p->tag_count);
+    ASSERT_TRUE(sema_conversion(p, text, number) == parsed);
+    ASSERT_TRUE(sema_tag(p, p->module, "invalid") == invalid_tag);
+    ASSERT_TRUE(sema_tag(p, p->module, "overflow") == overflow);
+    // Inference creates conversion tags even without a written symbol set.
+    valid(&a,
+          "parse(s: str) { int(s)? }\nsmall(n: lng) { int(n)? }\nmain() {}");
+  }
+  TEST("module-qualified tag interning stays stable across map growth") {
+    SemaProgram *p = valid(&a, "main() {}").program;
+    SourceFile *other = source_create(&a, "other.brf", "", 0);
+    enum { COUNT = 300 };
+    SemaTag *tags[COUNT][2];
+    SemaVariant variants[COUNT * 2];
+    for (size_t i = 0; i < COUNT; i++) {
+      char *name = arena_alloc(&a, 16);
+      snprintf(name, 16, "tag%zu", i);
+      tags[i][0] = sema_tag(p, p->module, name);
+      tags[i][1] = sema_tag(p, other, name);
+      variants[i * 2] = (SemaVariant){tags[i][0], &p->types[SEMA_INT]};
+      variants[i * 2 + 1] = (SemaVariant){tags[i][1], &p->types[SEMA_STR]};
+    }
+    ASSERT_EQ_INT(COUNT * 2 + 1, p->tag_count);
+    const SemaType *set = sema_symbol_set(p, variants, COUNT * 2);
+    for (size_t i = 0; i < COUNT; i++) {
+      char name[16];
+      snprintf(name, sizeof(name), "tag%zu", i);
+      ASSERT_TRUE(sema_tag(p, p->module, name) == tags[i][0]);
+      ASSERT_TRUE(sema_tag(p, other, name) == tags[i][1]);
+      ASSERT_EQ_INT(i * 2 + 2, tags[i][0]->id);
+      ASSERT_EQ_INT(i * 2 + 3, tags[i][1]->id);
+      ASSERT_TRUE(sema_variant(set, tags[i][0])->payload ==
+                  &p->types[SEMA_INT]);
+      ASSERT_TRUE(sema_variant(set, tags[i][1])->payload ==
+                  &p->types[SEMA_STR]);
+    }
+    ASSERT_EQ_INT(COUNT * 2 + 1, p->tag_names.count);
+  }
+  TEST("tag ID exhaustion preserves prior identities and never creates ID "
+       "zero") {
+    SemaProgram *p = valid(&a, "main() {}").program;
+    SourceFile *other = source_create(&a, "other.brf", "", 0);
+    p->tag_count = UINT32_MAX - 1;
+    SemaTag *last = sema_tag(p, other, "last");
+    ASSERT_TRUE(last != NULL);
+    if (last) {
+      ASSERT_EQ_INT(UINT32_MAX, last->id);
+      ASSERT_TRUE(last->module == other);
+      ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, last->kind);
+    }
+    size_t entries = p->tag_names.count;
+    ASSERT_TRUE(sema_tag(p, other, "last") == last);
+    ASSERT_TRUE(sema_tag(p, other, "ok") == p->ok);
+    ASSERT_TRUE(sema_tag(p, p->module, "last") == NULL);
+    ASSERT_TRUE(sema_tag(p, other, "extra") == NULL);
+    ASSERT_TRUE(sema_tag(p, other, "none") == NULL);
+    ASSERT_EQ_INT(UINT32_MAX, p->tag_count);
+    ASSERT_EQ_INT(entries, p->tag_names.count);
+    ASSERT_TRUE(p->tags == last && last->next == p->ok);
   }
   TEST("all payload types, forward structs, nested symbols and unit payloads") {
     valid(&a, "type Choice = Sym<:object(Node), :nested(Sym<:yes, :no>), "
@@ -237,7 +404,7 @@ int main(void) {
     for (size_t i = 0; i < COUNT; i++) {
       char *name = arena_alloc(&a, 16);
       snprintf(name, 16, "t%zu", i);
-      tags[i] = sema_tag(p, name);
+      tags[i] = sema_tag(p, p->module, name);
       SemaVariant v = {tags[i], NULL};
       single[i] = sema_symbol_set(p, &v, 1);
       ASSERT_TRUE(sema_symbol_set(p, &v, 1) == single[i]);
@@ -334,7 +501,7 @@ int main(void) {
                          "main() { let x: Sym<Pair, :c> = :b(\"B\")\n"
                          "x |> { :a => ()\nPair => ()\n:c => () } }");
     const SemaType *ft = r.program->functions[0].symbol.return_type;
-    ASSERT_TRUE(!sema_variant(ft, sema_tag(r.program, "a")));
+    ASSERT_TRUE(!sema_variant(ft, sema_tag(r.program, r.program->module, "a")));
     ASSERT_EQ_INT(3, ft->symbols->count);
     invalid(&a, "main() { :a(1) |> { :a(x) => x++ } }", "immutable binding");
     invalid(&a, "main() { :a(1) |> { :a(x) => x }\nx }", "Unknown binding");

@@ -306,7 +306,7 @@ int main(void) {
     const SemaType *g = r.program->functions[2].symbol.outcome_type;
     ASSERT_EQ_INT(3, f->symbols->count);
     ASSERT_EQ_INT(2, g->symbols->count);
-    ASSERT_TRUE(!sema_variant(g, sema_tag(r.program, "a")));
+    ASSERT_TRUE(!sema_variant(g, sema_tag(r.program, r.program->module, "a")));
     Result again;
     diagnostics_init(&again.errors, &a);
     sema_check(r.program, &again.errors);
@@ -460,7 +460,8 @@ int main(void) {
         for (size_t j = 0; j < 6; j++) {
           char name[8];
           snprintf(name, sizeof(name), "e%zu", j);
-          if (sema_variant(type, sema_tag(r.program, arena_strdup(&a, name))))
+          if (sema_variant(type, sema_tag(r.program, r.program->module,
+                                          arena_strdup(&a, name))))
             actual |= 1u << j;
         }
         ASSERT_EQ_INT(reach[i], actual);

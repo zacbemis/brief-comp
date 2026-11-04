@@ -3,17 +3,23 @@
 #include <stdlib.h>
 #include <string.h>
 
-SemaTag *sema_tag(SemaProgram *p, const char *name) {
-  SemaTag *found = name_map_get(&p->tag_names, NULL, name);
+SemaTag *sema_tag(SemaProgram *p, const SourceFile *module, const char *name) {
+  if (!strcmp(name, "ok") || !strcmp(name, "none"))
+    module = NULL;
+  SemaTag *found = name_map_get(&p->tag_names, module, name);
   if (found)
     return found;
   // The emitted tag representation has 32 bits; zero is an empty ARC slot.
   if (p->tag_count == UINT32_MAX)
     return NULL;
   SemaTag *tag = arena_alloc(p->arena, sizeof(*tag));
-  *tag = (SemaTag){name, ++p->tag_count, p->tags};
+  *tag = (SemaTag){.name = name,
+                   .module = module,
+                   .kind = SEMA_TAG_NEUTRAL,
+                   .id = ++p->tag_count,
+                   .next = p->tags};
   p->tags = tag;
-  name_map_put(&p->tag_names, NULL, name, tag);
+  name_map_put(&p->tag_names, module, name, tag);
   return tag;
 }
 const SemaVariant *sema_variant(const SemaType *type, const SemaTag *tag) {
@@ -32,8 +38,9 @@ const SemaVariant *sema_variant(const SemaType *type, const SemaTag *tag) {
                                                          : NULL;
 }
 const SemaVariant *sema_ok(const SemaType *type) {
-  // :ok is the program's first tag, and canonical sets sort by tag ID.
+  // The shared :ok is the program's first tag; canonical sets sort by tag ID.
   if (type && type->kind == SEMA_SYM && type->symbols->count &&
+      !type->symbols->variants[0].tag->module &&
       !strcmp(type->symbols->variants[0].tag->name, "ok"))
     return &type->symbols->variants[0];
   return NULL;

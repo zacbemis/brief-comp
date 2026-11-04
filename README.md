@@ -224,8 +224,10 @@ Panics terminate the process without unwinding owners.
   with canonical primitive/nominal types, lexical scopes, flow checks, read-only
   alias analysis on a shared structured data-flow walker, scalar pattern
   normalization/coverage/usefulness checks, and iterative SCC-based recursive
-  return inference. The walker provides branch joins and whole-function loop
-  fixed points for later definite-assignment and outcome checks.
+  return inference. Tags carry neutral kind and source-module identity metadata;
+  this does not implement modules or change the current outcome rules. The walker
+  provides branch joins and whole-function loop fixed points for later
+  definite-assignment and outcome checks.
 - `include/ir/`, `src/ir/`: typed temporaries, sequenced calls, explicit control
   flow/returns, loop targets, value-producing branches, field operations, and a
   separately testable reference-count insertion pass.
@@ -267,8 +269,8 @@ Wide and combining characters do not yet have special display-width handling.
 - [Symbols](docs/lang-symbols.txt)
 - [Errors and outcomes](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
-- [Next-version compiler plan](docs/plans/next-version.txt) (N0 in progress;
-  diagnostic fix-its and shared flow framework complete)
+- [Next-version compiler plan](docs/plans/next-version.txt) (N0 groundwork
+  complete; N1 syntax switch not started)
 - [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
 
 The overview links the remaining topic documents. Milestone 5 is complete for

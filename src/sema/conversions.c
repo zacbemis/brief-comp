@@ -29,7 +29,8 @@ const SemaType *sema_conversion(SemaProgram *p, const SemaType *source,
     return sema_success(p, target);
   SemaVariant variants[] = {
       {p->ok, target},
-      {sema_tag(p, source->kind == SEMA_STR ? "invalid" : "overflow"),
+      {sema_tag(p, p->module,
+                source->kind == SEMA_STR ? "invalid" : "overflow"),
        source->kind == SEMA_STR ? source : NULL}};
   return sema_symbol_set(p, variants, 2);
 }
