@@ -1,5 +1,5 @@
 Box {}
-main(): () {
+main() -> () {
   str() // error: str expects exactly one number or bool argument.
   str(1, 2) // error: str expects exactly one number or bool argument.
   str(()) // error: str expects a number or bool argument.

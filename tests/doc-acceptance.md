@@ -9,13 +9,31 @@ scope remains `docs/v0/lang-desc.txt`, “First version”; deferred modules,
 collections/lambdas, ordering and refutable/nested payload patterns are not
 being added to that scope by these tests.
 
+## N1 spelling bridges
+
+These are still first-version scope audits, not the replacement new-document
+audits. Frozen v0 code uses temporary `not`/`dbl` adapters and now the explicit
+return-header list in `doc_return_arrows.cmake`. That list names 70 headers in
+nine chapters; chapter SHA-256 guards require review if the frozen inputs drift.
+The native fence reader, parser manifest and raw base sample apply only those
+listed header replacements before their existing fragment/anchor operations.
+Authored scaffolds and anchors use `->` directly. Function-type notation remains
+deferred, not translated by this header bridge.
+
+Fidelity statements below and in the chapter records preserve bodies, numeric
+rules, classifications, outcomes and error lines, except for these documented
+syntax spellings. Base-sample spans consume the entire arrow-adapted text;
+the original file stays untouched and hash-guarded. Tests check that unlisted
+headers are not converted and chapter drift fails. N1 will delete these bridges
+with the v0 audits, rather than expose a migration tool or accept both grammars.
+
 ## Current audits
 
 | Document | Native/diagnostic audit |
 |---|---|
 | `lang-errors.txt` | [M5 audit](doc-errors.md): 36 fences classified, 28 tested in 49 cases, eight later-version exclusions; entry-result prose has additional existing coverage. |
 | `lang-pipelines.txt` | [First M6 slice](doc-pipelines.md): 17 fences classified; ten represented in 20 cases (fence 11 is partial), six later-version exclusions and one syntax reference. Selected inline syntax examples are also checked. |
-| `lang-desc.txt` | [Overview audit](doc-overview.md): no code fences; 24 representative prose-contract cases, with the full eleven-bullet first-version/later-version scope guarded. Thirteen document-table links and eleven open-question entries are checked; broad design goals are explicitly distinguished from implemented behavior. The shared harness supports prose-only manifests, with three added regression guards (14 total). |
+| `lang-desc.txt` | [Overview audit](doc-overview.md): no code fences; 24 representative prose-contract cases, with the full eleven-bullet first-version/later-version scope guarded. Thirteen document-table links and eleven open-question entries are checked; broad design goals are explicitly distinguished from implemented behavior. The shared harness supports prose-only manifests, with three added regression guards (14 at M6 completion; 15 after N1's frozen-header drift guard). |
 | `lang-syntax.txt` | [Syntax audit](doc-syntax.md): 33 fences classified, 30 represented in 65 cases, three collection-only exclusions. Fences 3, 4, 6, 17, 26, 32 and 33 are partial. Inline/prose cases check rejected expression updates/assignments, scope, continuations, control flow and range rules. Named-field header literals now receive an actionable parentheses hint; parser acceptance remains separate. |
 | `lang-types.txt` | [Type audit](doc-types.md): 24 fences classified, 15 represented in 64 cases, nine deferred feature/library exclusions. Equality fences 20/21 are partial (identity calls deferred). Guarded prose cases cover primitive/literal domains, arithmetic panics, numeric/text conversions, IEEE behavior, binary strings, unit and nominal equality. The audit added `chr`-to-number conversion to the chapter and compiler and a specific recursive-equality error; a later lexer slice gives source-exponent notation its own diagnostic while preserving exponent text conversions. |
 | `lang-functions.txt` | [Function audit](doc-functions.md): 27 fences classified, 20 represented in 33 cases (fences 9 and 27 are partial), seven later-version exclusions. Selected parameter, inference and evaluation-order prose rules are also checked; a partial-return diagnostic cascade is fixed. |
@@ -39,7 +57,7 @@ The `doc-errors`, `doc-pipelines`, `doc-functions`, `doc-symbols`, `doc-memory`,
 audits. Each has normal and, when enabled, sanitized runs, using the C program
 runner without interpreter or shell dependencies. Generated cases live in
 separate build-tree directories per test/configuration; they are not included
-in the 87 checked-in program-fixture count.
+in the checked-in program-fixture count (92 after N1's return-arrow slice).
 
 ## M6 completion evidence
 

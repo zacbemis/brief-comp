@@ -1,12 +1,12 @@
 // expect: returns ok
-check(ok: bool, message: str): () { if not ok { print(message) } }
+check(ok: bool, message: str) -> () { if not ok { print(message) } }
 factorial(n: int) {
   if n == 0 { 1 } else { n * factorial(n - 1) }
 }
 even(n: int) { if n == 0 { true } else { odd(n - 1) } }
 odd(n: int) { if n == 0 { false } else { even(n - 1) } }
 choose(flag: bool) { if flag { ret 1 } else { ret 2 } }
-early(flag: bool): int {
+early(flag: bool) -> int {
   let item = if flag { ret 7 } else { 9 }
   item
 }
@@ -28,15 +28,15 @@ unreachable() { ret 1
   let ignored: lng = 9
   ignored }
 text() { ret "returns ok" }
-discard(): () { 42 }
-unitEarly(flag: bool): () { if flag { ret }
+discard() -> () { 42 }
+unitEarly(flag: bool) -> () { if flag { ret }
   "discard this tail" }
 forReturn() { for i in 0..2 { ret } }
 forBreak() { for i in 0..2 { break } }
 noElse() { if true { 12 } }
-annotated(n: int): int { if n == 0 { ret 8 }
+annotated(n: int) -> int { if n == 0 { ret 8 }
   annotated(n - 1) }
-loopReturn(): int { while true { ret 6 } }
+loopReturn() -> int { while true { ret 6 } }
 main() {
   check(factorial(5) == 120, "inferred recursion")
   check(even(8) and odd(7), "mutual recursion")

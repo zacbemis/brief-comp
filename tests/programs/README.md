@@ -279,8 +279,16 @@ keeping all existing outcomes and literal strings unchanged. `dbl.brf` observes
 annotations, direct and pipeline conversions, text parsing, signed zero, NaN,
 infinity and keyword boundaries. `errors/old-dub.brf` checks nine old-spelling
 errors with exact fix previews, including nested types and a parenthesized
-converter with comments. The inventory is now 90 files. Declaration/type
-structure and the remaining keyword changes are still pending.
+converter with comments. That checkpoint brought the inventory to 90 files.
+
+N1's return-annotation slice uses `->` without changing return checking, inferred
+results, explicit-unit tail discarding or outcome behavior. Existing headers and
+fix previews were converted in place. `return-arrows.brf` observes typed/forward
+calls, methods, unit tails, partial outcomes, newline continuation and unchanged
+literal text. `errors/old-return-colons.brf` checks nine old annotations with
+exact fixes, preserving parameter/field/binding colons and comments. The inventory
+is now 92 files. Other declaration/type structure, remaining keywords and
+receiver/casing rules are still pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

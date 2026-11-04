@@ -8,7 +8,7 @@ User { name: str
   age: int }
 ]=])
 set(user_ctor [=[
-impl User { new(name: str, age: int): Sym<:ok(User), :invalidAge(int)> {
+impl User { new(name: str, age: int) -> Sym<:ok(User), :invalidAge(int)> {
   if age < 0 { ret :invalidAge(age) }
   User { name: name + "", age: age }
 } }
@@ -104,10 +104,10 @@ example(9 immutable-parameter-binding "${user_api}" "${code}" "main() {}")
 
 set(report_api [=[
 Report { owner: User }
-same(user: User): User { user }
+same(user: User) -> User { user }
 impl Report {
-  new(user: User): Self { Self { owner: user } }
-  get(report: Report): User { report.owner }
+  new(user: User) -> Self { Self { owner: user } }
+  get(report: Report) -> User { report.owner }
 }
 ]=])
 set(store_error "A read-only value cannot be stored in a field; take the parameter it comes from as &.")
@@ -258,7 +258,7 @@ require_prose("and is writable if it holds only strings and numbers.")
 example(0 disjoint-result "${common}" [=[
 Summary { name: str
   age: int }
-impl Summary { new(user: User): Self { Self { name: user.name, age: user.age } } }
+impl Summary { new(user: User) -> Self { Self { name: user.name, age: user.age } } }
 probe(report: Report) {
   let summary = Summary.new(report.owner)
   summary.name += "!"
@@ -309,8 +309,8 @@ write(choice: &Choice) { choice |> {
   :some(user) => user.age = 21
   :none => ()
 } }
-maybe(user: User): Sym<:ok(User), :missing> { user }
-fail(user: User): Sym<:ok, :bad(User)> { :bad(user) }
+maybe(user: User) -> Sym<:ok(User), :missing> { user }
+fail(user: User) -> Sym<:ok, :bad(User)> { :bad(user) }
 relay(user: User) { fail(user)? }
 ]=])
 set(common "${common_saved}\n${choice_api}")
@@ -355,7 +355,7 @@ relay(report.owner) |> {
 }
 ]=] "user.age" "${mutate_error}")
 example(0 propagated-error-owner "${common}" [=[
-make(): Sym<:ok, :bad(User)> {
+make() -> Sym<:ok, :bad(User)> {
   let user = User.new("B" + "ob", 20)!
   relay(user)?
   print("not reached")
@@ -385,7 +385,7 @@ main() {
 set(common "${common_saved}")
 require_prose("This pins field arguments even if a later argument or the callee overwrites their owner's field.")
 example(0 pinned-arguments "${common}" [=[
-replace(report: &Report): int { report.owner = User.new("new", 2)!
+replace(report: &Report) -> int { report.owner = User.new("new", 2)!
   0 }
 read(user: User, ignored: int) { print(user.name) }
 readAndReplace(user: User, report: &Report) {
@@ -405,7 +405,7 @@ main() {
 require_prose("returned references are owned.")
 require_prose("Stores retain the new value before releasing the old one, including self-assignment.")
 example(0 owned-return-self-store "${common}" [=[
-make(): User {
+make() -> User {
   let report = Report { owner: User.new("B" + "ob", 20)! }
   report.owner = report.owner
   report.owner.name = report.owner.name
@@ -419,7 +419,7 @@ main() { var user = make()
 ]=] "")
 require_prose("Locals and temporaries are released on lexical scope exits, returns, break, and continue; reused loop slots release their previous values.")
 example(0 scope-and-jump-cleanup "${common}" [=[
-make(n: int): User {
+make(n: int) -> User {
   for i in 0..n {
     let user = User.new("user" + str(i), i)!
     let report = Report { owner: user }

@@ -30,7 +30,7 @@ if(NOT names STREQUAL "new;fromJson;toJson")
     message(FATAL_ERROR "Update the complete standard-library example method inventory: ${names}")
 endif()
 set(serializer [=[
-  pub toJson(user: User): Json {
+  pub toJson(user: User) -> Json {
     Json.object()
       |> set("name", Json.str(user.name))
       |> set("age", Json.int(user.age))
@@ -52,20 +52,20 @@ Json { name: str
   nameStatus: int
   ageStatus: int }
 impl Json {
-  getStr(json: Json, key: str): Sym<:ok(str), JsonError> {
+  getStr(json: Json, key: str) -> Sym<:ok(str), JsonError> {
     print("getStr:" + key)
     if json.nameStatus == 1 { ret :missing(key + "") }
     if json.nameStatus == 2 { ret :wrongType(key + "") }
     json.name
   }
-  getInt(json: Json, key: str): Sym<:ok(int), JsonError> {
+  getInt(json: Json, key: str) -> Sym<:ok(int), JsonError> {
     print("getInt:" + key)
     if json.ageStatus == 1 { ret :missing(key + "") }
     if json.ageStatus == 2 { ret :wrongType(key + "") }
     json.age
   }
 }
-input(nameStatus: int, ageStatus: int, age: int): Json {
+input(nameStatus: int, ageStatus: int, age: int) -> Json {
   Json { name: "B" + "ob", age: age, nameStatus: nameStatus, ageStatus: ageStatus }
 }
 ]=])

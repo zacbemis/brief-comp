@@ -6,7 +6,7 @@ doc_examples_begin(lang-functions 27)
 set(user_api [=[
 User { name: str
   age: int }
-impl User { getName(user: User): str { user.name } }
+impl User { getName(user: User) -> str { user.name } }
 ]=])
 example(1 add "" "${block_1}" [=[
 left() { print("left")
@@ -44,7 +44,7 @@ foreach(pair IN ITEMS inferred partial full)
     if(pair STREQUAL "inferred")
         set(anchor "pub loadUser(path: str) {")
     elseif(pair STREQUAL "partial")
-        set(anchor "pub loadUser(path: str): Sym<:ok(User), _> {")
+        set(anchor "pub loadUser(path: str) -> Sym<:ok(User), _> {")
     else()
         set(anchor "Sym<:ok(User), File.Error, Json.Error, :invalidAge(int)>")
     endif()
@@ -92,16 +92,16 @@ main() { describe(20)
 set(load_api [=[
 File {}
 Json { text: str }
-impl File { read(path: str): Sym<:ok(str), :notFound(str), :permissionDenied(str)> {
+impl File { read(path: str) -> Sym<:ok(str), :notFound(str), :permissionDenied(str)> {
   if path == "missing" { ret :notFound(path) }
   if path == "denied" { ret :permissionDenied(path) }
   path + ""
 } }
-impl Json { parse(text: str): Sym<:ok(Json), :syntax(int)> {
+impl Json { parse(text: str) -> Sym<:ok(Json), :syntax(int)> {
   if text == "syntax" { ret :syntax(7) }
   Json { text: text }
 } }
-impl User { fromJson(json: Json): Sym<:ok(User), :invalidAge(int)> {
+impl User { fromJson(json: Json) -> Sym<:ok(User), :invalidAge(int)> {
   if json.text == "age" { ret :invalidAge(-1) }
   User { name: json.text, age: 20 }
 } }
@@ -156,7 +156,7 @@ main() { let user = User { name: "B" + "ob", age: 20 }
 set(slot_api [=[
 UserSlot { user: User }
 UserCollection { userVec: UserSlot }
-impl UserSlot { add(slot: &UserSlot, user: &User): str {
+impl UserSlot { add(slot: &UserSlot, user: &User) -> str {
   slot.user = user
   "stored:" + user.getName()
 } }
@@ -174,7 +174,7 @@ example(21 discarded-owned-tail "${user_api}\n${slot_api}" "${block_21}"
 
 set(file_api [=[
 File { fail: bool }
-impl File { close(file: &File): Sym<:ok, :ioError(str)> {
+impl File { close(file: &File) -> Sym<:ok, :ioError(str)> {
   print("close")
   if file.fail { ret :ioError("close" + " failed") }
   :ok
@@ -198,7 +198,7 @@ panic_example(22 unit-panic "// expect: close\n${file_api}\n${handled}\nmain() {
     "closeLog(file)" "panic: :ioError(\"close failed\")" "file.close()!")
 example(23 ignored-int [=[
 Users { size: int }
-impl Users { len(users: Users): int { print("len")
+impl Users { len(users: Users) -> int { print("len")
   users.size } }
 main() { let users = Users { size: 3 }
 ]=] "${block_23}" "print(\"after\")\n}\n// expect: len\n// expect: after")
@@ -206,8 +206,8 @@ set(code "${block_24}")
 error_at(code "file.close()" "A call that can fail must be handled with ?, !, or a match.")
 example(24 ignored-failure "${file_api}\nmain() { let file = File { fail: false }" "${code}" "}")
 set(call_api "${user_api}")
-replace_once(call_api "getName(user: User): str { user.name }"
-    "getName(user: User): str { print(\"name\")\nuser.name }")
+replace_once(call_api "getName(user: User) -> str { user.name }"
+    "getName(user: User) -> str { print(\"name\")\nuser.name }")
 example(25 call-syntax "${call_api}\nsave(user: User) { print(\"save:\" + user.name) }\nmain() { let user = User { name: \"B\" + \"ob\", age: 20 }"
     "${block_25}" "}\n// expect: name\n// expect: save:Bob\n// expect: save:Bob")
 example(26 local-summary "${user_api}" "${block_26}" [=[
@@ -267,7 +267,7 @@ set(code "f() { f() }")
 error_at(code "f() { f() }" "Cannot infer recursive return type; write a return type.")
 example(0 unanchored-recursion "" "${code}" "main() {}")
 example(0 annotated-recursion "" [=[
-f(n: int): int { if n == 0 { ret 1 }
+f(n: int) -> int { if n == 0 { ret 1 }
   f(n - 1) }
 ]=] "main() { print(str(f(3))) }\n// expect: 1")
 require_prose("Context is shared across these return paths when typing number literals")
@@ -281,9 +281,9 @@ main() { let value: dbl = f(true)
 // expect: 2.5
 ]=] "")
 require_prose("already-typed numbers are never implicitly converted")
-set(code "narrow(): int { wide() }")
-error_at(code "narrow(): int" "Function body does not match the written return type.")
-example(0 typed-return-mismatch "wide(): lng { 4294967296 }" "${code}" "main() {}")
+set(code "narrow() -> int { wide() }")
+error_at(code "narrow() -> int" "Function body does not match the written return type.")
+example(0 typed-return-mismatch "wide() -> lng { 4294967296 }" "${code}" "main() {}")
 require_prose("Statements after an unconditional return are still checked, but do not contribute a return type.")
 example(0 unreachable-return "" "f() { ret 1\nret false }"
     "main() { print(str(f())) }\n// expect: 1")

@@ -11,7 +11,7 @@ replace_once(block_5 "let precise = dub(ratio)" "let precise = dbl(ratio)")
 set(user_api [=[
 User { name: str
   age: shrt }
-impl User { new(name: str, age: shrt): Sym<:ok(User), :invalidAge(shrt)> {
+impl User { new(name: str, age: shrt) -> Sym<:ok(User), :invalidAge(shrt)> {
   if age < 0 { ret :invalidAge(age) }
   User { name: name + "", age: age }
 } }
@@ -118,7 +118,7 @@ example(14 character-and-utf8 "main() {" "${code}"
 set(slot_api [=[
 UserSlot { user: User }
 UserCollection { userVec: UserSlot }
-impl UserSlot { add(slot: &UserSlot, user: &User): str {
+impl UserSlot { add(slot: &UserSlot, user: &User) -> str {
   slot.user = user
   "stored:" + user.name
 } }
@@ -652,7 +652,7 @@ require_prose("It has exactly one value, also written `()`.")
 example(0 unit-value "" [=[
 UnitBox { value: () }
 effect() { print("effect") }
-ignore(): () { "owned" + " tail" }
+ignore() -> () { "owned" + " tail" }
 main() {
   let box = UnitBox { value: effect() }
   let value: () = ignore()

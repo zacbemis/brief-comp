@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 include("${CMAKE_CURRENT_LIST_DIR}/doc_examples.cmake")
 doc_examples_begin(lang-ex-base 0)
 file(READ "${ROOT}/docs/v0/lang-ex-base.txt" document)
+doc_return_arrows(document lang-ex-base)
 set_property(GLOBAL PROPERTY base_remaining "${document}")
 set_property(GLOBAL PROPERTY base_parts "")
 set_property(GLOBAL PROPERTY base_covered "")
@@ -288,7 +289,7 @@ foreach(kind IN ITEMS written inferred)
     set(code "${part_unit}")
     replace_once(code "print(message)" "echo(message)")
     if(kind STREQUAL "inferred")
-        replace_once(code "log(message: str): ()" "log(message: str)")
+        replace_once(code "log(message: str) -> ()" "log(message: str)")
         set(call "let result = log(\"message\")\nprint(result)")
         set(output "// expect: message\n// expect: message")
     else()
@@ -326,7 +327,7 @@ string(STRIP "${version}" version)
 replace_once(version "pub const " "let ")
 slice(part_user "\n  getUser(user:" "\n  pub new(name:" identity)
 slice(part_user "\n  pub new(name:" "\n  pub fromJson(" constructor)
-replace_once(constructor ": Sym<:ok(User), :err(str)> {" ": Sym<:ok(User), :err(str)> {\n    ${version}")
+replace_once(constructor "-> Sym<:ok(User), :err(str)> {" "-> Sym<:ok(User), :err(str)> {\n    ${version}")
 set(user_api "${user_type}\n${tier_type}\nimpl User {\n${identity}\n${getters}\n${constructor}\n}\n")
 sample(user user-methods "${user_api}" [=[
 observe(age: int) {
@@ -369,12 +370,12 @@ Json { name: str
   hasName: bool
   hasAge: bool }
 impl Json {
-  getStr(json: Json, key: str): Sym<:ok(str), JsonError> {
+  getStr(json: Json, key: str) -> Sym<:ok(str), JsonError> {
     print("getStr:" + key)
     if not json.hasName { ret :missing(key) }
     json.name
   }
-  getInt(json: Json, key: str): Sym<:ok(int), JsonError> {
+  getInt(json: Json, key: str) -> Sym<:ok(int), JsonError> {
     print("getInt:" + key)
     if not json.hasAge { ret :missing(key) }
     json.age
@@ -430,7 +431,7 @@ set(slot_api [=[
 UserSlot { user: User }
 UserCollection { userVec: UserSlot
   userVersion: flt }
-impl UserSlot { add(slot: &UserSlot, user: &User): str {
+impl UserSlot { add(slot: &UserSlot, user: &User) -> str {
   slot.user = user
   "stored:" + user.name
 } }
@@ -503,12 +504,12 @@ set(code "${part_pipeline}")
 replace_once(code "const valid =" "let valid =")
 set(pipeline_api [=[
 Parsed { age: int }
-parse(text: str): Sym<:ok(Parsed), :syntax> {
+parse(text: str) -> Sym<:ok(Parsed), :syntax> {
   print("parse")
   if text == "syntax" { ret :syntax }
   Parsed { age: if text == "young" { 17 } else { 20 } }
 }
-validate(parsed: Parsed): Sym<:ok(bool), :invalidAge(int)> {
+validate(parsed: Parsed) -> Sym<:ok(bool), :invalidAge(int)> {
   print("validate")
   if parsed.age < 18 { ret :invalidAge(parsed.age) }
   true

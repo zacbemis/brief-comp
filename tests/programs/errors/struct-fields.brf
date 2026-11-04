@@ -1,7 +1,7 @@
 Num { n: int }
 Empty {}
 save(value: Num, label: str) {}
-main(): () {
+main() -> () {
   Num {} // error: Missing struct field initializer.
   Num { n: true } // error: Struct field initializer has the wrong type.
   Num { n: 0, n: 1 } // error: Duplicate struct field initializer.

@@ -34,7 +34,7 @@ loopExit(q: Q) {
     break }
   mutate(inner) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
 }
-same(p: P): P { p }
+same(p: P) -> P { p }
 viaCall(q: Q) {
   let inner = same(q.p)
   inner.name = "changed through an identity call" // error: Cannot mutate through an ordinary parameter; use &.
@@ -47,7 +47,7 @@ viaLiteral(q: Q) {
 }
 // A result type that can reach the argument's types may hold its objects.
 Holder { p: P }
-impl Holder { new(p: P): Self { Self { p: p } } }
+impl Holder { new(p: P) -> Self { Self { p: p } } }
 holderCall(q: Q) {
   let holder = Holder.new(q.p)
   holder.p.name = "a Holder can contain the P" // error: Cannot mutate through an ordinary parameter; use &.

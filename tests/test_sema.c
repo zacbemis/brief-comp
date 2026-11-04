@@ -47,7 +47,7 @@ static void real_literal(Arena *a, const char *type, const char *spelling,
                          double expected) {
   size_t capacity = strlen(spelling) + 64;
   char *text = arena_alloc(a, capacity);
-  snprintf(text, capacity, "main() {}\nvalue(): %s { %s }", type, spelling);
+  snprintf(text, capacity, "main() {}\nvalue() -> %s { %s }", type, spelling);
   Result r = check(a, text);
   if (r.errors.count)
     diagnostics_print(&r.errors, stderr);
@@ -116,7 +116,7 @@ int main(void) {
                            "int", "uint", "lng",  "ulng", "flt",  "dbl"};
     for (size_t i = 0; i < sizeof(types) / sizeof(*types); i++) {
       char text[256];
-      snprintf(text, sizeof(text), "main() {}\nf(x: %s): %s { x }", types[i],
+      snprintf(text, sizeof(text), "main() {}\nf(x: %s) -> %s { x }", types[i],
                types[i]);
       Result r = check(&a, text);
       ASSERT_EQ_INT(0, r.errors.count);
@@ -128,8 +128,9 @@ int main(void) {
           "main() { \"a normal result is discarded by the entry wrapper\" }");
   }
   TEST("dbl is the canonical binary64 type and converter, not a dub alias") {
-    Result r = check(&a, "f(x: dbl): dbl { x }\nmain() { let x: dbl = dbl(1)\n"
-                         "f(x)\n0.5 |> dbl() }");
+    Result r =
+        check(&a, "f(x: dbl) -> dbl { x }\nmain() { let x: dbl = dbl(1)\n"
+                  "f(x)\n0.5 |> dbl() }");
     ASSERT_EQ_INT(0, r.errors.count);
     ASSERT_TRUE(r.program->checked);
     ASSERT_TRUE(r.program->functions[0].symbol.return_type ==
@@ -144,6 +145,13 @@ int main(void) {
       ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
     }
     invalid(&a, "main() { let dbl = 1 }", "Expected a binding name.");
+  }
+  TEST("old return colons cannot reach lowering") {
+    Result r = check(&a, "main(): () { let value: int = 1 }\n");
+    ASSERT_EQ_INT(1, r.errors.count);
+    ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+    ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+    valid(&a, "main() -> () { let value: int = 1 }\n");
   }
   TEST("bindings are lexical, checked in declaration order, and mutable only "
        "with var") {
@@ -213,10 +221,10 @@ int main(void) {
       generic_error(&a, code, cases[i].site, NULL, 0);
       generic_error(&a, crlf, cases[i].site, NULL, 0);
     }
-    Result r = generic_error(
-        &a,
-        "callee(value: int): int { value }\nmain() { callee<int>(callee(1)) }",
-        "callee<int>(callee(1))", NULL, 0);
+    Result r = generic_error(&a,
+                             "callee(value: int) -> int { value }\nmain() { "
+                             "callee<int>(callee(1)) }",
+                             "callee<int>(callee(1))", NULL, 0);
     SemaFunction *caller = &r.program->functions[1];
     SemaExpr *call = caller->body->as.block.items[0];
     ASSERT_EQ_INT(SEMA_EXPR_CALL, call->kind);
@@ -273,7 +281,7 @@ int main(void) {
          "An if without else cannot be used as a value."},
         {"take(n: int) {}\nmain() { missing<int>(take(false)) }",
          "missing<int>(take(false))", "Function argument has the wrong type."},
-        {"fail(): Sym<:ok(int), :bad> { 1 }\nmain() { missing<int>(fail()) }",
+        {"fail() -> Sym<:ok(int), :bad> { 1 }\nmain() { missing<int>(fail()) }",
          "missing<int>(fail())",
          "A call that can fail must be handled with ?, !, or a match."},
         {"P {}\nmut(p: &P) {}\nf(p: P) { missing<int>(mut(p)) }\nmain() {}",
@@ -290,7 +298,7 @@ int main(void) {
         {"bad(flag: bool) { if flag { ret 1 }\nfalse }\nmain() { "
          "missing<int>() }",
          "missing<int>()", "Incompatible return types."},
-        {"bad(): () { missing<int>()\nret 1 }\nmain() {}", "missing<int>()",
+        {"bad() -> () { missing<int>()\nret 1 }\nmain() {}", "missing<int>()",
          "Return value does not match the written return type."},
         {"main() { missing<int>(1 + true) }", "missing<int>(1 + true)",
          "Operator operands must have the same type; numeric conversions are "
@@ -329,7 +337,7 @@ int main(void) {
   TEST("numeric literals use context but typed values never convert "
        "implicitly") {
     valid(&a, "main() { let x: lng = 2\nlet y: lng = 1 + x\nf(3) }\nf(x: "
-              "shrt): shrt { x }");
+              "shrt) -> shrt { x }");
     invalid(&a, "main() { let x: lng = 1\nlet y: int = x }", "annotation");
     invalid(&a, "main() { let x: lng = 1\nlet y: int = 2\nx + y }",
             "same type");
@@ -357,7 +365,7 @@ int main(void) {
     snprintf(huge_real, sizeof(huge_real), "main() { let x: Bogus = %s.0 }",
              digits);
     const char *unknown_contexts[] = {
-        "mk(): Sym<:ok(lng), :e(Bogus)> { 5000000000 }\nmain() {}",
+        "mk() -> Sym<:ok(lng), :e(Bogus)> { 5000000000 }\nmain() {}",
         "main() { let x: Bogus = 5000000000 }",
         "main() { let x: Bogus = -5000000000 }",
         "f(x: Bogus) {}\nmain() { f(5000000000) }",
@@ -434,7 +442,7 @@ int main(void) {
     invalid(&a, "main() { let x = if true { 1 } else { false } }",
             "compatible types");
     invalid(&a, "main() { if true { 1 } else { false } }", "compatible types");
-    valid(&a, "main(): () { if true { 1 } else { false } }");
+    valid(&a, "main() -> () { if true { 1 } else { false } }");
     invalid(&a, "main() { let x = while false {} }", "Loops cannot");
     invalid(&a, "main() { let x = for i in 0..1 {} }", "Loops cannot");
     invalid(&a, "main() { for i in 0.0..1.0 {} }", "bounds must be integers");
@@ -446,24 +454,24 @@ int main(void) {
   }
   TEST(
       "return constraints include explicit returns and reachable fallthrough") {
-    invalid(&a, "main() {}\nf(x: bool): int { if x { ret 1 } }",
+    invalid(&a, "main() {}\nf(x: bool) -> int { if x { ret 1 } }",
             "written return type");
     invalid(&a, "main() {}\nf(x: bool) { if x { ret true }\n1 }",
             "Incompatible return types");
     valid(&a, "main() {}\nf() { ret 1\ntrue }");
-    valid(&a, "main() {}\nf(x: bool): int { if x { ret 1 } else { ret 2 } }");
-    valid(&a, "main() {}\nf(): int { while true {} }");
-    valid(&a, "main() {}\nf(x: bool): () { if x { ret }\n\"discard\" }");
+    valid(&a, "main() {}\nf(x: bool) -> int { if x { ret 1 } else { ret 2 } }");
+    valid(&a, "main() {}\nf() -> int { while true {} }");
+    valid(&a, "main() {}\nf(x: bool) -> () { if x { ret }\n\"discard\" }");
     valid(&a, "main() { let zero: uint = -0 }");
     Result dead = check(&a, "main() {}\nf() { for i in (if true { ret 1 } else "
                             "{ ret 2 })..0 { let x: lng = 1\nret x } }");
     ASSERT_EQ_INT(0, dead.errors.count);
     ASSERT_EQ_INT(SEMA_INT,
                   dead.program->functions[1].symbol.return_type->kind);
-    invalid(&a, "main() {}\nf(): int { ret true }", "written return type");
-    invalid(&a, "main() {}\nf(): () { ret 1 }", "written return type");
+    invalid(&a, "main() {}\nf() -> int { ret true }", "written return type");
+    invalid(&a, "main() {}\nf() -> () { ret 1 }", "written return type");
     invalid(&a, "main() {}\nf() { f() }", "Cannot infer recursive");
-    valid(&a, "main() {}\nf(): int { f() }");
+    valid(&a, "main() {}\nf() -> int { f() }");
     valid(&a, "main() {}\nf(x: bool) { if x { g(x) } else { 1.0 } }\ng(x: "
               "bool) { if x { f(x) } else { 1 } }");
     invalid(&a,
@@ -716,7 +724,7 @@ int main(void) {
                                  "f%zu() { f%zu() }\n", i, i + 1);
     snprintf(text + length, capacity - length, "f2048() {}\n");
     valid(&a, text);
-    snprintf(text + length, capacity - length, "f2048(): () { f0() }\n");
+    snprintf(text + length, capacity - length, "f2048() -> () { f0() }\n");
     Result r = check(&a, text);
     ASSERT_EQ_INT(0, r.errors.count);
     ASSERT_TRUE(r.program->functions[1].component ==

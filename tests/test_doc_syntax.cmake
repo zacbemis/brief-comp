@@ -13,13 +13,13 @@ User { name: str
   active: bool
   banned: bool }
 impl User {
-  new(name: str, age: int): Sym<:ok(User), :invalidAge(int)> {
+  new(name: str, age: int) -> Sym<:ok(User), :invalidAge(int)> {
     if age < 0 { ret :invalidAge(age) }
     User { name: name + "", age: age, active: true, banned: false }
   }
-  getName(user: User): str { user.name }
-  isActive(user: User): bool { user.active }
-  isBanned(user: User): bool { user.banned }
+  getName(user: User) -> str { user.name }
+  isActive(user: User) -> bool { user.active }
+  isBanned(user: User) -> bool { user.banned }
 }
 ]=])
 # These helpers preserve each original expression and comment while adding an
@@ -80,12 +80,12 @@ let name = users
 ]=] "")
 set(continuation_api [=[
 Json { age: int }
-parse(text: str): Sym<:ok(Json), :syntax> {
+parse(text: str) -> Sym<:ok(Json), :syntax> {
   print("parse")
   if text == "bad" { ret :syntax }
   Json { age: if text == "young" { 17 } else { 20 } }
 }
-validate(json: Json): Sym<:ok(bool), :invalidAge(int)> {
+validate(json: Json) -> Sym<:ok(bool), :invalidAge(int)> {
   print("validate")
   if json.age < 18 { ret :invalidAge(json.age) }
   true
@@ -163,7 +163,7 @@ expression_case(11 comparisons 6 "main() { let x = 9\nlet y = 2"
     "// expect: false\n// expect: true\n// expect: false\n// expect: false\n// expect: true\n// expect: true")
 expression_case(12 bitwise 6 "main() { let x = 10\nlet y = 3"
     "// expect: 2\n// expect: 11\n// expect: 9\n// expect: -11\n// expect: 80\n// expect: 1")
-example(13 logical-conditions "${user_api}\nallowed(age: int, user: User): bool {" "${block_13}" [=[
+example(13 logical-conditions "${user_api}\nallowed(age: int, user: User) -> bool {" "${block_13}" [=[
 true
 }
 main() { let user = User.new("Bob", 20)!
@@ -271,11 +271,11 @@ error_at(code "break" "break and continue are only allowed inside loops.")
 example(28 break-outside-loop "" "${code}" "")
 set(guest_api [=[
 Guest { name: str }
-impl Guest { isAllowed(guest: Guest): bool {
+impl Guest { isAllowed(guest: Guest) -> bool {
   print("method")
   guest.name == "Bob"
 } }
-isAllowed(guest: Guest): bool {
+isAllowed(guest: Guest) -> bool {
   print("function")
   guest.name == "Bob"
 }
@@ -401,7 +401,7 @@ error_at(code "print(str(i))" "Unknown binding.")
 example(0 iteration-binding-scope "main() { for i in 0..1 {}" "${code}" "}")
 require_prose("including at the tail of a `: ()` function, branch values are ignored individually.")
 example(0 discarded-branches "" [=[
-discard(flag: bool): () { if flag { "owned" + " string" } else { 1 } }
+discard(flag: bool) -> () { if flag { "owned" + " string" } else { 1 } }
 main() { discard(true)
   discard(false)
   print("done") }
@@ -420,10 +420,10 @@ example(0 loop-argument "take(value: ()) {}\nmain() {" "${code}" "}")
 require_prose("bounds are integers of the same type and are evaluated once, left to right, before the loop starts.")
 example(0 range-bounds "" [=[
 Counter { calls: int }
-low(counter: &Counter): shrt { counter.calls++
+low(counter: &Counter) -> shrt { counter.calls++
   print("low")
   1 }
-high(counter: &Counter): shrt { counter.calls++
+high(counter: &Counter) -> shrt { counter.calls++
   print("high")
   3 }
 main() { let counter = Counter { calls: 0 }

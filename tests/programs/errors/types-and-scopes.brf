@@ -1,4 +1,4 @@
-main(): () {
+main() -> () {
   let fixed = 1
   fixed = 2 // error: Cannot reassign an immutable binding.
   fixed++ // error: Cannot reassign an immutable binding.

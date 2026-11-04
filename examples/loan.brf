@@ -18,11 +18,11 @@ Summary {
 }
 
 // Monthly interest on a balance, rounded half up to the cent.
-interest(balance: lng, rateBps: int): lng {
+interest(balance: lng, rateBps: int) -> lng {
   (balance * lng(rateBps) + 60000) / 120000
 }
 
-money(cents: lng): str {
+money(cents: lng) -> str {
   let negative = cents < 0
   var rest = if negative { -cents } else { cents }
   let fraction = rest % 100
@@ -39,13 +39,13 @@ money(cents: lng): str {
   (if negative { "-$" } else { "$" }) + whole + "." + cents2
 }
 
-percent(bps: int): str {
+percent(bps: int) -> str {
   let hundredths = bps % 100
   str(bps / 100) + "." + (if hundredths < 10 { "0" } else { "" }) +
     str(hundredths) + "%"
 }
 
-digits(n: lng): int {
+digits(n: lng) -> int {
   var count = 1
   var rest = n / 10
   while rest > 0 {
@@ -57,24 +57,24 @@ digits(n: lng): int {
 
 // The language has no string length yet, so each formatter knows the width
 // of what it produced.
-moneyWidth(cents: lng): int {
+moneyWidth(cents: lng) -> int {
   let whole = (if cents < 0 { -cents } else { cents }) / 100
   let d = digits(whole)
   (if cents < 0 { 2 } else { 1 }) + d + (d - 1) / 3 + 3
 }
 
-right(text: str, length: int, width: int): str {
+right(text: str, length: int, width: int) -> str {
   var padded = text
   for i in length..width { padded = " " + padded }
   padded
 }
 
-column(cents: lng, width: int): str {
+column(cents: lng, width: int) -> str {
   right(money(cents), moneyWidth(cents), width)
 }
 
 impl Loan {
-  new(principal: lng, rateBps: int, years: int): Sym<:ok(Self), LoanError> {
+  new(principal: lng, rateBps: int, years: int) -> Sym<:ok(Self), LoanError> {
     if principal <= 0 { ret :badPrincipal(principal) }
     if rateBps < 0 or rateBps > 5000 { ret :badRate(rateBps) }
     if years < 1 or years > 50 { ret :badTerm(years) }
@@ -83,7 +83,7 @@ impl Loan {
 
   // Simulates paying `payment` (plus `extra`) every month. Returns the months
   // taken and total interest, or the balance left if the term runs out.
-  simulate(loan: Self, payment: lng, extra: lng):
+  simulate(loan: Self, payment: lng, extra: lng) ->
     Sym<:ok(Summary), :unpaid(lng)> {
     var balance = loan.principal
     var paid: lng = 0
@@ -99,7 +99,7 @@ impl Loan {
     :unpaid(balance)
   }
 
-  payment(loan: Self): lng {
+  payment(loan: Self) -> lng {
     var low: lng = 0
     var high = loan.principal + interest(loan.principal, loan.rateBps)
     while low < high {
@@ -112,7 +112,7 @@ impl Loan {
     low
   }
 
-  summary(loan: Self, extra: lng): Summary {
+  summary(loan: Self, extra: lng) -> Summary {
     let payment = loan.payment()
     loan.simulate(payment, extra) |> {
       :ok(result) => result
@@ -136,7 +136,7 @@ impl Loan {
   }
 }
 
-amount(n: int, unit: str): str {
+amount(n: int, unit: str) -> str {
   str(n) + " " + unit + (if n == 1 { "" } else { "s" })
 }
 
@@ -155,7 +155,7 @@ describe(name: str, loan: Loan) {
     money(plain.interest - extra.interest))
 }
 
-explain(e: LoanError): str {
+explain(e: LoanError) -> str {
   e |> {
     :badPrincipal(p) => "the principal " + money(p) + " must be positive"
     :badRate(r) => "the rate " + percent(r) + " is outside 0%-50%"
@@ -171,7 +171,7 @@ attempt(principal: lng, rateBps: int, years: int) {
   }
 }
 
-main(): Sym<:ok, LoanError> {
+main() -> Sym<:ok, LoanError> {
   let mortgage = Loan.new(35000000, 650, 30)?
   describe("30-year mortgage", mortgage)
   let shorter = Loan.new(35000000, 600, 15)?

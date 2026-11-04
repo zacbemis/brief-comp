@@ -1,0 +1,13 @@
+value():int { 1 } // error: Return types follow '->', not ':'. // fix: value() -> int { 1 }
+effect() : () {} // error: Return types follow '->', not ':'. // fix: effect() -> () {}
+partial(): Sym<:ok(int), _> { 1 } // error: Return types follow '->', not ':'. // fix: partial() -> Sym<:ok(int), _> { 1 }
+pub exposed(): int { 1 } // error: Return types follow '->', not ':'. // fix: pub exposed() -> int { 1 }
+commented()/* before */:/* after */int { 1 } // error: Return types follow '->', not ':'. // fix: commented()/* before */ -> /* after */int { 1 }
+continued(): // error: Return types follow '->', not ':'. // fix: continued() ->
+  int { 1 }
+Box { value: int }
+impl Box {
+  new(): Box { Box { value: 1 } } // error: Return types follow '->', not ':'. // fix: new() -> Box { Box { value: 1 } }
+  read(box: Self): int { box.value } // error: Return types follow '->', not ':'. // fix: read(box: Self) -> int { box.value }
+}
+main(): () { let value: int = 1 } // error: Return types follow '->', not ':'. // fix: main() -> () { let value: int = 1 }

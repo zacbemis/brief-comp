@@ -100,6 +100,25 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")
     message(FATAL_ERROR "corrected dbl source failed (${status}):\n${errors}")
 endif()
 
+# Return annotations use arrows; parameter/binding colons are unchanged.
+set(old_return "${TEST_DIR}/old-return.brf")
+file(WRITE "${old_return}" "main(): () { let n: int = 1 }\r\n")
+string(REPEAT " " 6 indent)
+set(expected "error: Return types follow '->', not ':'.\n  --> ${old_return}:1:7\n  |\n1 | main(): () { let n: int = 1 }\n  | ${indent}^\nhelp: write `main() -> () { let n: int = 1 }`\n")
+foreach(command IN ITEMS dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${old_return}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} return-arrow fix (${status}):\n${errors}\nexpected:\n${expected}")
+    endif()
+endforeach()
+file(WRITE "${old_return}" "main() -> () { let n: int = 1 }\r\n")
+execute_process(COMMAND "${BRIEF}" emit-c "${old_return}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")
+    message(FATAL_ERROR "corrected return arrow failed (${status}):\n${errors}")
+endif()
+
 set(invalid "${TEST_DIR}/invalid.brf")
 file(WRITE "${invalid}" "main() {\n  \"\\q\"\n  @\n  /* unfinished\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"

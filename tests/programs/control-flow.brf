@@ -11,8 +11,8 @@
 // expect: unit c
 // expect: control ok
 Gate { n: int }
-impl Gate { open(gate: Self): bool { gate.n < 2 } }
-check(ok: bool, message: str): () { if not ok { print(message) } }
+impl Gate { open(gate: Self) -> bool { gate.n < 2 } }
+check(ok: bool, message: str) -> () { if not ok { print(message) } }
 trace(label: str, value: int) { print(label)
   value }
 add(a: int, b: int) { a + b }

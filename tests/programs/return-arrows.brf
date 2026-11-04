@@ -1,0 +1,34 @@
+Box { value: int }
+impl Box {
+  new(value: int) -> Self { Self { value: value } }
+  read(box: Self)->int { box.value }
+}
+double(value: int) ->
+  // The arrow continues onto the return-type line.
+  int { value * 2 }
+forward(value: int) -> int { double(value) }
+effect(value: int) -> () {
+  print(str(value))
+  99
+}
+choose(fail: bool) -> Sym<:ok(int), _> {
+  if fail { ret :bad }
+  7
+}
+main() -> () {
+  let value: int = forward(3)
+  print(str(value)) // expect: 6
+  let box = Box.new(value)
+  print(str(box.read())) // expect: 6
+  effect(value) // expect: 6
+  choose(false) |> {
+    :ok(n) => print(str(n)) // expect: 7
+    :bad => print("wrong")
+  }
+  choose(true) |> {
+    :ok(_) => print("wrong")
+    :bad => print("bad") // expect: bad
+  }
+  print("f(): int") // expect: f(): int
+  123
+}

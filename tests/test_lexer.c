@@ -300,14 +300,14 @@ int main(void) {
 
   TEST("empty type and typed bindings from docs") {
     Lexer lx;
-    init_lexer(&lx, "log(message: str): () {\n  let count: lng = 0\n}");
+    init_lexer(&lx, "log(message: str) -> () {\n  let count: lng = 0\n}");
     expect(&lx, TOK_LOWER_NAME, "log");
     expect(&lx, TOK_LPAREN, "(");
     expect(&lx, TOK_LOWER_NAME, "message");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_STR, "str");
     expect(&lx, TOK_RPAREN, ")");
-    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_ARROW, "->");
     expect(&lx, TOK_LPAREN, "(");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_LBRACE, "{");
@@ -712,7 +712,7 @@ int main(void) {
 
   TEST("function declaration from docs") {
     Lexer lx;
-    init_lexer(&lx, "add(x: int, y: int): int { x + y }");
+    init_lexer(&lx, "add(x: int, y: int) -> int { x + y }");
     expect(&lx, TOK_LOWER_NAME, "add");
     expect(&lx, TOK_LPAREN, "(");
     expect(&lx, TOK_LOWER_NAME, "x");
@@ -723,7 +723,7 @@ int main(void) {
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_INT, "int");
     expect(&lx, TOK_RPAREN, ")");
-    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_ARROW, "->");
     expect(&lx, TOK_INT, "int");
     expect(&lx, TOK_LBRACE, "{");
     expect(&lx, TOK_LOWER_NAME, "x");
@@ -928,7 +928,7 @@ int main(void) {
 
   TEST("trait declaration from docs") {
     Lexer lx;
-    init_lexer(&lx, "pub trait HasUser { getUser(value: Self): User }");
+    init_lexer(&lx, "pub trait HasUser { getUser(value: Self) -> User }");
     expect(&lx, TOK_PUB, "pub");
     expect(&lx, TOK_TRAIT, "trait");
     expect(&lx, TOK_UPPER_NAME, "HasUser");
@@ -939,7 +939,7 @@ int main(void) {
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_SELF, "Self");
     expect(&lx, TOK_RPAREN, ")");
-    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_ARROW, "->");
     expect(&lx, TOK_UPPER_NAME, "User");
     expect(&lx, TOK_RBRACE, "}");
     expect(&lx, TOK_EOF, NULL);
@@ -947,7 +947,7 @@ int main(void) {
 
   TEST("impl with override from docs") {
     Lexer lx;
-    init_lexer(&lx, "impl Admin: HasUser { ovr pub getName(admin: Admin): "
+    init_lexer(&lx, "impl Admin: HasUser { ovr pub getName(admin: Admin) -> "
                     "str }");
     expect(&lx, TOK_IMPL, "impl");
     expect(&lx, TOK_UPPER_NAME, "Admin");
@@ -962,7 +962,7 @@ int main(void) {
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_UPPER_NAME, "Admin");
     expect(&lx, TOK_RPAREN, ")");
-    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_ARROW, "->");
     expect(&lx, TOK_STR, "str");
     expect(&lx, TOK_RBRACE, "}");
     expect(&lx, TOK_EOF, NULL);

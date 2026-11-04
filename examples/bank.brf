@@ -40,7 +40,7 @@ Bank {
   nextId: int
 }
 
-money(cents: lng): str {
+money(cents: lng) -> str {
   let sign = if cents < 0 { "-" } else { "" }
   let whole = (if cents < 0 { -cents } else { cents })
   let fraction = whole % 100
@@ -48,7 +48,7 @@ money(cents: lng): str {
     str(fraction)
 }
 
-kindName(kind: Kind): str {
+kindName(kind: Kind) -> str {
   kind |> {
     :checking => "checking"
     :savings => "savings"
@@ -66,7 +66,7 @@ impl Account {
     })
   }
 
-  deposit(account: &Self, amount: lng, label: str):
+  deposit(account: &Self, amount: lng, label: str) ->
     Sym<:ok, :badAmount(lng), :frozen(int)> {
     if amount <= 0 { ret :badAmount(amount) }
     if account.frozen { ret :frozen(account.id) }
@@ -86,9 +86,9 @@ impl Account {
 }
 
 impl Bank {
-  new(name: str): Self { Self { name: name, accounts: :none, nextId: 100 } }
+  new(name: str) -> Self { Self { name: name, accounts: :none, nextId: 100 } }
 
-  open(bank: &Self, owner: str, kind: Kind): Account {
+  open(bank: &Self, owner: str, kind: Kind) -> Account {
     let account = Account {
       id: bank.nextId
       owner: owner
@@ -103,7 +103,7 @@ impl Bank {
   }
 
   // Taking the bank as & makes the account it returns writable.
-  find(bank: &Self, id: int): Sym<:ok(Account), :noAccount(int)> {
+  find(bank: &Self, id: int) -> Sym<:ok(Account), :noAccount(int)> {
     var cursor = bank.accounts
     while true {
       let node = cursor |> {
@@ -189,7 +189,7 @@ statement(account: Account) {
   printHistory(account.history)
 }
 
-explain(e: BankError): str {
+explain(e: BankError) -> str {
   e |> {
     :noAccount(id) => "there is no account #" + str(id)
     :badAmount(a) => money(a) + " is not a positive amount"
@@ -207,7 +207,7 @@ attempt(bank: &Bank, from: int, to: int, amount: lng) {
   }
 }
 
-main(): Sym<:ok, :badAmount(lng), :frozen(int)> {
+main() -> Sym<:ok, :badAmount(lng), :frozen(int)> {
   let bank = Bank.new("Brief Savings & Loan")
   let ada = bank.open("Ada", :checking)
   let ada2 = bank.open("Ada", :savings)

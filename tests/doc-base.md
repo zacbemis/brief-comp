@@ -5,8 +5,9 @@ or a complete single-source program. It combines notation, unrelated local
 fragments, intentional errors and proposed multiple-file APIs. Compiling the
 whole file and accepting any failure would not establish acceptance.
 
-`test_doc_base.cmake` reads it directly, guards **zero fences**, and consumes the
-entire text into **38 contiguous named spans**: **20 tested, six partial, four
+`test_doc_base.cmake` reads it directly, guards **zero fences**, applies the
+reviewed N1 return-header bridge, and consumes the entire adapted text into
+**38 contiguous named spans**: **20 tested, six partial, four
 notation/prose references and eight deferred**. No bytes between selected
 fragments are omitted from the classification. **38 native/diagnostic cases**
 exercise the in-scope material and selected derived counterparts.
@@ -28,9 +29,11 @@ separate directory for the sanitized variant. They are not checked-in fixtures.
 
 The raw v0 sample stays frozen. Its primitive reference still says `dub x`;
 the generated binding probe uses `dbl` while retaining the original `probe_dub`
-name. The default-domain scaffold also takes `dbl`. No source fragments,
-boundaries, outcomes or expectations change. This is a temporary spelling bridge,
-not the replacement audit for the new declaration/type grammar.
+name. The default-domain scaffold also takes `dbl`. The shared, hash-guarded
+[return-header bridge](doc-acceptance.md#n1-spelling-bridges) changes the listed
+annotations to `->` before span classification; all boundaries and bodies remain.
+The on-disk source, outcomes and expectations are unchanged. These are temporary
+bridges, not the replacement audit for the full new declaration/type grammar.
 
 ## Complete raw-span manifest
 
@@ -68,7 +71,7 @@ blank lines and outer contexts as well as selected declarations/statements.
 | 27 | `admin-module` | Deferred: automatic `User` discovery and imported/qualified namespace rules. |
 | 28 | `admin` | **Partial:** `admin` retains the nominal fields, getter/constructor bodies and implicit success/`?`. Localize only `User.Tier`, replace the trait impl header with ordinary `impl`, and omit only `ovr`. No module, trait or override-resolution claim is made. |
 | 29 | `collection-module` | Deferred: separate `UserCollection.brf` module context. |
-| 30 | `collection` | **Partial:** `retaining` executes the unchanged `pub add(...): ()` method on a documented one-slot stand-in. The actual `Vec` fields/constructor, JSON/collection iteration, serialization/select, find/remove/count/where and lambda bodies remain deferred. |
+| 30 | `collection` | **Partial:** `retaining` executes the `pub add(...) -> ()` method with its unchanged body on a documented one-slot stand-in. The actual `Vec` fields/constructor, JSON/collection iteration, serialization/select, find/remove/count/where and lambda bodies remain deferred. |
 | 31 | `module-cycle` | Deferred: multi-file dependency-cycle rules. This is not a runtime ARC-cycle test. |
 | 32 | `entry` | Tested: `entry` retains the complete `main` and prints Bob using localized first-version definitions. `top-level-binding` checks the adjacent declarations-only rule with an isolated original binding line. This does not validate the original multi-file program. |
 | 33 | `constructors` | **Partial:** `construct-propagate`, `construct-bang`, `construct-handled`, `construct-panic` retain construction/handling expressions, replacing only the outer `const` binding kind with `let` and varying age inputs. Propagation and match forms exercise both outcomes; `!` has success and panic/location cases. Const permissions remain deferred. |

@@ -1,10 +1,10 @@
-signed(n: shrt): int {
+signed(n: shrt) -> int {
   n |> { < -100 => 1
     -100..100 => 2
     50..200 => 3
     >= 200 => 4 }
 }
-unsigned(n: ushrt): int {
+unsigned(n: ushrt) -> int {
   n |> { 0..10 => 0
     10..256 => 1
     >= 256 => 2 }

@@ -19,7 +19,7 @@ pub Admin {
 }
 
 impl User {
-  pub new(name: str, age: int): Sym<:ok(User), Error> {
+  pub new(name: str, age: int) -> Sym<:ok(User), Error> {
     if name == "" {
       ret :emptyName
     }
@@ -29,11 +29,11 @@ impl User {
     User { name: name, age: age, tier: :tier1 }
   }
 
-  pub getName(user: User): str {
+  pub getName(user: User) -> str {
     user.name
   }
 
-  pub getAgeRange(user: User): Sym<:minor, :adult, :senior> {
+  pub getAgeRange(user: User) -> Sym<:minor, :adult, :senior> {
     user.age |> {
       < 18 => :minor
       18..65 => :adult
@@ -48,7 +48,7 @@ impl User {
     }
   }
 
-  pub describe(user: User): str {
+  pub describe(user: User) -> str {
     let range = user.getAgeRange() |> {
       :minor => "minor"
       :adult => "adult"
@@ -59,12 +59,12 @@ impl User {
 }
 
 impl Admin {
-  pub new(name: str, age: int): Sym<:ok(Admin), Error> {
+  pub new(name: str, age: int) -> Sym<:ok(Admin), Error> {
     Admin { user: User.new(name, age)?, level: 1 }
   }
 }
 
-countAdults(limit: int): int {
+countAdults(limit: int) -> int {
   var count = 0
   var age = 0
   while age < limit {
@@ -88,7 +88,7 @@ sumTo(n: int) {
   total
 }
 
-classify(n: int): str {
+classify(n: int) -> str {
   if n < 0 { "negative" } else if n == 0 { "zero" } else { "positive" }
 }
 

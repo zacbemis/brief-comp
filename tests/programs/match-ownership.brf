@@ -1,19 +1,19 @@
 Child { name: str }
 Holder { child: Child }
 impl Child {
-  combine(c: &Self, other: Self): str { c.name + ":" + other.name }
+  combine(c: &Self, other: Self) -> str { c.name + ":" + other.name }
 }
-swap(h: &Holder): Child {
+swap(h: &Holder) -> Child {
   let old = h.child
   h.child = Child { name: "new" }
   old
 }
 use(c: Child, u: ()) { print(c.name) }
-choose(b: bool): Child {
+choose(b: bool) -> Child {
   b |> { true => Child { name: "left" }
     false => Child { name: "right" } }
 }
-early(c: Child): str {
+early(c: Child) -> str {
   c |> { x => ret x.name + " returned" }
 }
 main() {

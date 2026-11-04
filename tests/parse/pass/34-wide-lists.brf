@@ -914,1202 +914,1202 @@ main() {
   }
 }
 
-fn0(a: int): int {
+fn0(a: int) -> int {
   a + 0
 }
 
-fn1(a: int): int {
+fn1(a: int) -> int {
   a + 1
 }
 
-fn2(a: int): int {
+fn2(a: int) -> int {
   a + 2
 }
 
-fn3(a: int): int {
+fn3(a: int) -> int {
   a + 3
 }
 
-fn4(a: int): int {
+fn4(a: int) -> int {
   a + 4
 }
 
-fn5(a: int): int {
+fn5(a: int) -> int {
   a + 5
 }
 
-fn6(a: int): int {
+fn6(a: int) -> int {
   a + 6
 }
 
-fn7(a: int): int {
+fn7(a: int) -> int {
   a + 7
 }
 
-fn8(a: int): int {
+fn8(a: int) -> int {
   a + 8
 }
 
-fn9(a: int): int {
+fn9(a: int) -> int {
   a + 9
 }
 
-fn10(a: int): int {
+fn10(a: int) -> int {
   a + 10
 }
 
-fn11(a: int): int {
+fn11(a: int) -> int {
   a + 11
 }
 
-fn12(a: int): int {
+fn12(a: int) -> int {
   a + 12
 }
 
-fn13(a: int): int {
+fn13(a: int) -> int {
   a + 13
 }
 
-fn14(a: int): int {
+fn14(a: int) -> int {
   a + 14
 }
 
-fn15(a: int): int {
+fn15(a: int) -> int {
   a + 15
 }
 
-fn16(a: int): int {
+fn16(a: int) -> int {
   a + 16
 }
 
-fn17(a: int): int {
+fn17(a: int) -> int {
   a + 17
 }
 
-fn18(a: int): int {
+fn18(a: int) -> int {
   a + 18
 }
 
-fn19(a: int): int {
+fn19(a: int) -> int {
   a + 19
 }
 
-fn20(a: int): int {
+fn20(a: int) -> int {
   a + 20
 }
 
-fn21(a: int): int {
+fn21(a: int) -> int {
   a + 21
 }
 
-fn22(a: int): int {
+fn22(a: int) -> int {
   a + 22
 }
 
-fn23(a: int): int {
+fn23(a: int) -> int {
   a + 23
 }
 
-fn24(a: int): int {
+fn24(a: int) -> int {
   a + 24
 }
 
-fn25(a: int): int {
+fn25(a: int) -> int {
   a + 25
 }
 
-fn26(a: int): int {
+fn26(a: int) -> int {
   a + 26
 }
 
-fn27(a: int): int {
+fn27(a: int) -> int {
   a + 27
 }
 
-fn28(a: int): int {
+fn28(a: int) -> int {
   a + 28
 }
 
-fn29(a: int): int {
+fn29(a: int) -> int {
   a + 29
 }
 
-fn30(a: int): int {
+fn30(a: int) -> int {
   a + 30
 }
 
-fn31(a: int): int {
+fn31(a: int) -> int {
   a + 31
 }
 
-fn32(a: int): int {
+fn32(a: int) -> int {
   a + 32
 }
 
-fn33(a: int): int {
+fn33(a: int) -> int {
   a + 33
 }
 
-fn34(a: int): int {
+fn34(a: int) -> int {
   a + 34
 }
 
-fn35(a: int): int {
+fn35(a: int) -> int {
   a + 35
 }
 
-fn36(a: int): int {
+fn36(a: int) -> int {
   a + 36
 }
 
-fn37(a: int): int {
+fn37(a: int) -> int {
   a + 37
 }
 
-fn38(a: int): int {
+fn38(a: int) -> int {
   a + 38
 }
 
-fn39(a: int): int {
+fn39(a: int) -> int {
   a + 39
 }
 
-fn40(a: int): int {
+fn40(a: int) -> int {
   a + 40
 }
 
-fn41(a: int): int {
+fn41(a: int) -> int {
   a + 41
 }
 
-fn42(a: int): int {
+fn42(a: int) -> int {
   a + 42
 }
 
-fn43(a: int): int {
+fn43(a: int) -> int {
   a + 43
 }
 
-fn44(a: int): int {
+fn44(a: int) -> int {
   a + 44
 }
 
-fn45(a: int): int {
+fn45(a: int) -> int {
   a + 45
 }
 
-fn46(a: int): int {
+fn46(a: int) -> int {
   a + 46
 }
 
-fn47(a: int): int {
+fn47(a: int) -> int {
   a + 47
 }
 
-fn48(a: int): int {
+fn48(a: int) -> int {
   a + 48
 }
 
-fn49(a: int): int {
+fn49(a: int) -> int {
   a + 49
 }
 
-fn50(a: int): int {
+fn50(a: int) -> int {
   a + 50
 }
 
-fn51(a: int): int {
+fn51(a: int) -> int {
   a + 51
 }
 
-fn52(a: int): int {
+fn52(a: int) -> int {
   a + 52
 }
 
-fn53(a: int): int {
+fn53(a: int) -> int {
   a + 53
 }
 
-fn54(a: int): int {
+fn54(a: int) -> int {
   a + 54
 }
 
-fn55(a: int): int {
+fn55(a: int) -> int {
   a + 55
 }
 
-fn56(a: int): int {
+fn56(a: int) -> int {
   a + 56
 }
 
-fn57(a: int): int {
+fn57(a: int) -> int {
   a + 57
 }
 
-fn58(a: int): int {
+fn58(a: int) -> int {
   a + 58
 }
 
-fn59(a: int): int {
+fn59(a: int) -> int {
   a + 59
 }
 
-fn60(a: int): int {
+fn60(a: int) -> int {
   a + 60
 }
 
-fn61(a: int): int {
+fn61(a: int) -> int {
   a + 61
 }
 
-fn62(a: int): int {
+fn62(a: int) -> int {
   a + 62
 }
 
-fn63(a: int): int {
+fn63(a: int) -> int {
   a + 63
 }
 
-fn64(a: int): int {
+fn64(a: int) -> int {
   a + 64
 }
 
-fn65(a: int): int {
+fn65(a: int) -> int {
   a + 65
 }
 
-fn66(a: int): int {
+fn66(a: int) -> int {
   a + 66
 }
 
-fn67(a: int): int {
+fn67(a: int) -> int {
   a + 67
 }
 
-fn68(a: int): int {
+fn68(a: int) -> int {
   a + 68
 }
 
-fn69(a: int): int {
+fn69(a: int) -> int {
   a + 69
 }
 
-fn70(a: int): int {
+fn70(a: int) -> int {
   a + 70
 }
 
-fn71(a: int): int {
+fn71(a: int) -> int {
   a + 71
 }
 
-fn72(a: int): int {
+fn72(a: int) -> int {
   a + 72
 }
 
-fn73(a: int): int {
+fn73(a: int) -> int {
   a + 73
 }
 
-fn74(a: int): int {
+fn74(a: int) -> int {
   a + 74
 }
 
-fn75(a: int): int {
+fn75(a: int) -> int {
   a + 75
 }
 
-fn76(a: int): int {
+fn76(a: int) -> int {
   a + 76
 }
 
-fn77(a: int): int {
+fn77(a: int) -> int {
   a + 77
 }
 
-fn78(a: int): int {
+fn78(a: int) -> int {
   a + 78
 }
 
-fn79(a: int): int {
+fn79(a: int) -> int {
   a + 79
 }
 
-fn80(a: int): int {
+fn80(a: int) -> int {
   a + 80
 }
 
-fn81(a: int): int {
+fn81(a: int) -> int {
   a + 81
 }
 
-fn82(a: int): int {
+fn82(a: int) -> int {
   a + 82
 }
 
-fn83(a: int): int {
+fn83(a: int) -> int {
   a + 83
 }
 
-fn84(a: int): int {
+fn84(a: int) -> int {
   a + 84
 }
 
-fn85(a: int): int {
+fn85(a: int) -> int {
   a + 85
 }
 
-fn86(a: int): int {
+fn86(a: int) -> int {
   a + 86
 }
 
-fn87(a: int): int {
+fn87(a: int) -> int {
   a + 87
 }
 
-fn88(a: int): int {
+fn88(a: int) -> int {
   a + 88
 }
 
-fn89(a: int): int {
+fn89(a: int) -> int {
   a + 89
 }
 
-fn90(a: int): int {
+fn90(a: int) -> int {
   a + 90
 }
 
-fn91(a: int): int {
+fn91(a: int) -> int {
   a + 91
 }
 
-fn92(a: int): int {
+fn92(a: int) -> int {
   a + 92
 }
 
-fn93(a: int): int {
+fn93(a: int) -> int {
   a + 93
 }
 
-fn94(a: int): int {
+fn94(a: int) -> int {
   a + 94
 }
 
-fn95(a: int): int {
+fn95(a: int) -> int {
   a + 95
 }
 
-fn96(a: int): int {
+fn96(a: int) -> int {
   a + 96
 }
 
-fn97(a: int): int {
+fn97(a: int) -> int {
   a + 97
 }
 
-fn98(a: int): int {
+fn98(a: int) -> int {
   a + 98
 }
 
-fn99(a: int): int {
+fn99(a: int) -> int {
   a + 99
 }
 
-fn100(a: int): int {
+fn100(a: int) -> int {
   a + 100
 }
 
-fn101(a: int): int {
+fn101(a: int) -> int {
   a + 101
 }
 
-fn102(a: int): int {
+fn102(a: int) -> int {
   a + 102
 }
 
-fn103(a: int): int {
+fn103(a: int) -> int {
   a + 103
 }
 
-fn104(a: int): int {
+fn104(a: int) -> int {
   a + 104
 }
 
-fn105(a: int): int {
+fn105(a: int) -> int {
   a + 105
 }
 
-fn106(a: int): int {
+fn106(a: int) -> int {
   a + 106
 }
 
-fn107(a: int): int {
+fn107(a: int) -> int {
   a + 107
 }
 
-fn108(a: int): int {
+fn108(a: int) -> int {
   a + 108
 }
 
-fn109(a: int): int {
+fn109(a: int) -> int {
   a + 109
 }
 
-fn110(a: int): int {
+fn110(a: int) -> int {
   a + 110
 }
 
-fn111(a: int): int {
+fn111(a: int) -> int {
   a + 111
 }
 
-fn112(a: int): int {
+fn112(a: int) -> int {
   a + 112
 }
 
-fn113(a: int): int {
+fn113(a: int) -> int {
   a + 113
 }
 
-fn114(a: int): int {
+fn114(a: int) -> int {
   a + 114
 }
 
-fn115(a: int): int {
+fn115(a: int) -> int {
   a + 115
 }
 
-fn116(a: int): int {
+fn116(a: int) -> int {
   a + 116
 }
 
-fn117(a: int): int {
+fn117(a: int) -> int {
   a + 117
 }
 
-fn118(a: int): int {
+fn118(a: int) -> int {
   a + 118
 }
 
-fn119(a: int): int {
+fn119(a: int) -> int {
   a + 119
 }
 
-fn120(a: int): int {
+fn120(a: int) -> int {
   a + 120
 }
 
-fn121(a: int): int {
+fn121(a: int) -> int {
   a + 121
 }
 
-fn122(a: int): int {
+fn122(a: int) -> int {
   a + 122
 }
 
-fn123(a: int): int {
+fn123(a: int) -> int {
   a + 123
 }
 
-fn124(a: int): int {
+fn124(a: int) -> int {
   a + 124
 }
 
-fn125(a: int): int {
+fn125(a: int) -> int {
   a + 125
 }
 
-fn126(a: int): int {
+fn126(a: int) -> int {
   a + 126
 }
 
-fn127(a: int): int {
+fn127(a: int) -> int {
   a + 127
 }
 
-fn128(a: int): int {
+fn128(a: int) -> int {
   a + 128
 }
 
-fn129(a: int): int {
+fn129(a: int) -> int {
   a + 129
 }
 
-fn130(a: int): int {
+fn130(a: int) -> int {
   a + 130
 }
 
-fn131(a: int): int {
+fn131(a: int) -> int {
   a + 131
 }
 
-fn132(a: int): int {
+fn132(a: int) -> int {
   a + 132
 }
 
-fn133(a: int): int {
+fn133(a: int) -> int {
   a + 133
 }
 
-fn134(a: int): int {
+fn134(a: int) -> int {
   a + 134
 }
 
-fn135(a: int): int {
+fn135(a: int) -> int {
   a + 135
 }
 
-fn136(a: int): int {
+fn136(a: int) -> int {
   a + 136
 }
 
-fn137(a: int): int {
+fn137(a: int) -> int {
   a + 137
 }
 
-fn138(a: int): int {
+fn138(a: int) -> int {
   a + 138
 }
 
-fn139(a: int): int {
+fn139(a: int) -> int {
   a + 139
 }
 
-fn140(a: int): int {
+fn140(a: int) -> int {
   a + 140
 }
 
-fn141(a: int): int {
+fn141(a: int) -> int {
   a + 141
 }
 
-fn142(a: int): int {
+fn142(a: int) -> int {
   a + 142
 }
 
-fn143(a: int): int {
+fn143(a: int) -> int {
   a + 143
 }
 
-fn144(a: int): int {
+fn144(a: int) -> int {
   a + 144
 }
 
-fn145(a: int): int {
+fn145(a: int) -> int {
   a + 145
 }
 
-fn146(a: int): int {
+fn146(a: int) -> int {
   a + 146
 }
 
-fn147(a: int): int {
+fn147(a: int) -> int {
   a + 147
 }
 
-fn148(a: int): int {
+fn148(a: int) -> int {
   a + 148
 }
 
-fn149(a: int): int {
+fn149(a: int) -> int {
   a + 149
 }
 
-fn150(a: int): int {
+fn150(a: int) -> int {
   a + 150
 }
 
-fn151(a: int): int {
+fn151(a: int) -> int {
   a + 151
 }
 
-fn152(a: int): int {
+fn152(a: int) -> int {
   a + 152
 }
 
-fn153(a: int): int {
+fn153(a: int) -> int {
   a + 153
 }
 
-fn154(a: int): int {
+fn154(a: int) -> int {
   a + 154
 }
 
-fn155(a: int): int {
+fn155(a: int) -> int {
   a + 155
 }
 
-fn156(a: int): int {
+fn156(a: int) -> int {
   a + 156
 }
 
-fn157(a: int): int {
+fn157(a: int) -> int {
   a + 157
 }
 
-fn158(a: int): int {
+fn158(a: int) -> int {
   a + 158
 }
 
-fn159(a: int): int {
+fn159(a: int) -> int {
   a + 159
 }
 
-fn160(a: int): int {
+fn160(a: int) -> int {
   a + 160
 }
 
-fn161(a: int): int {
+fn161(a: int) -> int {
   a + 161
 }
 
-fn162(a: int): int {
+fn162(a: int) -> int {
   a + 162
 }
 
-fn163(a: int): int {
+fn163(a: int) -> int {
   a + 163
 }
 
-fn164(a: int): int {
+fn164(a: int) -> int {
   a + 164
 }
 
-fn165(a: int): int {
+fn165(a: int) -> int {
   a + 165
 }
 
-fn166(a: int): int {
+fn166(a: int) -> int {
   a + 166
 }
 
-fn167(a: int): int {
+fn167(a: int) -> int {
   a + 167
 }
 
-fn168(a: int): int {
+fn168(a: int) -> int {
   a + 168
 }
 
-fn169(a: int): int {
+fn169(a: int) -> int {
   a + 169
 }
 
-fn170(a: int): int {
+fn170(a: int) -> int {
   a + 170
 }
 
-fn171(a: int): int {
+fn171(a: int) -> int {
   a + 171
 }
 
-fn172(a: int): int {
+fn172(a: int) -> int {
   a + 172
 }
 
-fn173(a: int): int {
+fn173(a: int) -> int {
   a + 173
 }
 
-fn174(a: int): int {
+fn174(a: int) -> int {
   a + 174
 }
 
-fn175(a: int): int {
+fn175(a: int) -> int {
   a + 175
 }
 
-fn176(a: int): int {
+fn176(a: int) -> int {
   a + 176
 }
 
-fn177(a: int): int {
+fn177(a: int) -> int {
   a + 177
 }
 
-fn178(a: int): int {
+fn178(a: int) -> int {
   a + 178
 }
 
-fn179(a: int): int {
+fn179(a: int) -> int {
   a + 179
 }
 
-fn180(a: int): int {
+fn180(a: int) -> int {
   a + 180
 }
 
-fn181(a: int): int {
+fn181(a: int) -> int {
   a + 181
 }
 
-fn182(a: int): int {
+fn182(a: int) -> int {
   a + 182
 }
 
-fn183(a: int): int {
+fn183(a: int) -> int {
   a + 183
 }
 
-fn184(a: int): int {
+fn184(a: int) -> int {
   a + 184
 }
 
-fn185(a: int): int {
+fn185(a: int) -> int {
   a + 185
 }
 
-fn186(a: int): int {
+fn186(a: int) -> int {
   a + 186
 }
 
-fn187(a: int): int {
+fn187(a: int) -> int {
   a + 187
 }
 
-fn188(a: int): int {
+fn188(a: int) -> int {
   a + 188
 }
 
-fn189(a: int): int {
+fn189(a: int) -> int {
   a + 189
 }
 
-fn190(a: int): int {
+fn190(a: int) -> int {
   a + 190
 }
 
-fn191(a: int): int {
+fn191(a: int) -> int {
   a + 191
 }
 
-fn192(a: int): int {
+fn192(a: int) -> int {
   a + 192
 }
 
-fn193(a: int): int {
+fn193(a: int) -> int {
   a + 193
 }
 
-fn194(a: int): int {
+fn194(a: int) -> int {
   a + 194
 }
 
-fn195(a: int): int {
+fn195(a: int) -> int {
   a + 195
 }
 
-fn196(a: int): int {
+fn196(a: int) -> int {
   a + 196
 }
 
-fn197(a: int): int {
+fn197(a: int) -> int {
   a + 197
 }
 
-fn198(a: int): int {
+fn198(a: int) -> int {
   a + 198
 }
 
-fn199(a: int): int {
+fn199(a: int) -> int {
   a + 199
 }
 
-fn200(a: int): int {
+fn200(a: int) -> int {
   a + 200
 }
 
-fn201(a: int): int {
+fn201(a: int) -> int {
   a + 201
 }
 
-fn202(a: int): int {
+fn202(a: int) -> int {
   a + 202
 }
 
-fn203(a: int): int {
+fn203(a: int) -> int {
   a + 203
 }
 
-fn204(a: int): int {
+fn204(a: int) -> int {
   a + 204
 }
 
-fn205(a: int): int {
+fn205(a: int) -> int {
   a + 205
 }
 
-fn206(a: int): int {
+fn206(a: int) -> int {
   a + 206
 }
 
-fn207(a: int): int {
+fn207(a: int) -> int {
   a + 207
 }
 
-fn208(a: int): int {
+fn208(a: int) -> int {
   a + 208
 }
 
-fn209(a: int): int {
+fn209(a: int) -> int {
   a + 209
 }
 
-fn210(a: int): int {
+fn210(a: int) -> int {
   a + 210
 }
 
-fn211(a: int): int {
+fn211(a: int) -> int {
   a + 211
 }
 
-fn212(a: int): int {
+fn212(a: int) -> int {
   a + 212
 }
 
-fn213(a: int): int {
+fn213(a: int) -> int {
   a + 213
 }
 
-fn214(a: int): int {
+fn214(a: int) -> int {
   a + 214
 }
 
-fn215(a: int): int {
+fn215(a: int) -> int {
   a + 215
 }
 
-fn216(a: int): int {
+fn216(a: int) -> int {
   a + 216
 }
 
-fn217(a: int): int {
+fn217(a: int) -> int {
   a + 217
 }
 
-fn218(a: int): int {
+fn218(a: int) -> int {
   a + 218
 }
 
-fn219(a: int): int {
+fn219(a: int) -> int {
   a + 219
 }
 
-fn220(a: int): int {
+fn220(a: int) -> int {
   a + 220
 }
 
-fn221(a: int): int {
+fn221(a: int) -> int {
   a + 221
 }
 
-fn222(a: int): int {
+fn222(a: int) -> int {
   a + 222
 }
 
-fn223(a: int): int {
+fn223(a: int) -> int {
   a + 223
 }
 
-fn224(a: int): int {
+fn224(a: int) -> int {
   a + 224
 }
 
-fn225(a: int): int {
+fn225(a: int) -> int {
   a + 225
 }
 
-fn226(a: int): int {
+fn226(a: int) -> int {
   a + 226
 }
 
-fn227(a: int): int {
+fn227(a: int) -> int {
   a + 227
 }
 
-fn228(a: int): int {
+fn228(a: int) -> int {
   a + 228
 }
 
-fn229(a: int): int {
+fn229(a: int) -> int {
   a + 229
 }
 
-fn230(a: int): int {
+fn230(a: int) -> int {
   a + 230
 }
 
-fn231(a: int): int {
+fn231(a: int) -> int {
   a + 231
 }
 
-fn232(a: int): int {
+fn232(a: int) -> int {
   a + 232
 }
 
-fn233(a: int): int {
+fn233(a: int) -> int {
   a + 233
 }
 
-fn234(a: int): int {
+fn234(a: int) -> int {
   a + 234
 }
 
-fn235(a: int): int {
+fn235(a: int) -> int {
   a + 235
 }
 
-fn236(a: int): int {
+fn236(a: int) -> int {
   a + 236
 }
 
-fn237(a: int): int {
+fn237(a: int) -> int {
   a + 237
 }
 
-fn238(a: int): int {
+fn238(a: int) -> int {
   a + 238
 }
 
-fn239(a: int): int {
+fn239(a: int) -> int {
   a + 239
 }
 
-fn240(a: int): int {
+fn240(a: int) -> int {
   a + 240
 }
 
-fn241(a: int): int {
+fn241(a: int) -> int {
   a + 241
 }
 
-fn242(a: int): int {
+fn242(a: int) -> int {
   a + 242
 }
 
-fn243(a: int): int {
+fn243(a: int) -> int {
   a + 243
 }
 
-fn244(a: int): int {
+fn244(a: int) -> int {
   a + 244
 }
 
-fn245(a: int): int {
+fn245(a: int) -> int {
   a + 245
 }
 
-fn246(a: int): int {
+fn246(a: int) -> int {
   a + 246
 }
 
-fn247(a: int): int {
+fn247(a: int) -> int {
   a + 247
 }
 
-fn248(a: int): int {
+fn248(a: int) -> int {
   a + 248
 }
 
-fn249(a: int): int {
+fn249(a: int) -> int {
   a + 249
 }
 
-fn250(a: int): int {
+fn250(a: int) -> int {
   a + 250
 }
 
-fn251(a: int): int {
+fn251(a: int) -> int {
   a + 251
 }
 
-fn252(a: int): int {
+fn252(a: int) -> int {
   a + 252
 }
 
-fn253(a: int): int {
+fn253(a: int) -> int {
   a + 253
 }
 
-fn254(a: int): int {
+fn254(a: int) -> int {
   a + 254
 }
 
-fn255(a: int): int {
+fn255(a: int) -> int {
   a + 255
 }
 
-fn256(a: int): int {
+fn256(a: int) -> int {
   a + 256
 }
 
-fn257(a: int): int {
+fn257(a: int) -> int {
   a + 257
 }
 
-fn258(a: int): int {
+fn258(a: int) -> int {
   a + 258
 }
 
-fn259(a: int): int {
+fn259(a: int) -> int {
   a + 259
 }
 
-fn260(a: int): int {
+fn260(a: int) -> int {
   a + 260
 }
 
-fn261(a: int): int {
+fn261(a: int) -> int {
   a + 261
 }
 
-fn262(a: int): int {
+fn262(a: int) -> int {
   a + 262
 }
 
-fn263(a: int): int {
+fn263(a: int) -> int {
   a + 263
 }
 
-fn264(a: int): int {
+fn264(a: int) -> int {
   a + 264
 }
 
-fn265(a: int): int {
+fn265(a: int) -> int {
   a + 265
 }
 
-fn266(a: int): int {
+fn266(a: int) -> int {
   a + 266
 }
 
-fn267(a: int): int {
+fn267(a: int) -> int {
   a + 267
 }
 
-fn268(a: int): int {
+fn268(a: int) -> int {
   a + 268
 }
 
-fn269(a: int): int {
+fn269(a: int) -> int {
   a + 269
 }
 
-fn270(a: int): int {
+fn270(a: int) -> int {
   a + 270
 }
 
-fn271(a: int): int {
+fn271(a: int) -> int {
   a + 271
 }
 
-fn272(a: int): int {
+fn272(a: int) -> int {
   a + 272
 }
 
-fn273(a: int): int {
+fn273(a: int) -> int {
   a + 273
 }
 
-fn274(a: int): int {
+fn274(a: int) -> int {
   a + 274
 }
 
-fn275(a: int): int {
+fn275(a: int) -> int {
   a + 275
 }
 
-fn276(a: int): int {
+fn276(a: int) -> int {
   a + 276
 }
 
-fn277(a: int): int {
+fn277(a: int) -> int {
   a + 277
 }
 
-fn278(a: int): int {
+fn278(a: int) -> int {
   a + 278
 }
 
-fn279(a: int): int {
+fn279(a: int) -> int {
   a + 279
 }
 
-fn280(a: int): int {
+fn280(a: int) -> int {
   a + 280
 }
 
-fn281(a: int): int {
+fn281(a: int) -> int {
   a + 281
 }
 
-fn282(a: int): int {
+fn282(a: int) -> int {
   a + 282
 }
 
-fn283(a: int): int {
+fn283(a: int) -> int {
   a + 283
 }
 
-fn284(a: int): int {
+fn284(a: int) -> int {
   a + 284
 }
 
-fn285(a: int): int {
+fn285(a: int) -> int {
   a + 285
 }
 
-fn286(a: int): int {
+fn286(a: int) -> int {
   a + 286
 }
 
-fn287(a: int): int {
+fn287(a: int) -> int {
   a + 287
 }
 
-fn288(a: int): int {
+fn288(a: int) -> int {
   a + 288
 }
 
-fn289(a: int): int {
+fn289(a: int) -> int {
   a + 289
 }
 
-fn290(a: int): int {
+fn290(a: int) -> int {
   a + 290
 }
 
-fn291(a: int): int {
+fn291(a: int) -> int {
   a + 291
 }
 
-fn292(a: int): int {
+fn292(a: int) -> int {
   a + 292
 }
 
-fn293(a: int): int {
+fn293(a: int) -> int {
   a + 293
 }
 
-fn294(a: int): int {
+fn294(a: int) -> int {
   a + 294
 }
 
-fn295(a: int): int {
+fn295(a: int) -> int {
   a + 295
 }
 
-fn296(a: int): int {
+fn296(a: int) -> int {
   a + 296
 }
 
-fn297(a: int): int {
+fn297(a: int) -> int {
   a + 297
 }
 
-fn298(a: int): int {
+fn298(a: int) -> int {
   a + 298
 }
 
-fn299(a: int): int {
+fn299(a: int) -> int {
   a + 299
 }

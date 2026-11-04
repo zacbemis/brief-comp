@@ -80,10 +80,10 @@ set(user_api [=[
 User { name: str
   age: int }
 impl User {
-  getName(user: User): str { user.name }
-  getAge(user: User): int { user.age }
+  getName(user: User) -> str { user.name }
+  getAge(user: User) -> int { user.age }
 }
-input(found: bool): Sym<:ok(User), :none> {
+input(found: bool) -> Sym<:ok(User), :none> {
   if not found { ret :none }
   :ok(User { name: "B" + "ob", age: 20 })
 }
@@ -91,11 +91,11 @@ input(found: bool): Sym<:ok(User), :none> {
 # Preserve only the original retagging handler, not the UserCollection/find
 # signature, field access or lambda. The input is a controlled symbol outcome.
 set(code "${block_7}")
-replace_once(code "pub findByName(collection: UserCollection, name: str): Sym<:found(User), :missing> {"
-    "pub findByName(collection: UserCollection, name: str): Sym<:found(User), :missing> {")
+replace_once(code "pub findByName(collection: UserCollection, name: str) -> Sym<:found(User), :missing> {"
+    "pub findByName(collection: UserCollection, name: str) -> Sym<:found(User), :missing> {")
 match_tail(code retag)
 replace_once(retag "\n}\n" "\n")
-set(retag_prefix "${user_api}\nretag(found: bool): Sym<:found(User), :missing> {\ninput(found)")
+set(retag_prefix "${user_api}\nretag(found: bool) -> Sym<:found(User), :missing> {\ninput(found)")
 foreach(found IN ITEMS true false)
     if(found)
         set(expected "found:Bob")
@@ -147,10 +147,10 @@ Source { size: int }
 Cursor { index: int
   end: int }
 impl Source {
-  cursor(source: Source): Cursor { Cursor { index: 0, end: source.size } }
+  cursor(source: Source) -> Cursor { Cursor { index: 0, end: source.size } }
 }
 impl Cursor {
-  next(cursor: &Cursor): Sym<:ok(User), :none> {
+  next(cursor: &Cursor) -> Sym<:ok(User), :none> {
     let i = cursor.index
     print("next:" + str(i))
     if i >= cursor.end { ret :none }

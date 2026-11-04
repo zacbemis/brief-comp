@@ -1,5 +1,5 @@
 Box {}
-f(): int {
+f() -> int {
   int("1")? // error: Propagated variants are not in the written return type.
 }
 main() {

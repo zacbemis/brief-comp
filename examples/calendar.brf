@@ -10,11 +10,11 @@ Date {
   day: int
 }
 
-leap(year: int): bool {
+leap(year: int) -> bool {
   year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
 }
 
-daysIn(year: int, month: int): int {
+daysIn(year: int, month: int) -> int {
   month |> {
     2 => if leap(year) { 29 } else { 28 }
     4 => 30
@@ -25,9 +25,9 @@ daysIn(year: int, month: int): int {
   }
 }
 
-yearLength(year: int): int { if leap(year) { 366 } else { 365 } }
+yearLength(year: int) -> int { if leap(year) { 366 } else { 365 } }
 
-pad(n: int, width: int): str {
+pad(n: int, width: int) -> str {
   var text = str(n)
   var digits = 1
   var rest = n / 10
@@ -39,7 +39,7 @@ pad(n: int, width: int): str {
   text
 }
 
-monthName(month: int): str {
+monthName(month: int) -> str {
   month |> {
     1 => "January"
     2 => "February"
@@ -56,7 +56,7 @@ monthName(month: int): str {
   }
 }
 
-dayName(weekday: int): str {
+dayName(weekday: int) -> str {
   weekday |> {
     0 => "Monday"
     1 => "Tuesday"
@@ -69,7 +69,7 @@ dayName(weekday: int): str {
 }
 
 impl Date {
-  new(year: int, month: int, day: int): Sym<:ok(Self), DateError> {
+  new(year: int, month: int, day: int) -> Sym<:ok(Self), DateError> {
     if year < 1 or year > 9999 { ret :badYear(year) }
     if month < 1 or month > 12 { ret :badMonth(month) }
     if day < 1 or day > daysIn(year, month) { ret :badDay(day) }
@@ -77,14 +77,14 @@ impl Date {
   }
 
   // Days since 0001-01-01.
-  ordinal(d: Self): int {
+  ordinal(d: Self) -> int {
     let y = d.year - 1
     var days = y * 365 + y / 4 - y / 100 + y / 400
     for m in 1..d.month { days += daysIn(d.year, m) }
     days + d.day - 1
   }
 
-  fromOrdinal(n: int): Self {
+  fromOrdinal(n: int) -> Self {
     // Every 400 years repeat exactly: 146097 days.
     var year = 1 + n / 146097 * 400
     var rest = n % 146097
@@ -100,25 +100,25 @@ impl Date {
     Self { year: year, month: month, day: rest + 1 }
   }
 
-  weekday(d: Self): int { d.ordinal() % 7 }
+  weekday(d: Self) -> int { d.ordinal() % 7 }
 
-  dayOfYear(d: Self): int {
+  dayOfYear(d: Self) -> int {
     var total = d.day
     for m in 1..d.month { total += daysIn(d.year, m) }
     total
   }
 
-  addDays(d: Self, n: int): Self { Self.fromOrdinal(d.ordinal() + n) }
+  addDays(d: Self, n: int) -> Self { Self.fromOrdinal(d.ordinal() + n) }
 
-  label(d: Self): str {
+  label(d: Self) -> str {
     pad(d.year, 4) + "-" + pad(d.month, 2) + "-" + pad(d.day, 2)
   }
 }
 
-daysBetween(from: Date, to: Date): int { to.ordinal() - from.ordinal() }
+daysBetween(from: Date, to: Date) -> int { to.ordinal() - from.ordinal() }
 
 // Weekdays (Monday to Friday) in [from, to).
-businessDays(from: Date, to: Date): int {
+businessDays(from: Date, to: Date) -> int {
   let total = daysBetween(from, to)
   var count = total / 7 * 5
   var weekday = from.weekday()
@@ -130,7 +130,7 @@ businessDays(from: Date, to: Date): int {
 }
 
 // The anonymous Gregorian algorithm (Meeus/Jones/Butcher).
-easter(year: int): Date {
+easter(year: int) -> Date {
   let a = year % 19
   let b = year / 100
   let c = year % 100
@@ -141,7 +141,7 @@ easter(year: int): Date {
   Date { year: year, month: n / 31, day: n % 31 + 1 }
 }
 
-explain(e: DateError): str {
+explain(e: DateError) -> str {
   e |> {
     :badYear(y) => "year " + str(y) + " is outside 1-9999"
     :badMonth(m) => "month " + str(m) + " is outside 1-12"
@@ -158,7 +158,7 @@ check(year: int, month: int, day: int) {
   }
 }
 
-printMonth(year: int, month: int): Sym<:ok, DateError> {
+printMonth(year: int, month: int) -> Sym<:ok, DateError> {
   let first = Date.new(year, month, 1)?
   print("")
   print("   " + monthName(month) + " " + str(year))
@@ -179,7 +179,7 @@ printMonth(year: int, month: int): Sym<:ok, DateError> {
   if column > 0 { print(line) }
 }
 
-main(): Sym<:ok, DateError> {
+main() -> Sym<:ok, DateError> {
   print("== Checking dates")
   check(1969, 7, 20)
   check(2000, 1, 1)

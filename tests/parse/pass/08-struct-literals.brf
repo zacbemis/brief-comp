@@ -85,18 +85,18 @@ main() {
   }
 }
 
-make(): User {
+make() -> User {
   User { name: "Bob", age: 20 }
 }
 
-makeEarly(fast: bool): User {
+makeEarly(fast: bool) -> User {
   if fast {
     ret User { name: "Fast" }
   }
   User { name: "Slow" }
 }
 
-pick(flag: bool): User {
+pick(flag: bool) -> User {
   flag |> {
     true => User { name: "Yes" }
     false => User { name: "No" }

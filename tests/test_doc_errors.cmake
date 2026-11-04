@@ -6,11 +6,11 @@ doc_examples_begin(lang-errors 36)
 
 # These are local nominal structs and deterministic functions, not JSON or I/O.
 set(json_type "Json { text: str }")
-set(parse_signature "parse(text: str): Sym<:ok(Json), :syntax(int)>")
+set(parse_signature "parse(text: str) -> Sym<:ok(Json), :syntax(int)>")
 set(parse_body [=[{ if text == "syntax" { ret :syntax(7) }
   Json { text: text } }]=])
 set(parse_definition "${parse_signature} ${parse_body}")
-set(read_signature "readFile(path: str): Sym<:ok(str), :notFound(str), :permissionDenied(str)>")
+set(read_signature "readFile(path: str) -> Sym<:ok(str), :notFound(str), :permissionDenied(str)>")
 set(read_body [=[{ if path == "missing" { ret :notFound(path) }
   if path == "denied" { ret :permissionDenied(path) }
   path }]=])
@@ -53,7 +53,7 @@ panic_example(4 panic-failure "${api}\nmain() { let text = \"syntax\""
     "${block_4}" "panic: :syntax(7)" "let json = parse(text)!")
 
 set(file_type "File { fail: bool }")
-set(close_signature "close(file: &File): Sym<:ok, :ioError(str)>")
+set(close_signature "close(file: &File) -> Sym<:ok, :ioError(str)>")
 set(close_body [=[{ if file.fail { ret :ioError("closed badly") }
   :ok }]=])
 set(file_api "${file_type}\nimpl File { ${close_signature} ${close_body} }")
@@ -61,12 +61,12 @@ set(code "${block_6}")
 replace_once(code "${close_signature}" "")
 example(6 payload-free-ok "${file_api}\nmain() { let file = File { fail: false }"
     "${code}" "}")
-set(user_type "User { name: str }\nimpl User { getName(user: User): str { user.name } }")
+set(user_type "User { name: str }\nimpl User { getName(user: User) -> str { user.name } }")
 set(classifier [=[
-impl User { getAgeRange(user: User): Sym<:adult, :senior> { :adult } }
+impl User { getAgeRange(user: User) -> Sym<:adult, :senior> { :adult } }
 ]=])
 set(code "${block_7}")
-replace_once(code "getAgeRange(user: User): Sym<:adult, :senior>" "")
+replace_once(code "getAgeRange(user: User) -> Sym<:adult, :senior>" "")
 error_at(code "let range =" "? and ! require a symbol outcome with an :ok variant.")
 example(7 no-success "${user_type}\n${classifier}\nmain() { let user = User { name: \"Bob\" }"
     "${code}" "}")
@@ -90,10 +90,10 @@ error_at(code "let text = readFile(path)?" "Propagated variants are not in the w
 example(11 missing-errors "${api}" "${code}" "main() {}")
 example(16 expanded-set "${user_type}" "type All = ${block_16}" "main() {}")
 
-set(invalid_parse_signature "parse(text: str): Sym<:ok(Json), :invalid(int)>")
+set(invalid_parse_signature "parse(text: str) -> Sym<:ok(Json), :invalid(int)>")
 set(invalid_parse [=[{ if text == "parsebad" { ret :invalid(7) }
   Json { text: text } }]=])
-set(validate_signature "validate(json: Json): Sym<:ok(User), :invalid(str)>")
+set(validate_signature "validate(json: Json) -> Sym<:ok(User), :invalid(str)>")
 set(validate_body [=[{ if json.text == "validatebad" { ret :invalid(json.text) }
   User { name: json.text } }]=])
 set(validation_api "${json_type}\n${user_type}\n${invalid_parse_signature} ${invalid_parse}\n${validate_signature} ${validate_body}")
@@ -122,7 +122,7 @@ main() { open("bad") |> { :ok(_) => ()
 // expect: bad
 ]=])
 set(code "${block_21}")
-set(open_signature "open(path: str): Sym<:ok(File), :notFound(str), :permissionDenied(str)>")
+set(open_signature "open(path: str) -> Sym<:ok(File), :notFound(str), :permissionDenied(str)>")
 replace_once(code "${open_signature}" "")
 set(open_values ":ok(File { fail: false })" ":notFound(path)" ":permissionDenied(path)")
 set(open_outputs "Opened" "No file at data.txt" "Cannot read data.txt")
@@ -161,7 +161,7 @@ replace_once(code "    :notFound(_) => print(\"missing\")\n" "")
 replace_once(code "// expect: missing" "// expect: {}")
 example(26 removed-error "${api}" "${block_26}" "${code}")
 set(constructor [=[
-impl User { new(name: str, age: int): Sym<:ok(User), :invalidAge(int)> {
+impl User { new(name: str, age: int) -> Sym<:ok(User), :invalidAge(int)> {
   if age < 0 { ret :invalidAge(age) }
   User { name: name }
 } }
@@ -196,7 +196,7 @@ set(outputs "Bob" "Missing file bob.json" "Cannot read bob.json" "The file is no
 foreach(i RANGE 0 6)
     list(GET values ${i} value)
     list(GET outputs ${i} output)
-    example(36 "seven-outcomes-${i}" "${user_type}\nloadUser(path: str): ${all_type} { ${value} }\nmain() {"
+    example(36 "seven-outcomes-${i}" "${user_type}\nloadUser(path: str) -> ${all_type} { ${value} }\nmain() {"
         "${block_36}" "}\n// expect: ${output}")
 endforeach()
 string(REGEX MATCHALL "  :[^\n]+\n" arms "${block_36}")
@@ -209,13 +209,13 @@ foreach(arm IN LISTS arms)
     set(code "${block_36}")
     replace_once(code "${arm}" "")
     error_at(code "loadUser(\"bob.json\") |> {" "Match is not exhaustive.")
-    example(36 "missing-arm-${i}" "${user_type}\nloadUser(path: str): ${all_type} { :syntax(7) }\nmain() {"
+    example(36 "missing-arm-${i}" "${user_type}\nloadUser(path: str) -> ${all_type} { :syntax(7) }\nmain() {"
         "${code}" "}")
     math(EXPR i "${i} + 1")
 endforeach()
 set(code "${block_36}")
 error_at(code "loadUser(\"bob.json\") |> {" "Match is not exhaustive.")
-example(36 added-variant "${user_type}\nloadUser(path: str): Sym<${all_type}, :extra> { :extra }\nmain() {"
+example(36 added-variant "${user_type}\nloadUser(path: str) -> Sym<${all_type}, :extra> { :extra }\nmain() {"
     "${code}" "}")
 
 # Every fence is explicitly checked or excluded; a future example cannot silently

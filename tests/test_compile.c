@@ -62,7 +62,7 @@ int main(void) {
     invalid(&a, "main() { const a = \"x\" }", "const bindings");
     invalid(&a, "main(x: str) {}", "cannot have parameters");
     invalid(&a, "main() {}\nf(x: &int) {}", "Mutable borrow");
-    invalid(&a, "main(): Thing { () }", "type is unknown");
+    invalid(&a, "main() -> Thing { () }", "type is unknown");
     invalid(&a, "type Error = Sym<:ok, _>\nmain() {}", "Partial symbol sets");
     invalid(&a, "main() { main<int>() }", "Generic calls");
     invalid(&a, "main() { Module.f() }", "Unknown binding");
@@ -103,8 +103,8 @@ int main(void) {
     invalid(&a, "main() { print() }", "exactly one str");
     invalid(&a, "main() { print(()) }", "expects a str");
     invalid(&a, "main() { f(\"x\") }\nf() {}", "Wrong number");
-    invalid(&a, "main(): int { \"x\" }", "written return type");
-    invalid(&a, "main(): () { ret \"x\" }", "written return type");
+    invalid(&a, "main() -> int { \"x\" }", "written return type");
+    invalid(&a, "main() -> () { ret \"x\" }", "written return type");
     invalid(&a, "main() { main() }", "Cannot infer recursive return type");
     invalid(&a, "main() { f() }\nf() { main() }",
             "Cannot infer recursive return type");
@@ -128,7 +128,7 @@ int main(void) {
       ASSERT_EQ_INT(IR_RETURN, f->instructions[10].op);
       ASSERT_TRUE(f->instructions[10].a == IR_NO_VALUE);
     }
-    invalid(&a, "main(): int { var n = 0\nn++ }", "written return type");
+    invalid(&a, "main() -> int { var n = 0\nn++ }", "written return type");
   }
   TEST("lowering decodes bytes and sequences string temporaries before calls") {
     Checked c = resolve(
@@ -158,11 +158,11 @@ int main(void) {
     }
   }
   TEST("explicit unit discards the tail; early return truncates only IR") {
-    Checked c =
-        resolve(&a,
-                "main(): () { \"discard\" }\nf() { ret ()\n\"unreachable\" }\n"
-                "g() { ret print(\"before\")\n\"unreachable\" }",
-                "unit.brf");
+    Checked c = resolve(
+        &a,
+        "main() -> () { \"discard\" }\nf() { ret ()\n\"unreachable\" }\n"
+        "g() { ret print(\"before\")\n\"unreachable\" }",
+        "unit.brf");
     sema_check(c.program, &c.errors);
     ASSERT_EQ_INT(0, c.errors.count);
     IrProgram *p = ir_lower(&a, c.program);

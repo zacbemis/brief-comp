@@ -1,5 +1,5 @@
 // Function bodies are blocks; bare block expressions are not allowed.
-main(): () {
+main() -> () {
   early()
   print("before") // expect: before
   argument() // expect: argument

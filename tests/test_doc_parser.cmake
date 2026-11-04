@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 include("${CMAKE_CURRENT_LIST_DIR}/doc_examples.cmake") # Guarded replace_once.
 
 # Complete first-version examples are read from the frozen design docs, with
-# explicit N1 spelling adapters for logical-not and binary64 type/conversion.
+# explicit N1 spelling adapters for logical-not, binary64 and return annotations.
 # Expression/statement fragments are wrapped in main; bare types and pattern
 # arms get their own small wrappers. Semantic-error examples must still parse.
 # Standalone signatures, pseudo-code, multiple-file API notation, and blocks
@@ -42,6 +42,7 @@ function(doc filename expected_count body top types arms bad_body bad_top)
     foreach(mode IN ITEMS body top types arms bad_body bad_top mixed)
         foreach(index IN LISTS ${mode})
             set(code "${block_${index}}")
+            doc_return_arrows(code "${filename}")
             if(filename STREQUAL "lang-syntax" AND index EQUAL 3)
                 # Preserve every continuation example, replacing only the
                 # later-version lambda call with an ordinary method call.

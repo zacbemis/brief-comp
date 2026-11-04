@@ -20,14 +20,14 @@ Point { x: dbl
   y: dbl }
 
 impl User {
-  pub new(name: str, age: int): Sym<:ok(User), :invalidAge(int)> {
+  pub new(name: str, age: int) -> Sym<:ok(User), :invalidAge(int)> {
     if age < 0 {
       ret :invalidAge(age)
     }
     User { name: name, age: age, tier: :bronze }
   }
 
-  pub getName(user: User): str {
+  pub getName(user: User) -> str {
     user.name
   }
 
@@ -37,12 +37,12 @@ impl User {
   }
 
   // A partial return type.
-  pub load(text: str): Sym<:ok(User), _> {
+  pub load(text: str) -> Sym<:ok(User), _> {
     User.new(text, 20)?
   }
 
   // Returns the empty type.
-  pub birthday(user: &User): () {
+  pub birthday(user: &User) -> () {
     user.age += 1
   }
 }
@@ -65,11 +65,11 @@ borrowed(a: &User, b: User, c: &Point) {
   a.age = b.age
 }
 
-namedSetsInReturn(path: str): Sym<:ok(str), Error, :tooLong(int)> {
+namedSetsInReturn(path: str) -> Sym<:ok(str), Error, :tooLong(int)> {
   :ok(path)
 }
 
-payloadlessOk(): Sym<:ok, :failed> {
+payloadlessOk() -> Sym<:ok, :failed> {
   :ok
 }
 

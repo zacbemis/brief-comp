@@ -1,5 +1,5 @@
 // expect: numbers ok
-check(ok: bool, message: str): () {
+check(ok: bool, message: str) -> () {
   if not ok { print(message) }
 }
 main() {

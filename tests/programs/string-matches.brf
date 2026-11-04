@@ -12,7 +12,7 @@
 // expect: input
 // expect: hit
 // expect: other!
-classify(s: str): int {
+classify(s: str) -> int {
   s |> {
     "" => 0
     "a\0b" => 1

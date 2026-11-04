@@ -1,4 +1,4 @@
-echo(text: str): str { text }
+echo(text: str) -> str { text }
 main() {
   let prefix = "Hello "
   var text = prefix + "world"

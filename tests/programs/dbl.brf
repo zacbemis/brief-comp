@@ -1,5 +1,5 @@
 Box { value: dbl }
-identity(value: dbl): dbl { value }
+identity(value: dbl) -> dbl { value }
 main() {
   let value: dbl = 1.5
   print(str(identity(value))) // expect: 1.5

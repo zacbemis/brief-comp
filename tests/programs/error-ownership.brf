@@ -8,7 +8,7 @@ Node { text: str }
 Pair { first: Node
   second: Node }
 Holder { value: Sym<:ok(str), :bad(str)> }
-fault(n: int): Sym<:ok(str), :bad(str)> {
+fault(n: int) -> Sym<:ok(str), :bad(str)> {
   if n % 2 == 0 { ret :bad("b" + "ad") }
   "o" + "k"
 }
@@ -19,15 +19,15 @@ work(n: int) {
     second: Node { text: fault(n)? + "!" }
   }.second
 }
-partial(n: int): Sym<:ok(Node), _> { work(n)? }
+partial(n: int) -> Sym<:ok(Node), _> { work(n)? }
 replace(h: &Holder) { h.value = :bad("after") }
 first(a: Sym<:ok(str), :bad(str)>, b: ()) { a |> {
   :ok(s) => s
   :bad(s) => s
 } }
-ready(n: int): Sym<:ok(bool), :bad(str)> { n < 3 }
-start(): Sym<:ok(int), :bad(str)> { 0 }
-replaceOrFail(h: &Holder, failed: bool): Sym<:ok, :bad(str)> {
+ready(n: int) -> Sym<:ok(bool), :bad(str)> { n < 3 }
+start() -> Sym<:ok(int), :bad(str)> { 0 }
+replaceOrFail(h: &Holder, failed: bool) -> Sym<:ok, :bad(str)> {
   h.value = :bad("mutated" + " holder")
   if failed { ret :bad("later" + " failure") }
   ()
@@ -40,7 +40,7 @@ argumentWork(failed: bool) {
   let h = Holder { value: :ok("argument" + " snapshot") }
   h.value |> observeFirst(replaceOrFail(h, failed)?)
 }
-ownedCondition(n: int, failAt: int): Sym<:ok(bool), :bad(str)> {
+ownedCondition(n: int, failAt: int) -> Sym<:ok(bool), :bad(str)> {
   let scratch = Node { text: "condition" + str(n) }
   if n == failAt { ret :bad(scratch.text + ":stop") }
   n < 3

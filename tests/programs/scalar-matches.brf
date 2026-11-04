@@ -1,11 +1,11 @@
-classify(n: int): str {
+classify(n: int) -> str {
   n |> {
     < 18 => "minor"
     18..100 => "adult"
     >= 100 => "senior"
   }
 }
-unsigned(n: ulng): str {
+unsigned(n: ulng) -> str {
   n |> {
     0..18446744073709551615 => "not max"
     18446744073709551615 => "max"

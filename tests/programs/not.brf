@@ -1,13 +1,13 @@
 Counter { hits: int }
-touch(counter: &Counter): bool {
+touch(counter: &Counter) -> bool {
   counter.hits++
   true
 }
-fallible(flag: bool): Sym<:ok(bool), :bad> {
+fallible(flag: bool) -> Sym<:ok(bool), :bad> {
   if not flag { ret :bad }
   flag
 }
-notifier(): bool { true }
+notifier() -> bool { true }
 main() {
   print(str(not false)) // expect: true
   print(str(not true)) // expect: false

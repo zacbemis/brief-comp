@@ -9,8 +9,8 @@ one run.
 ## `pass/`
 
 Every file must parse with no diagnostics: `brief dump-ast` exits with status 0
-and prints a tree. Files retain first-version declaration/type structure, with
-N1's `not` and `dbl` spelling updates; the full grammar conversion is pending.
+and prints a tree. Files use N1's `not`, `dbl` and `->` return annotations;
+other declaration/type structure still awaits the full grammar conversion.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
@@ -22,6 +22,9 @@ N1's `not` and `dbl` spelling updates; the full grammar conversion is pending.
   limit) or wide (hundreds of arguments, fields, arms, and functions).
 
 ## `fail/`
+
+There are 81 rejection fixtures, including `old-return-colon.brf`. The converted
+function headers retain each existing fixture's original error rule and line.
 
 Every file must be rejected: `brief dump-ast` exits with status 1 and prints no
 tree. Each file starts with a header:

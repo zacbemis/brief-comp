@@ -29,12 +29,12 @@ endforeach()
 
 # Deterministic scalar stand-ins, not a JSON parser or validation library.
 set(outcome_api [=[
-parse(json: str): Sym<:ok(int), :syntax(str)> {
+parse(json: str) -> Sym<:ok(int), :syntax(str)> {
   print("parse")
   if json == "syntax" { ret :syntax(json) }
   if json == "invalid" { -1 } else { 2 }
 }
-validate(n: int): Sym<:ok(int), :invalidAge(int)> {
+validate(n: int) -> Sym<:ok(int), :invalidAge(int)> {
   print("validate")
   if n < 0 { ret :invalidAge(n) }
   n + 10
@@ -124,7 +124,7 @@ main() { print(label(-2147483648))
 example(14 age-ranges "label(age: int) {" "${block_14}" "}\n${age_observer}")
 set(user_api [=[
 User { name: str }
-impl User { getName(user: User): str { user.name } }
+impl User { getName(user: User) -> str { user.name } }
 makeUser() { User { name: "B" + "ob" } }
 ]=])
 example(16 payload-arm "${user_api}\nmain() { let name = makeUser() |> {"

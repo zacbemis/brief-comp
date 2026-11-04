@@ -8,7 +8,7 @@ History {
   older: Sym<:none, :more(History)>
 }
 
-bit(row: int, col: int): ulng {
+bit(row: int, col: int) -> ulng {
   let r = (row + 8) % 8
   let c = (col + 8) % 8
   // The index is never negative, so the signed-to-unsigned conversion
@@ -16,9 +16,9 @@ bit(row: int, col: int): ulng {
   ulng(1) << ulng(r * 8 + c)!
 }
 
-alive(board: ulng, row: int, col: int): bool { board & bit(row, col) != 0 }
+alive(board: ulng, row: int, col: int) -> bool { board & bit(row, col) != 0 }
 
-neighbors(board: ulng, row: int, col: int): int {
+neighbors(board: ulng, row: int, col: int) -> int {
   var count = 0
   for dr in -1..2 {
     for dc in -1..2 {
@@ -28,7 +28,7 @@ neighbors(board: ulng, row: int, col: int): int {
   count
 }
 
-step(board: ulng): ulng {
+step(board: ulng) -> ulng {
   var next: ulng = 0
   for row in 0..8 {
     for col in 0..8 {
@@ -40,7 +40,7 @@ step(board: ulng): ulng {
   next
 }
 
-population(board: ulng): int {
+population(board: ulng) -> int {
   var count = 0
   var rest = board
   while rest != 0 {
@@ -52,7 +52,7 @@ population(board: ulng): int {
 
 // Sets the listed columns of one row. Without string indexing, a row is
 // written as a list of column numbers rather than as text.
-place(board: ulng, row: int, cols: Sym<:none, :col(Cell)>): ulng {
+place(board: ulng, row: int, cols: Sym<:none, :col(Cell)>) -> ulng {
   cols |> {
     :none => board
     :col(cell) => place(board | bit(row, cell.col), row, cell.rest)
@@ -64,7 +64,7 @@ Cell {
   rest: Sym<:none, :col(Cell)>
 }
 
-cells(a: int, b: int, c: int): Sym<:none, :col(Cell)> {
+cells(a: int, b: int, c: int) -> Sym<:none, :col(Cell)> {
   :col(Cell { col: a, rest: :col(Cell { col: b, rest: :col(Cell { col: c, rest: :none }) }) })
 }
 
@@ -77,7 +77,7 @@ show(board: ulng) {
 }
 
 // Returns the generation at which `board` appeared before, if it did.
-seen(history: History, board: ulng): Sym<:ok(int), :none> {
+seen(history: History, board: ulng) -> Sym<:ok(int), :none> {
   if history.board == board { ret history.generation }
   history.older |> {
     :none => :none

@@ -69,7 +69,7 @@ require_prose("examples should be treated as design references rather than proof
 # in this overview to extract/adapt, and these are not new language examples.
 example(0 primitives-and-control "" [=[
 twice(n: int) { n * 2 }
-factorial(n: int): int { if n == 0 { ret 1 }
+factorial(n: int) -> int { if n == 0 { ret 1 }
   n * factorial(n - 1) }
 main() {
   let s: shrt = -32768
@@ -123,9 +123,9 @@ Box { name: str
   count: int }
 Holder { value: Box }
 impl Box {
-  new(name: str): Box { Box { name: name + "", count: 0 } }
-  name(box: Box): str { box.name }
-  rename(box: &Box, name: str): () {
+  new(name: str) -> Box { Box { name: name + "", count: 0 } }
+  name(box: Box) -> str { box.name }
+  rename(box: &Box, name: str) -> () {
     box.name = name
     box.count += 1
   }
@@ -150,11 +150,11 @@ main() {
 set(outcome_api [=[
 type Rejected = Sym<:bad(str)>
 type Result = Sym<:ok(int), Rejected>
-source(n: int): Result {
+source(n: int) -> Result {
   if n < 0 { ret :bad("bad:" + str(n)) }
   n
 }
-double(n: int): Sym<:ok(int), _> {
+double(n: int) -> Sym<:ok(int), _> {
   let value = n |> source()?
   value * 2
 }
@@ -223,11 +223,11 @@ set(code "source(1)")
 error_at(code "source(1)" "A call that can fail must be handled with ?, !, or a match.")
 example(0 unhandled-outcome "${outcome_api}\nmain() {" "${code}" "}")
 require_prose("Invalid error propagation.")
-set(code "restricted(n: int): int { source(n)? }")
+set(code "restricted(n: int) -> int { source(n)? }")
 error_at(code "source(n)?" "Propagated variants are not in the written return type.")
 example(0 propagation-contract "${outcome_api}" "${code}" "main() {}")
 require_prose("Validation of implicit function returns.")
-set(code "wrong(): int { true }")
+set(code "wrong() -> int { true }")
 error_at(code "wrong()" "Function body does not match the written return type.")
 example(0 return-contract "" "${code}" "main() {}")
 require_prose("Typed symbol compatibility.")

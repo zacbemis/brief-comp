@@ -9,11 +9,11 @@ replaceString(name: str, child: &Child) {
   child.name = "new" + " text"
   print(name)
 }
-replaceLater(parent: &Parent): Parent {
+replaceLater(parent: &Parent) -> Parent {
   parent.child = Child { name: "later" + " argument" }
   parent
 }
-compound(child: &Child): str {
+compound(child: &Child) -> str {
   child.name = "right" + " side"
   "!"
 }

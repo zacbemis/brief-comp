@@ -6,7 +6,7 @@ first() {
   second()
   print("last")
 }
-second(): () {
+second() -> () {
   print("first")
   ret print("second")
   print("unreachable")

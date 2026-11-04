@@ -1,5 +1,5 @@
 // expect: float literals ok
-check(ok: bool, message: str): () { if not ok { print(message) } }
+check(ok: bool, message: str) -> () { if not ok { print(message) } }
 main() {
   let above: flt = 1.000000059604644776257986737988403547205962240695953369140625
   check(above == 1.00000011920928955078125, "double rounding above midpoint")

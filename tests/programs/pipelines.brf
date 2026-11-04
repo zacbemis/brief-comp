@@ -2,18 +2,18 @@ Box { n: int }
 impl Box {
   value(box: Self) { box.n }
   add(box: &Self, n: int) { box.n += n }
-  make(n: int): Self { Self { n: n } }
-  small(box: Self, n: flt): flt { n }
+  make(n: int) -> Self { Self { n: n } }
+  small(box: Self, n: flt) -> flt { n }
 }
 value(box: Box) { -1 }
 double(n: int) { n * 2 }
 plus(a: int, b: int) { a + b }
-wide(n: lng): lng { n }
-small(n: flt): flt { n }
+wide(n: lng) -> lng { n }
+small(n: flt) -> flt { n }
 unit(u: ()) { print("unit") }
-input(): int { print("input")
+input() -> int { print("input")
   2 }
-argument(): int { print("argument")
+argument() -> int { print("argument")
   3 }
 main() {
   print(str(1 + 2 |> double() |> plus(4))) // expect: 10

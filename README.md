@@ -68,7 +68,8 @@ N1's lexer work distinguishes `TOK_UPPER_NAME` and `TOK_LOWER_NAME`, with `_`
 as `TOK_WILDCARD`. Underscore-prefixed names such as `_value` are rejected.
 Logical negation now uses `not`; old prefix `!` is rejected with a fix, while
 postfix `!` and `!=` are unchanged. Double precision uses `dbl` for both types
-and conversion calls; old `dub` uses are rejected with fixes. Declaration/type
+and conversion calls; old `dub` uses are rejected with fixes. Function return
+types follow `->`, with a fix for old `:` annotations. Other declaration/type
 structure and the remaining keywords are still first-version; contextual casing
 checks and the full syntax switch are not implemented yet.
 
@@ -279,8 +280,8 @@ Wide and combining characters do not yet have special display-width handling.
 - [Errors and outcomes](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
 - [Next-version compiler plan](docs/plans/next-version.txt) (N0 complete;
-  N1 identifier classification, `not` and `dbl` implemented; full syntax switch
-  pending)
+  N1 identifier classification, `not`, `dbl` and `->` returns implemented;
+  full syntax switch pending)
 - [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
 
 The overview links the remaining topic documents. Milestone 5 is complete for

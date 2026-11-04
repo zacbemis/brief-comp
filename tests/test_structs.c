@@ -193,13 +193,13 @@ int main(void) {
     valid(&a, "A { x: () }\nmain() { let a = A { x: () }\na.x = ()\na.x }");
   }
   TEST("impl membership, Self, associated calls and receiver calls") {
-    valid(&a, "A { x: int }\nimpl A { new(): Self { Self { x: 1 } }\nget(a: "
+    valid(&a, "A { x: int }\nimpl A { new() -> Self { Self { x: 1 } }\nget(a: "
               "Self) { a.x } }\nmain() { A.new().get() }");
     valid(&a, "A {}\nB {}\nimpl A { get(a: Self) { 1 } }\nimpl B { get(b: "
               "Self) { true } }\nget() {}\nmain() { let n: int = A "
               "{}.get()\nlet b: bool = B {}.get()\nget() }");
     valid(&a, "A {}\nimpl A { main() {} }\nmain() {}");
-    valid(&a, "A {}\nimpl A { make(): Self { if true { ret Self {} "
+    valid(&a, "A {}\nimpl A { make() -> Self { if true { ret Self {} "
               "}\nSelf.make() } }\nmain() { A.make() }");
     invalid(&a, "A {}\nimpl A { f() {}\nf() {} }\nmain() {}",
             "Duplicate function");
@@ -296,11 +296,11 @@ int main(void) {
               "}\nmain() {}");
     valid(&a, "P {}\nsave(value: P, n: int) {}\n"
               "f(p: P) { save(p, 1)\np |> save(1) }\nmain() {}");
-    valid(&a, "P {}\nimpl P { save(p: Self): int { 1 } }\n"
-              "save(p: P): bool { true }\nf(p: P) { let save = 0\n"
+    valid(&a, "P {}\nimpl P { save(p: Self) -> int { 1 } }\n"
+              "save(p: P) -> bool { true }\nf(p: P) { let save = 0\n"
               "let a: int = p.save()\nlet b: int = p |> save() }\nmain() {}");
-    r = check(&a, "P {}\nimpl P { save(p: Self): int { 1 } }\n"
-                  "save(p: P): bool { true }\nf(p: P) {\n"
+    r = check(&a, "P {}\nimpl P { save(p: Self) -> int { 1 } }\n"
+                  "save(p: P) -> bool { true }\nf(p: P) {\n"
                   "let a: int = p.save()\nlet b: int = p |> save()\n"
                   "let c: bool = save(p) }\nmain() {}");
     ASSERT_EQ_INT(0, r.errors.count);
@@ -383,7 +383,7 @@ int main(void) {
                            "missing(value) or value |> missing().");
     Result r = check(&a, "P {}\nf(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
                          "g(p: P, b: bool) { f(p, b).missing }\n"
-                         "wrong(): int { false }\nmain() {}");
+                         "wrong() -> int { false }\nmain() {}");
     ASSERT_EQ_INT(2, r.errors.count);
     if (r.errors.count == 2) {
       ASSERT_EQ_STRN("Unknown struct field.", r.errors.items[0]->message,
@@ -411,7 +411,7 @@ int main(void) {
     if (r.errors.count)
       ASSERT_EQ_STRN("Unknown binding.", r.errors.items[0]->message,
                      strlen(r.errors.items[0]->message));
-    valid(&a, "P {}\nimpl P { same(p: Self): Self { p } }\n"
+    valid(&a, "P {}\nimpl P { same(p: Self) -> Self { p } }\n"
               "f(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
               "g(p: P, b: bool) { f(p, true).same() }\nmain() {}");
     valid(&a, "P {}\nsame(p: P) { p }\n"
@@ -486,18 +486,18 @@ int main(void) {
     valid(&a, "A { n: int }\nf(a: A, b: bool) { var alias = A { n: 0 }\nif b { "
               "alias = a\nret }\nalias.n++ }\nmain() {}");
     invalid(&a,
-            "A { n: int }\nidentity(a: A): A { a }\nf(a: A) { let owned = "
+            "A { n: int }\nidentity(a: A) -> A { a }\nf(a: A) { let owned = "
             "identity(a)\nowned.n++ }\nmain() {}",
             "Cannot mutate through");
   }
   TEST("calls and literals preserve read-only access conservatively") {
     const char *prefix =
         "A { n: int }\nQ { p: A }\nR { p: A\nother: A\nn: int }\n"
-        "U { p: A\nu: () }\nidentity(a: A): A { a }\n"
-        "pick(a: A, b: A): A { a }\nafter(a: A, u: ()): A { a }\n"
-        "number(a: A): int { a.n }\nmut(a: &A) {}\n"
-        "impl A { same(a: Self): Self { a }\n"
-        "new(a: Self): Self { Self { n: 0 } } }\nmain() {}\n";
+        "U { p: A\nu: () }\nidentity(a: A) -> A { a }\n"
+        "pick(a: A, b: A) -> A { a }\nafter(a: A, u: ()) -> A { a }\n"
+        "number(a: A) -> int { a.n }\nmut(a: &A) {}\n"
+        "impl A { same(a: Self) -> Self { a }\n"
+        "new(a: Self) -> Self { Self { n: 0 } } }\nmain() {}\n";
     const char *bad[] = {
         "f(q: Q) { let inner = identity(q.p)\ninner.n++ }",
         "f(q: Q) { identity(identity(q.p)).n++ }", "f(q: Q) { q.p.same().n++ }",
@@ -546,7 +546,7 @@ int main(void) {
     }
   }
   TEST("loop permissions converge across backedges, break and continue") {
-    const char *prefix = "A { n: int }\nQ { p: A }\nidentity(a: A): A { a }\n"
+    const char *prefix = "A { n: int }\nQ { p: A }\nidentity(a: A) -> A { a }\n"
                          "mut(a: &A) {}\nmain() {}\n";
     const char *bad[] = {
         "f(a: A, b: bool) { var alias = A { n: 0 }\nwhile b { "

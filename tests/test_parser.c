@@ -82,7 +82,7 @@ int main(void) {
                     "(field (call (field (name User) new) (name value)) age)");
     expression_dump(&arena, "value |> { _ => value }",
                     "(|> (name value) (match (arm (wildcard) (name value))))");
-    Parsed *v = parse(&arena, "f(x: Vec<Other.User>): Sym<:ok(int), _> {\n"
+    Parsed *v = parse(&arena, "f(x: Vec<Other.User>) -> Sym<:ok(int), _> {\n"
                               "x |> { _ => 1 }\n}\n");
     if (v->diagnostics.count)
       diagnostics_print(&v->diagnostics, stderr);
@@ -168,7 +168,7 @@ int main(void) {
     expression_dump(&arena, "'\x01'", "(chr '\\x01')");
     expression_dump(&arena, ":ok(42)", "(symbol ok (int 42))");
     expression_dump(&arena, ":none", "(symbol none)");
-    program_dump(&arena, "pub add(x: int, y: int): int { x + y }",
+    program_dump(&arena, "pub add(x: int, y: int) -> int { x + y }",
                  "(program (fn pub add (params (x int) (y int)) int (block (+ "
                  "(name x) (name y)))))\n");
   }
@@ -250,7 +250,7 @@ int main(void) {
     const char *cases[] = {
         "Box { value: dub }\nmain() {}\n",
         "type Answer = Sym<:ok(dub), :none>\nmain() {}\n",
-        "f(x: dub): dub { x }\nmain() {}\n",
+        "f(x: dub) -> dub { x }\nmain() {}\n",
         "main() { let n: dub = 1.5\nn }\n",
         "main() { dub(1) }\n",
         "main() { ( /* before */ dub /* after */ )(\"1e2\")! }\n",
@@ -322,6 +322,82 @@ int main(void) {
                  "(program (fn main (params) _ (block (let dubx dbl (int 1)) "
                  "(let dblx _ (name dubx)) (call (name print) "
                  "(str \"dub dbl\")))))\n");
+  }
+  TEST("return arrows reject old colons with local, layout-preserving fixes") {
+    const struct {
+      const char *code, *replacement;
+    } cases[] = {{"f():int { 1 }\n", " -> "},
+                 {"f(): int { 1 }\n", " ->"},
+                 {"f() :int { 1 }\n", "-> "},
+                 {"f() : int { 1 }\n", "->"},
+                 {"f()/* before */:/* after */int { 1 }\n", " -> "},
+                 {"f():\n// continuation\nint { 1 }\n", " ->"},
+                 {"pub f(x: Vec<Vec<int>>): Vec<Vec<int>> { x }\n", " ->"},
+                 {"f(): Sym<:ok(int), _> { 1 }\n", " ->"},
+                 {"P { x: int }\nimpl P { f(p: Self): int { p.x } }\n", " ->"}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned ending = 0; ending < 2; ending++) {
+        char text[1024];
+        size_t length = 0;
+        for (size_t j = 0; cases[i].code[j]; j++) {
+          if (ending && cases[i].code[j] == '\n')
+            text[length++] = '\r';
+          text[length++] = cases[i].code[j];
+        }
+        strcpy(text + length, "after() {}\n");
+        Parsed *v = parse(&arena, text);
+        if (v->diagnostics.count != 1)
+          diagnostics_print(&v->diagnostics, stderr);
+        ASSERT_EQ_INT(1, v->diagnostics.count);
+        if (v->diagnostics.count != 1)
+          continue;
+        const Diagnostic *d = v->diagnostics.items[0];
+        ASSERT_EQ_INT(0,
+                      strcmp("Return types follow '->', not ':'.", d->message));
+        ASSERT_TRUE(d->span.file == v->source);
+        ASSERT_EQ_INT(1, d->span.end - d->span.start);
+        ASSERT_EQ_INT(':', text[d->span.start]);
+        ASSERT_TRUE(d->fixes && d->fixes == d->last_fix);
+        if (d->fixes) {
+          const DiagnosticFix *fix = d->fixes;
+          ASSERT_TRUE(!fix->next && fix->span.file == v->source);
+          ASSERT_EQ_INT(d->span.start, fix->span.start);
+          ASSERT_EQ_INT(d->span.end, fix->span.end);
+          ASSERT_EQ_INT(0, strcmp(cases[i].replacement, fix->replacement));
+          char rewritten[1200];
+          snprintf(rewritten, sizeof(rewritten), "%.*s%s%s",
+                   (int)fix->span.start, text, fix->replacement,
+                   text + fix->span.end);
+          Parsed *fixed = parse(&arena, rewritten);
+          ASSERT_EQ_INT(0, fixed->diagnostics.count);
+          char *before = dump(&arena, v->program),
+               *after = dump(&arena, fixed->program);
+          ASSERT_TRUE(before && after);
+          if (before && after)
+            ASSERT_EQ_INT(0, strcmp(before, after));
+        }
+      }
+    }
+    Parsed *multiple =
+        parse(&arena, "f(): int { 1 }\ng(): () {}\nafter() {}\n");
+    ASSERT_EQ_INT(2, multiple->diagnostics.count);
+    ASSERT_EQ_INT(3, multiple->program->count);
+    const char *missing[] = {"f(): {}\nafter() {}\n",
+                             "f() -> {}\nafter() {}\n"};
+    for (size_t i = 0; i < sizeof(missing) / sizeof(*missing); i++) {
+      Parsed *v = parse(&arena, missing[i]);
+      ASSERT_EQ_INT(1, v->diagnostics.count);
+      if (v->diagnostics.count) {
+        ASSERT_EQ_INT(
+            0, strcmp("Expected a type.", v->diagnostics.items[0]->message));
+        ASSERT_TRUE(!v->diagnostics.items[0]->fixes);
+      }
+      ASSERT_EQ_INT(1, v->program->count);
+    }
+    program_dump(&arena, "f()->\nint { 1 }\n",
+                 "(program (fn f (params) int (block (int 1))))\n");
+    invalid(&arena, "f() -> Vec<int>\n{}", "Expected '{' to start a block.");
+    invalid(&arena, "f()\n-> int {}", "Expected '{' to start a block.");
   }
   TEST("not has prefix precedence below power and postfix, above comparisons") {
     expression_dump(&arena, "not not flag", "(not (not (name flag)))");
@@ -711,10 +787,10 @@ int main(void) {
     const char *text =
         "pub type Error = Sym<:bad(str), :missing>\n"
         "pub User {\nname: str\nresult: Sym<:ok(User), Error>\ncount: int\n}\n"
-        "impl User {\npub new(name: str): Sym<:ok(User), _> {\n"
+        "impl User {\npub new(name: str) -> Sym<:ok(User), _> {\n"
         "var count: shrt = 0\ncount += 1\n:ok(User { name: name, count: count "
         "})\n}\n"
-        "setAge(user: &User, age: int): () { user.count = age }\n}\n";
+        "setAge(user: &User, age: int) -> () { user.count = age }\n}\n";
     Parsed *v = parse(&arena, text);
     if (v->diagnostics.count)
       diagnostics_print(&v->diagnostics, stderr);
@@ -935,7 +1011,7 @@ int main(void) {
     }
     const char *other_errors[] = {"main() { if true { field: value } }",
                                   "main() { if check() { field: value } }",
-                                  "main() { if ready { field() : value } }",
+                                  "main() { if ready { field() -> value } }",
                                   "main() { if ready { true: value } }",
                                   "main() { if ready",
                                   "main() { if ready {",
@@ -1042,7 +1118,7 @@ int main(void) {
     invalid(&arena, "main() { let x = }", "expression");
     invalid(&arena, "f(x: int { x }", "')'");
     invalid(&arena, "type E = Sym<:ok(int), :bad(str)\n", "'>'");
-    invalid(&arena, "f(): _ {}", "only allowed");
+    invalid(&arena, "f() -> _ {}", "only allowed");
     invalid(&arena, "print(\"top-level statement\")", "inside a function");
   }
   TEST("top-level statement hints are exact and preserve later declarations") {
@@ -1115,13 +1191,13 @@ int main(void) {
     invalid(&arena, "f(x) {}", "Expected ':' before type.");
     invalid(&arena, "f(1) {}", "Expected a parameter name.");
     invalid(&arena, "f(x: int)", "Expected '{' to start a block.");
-    invalid(&arena, "f(): int", "Expected '{' to start a block.");
+    invalid(&arena, "f() -> int", "Expected '{' to start a block.");
     invalid(&arena, "f()\n{}", "Expected '{' to start a block.");
-    invalid(&arena, "f()\n: int {}", "Expected '{' to start a block.");
+    invalid(&arena, "f()\n-> int {}", "Expected '{' to start a block.");
     invalid(&arena, "pub f(1)", "Expected a parameter name.");
     invalid(&arena, "f(", "Expected a parameter name.");
     invalid(&arena, "Box<T> { value: T }", "Expected '(' after function name");
-    invalid(&arena, "first<T>(x: T): T { x }",
+    invalid(&arena, "first<T>(x: T) -> T { x }",
             "Expected '(' after function name");
     invalid(&arena, "User { name: }", "Expected a type.");
     invalid(&arena, "import User",
@@ -1135,7 +1211,7 @@ int main(void) {
     ASSERT_EQ_STRN("Unexpected character.", v->diagnostics.items[0]->message,
                    strlen(v->diagnostics.items[0]->message));
     ASSERT_EQ_INT(1, v->program->count);
-    v = parse(&arena, "pub f(x: &Self): Sym<:ok(int)> { :ok(1) }\n"
+    v = parse(&arena, "pub f(x: &Self) -> Sym<:ok(int)> { :ok(1) }\n"
                       "main() {}\nconst VALUE = 1\n");
     ASSERT_EQ_INT(0, v->diagnostics.count);
     ASSERT_EQ_INT(3, v->program->count);

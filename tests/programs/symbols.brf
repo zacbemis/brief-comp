@@ -35,10 +35,10 @@ wide(n: Sym<:value(lng)>) { n }
 small(n: Sym<:value(flt)>) { n }
 effect() { print("effect") }
 type Inner = Sym<:text(str), :empty>
-nested(b: bool): Sym<:outer(Inner)> {
+nested(b: bool) -> Sym<:outer(Inner)> {
   if b { :outer(:text("wide" + "ned")) } else { :outer(:empty) }
 }
-main(): () {
+main() -> () {
   for i in 0..3 { choose(i) |> describe() |> print() }
   let account = Account { tier: :gold }
   account.tier = :bronze

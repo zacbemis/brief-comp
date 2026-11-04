@@ -3,7 +3,7 @@
 // expect: changed
 Node { text: str }
 Holder { text: str }
-parse(h: Holder): Sym<:ok(int), _> { int(h.text)? }
+parse(h: Holder) -> Sym<:ok(int), _> { int(h.text)? }
 wrap(h: Holder) {
   let scratch = Node { text: "scratch" + " space" }
   let count = parse(h)?

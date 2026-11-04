@@ -7,16 +7,16 @@ set(user_api [=[
 User { name: str
   age: int }
 impl User {
-  new(name: str, age: int): Sym<:ok(User), :invalidAge(int)> {
+  new(name: str, age: int) -> Sym<:ok(User), :invalidAge(int)> {
     if age < 0 { ret :invalidAge(age) }
     User { name: name + "", age: age }
   }
-  getName(user: User): str { user.name }
+  getName(user: User) -> str { user.name }
 }
 ]=])
 string(STRIP "${block_1}" outcome)
 example(1 outcome-type "${user_api}" "type Result = ${outcome}" [=[
-make(age: int): Result {
+make(age: int) -> Result {
   if age < 0 { ret :invalidAge(age) }
   User { name: "B" + "ob", age: age }
 }
@@ -40,7 +40,7 @@ endif()
 list(GET alternatives 0 success)
 list(GET alternatives 1 failure)
 example(2 constructions "${user_api}\ntype Result = ${outcome}"
-    "good(user: User): Result { ${success} }\nbad(): Result { ${failure} }" [=[
+    "good(user: User) -> Result { ${success} }\nbad() -> Result { ${failure} }" [=[
 main() { let user = User { name: "B" + "ob", age: 20 }
   good(user) |> {
     :ok(found) => print(found.name)
@@ -56,7 +56,7 @@ main() { let user = User { name: "B" + "ob", age: 20 }
 ]=])
 string(STRIP "${block_3}" optional)
 example(3 optional-type "${user_api}" "type Maybe = ${optional}" [=[
-find(present: bool): Maybe {
+find(present: bool) -> Maybe {
   if present { :found(User { name: "B" + "ob", age: 20 }) }
   else { :missing }
 }
@@ -72,7 +72,7 @@ main() { find(false)
 ]=])
 string(STRIP "${block_4}" classification)
 example(4 classification-type "" "type Age = ${classification}" [=[
-classify(age: int): Age {
+classify(age: int) -> Age {
   if age < 0 { :negative }
   else if age < 65 { :adult }
   else { :senior }
@@ -116,15 +116,15 @@ main() { load() |> {
   :invalidAge(age) => print("invalid:" + str(age))
 } }
 ]=])
-example(6 propagate-success "${user_api}\nload(): Sym<:ok(str), :invalidAge(int)> {"
+example(6 propagate-success "${user_api}\nload() -> Sym<:ok(str), :invalidAge(int)> {"
     "${block_6}" "${load_tail}\n// expect: after\n// expect: Bob:20")
 set(code "${block_6}")
 replace_once(code "\"Bob\", 20" "\"Bob\", -1")
-example(6 propagate-failure "${user_api}\nload(): Sym<:ok(str), :invalidAge(int)> {"
+example(6 propagate-failure "${user_api}\nload() -> Sym<:ok(str), :invalidAge(int)> {"
     "${code}" "${load_tail}\n// expect: invalid:-1")
 set(code "${block_6}")
 error_at(code "User.new(" "Propagated variants are not in the written return type.")
-example(6 incompatible-propagation "${user_api}\nload(): Sym<:ok(str), :other> {"
+example(6 incompatible-propagation "${user_api}\nload() -> Sym<:ok(str), :other> {"
     "${code}" "user.name\n}\nmain() {}")
 set(code "${block_6}")
 replace_once(code "User.new(\"Bob\", 20)?" "User.new(\"Bob\", 20)")
@@ -151,7 +151,7 @@ error_at(code ":invalidAge(_) =>" "Unreachable match arm.")
 example(8 unreachable "${user_api}\nmain() {" "${code}" "}")
 
 example(9 error-alias "" "${block_9}" [=[
-make(n: int): Error {
+make(n: int) -> Error {
   if n == 0 { :syntax(7) }
   else if n == 1 { :missingKey("na" + "me") }
   else { :wrongType("a" + "ge") }
@@ -182,7 +182,7 @@ function(require_prose text)
 endfunction()
 require_prose("An entry that is a type name includes every variant of that group.")
 example(0 local-composition "${user_api}\n${block_9}" [=[
-make(n: int): Sym<:ok(User), Error, :invalidAge(int)> {
+make(n: int) -> Sym<:ok(User), Error, :invalidAge(int)> {
   if n == 0 { ret :syntax(7) }
   if n == 1 { ret :missingKey("na" + "me") }
   if n == 2 { ret :wrongType("a" + "ge") }
@@ -302,7 +302,7 @@ type Inner = Sym<:yes(str), :no>
 type Outer = Sym<:wrap(Inner)>
 ]=])
 example(0 nested-context "${nested}" [=[
-make(b: bool): Outer {
+make(b: bool) -> Outer {
   if b { :wrap(:yes("h" + "i")) }
   else { :wrap(:no) }
 }

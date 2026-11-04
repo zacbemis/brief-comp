@@ -9,7 +9,7 @@ Report {
   empty: ()
   detail: Sym<:note(str)>
 }
-main(): Sym<:ok, :invalid(Report)> {
+main() -> Sym<:ok, :invalid(Report)> {
   :invalid(Report {
     code: -9223372036854775808
     count: 18446744073709551615

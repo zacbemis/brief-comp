@@ -2,7 +2,7 @@ string { auto: str }
 A_B { value: int }
 A { value: int }
 impl string {
-  new(auto: str): Self { Self { auto: auto } }
+  new(auto: str) -> Self { Self { auto: auto } }
   get(value: Self) { value.auto }
 }
 impl A_B { c(value: Self) { value.value } }

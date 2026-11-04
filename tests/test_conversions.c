@@ -125,7 +125,7 @@ int main(void) {
     check(&a, "int() {}\nmain() {}", "Expected a declaration");
     check(&a, "main() { let c: chr = '1'\nint(c) + 1 }", NULL);
     check(&a, "Box {}\nmain() { int(Box {}) }", "number, chr or str");
-    check(&a, "f(): int { int(\"1\")? }\nmain() {}", "Propagated variants");
+    check(&a, "f() -> int { int(\"1\")? }\nmain() {}", "Propagated variants");
     SemaProgram *literal_types =
         check(&a,
               "f() { shrt((1)) }\ng() { (1) |> shrt() }\n"

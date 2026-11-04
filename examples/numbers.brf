@@ -3,7 +3,7 @@
 // Roman numerals, base conversion, perfect numbers and the longest Collatz
 // chain below a bound.
 
-isPrime(n: lng): bool {
+isPrime(n: lng) -> bool {
   if n < 2 { ret false }
   if n < 4 { ret true }
   if n % 2 == 0 or n % 3 == 0 { ret false }
@@ -16,14 +16,14 @@ isPrime(n: lng): bool {
   true
 }
 
-nextPrime(n: lng): lng {
+nextPrime(n: lng) -> lng {
   var candidate = n + 1
   while not isPrime(candidate) { candidate++ }
   candidate
 }
 
 // "360 = 2^3 * 3^2 * 5"
-factorize(n: lng): str {
+factorize(n: lng) -> str {
   if n < 2 { ret str(n) + " has no prime factors" }
   var text = str(n) + " ="
   var rest = n
@@ -46,7 +46,7 @@ factorize(n: lng): str {
   text
 }
 
-gcd(a: lng, b: lng): lng {
+gcd(a: lng, b: lng) -> lng {
   var x = if a < 0 { -a } else { a }
   var y = if b < 0 { -b } else { b }
   while y != 0 {
@@ -58,7 +58,7 @@ gcd(a: lng, b: lng): lng {
 }
 
 // Euler's totient: how many of 1..n share no factor with n.
-totient(n: lng): lng {
+totient(n: lng) -> lng {
   var result = n
   var rest = n
   var p: lng = 2
@@ -80,7 +80,7 @@ Fraction {
 
 impl Fraction {
   // Always stored in lowest terms with a positive denominator.
-  new(top: lng, bottom: lng): Sym<:ok(Self), :zeroDenominator> {
+  new(top: lng, bottom: lng) -> Sym<:ok(Self), :zeroDenominator> {
     if bottom == 0 { ret :zeroDenominator }
     let sign: lng = if bottom < 0 { -1 } else { 1 }
     let g = gcd(top, bottom)
@@ -88,24 +88,24 @@ impl Fraction {
     Self { top: sign * top / common, bottom: sign * bottom / common }
   }
 
-  plus(a: Self, b: Self): Self {
+  plus(a: Self, b: Self) -> Self {
     Self.new(a.top * b.bottom + b.top * a.bottom, a.bottom * b.bottom)!
   }
 
-  times(a: Self, b: Self): Self { Self.new(a.top * b.top, a.bottom * b.bottom)! }
+  times(a: Self, b: Self) -> Self { Self.new(a.top * b.top, a.bottom * b.bottom)! }
 
-  over(a: Self, b: Self): Sym<:ok(Self), :zeroDenominator> {
+  over(a: Self, b: Self) -> Sym<:ok(Self), :zeroDenominator> {
     Self.new(a.top * b.bottom, a.bottom * b.top)?
   }
 
-  label(f: Self): str {
+  label(f: Self) -> str {
     if f.bottom == 1 { str(f.top) } else { str(f.top) + "/" + str(f.bottom) }
   }
 
   // Greedy expansion into distinct unit fractions, e.g. 4/13 = 1/4 + 1/18 + 1/468.
   // Denominators can grow very fast; arithmetic overflow would panic, so the
   // expansion stops with what it has found before a step would overflow.
-  egyptian(f: Self): Sym<:ok(str), :tooLarge(str)> {
+  egyptian(f: Self) -> Sym<:ok(str), :tooLarge(str)> {
     var top = f.top
     var bottom = f.bottom
     var text = ""
@@ -129,7 +129,7 @@ impl Fraction {
 
 // n! without overflow: stops with :overflow before the multiplication that
 // would exceed lng, instead of panicking.
-factorial(n: lng): Sym<:ok(lng), :overflow(lng)> {
+factorial(n: lng) -> Sym<:ok(lng), :overflow(lng)> {
   var result: lng = 1
   for k in 2..n + 1 {
     if result > 9223372036854775807 / k { ret :overflow(k) }
@@ -138,7 +138,7 @@ factorial(n: lng): Sym<:ok(lng), :overflow(lng)> {
   result
 }
 
-roman(n: int): Sym<:ok(str), :outOfRange(int)> {
+roman(n: int) -> Sym<:ok(str), :outOfRange(int)> {
   if n < 1 or n > 3999 { ret :outOfRange(n) }
   var rest = n
   var text = ""
@@ -181,7 +181,7 @@ roman(n: int): Sym<:ok(str), :outOfRange(int)> {
   text
 }
 
-digit(d: ulng): str {
+digit(d: ulng) -> str {
   d |> {
     0..10 => str(d)
     10 => "a"
@@ -193,7 +193,7 @@ digit(d: ulng): str {
   }
 }
 
-inBase(n: ulng, base: ulng): Sym<:ok(str), :badBase(ulng)> {
+inBase(n: ulng, base: ulng) -> Sym<:ok(str), :badBase(ulng)> {
   if base < 2 or base > 16 { ret :badBase(base) }
   if n == 0 { ret "0" }
   var rest = n
@@ -205,7 +205,7 @@ inBase(n: ulng, base: ulng): Sym<:ok(str), :badBase(ulng)> {
   text
 }
 
-isPerfect(n: lng): bool {
+isPerfect(n: lng) -> bool {
   var sum: lng = 1
   var d: lng = 2
   while d * d <= n {
@@ -218,7 +218,7 @@ isPerfect(n: lng): bool {
   n > 1 and sum == n
 }
 
-collatzSteps(start: lng): int {
+collatzSteps(start: lng) -> int {
   var n = start
   var steps = 0
   while n != 1 {

@@ -36,7 +36,7 @@ static int type_angle(TokenArray raw, size_t i) {
   if (!before)
     return 0;
   TokenType context = raw.items[before - 1].type;
-  if (context == TOK_IMPL)
+  if (context == TOK_IMPL || context == TOK_ARROW)
     return 1;
   if (context == TOK_COLON) {
     // A symbol's prefix colon is not a type annotation.
@@ -64,6 +64,7 @@ static int continues(TokenType t, int type_close, int prefix_bang) {
   case TOK_COLON:
   case TOK_PERIOD:
   case TOK_FAT_ARROW:
+  case TOK_ARROW:
   case TOK_PIPE:
   case TOK_EQUAL:
   case TOK_PLUS:

@@ -198,8 +198,8 @@ int main(void) {
        "metadata") {
     Result r =
         valid(&a, "type Maybe = Sym<:ok(int), :none>\n"
-                  "parse(s: str): Sym<:ok(int), :invalid(str)> { int(s)? }\n"
-                  "small(n: lng): Sym<:ok(int), :overflow> { int(n)? }\n"
+                  "parse(s: str) -> Sym<:ok(int), :invalid(str)> { int(s)? }\n"
+                  "small(n: lng) -> Sym<:ok(int), :overflow> { int(n)? }\n"
                   "main() { :none }");
     SemaProgram *p = r.program;
     SemaTag *invalid_tag = sema_tag(p, p->module, "invalid");
@@ -295,7 +295,7 @@ int main(void) {
     valid(
         &a,
         "type Inner = Sym<:a(str), :b>\n"
-        "f(b: bool): Sym<:outer(Inner)> { if b { :outer(:a(\"x\")) } "
+        "f(b: bool) -> Sym<:outer(Inner)> { if b { :outer(:a(\"x\")) } "
         "else { :outer(:b) } }\n"
         "main() { let x: Sym<:outer(Inner)> = :outer(:a(\"x\"))\n"
         "let y = :b\nlet z: Sym<:outer(Inner)> = :outer(y)\n"
@@ -307,7 +307,7 @@ int main(void) {
   TEST("packing, widening and payload reads independently acquire owners") {
     Result r = valid(
         &a,
-        "make(): Sym<:a(str), :b> { :a(\"x\" + \"y\") }\n"
+        "make() -> Sym<:a(str), :b> { :a(\"x\" + \"y\") }\n"
         "read(s: Sym<:a(str), :b>) { s |> { :a(text) => text\n:b => \"\" } }\n"
         "main() { read(make()) }");
     IrProgram *ir = ir_lower(&a, r.program);
@@ -334,22 +334,22 @@ int main(void) {
     ASSERT_EQ_INT(7, seen);
   }
   TEST("subset assignment, fields, parameters, returns and branch joins") {
-    Result r =
-        valid(&a, "type Tier = Sym<:bronze, :silver, :gold>\n"
-                  "Box { tier: Tier }\n"
-                  "choose(b: bool) { if b { :bronze } else { :gold } }\n"
-                  "forward(b: bool): Tier { if b { ret :silver }\nchoose(b) }\n"
-                  "same(x: Tier): Tier { x }\n"
-                  "main(): () { var x: Tier = :bronze\nx = :gold\n"
-                  "let box = Box { tier: :silver }\nbox.tier = choose(false)\n"
-                  "forward(true) |> same() |> { Tier => () } }");
+    Result r = valid(
+        &a, "type Tier = Sym<:bronze, :silver, :gold>\n"
+            "Box { tier: Tier }\n"
+            "choose(b: bool) { if b { :bronze } else { :gold } }\n"
+            "forward(b: bool) -> Tier { if b { ret :silver }\nchoose(b) }\n"
+            "same(x: Tier) -> Tier { x }\n"
+            "main() -> () { var x: Tier = :bronze\nx = :gold\n"
+            "let box = Box { tier: :silver }\nbox.tier = choose(false)\n"
+            "forward(true) |> same() |> { Tier => () } }");
     ASSERT_EQ_INT(2,
                   r.program->functions[0].symbol.return_type->symbols->count);
     invalid(&a, "f(x: Sym<:a>) {}\nmain() { f(:b) }",
             "argument has the wrong type");
-    invalid(&a, "f(b: bool): Sym<:a> { if b { ret :b }\n:a }\nmain() {}",
+    invalid(&a, "f(b: bool) -> Sym<:a> { if b { ret :b }\n:a }\nmain() {}",
             "Return value");
-    invalid(&a, "f(): Sym<:a> { :b }\nmain() {}", "body does not match");
+    invalid(&a, "f() -> Sym<:a> { :b }\nmain() {}", "body does not match");
     invalid(&a, "main() { var x = :a\nx = :b }", "Assignment value");
     invalid(&a, "B { x: Sym<:a> }\nmain() { B { x: :b } }",
             "initializer has the wrong type");
@@ -367,7 +367,7 @@ int main(void) {
     ASSERT_TRUE(type == r.program->functions[0].symbol.return_type);
     ASSERT_EQ_INT(count, r.program->symbol_set_count);
     valid(&a, "f(b: bool) { if b { ret :a(1) }\n:a(wide()) }\n"
-              "wide(): lng { 4294967296 }\nmain() {}\n");
+              "wide() -> lng { 4294967296 }\nmain() {}\n");
     valid(&a, "f() { ret :a\n:b }\nmain() {}\n");
     invalid(&a, "f(b: bool) { if b { :a(1) } else { :a(false) } }\nmain() {}",
             "conflicting payload");
@@ -440,9 +440,9 @@ int main(void) {
     char text[16384];
     size_t used = 0;
     for (int i = 0; i < 40; i++)
-      used += (size_t)snprintf(text + used, sizeof(text) - used,
-                               "g%d(x: int): Sym<:ok(int), :e%d(int)> { x }\n",
-                               i, i);
+      used += (size_t)snprintf(
+          text + used, sizeof(text) - used,
+          "g%d(x: int) -> Sym<:ok(int), :e%d(int)> { x }\n", i, i);
     used += (size_t)snprintf(text + used, sizeof(text) - used, "h(x: int) {\n");
     for (int i = 0; i < 40; i++)
       used += (size_t)snprintf(text + used, sizeof(text) - used,
@@ -474,7 +474,7 @@ int main(void) {
         }
     }
     // Nested payload sets are declared even when only their container is used.
-    valid(&a, "f(): Sym<:a(Sym<:b(Sym<:c(str)>)>)> { :a(:b(:c(\"x\"))) }\n"
+    valid(&a, "f() -> Sym<:a(Sym<:b(Sym<:c(str)>)>)> { :a(:b(:c(\"x\"))) }\n"
               "main() { f() |> { :a(inner) => inner |> {\n"
               ":b(deep) => deep |> { :c(s) => print(s) } } } }");
   }
@@ -590,7 +590,7 @@ int main(void) {
         "mut(p: &P) { p.n++ }\n"
         "mutChoice(s: &Choice) {}\nmutNested(s: &Nested) {}\n"
         "mutScalar(s: &Scalar) {}\n"
-        "sameChoice(s: Choice): Choice { s }\n"
+        "sameChoice(s: Choice) -> Choice { s }\n"
         "impl P { bump(p: &Self) { p.n++ } }\n";
     const char *borrow =
         "A read-only value cannot be passed to an & parameter; "
@@ -754,8 +754,8 @@ int main(void) {
   }
   TEST("outcome handling extends data symbols without changing their rules") {
     valid(&a, "main() { :ok(1) }");
-    valid(&a, "f(): Sym<:ok, :bad> { :bad }\nmain() {}");
-    invalid(&a, "f(): Sym<:a, _> { :a }\nmain() {}", "must declare :ok");
+    valid(&a, "f() -> Sym<:ok, :bad> { :bad }\nmain() {}");
+    invalid(&a, "f() -> Sym<:a, _> { :a }\nmain() {}", "must declare :ok");
     valid(&a, "main() { :a }");
   }
   arena_destroy(&a);

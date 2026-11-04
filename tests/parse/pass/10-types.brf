@@ -47,35 +47,35 @@ AllPrimitives {
 }
 
 impl Holder {
-  pub same(holder: Self): Self {
+  pub same(holder: Self) -> Self {
     holder
   }
 
-  pub get(holder: &Self, index: int): Sym<:ok(int), :outOfRange(int)> {
+  pub get(holder: &Self, index: int) -> Sym<:ok(int), :outOfRange(int)> {
     :ok(holder.plain)
   }
 }
 
-returnsGeneric(): Vec<int> {
+returnsGeneric() -> Vec<int> {
   Vec<int>()
 }
 
-returnsNestedGeneric(): Map<str, Vec<int>> {
+returnsNestedGeneric() -> Map<str, Vec<int>> {
   Map<str, Vec<int>>()
 }
 
-returnsSym(): Sym<:ok(Vec<int>), :none> {
+returnsSym() -> Sym<:ok(Vec<int>), :none> {
   :none
 }
 
-returnsPartial(): Sym<:ok(int), _> {
+returnsPartial() -> Sym<:ok(int), _> {
   :ok(1)
 }
 
-returnsUnit(): () {
+returnsUnit() -> () {
 }
 
-returnsArray(): int[3] {
+returnsArray() -> int[3] {
   make()
 }
 

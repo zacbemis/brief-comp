@@ -653,7 +653,7 @@ static int top_level_statement(Parser *p) {
         do {
           next = p->tokens.items[++i].type;
         } while (next == TOK_NEWLINE);
-        return next != TOK_LBRACE && next != TOK_COLON;
+        return next != TOK_LBRACE && next != TOK_ARROW && next != TOK_COLON;
       }
     } else if (t == TOK_LBRACE)
       braces++;
@@ -771,10 +771,24 @@ static Decl *declaration(Parser *p, int in_impl) {
   }
   if (!expect(p, TOK_RPAREN, "Expected ')' after parameters."))
     return NULL;
-  if (match(p, TOK_COLON)) {
+  if (match(p, TOK_ARROW) || match(p, TOK_COLON)) {
+    Token separator = p->previous;
     d->as.function.return_type = type(p);
     if (!d->as.function.return_type)
       return NULL;
+    if (separator.type == TOK_COLON) {
+      Diagnostic *error =
+          error_at(p, separator.span, "Return types follow '->', not ':'.");
+      if (error) {
+        const SourceFile *file = separator.span.file;
+        size_t start = separator.span.start, end = separator.span.end;
+        int before = start && !blank(file->text[start - 1]);
+        int after = end < file->length && !blank(file->text[end]);
+        const char *replacement =
+            before ? (after ? " -> " : " ->") : (after ? "-> " : "->");
+        diagnostic_fix(p->diagnostics, error, separator.span, replacement);
+      }
+    }
   }
   d->as.function.params = params.data;
   d->as.function.count = params.count;

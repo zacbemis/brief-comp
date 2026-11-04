@@ -17,18 +17,18 @@ Power {
 }
 Unary { value: Expr }
 
-num(v: dbl): Expr { :num(v) }
-x(): Expr { :x }
-add(a: Expr, b: Expr): Expr { :add(Pair { left: a, right: b }) }
-sub(a: Expr, b: Expr): Expr { :sub(Pair { left: a, right: b }) }
-mul(a: Expr, b: Expr): Expr { :mul(Pair { left: a, right: b }) }
-div(a: Expr, b: Expr): Expr { :div(Pair { left: a, right: b }) }
-pow(a: Expr, n: int): Expr { :pow(Power { base: a, exponent: n }) }
-neg(a: Expr): Expr { :neg(Unary { value: a }) }
+num(v: dbl) -> Expr { :num(v) }
+x() -> Expr { :x }
+add(a: Expr, b: Expr) -> Expr { :add(Pair { left: a, right: b }) }
+sub(a: Expr, b: Expr) -> Expr { :sub(Pair { left: a, right: b }) }
+mul(a: Expr, b: Expr) -> Expr { :mul(Pair { left: a, right: b }) }
+div(a: Expr, b: Expr) -> Expr { :div(Pair { left: a, right: b }) }
+pow(a: Expr, n: int) -> Expr { :pow(Power { base: a, exponent: n }) }
+neg(a: Expr) -> Expr { :neg(Unary { value: a }) }
 
 // ---- Printing -----------------------------------------------------------
 
-precedence(e: Expr): int {
+precedence(e: Expr) -> int {
   e |> {
     :add(_) => 1
     :sub(_) => 1
@@ -42,11 +42,11 @@ precedence(e: Expr): int {
 }
 
 // Shows `e` as an operand that needs at least `minimum` precedence.
-operand(e: Expr, minimum: int): str {
+operand(e: Expr, minimum: int) -> str {
   if precedence(e) < minimum { "(" + show(e) + ")" } else { show(e) }
 }
 
-show(e: Expr): str {
+show(e: Expr) -> str {
   e |> {
     :num(v) => str(v)
     :x => "x"
@@ -61,21 +61,21 @@ show(e: Expr): str {
 
 // ---- Simplification -----------------------------------------------------
 
-constant(e: Expr): Sym<:ok(dbl), :none> {
+constant(e: Expr) -> Sym<:ok(dbl), :none> {
   e |> {
     :num(v) => v
     _ => :none
   }
 }
 
-isConstant(e: Expr, value: dbl): bool {
+isConstant(e: Expr, value: dbl) -> bool {
   constant(e) |> {
     :ok(v) => v == value
     :none => false
   }
 }
 
-simplifyAdd(a: Expr, b: Expr): Expr {
+simplifyAdd(a: Expr, b: Expr) -> Expr {
   if isConstant(a, 0) { ret b }
   if isConstant(b, 0) { ret a }
   constant(a) |> {
@@ -88,7 +88,7 @@ simplifyAdd(a: Expr, b: Expr): Expr {
   add(a, b)
 }
 
-simplifySub(a: Expr, b: Expr): Expr {
+simplifySub(a: Expr, b: Expr) -> Expr {
   if isConstant(b, 0) { ret a }
   if isConstant(a, 0) { ret simplifyNeg(b) }
   constant(a) |> {
@@ -101,7 +101,7 @@ simplifySub(a: Expr, b: Expr): Expr {
   sub(a, b)
 }
 
-simplifyMul(a: Expr, b: Expr): Expr {
+simplifyMul(a: Expr, b: Expr) -> Expr {
   if isConstant(a, 0) or isConstant(b, 0) { ret num(0) }
   if isConstant(a, 1) { ret b }
   if isConstant(b, 1) { ret a }
@@ -132,7 +132,7 @@ simplifyMul(a: Expr, b: Expr): Expr {
   mul(a, b)
 }
 
-simplifyDiv(a: Expr, b: Expr): Expr {
+simplifyDiv(a: Expr, b: Expr) -> Expr {
   if isConstant(b, 1) { ret a }
   constant(a) |> {
     :ok(x) => constant(b) |> {
@@ -144,7 +144,7 @@ simplifyDiv(a: Expr, b: Expr): Expr {
   div(a, b)
 }
 
-simplifyPow(a: Expr, n: int): Expr {
+simplifyPow(a: Expr, n: int) -> Expr {
   if n == 0 { ret num(1) }
   if n == 1 { ret a }
   constant(a) |> {
@@ -158,7 +158,7 @@ simplifyPow(a: Expr, n: int): Expr {
   }
 }
 
-simplifyNeg(a: Expr): Expr {
+simplifyNeg(a: Expr) -> Expr {
   a |> {
     :num(v) => num(-v)
     :neg(u) => u.value
@@ -166,7 +166,7 @@ simplifyNeg(a: Expr): Expr {
   }
 }
 
-simplify(e: Expr): Expr {
+simplify(e: Expr) -> Expr {
   e |> {
     :add(p) => simplifyAdd(simplify(p.left), simplify(p.right))
     :sub(p) => simplifySub(simplify(p.left), simplify(p.right))
@@ -180,7 +180,7 @@ simplify(e: Expr): Expr {
 
 // ---- Calculus -----------------------------------------------------------
 
-derive(e: Expr): Expr {
+derive(e: Expr) -> Expr {
   e |> {
     :num(_) => num(0)
     :x => num(1)
@@ -198,7 +198,7 @@ derive(e: Expr): Expr {
   }
 }
 
-eval(e: Expr, at: dbl): Sym<:ok(dbl), :divideByZero> {
+eval(e: Expr, at: dbl) -> Sym<:ok(dbl), :divideByZero> {
   e |> {
     :num(v) => v
     :x => at
@@ -219,9 +219,9 @@ eval(e: Expr, at: dbl): Sym<:ok(dbl), :divideByZero> {
   }
 }
 
-absolute(v: dbl): dbl { if v < 0 { -v } else { v } }
+absolute(v: dbl) -> dbl { if v < 0 { -v } else { v } }
 
-newton(f: Expr, guess: dbl):
+newton(f: Expr, guess: dbl) ->
   Sym<:ok(dbl), :divideByZero, :flatSlope(dbl), :noConvergence> {
   let slope = simplify(derive(f))
   var at = guess

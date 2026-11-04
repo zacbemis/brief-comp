@@ -11,10 +11,10 @@
 type Choice = Sym<:text(str), :node(Node), :empty>
 Node { name: str }
 Holder { value: Choice }
-wrap(n: &Node): Choice { :node(n) }
+wrap(n: &Node) -> Choice { :node(n) }
 set(h: &Holder, s: &Choice) { h.value = s }
 replace(h: &Holder) { h.value = :text("n" + "ew") }
-first(a: Choice, b: ()): Choice { a }
+first(a: Choice, b: ()) -> Choice { a }
 get(s: Choice) {
   s |> {
     :text(text) => text
@@ -28,7 +28,7 @@ escape(s: Choice) {
     other => other
   }
 }
-main(): () {
+main() -> () {
   let h = Holder { value: :empty }
   let node = Node { name: "ke" + "pt" }
   set(h, wrap(node))

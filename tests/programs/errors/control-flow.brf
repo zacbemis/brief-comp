@@ -1,4 +1,4 @@
-main(): () {
+main() -> () {
   if 1 {} // error: An if condition must be bool.
   while 1 {} // error: A while condition must be bool.
   let incomplete = if true { 1 } // error: An if without else cannot be used as a value.
@@ -8,5 +8,5 @@ main(): () {
   break // error: break and continue are only allowed inside loops.
   continue // error: break and continue are only allowed inside loops.
 }
-missing(value: bool): int { if value { ret 1 } } // error: Function body does not match the written return type.
-wrong(): () { ret 1 } // error: Return value does not match the written return type.
+missing(value: bool) -> int { if value { ret 1 } } // error: Function body does not match the written return type.
+wrong() -> () { ret 1 } // error: Return value does not match the written return type.

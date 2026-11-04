@@ -46,7 +46,7 @@ set(user_required "${block_2}")
 replace_once(user_required "impl User: HasUser" "impl User")
 set(user_defaults "${block_1}")
 replace_once(user_defaults "pub trait HasUser" "impl User")
-replace_once(user_defaults "  getUser(value: Self): User\n\n" "")
+replace_once(user_defaults "  getUser(value: Self) -> User\n\n" "")
 set(admin_required "${block_3}")
 replace_once(admin_required "impl Admin: HasUser" "impl Admin")
 set(admin_defaults "${user_defaults}")
@@ -54,12 +54,12 @@ replace_once(admin_defaults "impl User" "impl Admin")
 set(user_api "${user_type}\n${user_required}\n${user_defaults}")
 set(api "${user_api}\n${admin_required}\n${admin_defaults}")
 set(factory [=[
-makeUser(age: int): User { User { name: "B" + "ob", age: age } }
-makeAdmin(age: int): Admin { let user = makeUser(age)
+makeUser(age: int) -> User { User { name: "B" + "ob", age: age } }
+makeAdmin(age: int) -> Admin { let user = makeUser(age)
   Admin { user: user, tier: 3 } }
 ]=])
 example(1 age-boundaries "${api}\n${factory}" [=[
-label(range: Sym<:adult, :senior>): str { range |> {
+label(range: Sym<:adult, :senior>) -> str { range |> {
   :adult => "adult"
   :senior => "senior"
 } }
@@ -120,7 +120,7 @@ set(custom "${block_5}")
 replace_once(custom "impl Admin: HasUser" "impl Admin")
 replace_once(custom "ovr pub getName" "pub getName")
 set(other_defaults "${admin_defaults}")
-replace_once(other_defaults [=[  pub getName(value: Self): str {
+replace_once(other_defaults [=[  pub getName(value: Self) -> str {
     value.getUser().name
   }
 

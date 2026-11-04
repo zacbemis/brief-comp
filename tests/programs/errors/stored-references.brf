@@ -1,7 +1,7 @@
 P { name: str }
 Q { p: P }
 W { q: Q }
-same(p: P): P { p }
+same(p: P) -> P { p }
 direct(holder: &Q, p: P) {
   holder.p = p // error: A read-only value cannot be stored in a field; take the parameter it comes from as &.
 }

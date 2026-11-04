@@ -66,7 +66,7 @@ finish(x: int) {
   ret x |> double()
 }
 
-finishMatch(x: int): str {
+finishMatch(x: int) -> str {
   x |> {
     < 0 => "negative"
     _ => "other"

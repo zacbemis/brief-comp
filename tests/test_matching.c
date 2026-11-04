@@ -67,11 +67,11 @@ int main(void) {
               "main() { A {} |> A.get() }");
     invalid(&a, "main() { let f = 1\n2 |> f() }", "not callable");
     invalid(&a, "f(x: int) {}\nmain() { let f = 1\n2 |> f() }", "not callable");
-    valid(&a, "wide(n: lng): lng { n }\nmain() { let n: lng = 4294967296 |> "
+    valid(&a, "wide(n: lng) -> lng { n }\nmain() { let n: lng = 4294967296 |> "
               "wide() }");
     valid(&a,
-          "small(n: flt): flt { n }\nmain() { let n: flt = 0.1 |> small() }");
-    valid(&a, "A {}\nimpl A { small(a: Self, n: flt): flt { n } }\n"
+          "small(n: flt) -> flt { n }\nmain() { let n: flt = 0.1 |> small() }");
+    valid(&a, "A {}\nimpl A { small(a: Self, n: flt) -> flt { n } }\n"
               "main() { let a = A {}\nlet n: flt = 0.1 |> a.small() }");
     invalid(&a, "main() { 1 |> missing() }", "Unknown function");
     invalid(&a, "f() {}\nmain() { 1 |> f() }", "Wrong number");

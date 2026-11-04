@@ -90,8 +90,8 @@ int main(void) {
         "type Error = Sym<:bad>\nmain() {}\nUser {\n"
         "x: Vec<Sym<:ok(int), :none>>\ny: int\nz: Mod.Box<int>\n}\n";
     check(&arena, text, text);
-    check(&arena, "f(): Sym<\n:ok(int),\n:none> { 1 }\n",
-          "f(): Sym<:ok(int), :none> { 1 }\n");
+    check(&arena, "f() -> Sym<\n:ok(int),\n:none> { 1 }\n",
+          "f() -> Sym<:ok(int), :none> { 1 }\n");
     check(&arena, "type\nUsers =\nVec<int>\nmain() {}\n",
           "type Users = Vec<int>\nmain() {}\n");
     check(&arena, "User {\nusers:\nMod.\nVec<User>\ncount: int\n}\n",
@@ -102,9 +102,16 @@ int main(void) {
           "Box {\nx: Vec<dbl>\ny: dbl\n}\n");
     check(&arena, "Box {\nx: Vec<dub>\ny: dub\n}\n",
           "Box {\nx: Vec<dub>\ny: dub\n}\n");
-    check(&arena, "f():\n dbl\n{ 1 }\n", "f(): dbl\n{ 1 }\n");
-    check(&arena, "f():\n dub\n{ 1 }\n", "f(): dub\n{ 1 }\n");
+    check(&arena, "f() ->\n dbl\n{ 1 }\n", "f() -> dbl\n{ 1 }\n");
+    check(&arena, "f() ->\n dub\n{ 1 }\n", "f() -> dub\n{ 1 }\n");
     check(&arena, "dbl(\n1\n)\nnext()\n", "dbl(1)\nnext()\n");
+  }
+  TEST("return arrows continue, while generic type closers retain newlines") {
+    check(&arena, "f()->\n// continued\nint { 1 }\n", "f()->int { 1 }\n");
+    check(&arena, "f() ->\r\n\r\nMod.Box<Vec<int>>\r\n{}\r\n",
+          "f() -> Mod.Box<Vec<int>>\r\n{}\r\n");
+    check(&arena, "f()\n-> int {}\n", "f()\n-> int {}\n");
+    check(&arena, "f():\nint { 1 }\n", "f():int { 1 }\n");
   }
   TEST("both name classes and wildcards retain statement boundaries") {
     check(&arena, "lower\nUpper\n_\n", "lower\nUpper\n_\n");

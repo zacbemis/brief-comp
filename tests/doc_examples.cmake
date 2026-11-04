@@ -1,6 +1,7 @@
 # Shared native acceptance support for design-document examples.
 # Callers set ROOT, TEST_DIR, BRIEF, RUNNER, CC and optionally DEBUG.
 include_guard(GLOBAL)
+include("${CMAKE_CURRENT_LIST_DIR}/doc_return_arrows.cmake")
 
 function(doc_examples_begin filename expected_count)
     file(READ "${ROOT}/docs/v0/${filename}.txt" rest)
@@ -24,6 +25,7 @@ function(doc_examples_begin filename expected_count)
         endif()
         math(EXPR count "${count} + 1")
         string(SUBSTRING "${rest}" 0 ${closing} code)
+        doc_return_arrows(code "${filename}")
         set(block_${count} "${code}" PARENT_SCOPE)
         math(EXPR closing "${closing} + 3")
         string(SUBSTRING "${rest}" ${closing} -1 rest)

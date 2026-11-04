@@ -1,5 +1,5 @@
 Box { text: str }
-identity(box: Box): Box { box }
+identity(box: Box) -> Box { box }
 choose(flag: bool) {
   let outer = "outer" + " owner"
   if flag {
@@ -8,7 +8,7 @@ choose(flag: bool) {
   }
   Box { text: "tail" + " result" }
 }
-step(box: &Box, index: int): str {
+step(box: &Box, index: int) -> str {
   if index == 2 { ret box.text }
   box.text = box.text + "."
   box.text

@@ -10,7 +10,7 @@
 type First = Sym<:a, :b(str)>
 type All = Sym<Last, First>
 type Last = Sym<:c, :d>
-make(n: int): All {
+make(n: int) -> All {
   if n == 0 { ret :a }
   if n == 1 { ret :b("B") }
   if n == 2 { :c } else { :d }
@@ -31,8 +31,8 @@ inferred(b: bool) {
   if b { ret :value(7) }
   :value(wide())
 }
-wide(): lng { 4294967296 }
-main(): () {
+wide() -> lng { 4294967296 }
+main() -> () {
   make(1) |> { :b(text) => print(text)
     First => print("wrong")
     Last => print("wrong") }

@@ -15,6 +15,15 @@ sanitizer failures are checked. Fence counts, adapter anchors, classifications,
 unique generated names and case counts are guarded. This is another M6 slice,
 not completion of the milestone.
 
+## N1 spelling bridge
+
+The chapter stays frozen. Its listed declaration headers use `->` through the
+shared, hash-guarded [return-header bridge](doc-acceptance.md#n1-spelling-bridges).
+Authored scaffolds/anchors use `->` directly. References below to unchanged
+functions/headers exclude this syntax-only separator change; bodies, inferred
+results, unit discarding, outcome behavior and error lines are preserved. This
+is not the pending new-document function audit.
+
 ## Fence-by-fence record
 
 Case names refer to generated `.brf` files under

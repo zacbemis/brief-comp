@@ -63,9 +63,9 @@ endforeach()
 example(0 initializer-order "${block_1}" [=[
 name() { print("name")
   "B" + "ob" }
-age(): int { print("age")
+age() -> int { print("age")
   20 }
-version(): flt { print("version")
+version() -> flt { print("version")
   0.5 }
 main() { let user = User { userVer: version(), age: age(), name: name() }
   print(user.name + ":" + str(user.age) + ":" + str(user.userVer)) }
@@ -102,12 +102,12 @@ main() { let user = forward()
 ]=] "")
 set(self_api [=[
 impl User {
-  make(name: str, age: int): Self {
+  make(name: str, age: int) -> Self {
     Self { name: name + "", age: age, userVer: 0.5 }
   }
-  again(name: str, age: int): Self { Self.make(name, age) }
-  readName(value: Self): str { value.name }
-  rename(value: &Self, name: str): () { value.name = name }
+  again(name: str, age: int) -> Self { Self.make(name, age) }
+  readName(value: Self) -> str { value.name }
+  rename(value: &Self, name: str) -> () { value.name = name }
 }
 ]=])
 example(0 self-and-receivers "${block_1}\n${self_api}" [=[
@@ -122,10 +122,10 @@ main() { let user = User.again("B" + "ob", 20)
 // expect: Sue
 // expect: Sue
 ]=] "")
-set(code "wrong(value: Self): str { name }")
+set(code "wrong(value: Self) -> str { name }")
 error_at(code "name }" "Unknown binding.")
 example(0 no-implicit-field "${block_1}\nimpl User {" "${code}" "}\nmain() {}")
-set(code "wrong(value: User): User { new(\"Bob\", 20) }")
+set(code "wrong(value: User) -> User { new(\"Bob\", 20) }")
 error_at(code "new(" "Unknown function.")
 example(0 no-implicit-associated-call "${block_3}\nimpl User {" "${code}" "}\nmain() {}")
 set(code "wrong(value: Self) { value.age = 21 }")
@@ -167,7 +167,7 @@ foreach(kind IN ITEMS success failure)
         set(fail false)
         set(expected "// expect: contents:data.txt")
     endif()
-    set(file_api "File {}\nimpl File { read(path: str): Sym<:ok(str), :notFound(str)> {\nif ${fail} { ret :notFound(path + \"\") }\n\"contents:\" + path\n} }")
+    set(file_api "File {}\nimpl File { read(path: str) -> Sym<:ok(str), :notFound(str)> {\nif ${fail} { ret :notFound(path + \"\") }\n\"contents:\" + path\n} }")
     example(15 "entry-file-${kind}" "${file_api}" "${entry_file}" "${expected}")
 endforeach()
 # Only the original two-field User declaration is shared with the fallible
@@ -177,7 +177,7 @@ set(impl_start "\nimpl User {")
 replace_once(user_type "${impl_start}" "${impl_start}")
 string(FIND "${user_type}" "${impl_start}" split)
 string(SUBSTRING "${user_type}" 0 ${split} user_type)
-set(fallible_api "${user_type}\nimpl User {\n${block_17}\npub getName(user: User): str { user.name }\n}")
+set(fallible_api "${user_type}\nimpl User {\n${block_17}\npub getName(user: User) -> str { user.name }\n}")
 example(16 entry-user "${fallible_api}" "${block_16}" "// expect: Bob")
 example(17 validating-constructor "${fallible_api}" [=[
 observe(age: int) { User.new("B" + "ob", age) |> {
@@ -205,7 +205,7 @@ foreach(kind IN ITEMS number unit string object data-symbol)
     endif()
     example(0 "entry-result-${kind}" "${block_1}" "main() { ${body} }" "")
 endforeach()
-example(0 entry-explicit-ok "" "main(): Sym<:ok, :failed> { :ok }" "")
+example(0 entry-explicit-ok "" "main() -> Sym<:ok, :failed> { :ok }" "")
 set(code "helper() {}")
 error_at(code "helper()" "A program must define main().")
 # Whole-program errors are located at byte zero, on the first fixture line.

@@ -1,1 +1,1 @@
-main(): int { "value" } // error: Function body does not match the written return type.
+main() -> int { "value" } // error: Function body does not match the written return type.

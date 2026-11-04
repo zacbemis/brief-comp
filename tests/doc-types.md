@@ -29,7 +29,9 @@ single-anchor replacements: `let whole: dub = half` in fence 4 and
 probes use `dbl` too; the historical `text-dub` case ID/path stays unchanged.
 These temporary adapters preserve the original numeric domains, error lines and
 observations. They are not the new type-document audit; N1 still replaces the
-v0 scripts when the declaration/type grammar switches.
+v0 scripts in the full grammar switch. Return annotations also use the shared,
+hash-guarded [header bridge](doc-acceptance.md#n1-spelling-bridges); bodies and
+return-checking behavior are unchanged.
 
 ## Fence-by-fence record
 
@@ -49,7 +51,7 @@ v0 scripts when the declaration/type grammar switches.
 | 12 | Shared immutable strings | `shared-string`: retain both declarations; replacing a third binding's string leaves both original values unchanged. This demonstrates value behavior, not an identity/count measurement. |
 | 13 | Escaped newline | `escaped-newline`: retain the source-line literal and print it; require the two resulting output lines. |
 | 14 | Byte characters/UTF-8 text | `character-and-utf8`: retain the `chr` declaration; wrap the two complete string expressions in `print`, checking the exact three/two UTF-8 bytes plus output newlines. Observe the character by equality, not an unsupported `str(chr)` conversion. |
-| 15 | Written empty return type | `written-unit`: keep the complete `pub add(...): ()` function and body. A one-slot nominal collection supplies `userVec.add`; its owned string result is discarded by the original written-unit function. Observe unit success, retained user and visible alias mutation. No generic collection or privacy claim is made. |
+| 15 | Written empty return type | `written-unit`: keep the complete `pub add(...) -> ()` function and body, with only the return-separator bridge. A one-slot nominal collection supplies `userVec.add`; its owned string result is discarded by the original written-unit function. Observe unit success, retained user and visible alias mutation. No generic collection or privacy claim is made. |
 | 16 | Named tuple values | Deferred: named tuples and field access on them. |
 | 17 | Named tuple return types | Deferred: named tuples. The integer `/` and `%` expressions are independently exercised, not counted as acceptance of the tuple-returning function. |
 | 18 | Tuple ordering | Deferred: named tuples and their ordering. Struct equality is not an ordering substitute. |
