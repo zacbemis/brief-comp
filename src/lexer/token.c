@@ -68,8 +68,6 @@ const char *token_type_name(TokenType type) {
     return "TOK_FN";
   case TOK_SELF:
     return "TOK_SELF";
-  case TOK_TYPE:
-    return "TOK_TYPE";
   case TOK_MOD:
     return "TOK_MOD";
   case TOK_IMPORT:

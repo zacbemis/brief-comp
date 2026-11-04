@@ -1,4 +1,4 @@
-type Result = Sym<:ok(int), :bad>
+Result = Sym<:ok(int), :bad>
 f() -> Result { 1 }
 take(r: Result) {}
 unhandled() {
@@ -8,7 +8,7 @@ unhandled() {
   :outer(f()) // error: A call that can fail must be handled with ?, !, or a match.
   ret f() // error: A call that can fail must be handled with ?, !, or a match.
 }
-type TextResult = Sym<:ok(str), :bad>
+TextResult = Sym<:ok(str), :bad>
 readName() -> TextResult { "owned" + " name" }
 consumeName(name: str, age: int) {}
 getters() {

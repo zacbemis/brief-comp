@@ -119,6 +119,24 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")
     message(FATAL_ERROR "corrected return arrow failed (${status}):\n${errors}")
 endif()
 
+# The retired type word is an ordinary name; only its old declaration form errors.
+set(alias "${TEST_DIR}/alias.brf")
+file(WRITE "${alias}" "type A = Sym<:a>\r\nmain() {}\r\n")
+set(expected "error: Declare an alias as 'Name = type', without 'type'.\n  --> ${alias}:1:1\n  |\n1 | type A = Sym<:a>\n  | ^~~~\nhelp: write `A = Sym<:a>`\n")
+foreach(command IN ITEMS dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${alias}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} alias fix (${status}):\n${errors}")
+    endif()
+endforeach()
+file(WRITE "${alias}" "A = Sym<:a>\r\nmain() {}\r\n")
+execute_process(COMMAND "${BRIEF}" emit-c "${alias}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")
+    message(FATAL_ERROR "corrected alias failed (${status}):\n${errors}")
+endif()
+
 set(invalid "${TEST_DIR}/invalid.brf")
 file(WRITE "${invalid}" "main() {\n  \"\\q\"\n  @\n  /* unfinished\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"

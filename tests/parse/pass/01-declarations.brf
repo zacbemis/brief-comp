@@ -4,8 +4,8 @@
 const LIMIT = 100
 pub const VERSION: flt = 0.5
 
-pub type Tier = Sym<:bronze, :silver, :gold>
-type Error = Sym<:notFound(str), :denied(str)>
+Tier = Sym<:bronze, :silver, :gold>
+Error = Sym<:notFound(str), :denied(str)>
 
 pub User {
   name: str

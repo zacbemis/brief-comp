@@ -15,7 +15,7 @@ static size_t previous_token(TokenArray raw, size_t before) {
   return before;
 }
 
-static int type_angle(TokenArray raw, size_t i) {
+static int type_angle(TokenArray raw, size_t i, int top_level) {
   size_t before = previous_token(raw, i);
   if (!before)
     return 0;
@@ -44,13 +44,10 @@ static int type_angle(TokenArray raw, size_t i) {
     return before && (token_is_identifier(raw.items[before - 1].type) ||
                       raw.items[before - 1].type == TOK_RPAREN);
   }
-  if (context != TOK_EQUAL)
+  if (context != TOK_EQUAL || !top_level)
     return 0;
   before = previous_token(raw, before - 1); // alias name
-  if (!before || !token_is_identifier(raw.items[before - 1].type))
-    return 0;
-  before = previous_token(raw, before - 1);
-  return before && raw.items[before - 1].type == TOK_TYPE;
+  return before && raw.items[before - 1].type == TOK_UPPER_NAME;
 }
 
 static int continues(TokenType t, int type_close, int prefix_bang) {
@@ -95,7 +92,6 @@ static int continues(TokenType t, int type_close, int prefix_bang) {
   case TOK_LET:
   case TOK_VAR:
   case TOK_CONST:
-  case TOK_TYPE:
   case TOK_IMPL:
   case TOK_PUB:
   case TOK_IF:
@@ -151,8 +147,8 @@ TokenArray newline_filter(Arena *arena, TokenArray raw) {
       for (size_t a = 0; a < angle_depth; a++)
         angles[a] = 0;
     if (t == TOK_LESS_THAN) {
-      int known =
-          (angle_depth && angles[angle_depth - 1]) || type_angle(raw, i);
+      int known = (angle_depth && angles[angle_depth - 1]) ||
+                  type_angle(raw, i, depth == 0);
       angles[angle_depth++] = known;
     } else if (t == TOK_GREATER_THAN || t == TOK_RSHIFT) {
       int n = t == TOK_RSHIFT ? 2 : 1;

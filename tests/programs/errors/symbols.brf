@@ -1,8 +1,8 @@
-type Conflict = Sym<:bad(int), :bad(str)> // error: Symbol tag has conflicting payload types.
-type Included = Sym<int> // error: A symbol-set inclusion requires a symbol set.
-type Partial = Sym<:data, _> // error: Partial symbol sets are only allowed as function return types.
-type Outcome = Sym<:ok, :bad>
-type Text = Sym<:value(str)>
+Conflict = Sym<:bad(int), :bad(str)> // error: Symbol tag has conflicting payload types.
+Included = Sym<int> // error: A symbol-set inclusion requires a symbol set.
+Partial = Sym<:data, _> // error: Partial symbol sets are only allowed as function return types.
+Outcome = Sym<:ok, :bad>
+Text = Sym<:value(str)>
 
 missing(x: Sym<:a, :b>) {
   x |> { :a => () } // error: Match is not exhaustive.

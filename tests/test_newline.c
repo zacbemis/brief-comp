@@ -75,8 +75,8 @@ int main(void) {
           "User { flag: a < b and c > d }\n");
   }
   TEST("documented continuation keywords do not end statements") {
-    const char *keywords[] = {"let", "var",  "const", "type", "impl",  "pub",
-                              "if",  "else", "for",   "in",   "while", "not"};
+    const char *keywords[] = {"let",  "var", "const", "impl",  "pub", "if",
+                              "else", "for", "in",    "while", "not"};
     for (size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++) {
       char raw[64], expected[64];
       snprintf(raw, sizeof(raw), "%s\n\nx", keywords[i]);
@@ -87,13 +87,18 @@ int main(void) {
   }
   TEST("type closers preserve separators, including nested >> and aliases") {
     const char *text =
-        "type Error = Sym<:bad>\nmain() {}\nUser {\n"
+        "Error = Sym<:bad>\nmain() {}\nUser {\n"
         "x: Vec<Sym<:ok(int), :none>>\ny: int\nz: Mod.Box<int>\n}\n";
     check(&arena, text, text);
     check(&arena, "f() -> Sym<\n:ok(int),\n:none> { 1 }\n",
           "f() -> Sym<:ok(int), :none> { 1 }\n");
-    check(&arena, "type\nUsers =\nVec<int>\nmain() {}\n",
-          "type Users = Vec<int>\nmain() {}\n");
+    check(&arena, "Users =\nVec<int>\nmain() {}\n",
+          "Users = Vec<int>\nmain() {}\n");
+    check(&arena, "type\nUsers =\nVec<int>\n", "type\nUsers = Vec<int>\n");
+    check(&arena, "A = Vec<Vec<int>>\nB = Mod.Box<int>\n",
+          "A = Vec<Vec<int>>\nB = Mod.Box<int>\n");
+    check(&arena, "main() { Upper = foo < value >\n next }",
+          "main() { Upper = foo < value > next }");
     check(&arena, "User {\nusers:\nMod.\nVec<User>\ncount: int\n}\n",
           "User {\nusers: Mod.Vec<User>\ncount: int\n}\n");
   }
@@ -119,8 +124,8 @@ int main(void) {
           "!Upper\nlower!\n_\n!lower\n");
     check(&arena, "value |> {\n_ =>\n Upper\n}\nNext\n",
           "value |> {\n_ => Upper\n}\nNext\n");
-    check(&arena, "type Choice = Sym<:ok(int), _>\nmain() {}\n",
-          "type Choice = Sym<:ok(int), _>\nmain() {}\n");
+    check(&arena, "Choice = Sym<:ok(int), _>\nmain() {}\n",
+          "Choice = Sym<:ok(int), _>\nmain() {}\n");
     check(&arena, "lower {\nUpper: Vec<Item>\nnext: int\n}\n",
           "lower {\nUpper: Vec<Item>\nnext: int\n}\n");
   }

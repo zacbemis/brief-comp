@@ -146,6 +146,17 @@ int main(void) {
     }
     invalid(&a, "main() { let dbl = 1 }", "Expected a binding name.");
   }
+  TEST("legacy alias modifiers cannot reach lowering") {
+    const char *sources[] = {"type A = Sym<:a>\nmain() {}",
+                             "pub A = Sym<:a>\nmain() {}"};
+    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
+      Result r = check(&a, sources[i]);
+      ASSERT_EQ_INT(1, r.errors.count);
+      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+    }
+    valid(&a, "A = Sym<:a>\nmain() { :a |> { A => () } }");
+  }
   TEST("old return colons cannot reach lowering") {
     Result r = check(&a, "main(): () { let value: int = 1 }\n");
     ASSERT_EQ_INT(1, r.errors.count);
@@ -623,8 +634,8 @@ int main(void) {
                    "g(p: %s,b: bool) { if b { ret f(p,b) }\n%s }\n",
                    cases[i].type, body);
           snprintf(text, sizeof(text),
-                   "P {}\ntype Wrong = Sym<:yes(str)>\n%s%smain() {}",
-                   order ? g : f, order ? f : g);
+                   "P {}\nWrong = Sym<:yes(str)>\n%s%smain() {}", order ? g : f,
+                   order ? f : g);
           const char *body_at = strstr(text, body);
           ASSERT_TRUE(body_at != NULL);
           const char *at =

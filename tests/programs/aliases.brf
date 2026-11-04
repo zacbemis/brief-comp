@@ -1,0 +1,24 @@
+All = Sym<Last, First>
+First = Sym<:text(str), :number(int)>
+Last = Sym<:done>
+Type = Sym<:chosen>
+Box { type: int }
+type(value: int) -> int { value + 1 }
+show(value: All) {
+  value |> {
+    :text(text) => print(text)
+    :number(n) => print(str(n))
+    :done => print("done")
+  }
+}
+main() {
+  show(:text("heap" + " text")) // expect: heap text
+  show(:number(type(4))) // expect: 5
+  show(:done) // expect: done
+  let box = Box { type: 7 }
+  print(str(box.type)) // expect: 7
+  let type = 9
+  print(str(type)) // expect: 9
+  :chosen |> { Type => print("chosen") } // expect: chosen
+  print("type A = pub") // expect: type A = pub
+}

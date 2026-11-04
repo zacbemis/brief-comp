@@ -191,7 +191,7 @@ int main(int argc, char **argv) {
        "owners") {
     char *input = test_path(&a, root, "shared.brf");
     ASSERT_TRUE(test_write_file(
-        input, TEST_BYTES("type Link = Sym<:none, :child(Node)>\n"
+        input, TEST_BYTES("Link = Sym<:none, :child(Node)>\n"
                           "Node { left: Link\nright: Link }\n"
                           "main() -> Sym<:ok, :bad(Node)> {\n"
                           "var node = Node { left: :none, right: :none }\n"

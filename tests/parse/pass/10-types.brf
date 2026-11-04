@@ -2,22 +2,22 @@
 // types, aliases, and `Sym` entries. Fields whose type ends in `>` or `>>`
 // test that the newline filter keeps the newline after a closing type `>`.
 
-type Simple = Sym<:a>
-type WithPayload = Sym<:ok(int), :err(str)>
-type Nested = Sym<:ok(Sym<:inner(int), :none>), :outer>
-type Merged = Sym<Simple, WithPayload, :extra>
-type Qualified = Sym<Json.Error, File.Error>
-type Applied = Vec<int>
-type Deep = Map<str, Vec<Vec<int>>>
-type Array = int[5]
-type Grid = int[3][4]
-type Unit = ()
-type TrailingComma = Sym<:a, :b,>
-type Multiline = Sym<
+Simple = Sym<:a>
+WithPayload = Sym<:ok(int), :err(str)>
+Nested = Sym<:ok(Sym<:inner(int), :none>), :outer>
+Merged = Sym<Simple, WithPayload, :extra>
+Qualified = Sym<Json.Error, File.Error>
+Applied = Vec<int>
+Deep = Map<str, Vec<Vec<int>>>
+Array = int[5]
+Grid = int[3][4]
+Unit = ()
+TrailingComma = Sym<:a, :b,>
+Multiline = Sym<
   :notFound(str),
   :denied(str),
   :tooLarge(lng)>
-type LastAfterMultiline = Sym<:z>
+LastAfterMultiline = Sym<:z>
 
 Holder {
   plain: int

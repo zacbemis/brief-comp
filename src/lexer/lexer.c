@@ -180,8 +180,6 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_SHRT;
   if (len == 4 && memcmp(lexer->start, "true", 4) == 0)
     return TOK_BOOL_LIT;
-  if (len == 4 && memcmp(lexer->start, "type", 4) == 0)
-    return TOK_TYPE;
   if (len == 4 && memcmp(lexer->start, "uint", 4) == 0)
     return TOK_UINT;
   if (len == 4 && memcmp(lexer->start, "ulng", 4) == 0)

@@ -221,7 +221,7 @@ int main(void) {
     expect(&lx, TOK_STR, "str");
     expect(&lx, TOK_SYM, "Sym");
     expect(&lx, TOK_SELF, "Self");
-    expect(&lx, TOK_TYPE, "type");
+    expect(&lx, TOK_LOWER_NAME, "type");
     expect(&lx, TOK_MOD, "mod");
     expect(&lx, TOK_IMPORT, "import");
     expect(&lx, TOK_TRAIT, "trait");

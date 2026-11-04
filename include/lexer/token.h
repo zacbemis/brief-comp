@@ -41,7 +41,6 @@ typedef enum {
   TOK_SELF,  // Self
 
   // Keywords Definitions
-  TOK_TYPE,   // type
   TOK_MOD,    // mod
   TOK_IMPORT, // import
   TOK_TRAIT,  // trait

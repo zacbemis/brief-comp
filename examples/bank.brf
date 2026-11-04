@@ -4,8 +4,8 @@
 // has no written return type, so its error set is inferred from the
 // functions it calls, and callers must handle every case.
 
-type Kind = Sym<:checking, :savings>
-type BankError = Sym<:noAccount(int), :badAmount(lng), :frozen(int),
+Kind = Sym<:checking, :savings>
+BankError = Sym<:noAccount(int), :badAmount(lng), :frozen(int),
   :insufficient(Shortfall), :sameAccount>
 
 Shortfall {

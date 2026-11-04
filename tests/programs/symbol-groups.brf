@@ -7,9 +7,9 @@
 // expect: right
 // expect: 4294967296
 // expect: 7
-type First = Sym<:a, :b(str)>
-type All = Sym<Last, First>
-type Last = Sym<:c, :d>
+First = Sym<:a, :b(str)>
+All = Sym<Last, First>
+Last = Sym<:c, :d>
 make(n: int) -> All {
   if n == 0 { ret :a }
   if n == 1 { ret :b("B") }

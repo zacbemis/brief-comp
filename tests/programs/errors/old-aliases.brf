@@ -1,0 +1,5 @@
+type A = Sym<:a> // error: Declare an alias as 'Name = type', without 'type'. // fix: A = Sym<:a>
+type/* keep */B = Sym<:b> // error: Declare an alias as 'Name = type', without 'type'. // fix: /* keep */B = Sym<:b>
+pub C = Sym<:c> // error: Type aliases cannot be marked 'pub'. // fix: C = Sym<:c>
+pub/* keep */D = Sym<:d> // error: Type aliases cannot be marked 'pub'. // fix: /* keep */D = Sym<:d>
+main() {}

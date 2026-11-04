@@ -1,0 +1,3 @@
+// parse-error: line 3
+// Why: Type aliases cannot be marked pub.
+pub A = Sym<:a>

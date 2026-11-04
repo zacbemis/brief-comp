@@ -1,8 +1,8 @@
 // A realistic first-version program in the style of docs/lang-ex-base.txt,
 // without the later-version features (lambdas, traits, tuples, modules).
 
-pub type Tier = Sym<:tier1, :tier2, :tier3>
-pub type Error = Sym<:invalidAge(int), :emptyName>
+Tier = Sym<:tier1, :tier2, :tier3>
+Error = Sym<:invalidAge(int), :emptyName>
 
 const MIN_AGE = 0
 const MAX_AGE: int = 150

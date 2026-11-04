@@ -177,9 +177,9 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (92 fixtures, including rejection and panic cases) | First-version declaration/type structure with `not`, `dbl` and `->` returns, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/programs/` (94 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns and keyword-free aliases; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
 | `tests/parse/pass/` (26) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
-| `tests/parse/fail/` (81) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
+| `tests/parse/fail/` (83) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
 | CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
@@ -215,10 +215,11 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 
 ## Implementation progress
 
-N0 is complete. N1's identifier-token split, logical `not`, `dbl` and `->`
-return annotations are implemented. Other declaration/type structure, remaining
-keywords, receiver/casing rules, their source conversion and replacement document
-audits remain pending.
+N0 is complete. N1's identifier-token split, `not`, `dbl`, `->` returns and
+keyword-free aliases are implemented. The v0 scripts/bridges are retired and the
+current-document parser inventory is active. Other declaration/type structure,
+remaining keywords, receiver/general casing rules, source conversion and the
+replacement native chapter audits remain pending.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -331,6 +332,7 @@ first-version syntax audit's two logical-operator cases carry markers.
 - [x] Logical `not`, old prefix-`!` rejection/fixes, and affected source conversion.
 - [x] `dbl` type/converter spelling, old `dub` rejection/fixes and source conversion.
 - [x] `->` return annotations, old `:` rejection/fixes and affected source conversion.
+- [x] Keyword-free uppercase aliases, `type` as an ordinary name, modifier rejection/fixes.
 - [x] Retire all v0 document scripts/bridges and inventory the current documents.
 - [ ] Remaining keyword/declaration/type/expression grammar changes, contextual
   casing checks/fixes, struct methods and receiver inference.
@@ -506,13 +508,41 @@ The spelling bridges grew with each slice: two adapters for `not`, three for
 `dbl` and 70 return headers in `tests/doc_return_arrows.cmake`. The remaining
 slices (unions, methods, struct literals, payload brackets) touch nearly every
 fence, so the bridge would turn into the hand-maintained migration this plan
-rules out. It was not extended. The scripts that read `docs/v0/` and every
-bridge with them are deleted, as "Tests" plans for N1, and `test_doc_parser`
-reads the current documents. Each new native chapter audit is written in the
-milestone implementing its rules; the coverage gap is explicit below and under
-"Risks".
+rules out. It was not extended. The keyword-free alias slice below deletes the
+scripts that read `docs/v0/` and every bridge with them, as "Tests" plans for N1,
+and switches `test_doc_parser` to the current documents. Each new native chapter
+audit is written in the milestone implementing its rules; the coverage gap is
+explicit below and under "Risks".
 
-### N1 (in progress): current-document inventory
+### N1 (in progress): keyword-free aliases and current-document inventory
+
+Aliases are declared as `UpperName = type`, using the existing `DECL_TYPE` and
+RHS/checking/lowering rules. In this slice, RHS unions/payloads still use the
+old `Sym<...>` forms; the new union/type grammar remains pending. `TOK_TYPE` is
+gone: `type` is an ordinary lower name usable as a function, field or binding.
+It no longer continues newlines. Top-level alias type closers preserve their
+separators; capitalized assignments inside functions do not become type hints.
+
+Old `type Name = ...` forms are recognized contextually for recovery, reported
+with a modifier-removal fix, and never accepted silently. `pub` on an alias is
+also rejected with a removal fix; recovered aliases omit the `pub` modifier. Fixes consume
+only the modifier and following horizontal whitespace, preserving comments and
+line breaks. Malformed RHS types retain their primary errors without guessed
+modifier fixes. Legacy lowercase declaration names get capitalization advice
+where the declaration role is certain; no capitalization fix is offered if it
+would create a current keyword (`Self`, `Sym` or `Fn`). General casing remains
+pending. Ordinary lowercase assignments at file scope keep their statement error.
+
+Existing aliases and old public aliases were converted in place with their
+runtime expectations/error lines unchanged. One C negative formerly testing a
+lowercase builtin alias now tests the new grammar's file-level rejection; such
+a name cannot form an uppercase alias. The malformed legacy builtin-name test
+still checks its primary error. New parser tests apply all modifier/name fixes
+under LF/CRLF and compare recovered/reparsed trees, including comments, newline
+recovery, missing types and keyword-collision advice. Semantic/CLI tests block
+lowering/emission. `aliases.brf` observes forward/composed named sets, payloads
+and the ordinary word `type`; four modifier fixes have native markers. There
+are 94 native fixtures and 83 parse-fail files. No alias semantics changed.
 
 All 13 v0 native scripts, their support test, registrations and both shared
 bridges are deleted. Historical Markdown records are clearly retired, and no
@@ -533,9 +563,15 @@ parser-only evidence: **no replacement native chapter audit is complete**.
 Retiring the generated v0 cases creates the planned native-document coverage
 gap; it is not equivalent coverage, and the N1 chapter audits remain required.
 
-Validation: all 25 tests pass. The lower count reflects removal of the v0
-audits and their support test and the addition of the manifest guard test.
-clang-format 23.1.3 and `git diff --check` pass. No compiler code changed.
+Validation: four `-Werror` configurations pass: GCC and Clang Debug ASan/UBSan
+and GCC Release (25/25 each), GCC Debug without sanitizers (24/24). The lower
+counts reflect removal of v0 audits/support and addition of the manifest guard
+test, not unreported failures. clang-format 23.1.3 and `git diff --check` pass.
+The baseline comparison covers 222 retained checked-in/CLI sources, excluding
+intentionally retired generated v0 cases: all statuses, diagnostic messages/order
+and error lines match; all 74 previous successes emit byte-identical C. Four
+rejection renderings change only source views/columns/fix previews. All six
+examples retain identical sanitized stdout/stderr/status. N1 is incomplete.
 
 ## Risks
 

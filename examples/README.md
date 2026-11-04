@@ -1,8 +1,8 @@
 # Examples
 
 Small programs that show the first-version feature scope, with N1 spelling
-updates as they are implemented (`not`, `dbl` and `->` return annotations).
-Other declaration/type structure has not switched yet. Each program is a single
+updates as they are implemented (`not`, `dbl`, `->` returns and keyword-free
+aliases). Other declaration/type structure has not switched yet. Each program is a single
 file that runs on its own:
 
 ```sh

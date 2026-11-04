@@ -2,7 +2,7 @@
 // days, Easter Sunday and a printed month grid. Dates use the proleptic
 // Gregorian calendar, counting days from 0001-01-01 (a Monday).
 
-type DateError = Sym<:badYear(int), :badMonth(int), :badDay(int)>
+DateError = Sym<:badYear(int), :badMonth(int), :badDay(int)>
 
 Date {
   year: int

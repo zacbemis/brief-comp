@@ -1,5 +1,9 @@
 # Program tests
 
+Current inventory: **94 fixtures**. N1 retired the v0 generated document tests;
+references to those audits in the milestone history below are historical. See
+[document status](../doc-acceptance.md) for the current parser inventory and gap.
+
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside
 the compiler. CTest runs normal and `--debug` (ASan/UBSan) variants; no interpreter
@@ -287,8 +291,15 @@ fix previews were converted in place. `return-arrows.brf` observes typed/forward
 calls, methods, unit tails, partial outcomes, newline continuation and unchanged
 literal text. `errors/old-return-colons.brf` checks nine old annotations with
 exact fixes, preserving parameter/field/binding colons and comments. The inventory
-is now 92 files. Other declaration/type structure, remaining keywords and
-receiver/casing rules are still pending.
+was then 92 files.
+
+N1's alias slice uses `Name = type`, removes `type` keyword status and rejects
+`pub` on aliases. `aliases.brf` observes composition, forward aliases, payloads,
+ordinary names spelled `type` and unchanged literal text. `errors/old-aliases.brf`
+checks modifier-removal previews while preserving comments. Existing aliases,
+including old public aliases, retain their runtime behavior. There are now 94
+fixtures. Other declaration/type structure and receiver/general casing rules
+remain pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

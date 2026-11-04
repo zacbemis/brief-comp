@@ -249,7 +249,7 @@ int main(void) {
        "types") {
     const char *cases[] = {
         "Box { value: dub }\nmain() {}\n",
-        "type Answer = Sym<:ok(dub), :none>\nmain() {}\n",
+        "Answer = Sym<:ok(dub), :none>\nmain() {}\n",
         "f(x: dub) -> dub { x }\nmain() {}\n",
         "main() { let n: dub = 1.5\nn }\n",
         "main() { dub(1) }\n",
@@ -322,6 +322,84 @@ int main(void) {
                  "(program (fn main (params) _ (block (let dubx dbl (int 1)) "
                  "(let dblx _ (name dubx)) (call (name print) "
                  "(str \"dub dbl\")))))\n");
+  }
+  TEST("keyword-free aliases reject legacy modifiers and preserve recovery") {
+    const struct {
+      const char *code;
+      size_t errors;
+    } cases[] = {
+        {"type A = Sym<:a>\n", 1},          {"type\t A = Sym<:a>\n", 1},
+        {"type/* keep */A = Sym<:a>\n", 1}, {"type\nA = Sym<:a>\n", 1},
+        {"pub A = Sym<:a>\n", 1},           {"pub/* keep */A = Sym<:a>\n", 1},
+        {"type lower = Sym<:a>\n", 2},      {"pub type lower = Sym<:a>\n", 3}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned crlf = 0; crlf < 2; crlf++) {
+        char text[512];
+        size_t length = 0;
+        for (size_t j = 0; cases[i].code[j]; j++) {
+          if (crlf && cases[i].code[j] == '\n')
+            text[length++] = '\r';
+          text[length++] = cases[i].code[j];
+        }
+        strcpy(text + length, "main() {}\n");
+        Parsed *v = parse(&arena, text);
+        if (v->diagnostics.count != cases[i].errors)
+          diagnostics_print(&v->diagnostics, stderr);
+        ASSERT_EQ_INT(cases[i].errors, v->diagnostics.count);
+        ASSERT_EQ_INT(2, v->program->count);
+        char rewritten[1024];
+        size_t out = 0;
+        for (size_t at = 0; text[at];) {
+          const DiagnosticFix *found = NULL;
+          for (size_t j = 0; j < v->diagnostics.count; j++) {
+            const Diagnostic *d = v->diagnostics.items[j];
+            ASSERT_TRUE(d->fixes && d->fixes == d->last_fix);
+            if (d->fixes && d->fixes->span.start == at)
+              found = d->fixes;
+          }
+          if (found) {
+            ASSERT_TRUE(found->span.file == v->source && !found->next);
+            size_t size = strlen(found->replacement);
+            memcpy(rewritten + out, found->replacement, size);
+            out += size;
+            at = found->span.end;
+          } else
+            rewritten[out++] = text[at++];
+        }
+        rewritten[out] = 0;
+        Parsed *fixed = parse(&arena, rewritten);
+        ASSERT_EQ_INT(0, fixed->diagnostics.count);
+        char *before = dump(&arena, v->program),
+             *after = dump(&arena, fixed->program);
+        ASSERT_TRUE(before && after);
+        if (before && after)
+          ASSERT_EQ_INT(0, strcmp(before, after));
+      }
+    }
+    const char *reserved[] = {"sym", "self", "fn"};
+    for (size_t i = 0; i < sizeof(reserved) / sizeof(*reserved); i++) {
+      char text[128];
+      snprintf(text, sizeof(text), "type %s = Sym<:a>\nmain() {}\n",
+               reserved[i]);
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(2, v->diagnostics.count);
+      if (v->diagnostics.count == 2) {
+        ASSERT_TRUE(v->diagnostics.items[0]->fixes != NULL);
+        ASSERT_TRUE(v->diagnostics.items[1]->fixes == NULL);
+      }
+    }
+    Parsed *bad = parse(&arena, "type Broken = {}\nmain() {}\n");
+    ASSERT_EQ_INT(1, bad->diagnostics.count);
+    if (bad->diagnostics.count)
+      ASSERT_TRUE(!bad->diagnostics.items[0]->fixes);
+    invalid(&arena, "A\n= int", "Statements are only allowed");
+    program_dump(
+        &arena, "A =\nVec<Vec<int>>\nB = ()\n",
+        "(program (type A (apply Vec (apply Vec int))) (type B ()))\n");
+    program_dump(
+        &arena, "type() {}\nmain() { let type = 1\ntype }\n",
+        "(program (fn type (params) _ (block)) (fn main (params) _ (block "
+        "(let type _ (int 1)) (name type))))\n");
   }
   TEST("return arrows reject old colons with local, layout-preserving fixes") {
     const struct {
@@ -785,7 +863,7 @@ int main(void) {
   }
   TEST("bindings, typed fields, methods, written and partial return types") {
     const char *text =
-        "pub type Error = Sym<:bad(str), :missing>\n"
+        "Error = Sym<:bad(str), :missing>\n"
         "pub User {\nname: str\nresult: Sym<:ok(User), Error>\ncount: int\n}\n"
         "impl User {\npub new(name: str) -> Sym<:ok(User), _> {\n"
         "var count: shrt = 0\ncount += 1\n:ok(User { name: name, count: count "
@@ -1117,7 +1195,7 @@ int main(void) {
     invalid(&arena, "main() { x;; }", "newline");
     invalid(&arena, "main() { let x = }", "expression");
     invalid(&arena, "f(x: int { x }", "')'");
-    invalid(&arena, "type E = Sym<:ok(int), :bad(str)\n", "'>'");
+    invalid(&arena, "E = Sym<:ok(int), :bad(str)\n", "'>'");
     invalid(&arena, "f() -> _ {}", "only allowed");
     invalid(&arena, "print(\"top-level statement\")", "inside a function");
   }
@@ -1277,7 +1355,7 @@ int main(void) {
   TEST("spans, source slices, name interning and virtual type closers survive "
        "parsing") {
     const char *text =
-        "type Nested = Vec<Vec<int>>\nmain(x: Nested) {\nlet x = x\nx\n}\n";
+        "Nested = Vec<Vec<int>>\nmain(x: Nested) {\nlet x = x\nx\n}\n";
     Parsed *v = parse(&arena, text);
     ASSERT_EQ_INT(0, v->diagnostics.count);
     ASSERT_EQ_INT(0, v->program->span.start);
@@ -1328,7 +1406,7 @@ int main(void) {
       n += (size_t)sprintf(text + n, " + 1");
     strcpy(text + n, " }");
     invalid(&arena, text, "nesting limit");
-    n = (size_t)sprintf(text, "type Big = int");
+    n = (size_t)sprintf(text, "Big = int");
     for (size_t i = 0; i < 1000; i++)
       n += (size_t)sprintf(text + n, "[1]");
     strcpy(text + n, "\nmain() {}\n");

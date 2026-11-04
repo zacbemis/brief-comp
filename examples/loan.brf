@@ -3,7 +3,7 @@
 // payment is the smallest whole-cent amount that repays the loan in its term,
 // found by binary search over a month-by-month simulation.
 
-type LoanError = Sym<:badPrincipal(lng), :badRate(int), :badTerm(int)>
+LoanError = Sym<:badPrincipal(lng), :badRate(int), :badTerm(int)>
 
 Loan {
   principal: lng

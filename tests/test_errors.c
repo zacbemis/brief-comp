@@ -103,7 +103,7 @@ int main(void) {
     valid(&a, "f() -> lng { ret :ok(4294967296) }\n"
               "g() -> flt { :ok(0.1) }\nmain() { f()\ng() }");
     valid(&a,
-          "type Data = Sym<:a, :b>\n"
+          "Data = Sym<:a, :b>\n"
           "f() -> Sym<:ok(Data)> { :ok(:a) }\n"
           "main() { f() |> { :ok(data) => data |> { :a => ()\n:b => () } } }");
     invalid(&a, "main() { 1? }", "require a symbol outcome");
@@ -152,7 +152,7 @@ int main(void) {
   TEST("unhandled outcomes do not become usable binding or argument types") {
     const char *prefix =
         "P { value: int }\nPair { number: int\nflag: bool }\n"
-        "type Result = Sym<:ok(int), :bad>\n"
+        "Result = Sym<:ok(int), :bad>\n"
         "source() -> Result { 1 }\n"
         "text() -> Sym<:ok(str), :bad> { \"owned\" + \" text\" }\n"
         "object() -> Sym<:ok(P), :bad> { P { value: 1 } }\n"
@@ -297,7 +297,7 @@ int main(void) {
                     1, NULL, 0);
   }
   TEST("return inference accumulates errors and narrows handled variants") {
-    Result r = valid(&a, "type Problems = Sym<:a(str), :b(int)>\n"
+    Result r = valid(&a, "Problems = Sym<:a(str), :b(int)>\n"
                          "source(b: bool) -> Sym<:ok(str), Problems> { if b { "
                          "ret :a(\"a\") }\n\"x\" }\n"
                          "f() { source(false)? }\n"
@@ -333,7 +333,7 @@ int main(void) {
             "body does not match");
     invalid(&a, "f() -> Sym<:a, _> { :a }\nmain() {}", "must declare :ok");
     invalid(&a, "f() -> Sym<:ok, _, _> {}\nmain() {}", "Duplicate partial");
-    invalid(&a, "type A = Sym<:ok, _>\nmain() {}", "Partial symbol sets");
+    invalid(&a, "A = Sym<:ok, _>\nmain() {}", "Partial symbol sets");
   }
   TEST("written return mismatches do not become partial-set collisions") {
     struct {

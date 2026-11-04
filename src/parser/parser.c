@@ -672,6 +672,29 @@ static int top_level_statement(Parser *p) {
   return 0;
 }
 
+// Remove a rejected declaration modifier without swallowing comments/newlines.
+static void remove_modifier(Parser *p, Diagnostic *d, Token token) {
+  Span span = token.span;
+  if (!d || !span.file)
+    return;
+  while (span.end < span.file->length && (span.file->text[span.end] == ' ' ||
+                                          span.file->text[span.end] == '\t'))
+    span.end++;
+  diagnostic_fix(p->diagnostics, d, span, "");
+}
+static int old_type_declaration(Parser *p) {
+  Token first = peek(p);
+  if (first.type != TOK_LOWER_NAME || first.length != 4 ||
+      memcmp(first.start, "type", 4))
+    return 0;
+  size_t i = p->position + 1;
+  while (i < p->tokens.count && p->tokens.items[i].type == TOK_NEWLINE)
+    i++;
+  if (i >= p->tokens.count)
+    return 0;
+  TokenType next = p->tokens.items[i].type;
+  return token_is_identifier(next) || (next >= TOK_BOOL && next <= TOK_STR);
+}
 static Decl *declaration(Parser *p, int in_impl) {
   Token start = peek(p);
   Visibility visibility = match(p, TOK_PUB) ? VISIBILITY_PUB : VISIBILITY_PRIV;
@@ -681,16 +704,53 @@ static Decl *declaration(Parser *p, int in_impl) {
       d->span = through(start.span, d->span);
     return d;
   }
-  if (!in_impl && match(p, TOK_TYPE)) {
-    if (!expect_identifier(p, "Expected a named type's name."))
+  int old_type = !in_impl && old_type_declaration(p);
+  int alias = !in_impl && at(p, TOK_UPPER_NAME) &&
+              p->tokens.items[p->position + 1].type == TOK_EQUAL;
+  if (old_type || alias) {
+    Token keyword = {0};
+    if (old_type) {
+      keyword = take(p);
+      newlines(p);
+    }
+    if (!token_is_name(peek(p).type)) {
+      error(p, "Expected a named type's name.");
       return NULL;
-    Decl *d = new_decl(p, DECL_TYPE, start.span, visibility);
-    d->name = name(p, p->previous);
+    }
+    Token declared = take(p);
+    Decl *d = new_decl(p, DECL_TYPE, start.span, VISIBILITY_PRIV);
+    d->name = name(p, declared);
     if (!expect(p, TOK_EQUAL, "Expected '=' in named type declaration."))
       return NULL;
     d->as.alias = type(p);
     if (!d->as.alias)
       return NULL;
+    if (old_type)
+      remove_modifier(
+          p,
+          error_at(p, keyword.span,
+                   "Declare an alias as 'Name = type', without 'type'."),
+          keyword);
+    if (declared.type == TOK_LOWER_NAME) {
+      char *upper = arena_alloc(p->arena, declared.length + 1);
+      memcpy(upper, declared.start, declared.length);
+      upper[0] = (char)(upper[0] - 'a' + 'A');
+      upper[declared.length] = 0;
+      Diagnostic *error = error_at(
+          p, declared.span, "Type names must start with an uppercase letter.");
+      // Capitalizing must not turn the name into a current keyword. Self/Sym
+      // lose keyword status in a later N1 slice; Fn remains reserved.
+      if (strcmp(upper, "Self") && strcmp(upper, "Sym") &&
+          strcmp(upper, "Fn")) {
+        if (error)
+          diagnostic_fix(p->diagnostics, error, declared.span, upper);
+        d->name = intern(p->names, upper);
+      }
+    }
+    if (visibility == VISIBILITY_PUB)
+      remove_modifier(
+          p, error_at(p, start.span, "Type aliases cannot be marked 'pub'."),
+          start);
     d->span = through(start.span, d->as.alias->span);
     return d;
   }

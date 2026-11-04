@@ -3,7 +3,7 @@
 // evaluation that reports division by zero, and Newton's method built on the
 // derivative.
 
-type Expr = Sym<:num(dbl), :x, :add(Pair), :sub(Pair), :mul(Pair),
+Expr = Sym<:num(dbl), :x, :add(Pair), :sub(Pair), :mul(Pair),
   :div(Pair), :pow(Power), :neg(Unary)>
 
 // Recursive symbol types reach themselves through a struct.
