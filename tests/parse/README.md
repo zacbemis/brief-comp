@@ -10,14 +10,16 @@ one run.
 
 Every file must parse with no diagnostics: `brief dump-ast` exits with status 0
 and prints a tree. Files use N1's `not`, `dbl`, `->` returns, keyword-free
-aliases, `=` literal fields and `.()` indexing; other declaration/type structure
-awaits conversion. Indexing is syntax-only, not a supported runtime operation.
+aliases, `=` literal fields, `.()` indexing and `Name[Type]` arguments. Array
+annotations use `Arr[Type]`; indexing/generics/collections are syntax-only,
+not supported runtime operations. Symbol/type/member grammar remains pending.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
   must show.
 - `15`–`20`: file-level edge cases: CRLF line endings, no final newline, only
-  comments, an empty file, trailing blank lines, and UTF-8 text.
+  comments, an empty file, trailing blank lines, and UTF-8 text. `.gitattributes`
+  preserves the deliberate CRLF bytes in `15` and permits them in diff checks.
 - `21`: a realistic program that combines the features.
 - `30`–`34`: generated stress files. They are deep (but under the 128-level
   limit) or wide (hundreds of arguments, fields, arms, and functions).
@@ -26,7 +28,8 @@ awaits conversion. Indexing is syntax-only, not a supported runtime operation.
 
 ## `fail/`
 
-There are 87 rejection fixtures, including `old-index.brf`,
+There are 89 rejection fixtures, including `old-type-arguments.brf`,
+`old-array-type.brf`, `old-index.brf`,
 `index-missing-close.brf`, `pub-struct.brf`, `old-return-colon.brf`,
 `old-alias-keyword.brf`, `pub-alias.brf` and `struct-literal-old-colon.brf`.
 `struct-literal-missing-equals.brf` retains the old missing-delimiter rule under

@@ -11,9 +11,12 @@ typedef struct {
   size_t position;
   Token previous;
   int split_gt;
-  unsigned probing;
   unsigned depth;
-  size_t errors;
+  // Old <...> lists being recovered, and the delimiter fixes of the nested
+  // ones: the outermost list reports them all in one diagnostic.
+  unsigned old_angles;
+  Span *angle_fixes;
+  size_t angle_fix_count, angle_fix_capacity;
 } Parser;
 
 typedef struct {
@@ -89,16 +92,12 @@ static void separator_fix(Parser *p, Diagnostic *d, Token token,
   diagnostic_fix(p->diagnostics, d, token.span, text);
 }
 static Diagnostic *error_at(Parser *p, Span span, const char *message) {
-  p->errors++;
-  return p->probing ? NULL : diagnostics_error(p->diagnostics, span, message);
+  return diagnostics_error(p->diagnostics, span, message);
 }
 static void error(Parser *p, const char *message) {
-  // Still mark speculative parses as failed, but do not repeat a lexer error
-  // as an additional "Expected ..." syntax diagnostic at the same token.
-  if (at(p, TOK_ERR)) {
-    p->errors++;
+  // Do not repeat a lexer error as an additional syntax diagnostic.
+  if (at(p, TOK_ERR))
     return;
-  }
   error_at(p, peek(p).span, message);
 }
 static int expect(Parser *p, TokenType type, const char *message) {
@@ -116,14 +115,9 @@ static Span through(Span first, Span last) {
 }
 static const char *name(Parser *p, Token token) {
   if (token.type == TOK_OLD_DUB) {
-    // A spelling error does not change the shape of a speculative type list.
-    // Successful lookahead is replayed below to emit its diagnostics once.
-    if (!p->probing) {
-      Diagnostic *d = error_at(p, token.span,
-                               "Double precision is written 'dbl', not 'dub'.");
-      if (d)
-        diagnostic_fix(p->diagnostics, d, token.span, "dbl");
-    }
+    Diagnostic *d = error_at(p, token.span,
+                             "Double precision is written 'dbl', not 'dub'.");
+    diagnostic_fix(p->diagnostics, d, token.span, "dbl");
     return intern(p->names, "dbl");
   }
   return intern_n(p->names, token.start, token.length);
@@ -275,9 +269,6 @@ static Type *checked_type(Parser *p, Type *t) {
     for (size_t i = 0; i < t->as.apply.count; i++)
       CHILD(t->as.apply.args[i]);
     break;
-  case TYPE_ARRAY:
-    CHILD(t->as.array.element);
-    break;
   case TYPE_SYM:
     for (size_t i = 0; i < t->as.sym.count; i++)
       CHILD(t->as.sym.items[i].type);
@@ -330,8 +321,8 @@ static const char *path(Parser *p) {
   return result;
 }
 
-// Split >> virtually. Neither speculation nor a successful parse mutates the
-// token array, and each virtual > has its own one-byte source span.
+// Only legacy Sym syntax and diagnostic recovery still need angle closers.
+// Split >> virtually, retaining immutable tokens and one-byte source spans.
 static int close_angle(Parser *p) {
   if (at(p, TOK_RSHIFT)) {
     Token token = peek(p);
@@ -347,20 +338,135 @@ static int close_angle(Parser *p) {
 static int angle_end(Parser *p) {
   return at(p, TOK_GREATER_THAN) || at(p, TOK_RSHIFT);
 }
+static void nested_angle_fix(Parser *p, Span span) {
+  if (p->angle_fix_count == p->angle_fix_capacity) {
+    size_t capacity = p->angle_fix_capacity ? p->angle_fix_capacity * 2 : 8;
+    Span *spans = arena_alloc(p->arena, capacity * sizeof(*spans));
+    if (p->angle_fix_count)
+      memcpy(spans, p->angle_fixes, p->angle_fix_count * sizeof(*spans));
+    p->angle_fixes = spans;
+    p->angle_fix_capacity = capacity;
+  }
+  p->angle_fixes[p->angle_fix_count++] = span;
+}
 static int type_arguments(Parser *p, List *args) {
-  if (!expect(p, TOK_LESS_THAN, "Expected '<'."))
-    return 0;
+  Token open = take(p);
+  int old = open.type == TOK_LESS_THAN, parsed = 1;
+  p->old_angles += old;
   do {
     Type *arg = type(p);
-    if (!arg)
-      return 0;
+    if (!arg) {
+      parsed = 0;
+      break;
+    }
     PUSH(p, *args, arg);
     if (!match(p, TOK_COMMA))
       break;
-    if (angle_end(p))
+    if (old ? angle_end(p) : at(p, TOK_RBRACKET))
       break;
   } while (!at(p, TOK_EOF));
-  return close_angle(p);
+  int closed = parsed && (old ? close_angle(p)
+                              : expect(p, TOK_RBRACKET,
+                                       "Expected ']' after type arguments."));
+  p->old_angles -= old;
+  if (!old)
+    return closed;
+  if (closed && p->old_angles) {
+    // Even indices are openers and odd ones closers.
+    nested_angle_fix(p, open.span);
+    nested_angle_fix(p, p->previous.span);
+    return 1;
+  }
+  if (closed) {
+    Diagnostic *d =
+        error_at(p, open.span, "Type arguments use '[...]', not '<...>'.");
+    diagnostic_fix(p->diagnostics, d, open.span, "[");
+    diagnostic_fix(p->diagnostics, d, p->previous.span, "]");
+    for (size_t i = 0; i < p->angle_fix_count; i++)
+      diagnostic_fix(p->diagnostics, d, p->angle_fixes[i], i % 2 ? "]" : "[");
+  }
+  if (!p->old_angles)
+    p->angle_fix_count = 0;
+  return closed;
+}
+// Diagnostic-only recognition of the removed <...>( spelling. No speculative
+// type parse, AST allocation or parser rewind participates in accepted calls.
+// Only tokens that can appear in an old type list, in a type position, are
+// accepted, so value operands keep comparisons ordinary, notably
+// check(a < b, c > (d)), check(a < 10, b > (c)) and check(a < (b), c > (d)).
+static int old_type_list_token(const Token *items, size_t i) {
+  TokenType t = items[i].type, before = items[i - 1].type,
+            after = items[i + 1].type;
+  switch (t) {
+  case TOK_LOWER_NAME:
+    // A module qualifier, a symbol tag, or a named tuple member; a type
+    // name is uppercase or a primitive keyword.
+    return after == TOK_PERIOD || after == TOK_COLON || before == TOK_COLON;
+  case TOK_INT_LIT: // A size in old int[4].
+    return before == TOK_LBRACKET;
+  case TOK_LPAREN: // A symbol payload, or a unit/tuple type.
+    return before == TOK_LOWER_NAME || before == TOK_LESS_THAN ||
+           before == TOK_COMMA;
+  case TOK_WILDCARD:
+  case TOK_SYM:
+  case TOK_COMMA:
+  case TOK_PERIOD:
+  case TOK_COLON:
+  case TOK_RPAREN:
+  case TOK_LBRACKET:
+  case TOK_RBRACKET:
+    return 1;
+  default:
+    return t != TOK_LOWER_NAME && type_name_token(t);
+  }
+}
+static int old_call_angles(Parser *p) {
+  size_t depth = 0;
+  for (size_t i = p->position; i < p->tokens.count; i++) {
+    TokenType t = p->tokens.items[i].type;
+    if (t == TOK_LESS_THAN)
+      depth++;
+    else if (t == TOK_GREATER_THAN || t == TOK_RSHIFT) {
+      size_t n = t == TOK_RSHIFT ? 2 : 1;
+      if (n > depth)
+        return 0;
+      depth -= n;
+      if (!depth)
+        return p->tokens.items[i + 1].type == TOK_LPAREN;
+    } else if (t == TOK_EOF || !old_type_list_token(p->tokens.items, i))
+      return 0;
+  }
+  return 0;
+}
+// After a name or field, [...] is a type argument list only when a call's (
+// follows its closing ]. Anything else is an error either way; there, the
+// removed index spelling gets its fix. This choice never changes what parses.
+static int old_index(Parser *p, Expr *left) {
+  if (!at(p, TOK_LBRACKET))
+    return 0;
+  if (left->kind != EXPR_NAME && left->kind != EXPR_FIELD)
+    return 1;
+  // Literal and prefix-operator tokens cannot start a type; type-only
+  // tokens (and an empty list) keep the type argument list's own errors.
+  TokenType next = p->tokens.items[p->position + 1].type;
+  if ((next >= TOK_INT_LIT && next <= TOK_BOOL_LIT) || next == TOK_IF ||
+      next == TOK_MINUS || next == TOK_NOT || next == TOK_BANG ||
+      next == TOK_TILDE)
+    return 1;
+  if (next == TOK_RBRACKET || next == TOK_SYM || next == TOK_SELF ||
+      next == TOK_OLD_DUB || (next >= TOK_BOOL && next <= TOK_STR))
+    return 0;
+  size_t depth = 0;
+  for (size_t i = p->position; i < p->tokens.count; i++) {
+    TokenType t = p->tokens.items[i].type;
+    if (t == TOK_EOF)
+      return 0;
+    if (t == TOK_LBRACKET)
+      depth++;
+    else if (t == TOK_RBRACKET && !--depth)
+      return p->tokens.items[i + 1].type != TOK_LPAREN;
+  }
+  return 0;
 }
 
 static Type *type_inner(Parser *p) {
@@ -419,7 +525,9 @@ static Type *type_inner(Parser *p) {
     t = new_type(p, start.type == TOK_SELF ? TYPE_SELF : TYPE_NAME,
                  through(start.span, p->previous.span));
     t->as.name = text;
-    if (at(p, TOK_LESS_THAN)) {
+    if (at(p, TOK_LESS_THAN) ||
+        (at(p, TOK_LBRACKET) &&
+         p->tokens.items[p->position + 1].type != TOK_INT_LIT)) {
       List args = {0};
       if (!type_arguments(p, &args))
         return NULL;
@@ -436,15 +544,25 @@ static Type *type_inner(Parser *p) {
   }
   if (!checked_type(p, t))
     return NULL;
-  while (match(p, TOK_LBRACKET)) {
-    if (!expect(p, TOK_INT_LIT, "Expected a fixed array size."))
-      return NULL;
-    Token size = p->previous;
+  while (at(p, TOK_LBRACKET) &&
+         p->tokens.items[p->position + 1].type == TOK_INT_LIT) {
+    Token open = take(p);
+    Token size = take(p);
     if (!expect(p, TOK_RBRACKET, "Expected ']' after array size."))
       return NULL;
-    Type *array = new_type(p, TYPE_ARRAY, through(t->span, p->previous.span));
-    array->as.array.element = t;
-    array->as.array.size = size;
+    Span insertion = span_make(t->span.file, t->span.start, t->span.start);
+    Diagnostic *d = error_at(
+        p, open.span, "Array types use 'Arr[Type]'; sizes belong to values.");
+    diagnostic_fix(p->diagnostics, d, insertion, "Arr[");
+    diagnostic_fix(p->diagnostics, d, open.span, "");
+    diagnostic_fix(p->diagnostics, d, size.span, "");
+    Type *base = new_type(p, TYPE_NAME, insertion);
+    base->as.name = intern(p->names, "Arr");
+    Type *array = new_type(p, TYPE_APPLY, through(t->span, p->previous.span));
+    array->as.apply.base = base;
+    array->as.apply.args = arena_alloc(p->arena, sizeof(Type *));
+    array->as.apply.args[0] = t;
+    array->as.apply.count = 1;
     t = checked_type(p, array);
     if (!t)
       return NULL;
@@ -1405,25 +1523,16 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
           return NULL;
         continue;
       }
-      if (token.type == TOK_LESS_THAN &&
-          (left->kind == EXPR_NAME || left->kind == EXPR_FIELD)) {
-        Parser saved = *p;
-        p->probing++;
+      if ((left->kind == EXPR_NAME || left->kind == EXPR_FIELD) &&
+          ((token.type == TOK_LBRACKET && !old_index(p, left)) ||
+           (token.type == TOK_LESS_THAN && old_call_angles(p)))) {
         List types = {0};
-        int success = type_arguments(p, &types) && at(p, TOK_LPAREN) &&
-                      p->errors == saved.errors;
-        *p = saved;
-        if (success) {
-          // Replay committed types: speculative parsing suppresses fixes and
-          // must not silently accept a recoverable old spelling.
-          types = (List){0};
-          if (!type_arguments(p, &types))
-            return NULL;
-          left = call(p, left, types);
-          if (!left)
-            return NULL;
-          continue;
-        }
+        if (!type_arguments(p, &types))
+          return NULL;
+        left = call(p, left, types);
+        if (!left)
+          return NULL;
+        continue;
       }
       if (match(p, TOK_PERIOD)) {
         if (!expect_identifier(p, "Expected a field or method name after '.'."))
@@ -1449,7 +1558,7 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
           return NULL;
         }
       }
-      if (token.type == TOK_DOT_LPAREN || token.type == TOK_LBRACKET) {
+      if (token.type == TOK_DOT_LPAREN || old_index(p, left)) {
         take(p);
         int old = token.type == TOK_LBRACKET;
         Expr *index = expression(p, 0, 1);

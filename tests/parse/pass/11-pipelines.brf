@@ -8,7 +8,7 @@ main() {
   x |> f()!
   x |> Report.summary()
   x |> models.Report.summary()?
-  x |> Vec<int>()
+  x |> Vec[int]()
   x |> f() |> g() |> h()
   path |> readFile()? |> parse()?
   (x |> f()).g()

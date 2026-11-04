@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: Type arguments use square brackets, including in calls.
+main() {
+  load<int>()
+}

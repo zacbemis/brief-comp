@@ -1,0 +1,8 @@
+A = Vec<int> // error: Type arguments use '[...]', not '<...>'. // fix: A = Vec[int]
+B = Map<str, Vec<int>> // error: Type arguments use '[...]', not '<...>'. // fix: B = Map[str, Vec[int]]
+f(x: Box<str>) {} // error: Type arguments use '[...]', not '<...>'. // fix: f(x: Box[str]) {}
+main() {
+  f<int>() // error: Type arguments use '[...]', not '<...>'. // fix: f[int]()
+  obj.read<str>() // error: Type arguments use '[...]', not '<...>'. // fix: obj.read[str]()
+  obj.read<Vec<Vec<int>>>() // error: Type arguments use '[...]', not '<...>'. // fix: obj.read[Vec[Vec[int]]]()
+}

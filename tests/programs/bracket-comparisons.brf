@@ -1,0 +1,15 @@
+both(left: bool, right: bool) -> bool { left and right }
+main() {
+  let a = 1
+  let b = 2
+  let c = 3
+  let d = 2
+  // A parenthesized right operand no longer turns the comparisons into a call.
+  print(str(both(a < b, c > (d)))) // expect: true
+  print(str(both(a < b, c > d))) // expect: true
+  print(str(a < b >> (0))) // expect: true
+  // Literal or parenthesized operands are values, not old type arguments.
+  print(str(both(a < 10, c > (b + 1)))) // expect: false
+  print(str(both(a < (b), c > (d)))) // expect: true
+  print("Vec<int> Vec[int] int[4]") // expect: Vec<int> Vec[int] int[4]
+}

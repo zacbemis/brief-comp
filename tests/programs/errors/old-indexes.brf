@@ -1,4 +1,9 @@
 main() {
   0[0] // error: Indexing is written '.(...)', not '[...]'. // fix: 0.(0)
   "data[0]"[1] // error: Indexing is written '.(...)', not '[...]'. // fix: "data[0]".(1)
+  let items = 0
+  let i = 0
+  items[i] // error: Indexing is written '.(...)', not '[...]'. // fix: items.(i)
+  items[i + 1] // error: Indexing is written '.(...)', not '[...]'. // fix: items.(i + 1)
+  items[items.(i)] // error: Indexing is written '.(...)', not '[...]'. // fix: items.(items.(i))
 }

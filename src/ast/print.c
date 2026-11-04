@@ -51,13 +51,6 @@ static void type(FILE *out, const Type *t) {
     }
     fputc(')', out);
     break;
-  case TYPE_ARRAY:
-    fputs("(array-type ", out);
-    type(out, t->as.array.element);
-    fputc(' ', out);
-    spelling(out, t->as.array.size);
-    fputc(')', out);
-    break;
   case TYPE_SYM:
     fputs("(Sym", out);
     for (size_t i = 0; i < t->as.sym.count; i++) {

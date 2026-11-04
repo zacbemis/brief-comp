@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **100 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **103 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -322,8 +322,16 @@ previews one edit, and both edits together correct an index. They leave old-look
 brackets in strings untouched. `errors/indexing.brf` keeps index reads, writes and
 updates explicitly unimplemented; this slice adds no collection runtime behavior.
 The existing unsupported-index case preserves its original semantic message/line.
-The inventory is now 100 files. Square-bracket type arguments/payloads, struct
-methods/receiver inference, other declaration/type syntax and casing remain pending.
+The inventory was then 100 files.
+
+N1's type-argument slice uses `Name[Type]` in types and calls, removing accepted-call
+speculation. `errors/old-type-arguments.brf` checks grouped delimiter previews;
+`errors/old-array-types.brf` checks `Arr[Type]` fixes without sizes in annotations.
+Existing generic-scope errors and `dub` fixes retain their observations under the
+new spelling. `bracket-comparisons.brf` observes formerly ambiguous comparisons,
+ordinary shifts and unchanged angle/bracket-looking strings. Runtime generics and
+collections remain unimplemented. The inventory is now 103 files. Symbol payloads/
+unions, struct methods/receiver inference, other declarations and casing remain pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

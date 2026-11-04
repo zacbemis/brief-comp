@@ -30,10 +30,6 @@ struct Type {
       size_t count;
     } apply;
     struct {
-      Type *element;
-      Token size;
-    } array;
-    struct {
       SymEntry *items;
       size_t count;
     } sym;

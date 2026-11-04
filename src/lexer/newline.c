@@ -7,8 +7,8 @@ static int name_token(TokenType t) {
 
 // Distinguish a type argument's closing > from a comparison/shift. Without
 // this, `field: Sym<:ok(int)>\nnext: int` would lose its field separator.
-// This is only lexical context, not generic-call disambiguation (the parser
-// does that with a speculative type parse).
+// This lexical context remains for Sym and diagnostic recovery of old angle
+// types. Accepted generic calls/types use bracket enclosure, not speculation.
 static size_t previous_token(TokenArray raw, size_t before) {
   while (before && raw.items[before - 1].type == TOK_NEWLINE)
     before--;

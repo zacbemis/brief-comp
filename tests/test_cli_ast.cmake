@@ -181,8 +181,8 @@ endforeach()
 # ordinary-call lookup error. The one-argument check scaffold isolates that
 # diagnostic; surrounding ordinary arity checks have separate stage coverage.
 set(generic "${TEST_DIR}/generic-invalid.brf")
-file(WRITE "${generic}" "check(value: int) {}\r\nmain() { let a = 1\r\n  let d = 2\r\n  check(a < b, c > (d))\r\n}\r\n")
-set(expected "error: Generic calls are not implemented yet.\n  --> ${generic}:4:9\n  |\n4 |   check(a < b, c > (d))\n  |         ^~~~~~~~~~~~~~\n")
+file(WRITE "${generic}" "check(value: int) {}\r\nmain() { let a = 1\r\n  let d = 2\r\n  check(a[b, c](d))\r\n}\r\n")
+set(expected "error: Generic calls are not implemented yet.\n  --> ${generic}:4:9\n  |\n4 |   check(a[b, c](d))\n  |         ^~~~~~~~~~\n")
 execute_process(COMMAND "${BRIEF}" emit-c "${generic}"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)

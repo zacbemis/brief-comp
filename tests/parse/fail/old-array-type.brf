@@ -1,0 +1,3 @@
+// parse-error: line 3
+// Why: Array types use Arr[Type]; a size is not part of the type.
+Array = int[4]

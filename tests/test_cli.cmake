@@ -200,6 +200,17 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
     message(FATAL_ERROR "corrected index lost its scope rejection (${status}):\n${errors}")
 endif()
 
+set(old_arguments "${TEST_DIR}/old-arguments.brf")
+file(WRITE "${old_arguments}" "main() { load<int>() }\r\n")
+set(expected "error: Type arguments use '[...]', not '<...>'.\n  --> ${old_arguments}:1:14\n  |\n1 | main() { load<int>() }\n  |              ^\nhelp: write `main() { load[int]() }`\n")
+foreach(command IN ITEMS dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${old_arguments}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} type argument fixes (${status}):\n${errors}")
+    endif()
+endforeach()
+
 set(invalid "${TEST_DIR}/invalid.brf")
 file(WRITE "${invalid}" "main() {\n  \"\\q\"\n  @\n  /* unfinished\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"

@@ -224,34 +224,46 @@ int main(void) {
     ASSERT_TRUE(updates.program->functions[0].body->as.block.items[1]->type ==
                 &updates.program->types[SEMA_UNIT]);
   }
+  TEST("removed type argument spellings never enable lowering") {
+    const char *sources[] = {"A = Vec<int>\nmain() {}", "main() { f<int>() }",
+                             "A = int[4]\nmain() {}"};
+    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
+      Result r = check(&a, sources[i]);
+      ASSERT_TRUE(r.errors.count > 0);
+      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+      ASSERT_TRUE(r.errors.items[0]->fixes != NULL);
+    }
+    invalid(&a, "A = Arr[int]\nmain() {}",
+            "This type is unknown or not implemented yet.");
+  }
   TEST("unsupported generic headers do not resolve as ordinary callees") {
     const char *prefix =
         "P {}\nimpl P { make(value: int) {}\nread(p: Self, n: int) {} }\n"
         "f(value: shrt) {}\ncheck(value: int) {}\n";
     struct {
       const char *body, *site;
-    } cases[] = {
-        {"f<int>()", "f<int>()"},
-        {"f<int>(true)", "f<int>(true)"},
-        {"int<int>(\"1\")", "int<int>(\"1\")"},
-        {"print<int>(false)", "print<int>(false)"},
-        {"missing<int>()", "missing<int>()"},
-        {"let f = 0\nf<int>()", "f<int>()"},
-        {"let a = 1\nlet d = 2\ncheck(a < b, c > (d))", "a < b, c > (d)"},
-        {"P.make<int>()", "P.make<int>()"},
-        {"P.missing<int>()", "P.missing<int>()"},
-        {"let p = P {}\np.read<int>(true)", "p.read<int>(true)"},
-        {"let p = P {}\np.missing<int>()", "p.missing<int>()"},
-        {"let P = 1\nP.read<int>()", "P.read<int>()"},
-        {"1 |> missing<int>()", "missing<int>()"},
-        {"let f = 0\n1 |> f<int>()", "f<int>()"},
-        {"P {} |> P.make<int>()", "P.make<int>()"},
-        {"f<Sym<:ok(Sym<:inner(int)>)>>(1)",
-         "f<Sym<:ok(Sym<:inner(int)>)>>(1)"},
-        {"f<int>()?", "f<int>()"},
-        {"f<int>()!", "f<int>()"},
-        {"f<int>() |> { _ => () }", "f<int>()"},
-        {"let value = f<int>()\nvalue.field", "f<int>()"}};
+    } cases[] = {{"f[int]()", "f[int]()"},
+                 {"f[int](true)", "f[int](true)"},
+                 {"int[int](\"1\")", "int[int](\"1\")"},
+                 {"print[int](false)", "print[int](false)"},
+                 {"missing[int]()", "missing[int]()"},
+                 {"let f = 0\nf[int]()", "f[int]()"},
+                 {"let a = 1\nlet d = 2\ncheck(a[b, c](d))", "a[b, c](d)"},
+                 {"P.make[int]()", "P.make[int]()"},
+                 {"P.missing[int]()", "P.missing[int]()"},
+                 {"let p = P {}\np.read[int](true)", "p.read[int](true)"},
+                 {"let p = P {}\np.missing[int]()", "p.missing[int]()"},
+                 {"let P = 1\nP.read[int]()", "P.read[int]()"},
+                 {"1 |> missing[int]()", "missing[int]()"},
+                 {"let f = 0\n1 |> f[int]()", "f[int]()"},
+                 {"P {} |> P.make[int]()", "P.make[int]()"},
+                 {"f[Sym<:ok(Sym<:inner(int)>)>](1)",
+                  "f[Sym<:ok(Sym<:inner(int)>)>](1)"},
+                 {"f[int]()?", "f[int]()"},
+                 {"f[int]()!", "f[int]()"},
+                 {"f[int]() |> { _ => () }", "f[int]()"},
+                 {"let value = f[int]()\nvalue.field", "f[int]()"}};
     char code[2048], crlf[4096];
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       snprintf(code, sizeof(code), "%smain() {\n%s\n}", prefix, cases[i].body);
@@ -267,8 +279,8 @@ int main(void) {
     }
     Result r = generic_error(&a,
                              "callee(value: int) -> int { value }\nmain() { "
-                             "callee<int>(callee(1)) }",
-                             "callee<int>(callee(1))", NULL, 0);
+                             "callee[int](callee(1)) }",
+                             "callee[int](callee(1))", NULL, 0);
     SemaFunction *caller = &r.program->functions[1];
     SemaExpr *call = caller->body->as.block.items[0];
     ASSERT_EQ_INT(SEMA_EXPR_CALL, call->kind);
@@ -291,7 +303,7 @@ int main(void) {
     ASSERT_EQ_INT(0, again.count); // The primary belongs to resolution.
     ASSERT_TRUE(!r.program->checked);
     ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
-    Result nested = check(&a, "main() { missing<int>(other<int>()) }");
+    Result nested = check(&a, "main() { missing[int](other[int]()) }");
     ASSERT_EQ_INT(2, nested.errors.count);
     ASSERT_EQ_INT(2, message_count(&nested.errors,
                                    "Generic calls are not implemented yet."));
@@ -299,7 +311,8 @@ int main(void) {
     ASSERT_TRUE(ir_lower(&a, nested.program) == NULL);
     valid(&a, "check(left: bool, right: bool) {}\n"
               "main() { let a = 1\nlet b = 2\nlet c = 3\nlet d = 1\n"
-              "check(a < b, c > d)\ncheck((a < b), (c > (d))) }");
+              "check(a < b, c > d)\ncheck((a < b), (c > (d)))\ncheck(a < b, c "
+              "> (d)) }");
     invalid(&a, "main() { let f = 0\nf() }",
             "A local binding is not callable.");
     invalid(&a, "main() { missing() }", "Unknown function.");
@@ -312,51 +325,51 @@ int main(void) {
     struct {
       const char *text, *site, *other;
     } cases[] = {
-        {"main() { missing<int>(unknown) }", "missing<int>(unknown)",
+        {"main() { missing[int](unknown) }", "missing[int](unknown)",
          "Unknown binding."},
-        {"main() { missing.read<int>() }", "missing.read<int>()",
+        {"main() { missing.read[int]() }", "missing.read[int]()",
          "Unknown binding."},
-        {"P {}\nmake(n: int) { P {} }\nmain() { make(false).read<int>() }",
-         "make(false).read<int>()", "Function argument has the wrong type."},
-        {"main() { missing<int>(if true { 1 } else { false }) }",
-         "missing<int>(if true { 1 } else { false })",
+        {"P {}\nmake(n: int) { P {} }\nmain() { make(false).read[int]() }",
+         "make(false).read[int]()", "Function argument has the wrong type."},
+        {"main() { missing[int](if true { 1 } else { false }) }",
+         "missing[int](if true { 1 } else { false })",
          "Value-producing if branches must have compatible types."},
-        {"main() { missing<int>(if true {}) }", "missing<int>(if true {})",
+        {"main() { missing[int](if true {}) }", "missing[int](if true {})",
          "An if without else cannot be used as a value."},
-        {"take(n: int) {}\nmain() { missing<int>(take(false)) }",
-         "missing<int>(take(false))", "Function argument has the wrong type."},
-        {"fail() -> Sym<:ok(int), :bad> { 1 }\nmain() { missing<int>(fail()) }",
-         "missing<int>(fail())",
+        {"take(n: int) {}\nmain() { missing[int](take(false)) }",
+         "missing[int](take(false))", "Function argument has the wrong type."},
+        {"fail() -> Sym<:ok(int), :bad> { 1 }\nmain() { missing[int](fail()) }",
+         "missing[int](fail())",
          "A call that can fail must be handled with ?, !, or a match."},
-        {"P {}\nmut(p: &P) {}\nf(p: P) { missing<int>(mut(p)) }\nmain() {}",
-         "missing<int>(mut(p))",
+        {"P {}\nmut(p: &P) {}\nf(p: P) { missing[int](mut(p)) }\nmain() {}",
+         "missing[int](mut(p))",
          "A read-only value cannot be passed to an & parameter; "
          "take the parameter it comes from as &."},
-        {"main() { missing<int>()\nlet bad: int = false }", "missing<int>()",
+        {"main() { missing[int]()\nlet bad: int = false }", "missing[int]()",
          "Binding value does not match its annotation."},
-        {"main() { let local = 0\nmissing<int>()\nlocal() }", "missing<int>()",
+        {"main() { let local = 0\nmissing[int]()\nlocal() }", "missing[int]()",
          "A local binding is not callable."},
         {"check(left: bool, right: bool) {}\nmain() { let a = 1\nlet d = 2\n"
-         "check(a < b, c > (d)) }",
-         "a < b, c > (d)", "Wrong number of function arguments."},
+         "check(a[b, c](d)) }",
+         "a[b, c](d)", "Wrong number of function arguments."},
         {"bad(flag: bool) { if flag { ret 1 }\nfalse }\nmain() { "
-         "missing<int>() }",
-         "missing<int>()", "Incompatible return types."},
-        {"bad() -> () { missing<int>()\nret 1 }\nmain() {}", "missing<int>()",
+         "missing[int]() }",
+         "missing[int]()", "Incompatible return types."},
+        {"bad() -> () { missing[int]()\nret 1 }\nmain() {}", "missing[int]()",
          "Return value does not match the written return type."},
-        {"main() { missing<int>(1 + true) }", "missing<int>(1 + true)",
+        {"main() { missing[int](1 + true) }", "missing[int](1 + true)",
          "Operator operands must have the same type; numeric conversions are "
          "explicit."}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
       generic_error(&a, cases[i].text, cases[i].site, cases[i].other, 1);
     generic_error(
         &a,
-        "f() { if true { ret 1 }\nmissing<int>(g()) }\ng() { f() }\nmain() {}",
-        "missing<int>(g())", NULL, 0);
+        "f() { if true { ret 1 }\nmissing[int](g()) }\ng() { f() }\nmain() {}",
+        "missing[int](g())", NULL, 0);
     Result r = generic_error(&a,
-                             "f() { missing<int>(if true { ret 1 } else { ret "
+                             "f() { missing[int](if true { ret 1 } else { ret "
                              "2 })\nret false }\nmain() {}",
-                             "missing<int>(if true { ret 1 } else { ret 2 })",
+                             "missing[int](if true { ret 1 } else { ret 2 })",
                              NULL, 0);
     ASSERT_EQ_INT(SEMA_INT, r.program->functions[0].symbol.return_type->kind);
     SemaExpr *call = r.program->functions[0].body->as.block.items[0];

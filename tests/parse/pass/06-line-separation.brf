@@ -40,7 +40,7 @@ main() {
   }
 
   // A line ending in a type's closing `>` is complete.
-  let users: Vec<User> = Vec<User>()
+  let users: Vec[User] = Vec[User]()
   let count = 0
 
   // A comparison's `>` at the end of a line continues it instead.

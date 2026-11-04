@@ -7,5 +7,5 @@ main() {
   dub(value) // error: Double precision is written 'dbl', not 'dub'. // fix: dbl(value)
   value |> dub() // error: Double precision is written 'dbl', not 'dub'. // fix: value |> dbl()
   (/* before */ dub /* after */)(1) // error: Double precision is written 'dbl', not 'dub'. // fix: (/* before */ dbl /* after */)(1)
-  f<dub>() // error: Double precision is written 'dbl', not 'dub'. // fix: f<dbl>()
+  f[dub]() // error: Double precision is written 'dbl', not 'dub'. // fix: f[dbl]()
 }

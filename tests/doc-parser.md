@@ -3,9 +3,9 @@
 `test_doc_parser` reads the 13 language chapters in `docs/lang-*.txt`, not
 `docs/v0/`. The rationale file `lang-post-0-notes.txt` is not a language chapter.
 The manifest in `test_doc_parser.cmake` classifies all **239 code fences** and
-the two unfenced chapters. It runs **96 successful parses and four intentional
-syntax rejections**. The other **139 fences** are explicit listings, not passing
-parser tests: 55 await N1/N4/N5 syntax, 72 need later features, and 12 are
+the two unfenced chapters. It runs **101 successful parses and four intentional
+syntax rejections**. The other **134 fences** are explicit listings, not passing
+parser tests: 55 await N1/N4/N5 syntax, 66 need later features, and 13 are
 incomplete signatures/operator/context fragments. The overview and raw base
 sample have separate zero-fence listings.
 
@@ -22,11 +22,13 @@ syntax errors must reject with no AST. Semantic-error examples can parse: this
 is **not** proof of typing, casing, outcomes, ownership, modules or library APIs.
 In particular, some unimplemented payload/interpolation syntax could otherwise
 be mistaken for an old index or a plain string; those fences remain listed.
-The `.()` index fence checks syntax only; collection operations remain unsupported.
+The `.()` index and bracketed-constructor fences check syntax only; collection
+operations remain unsupported. The interleaved syntax example with an ellipsis
+function body is a fragment, not a future passing test or an extracted stub.
 
 | Chapter | Parser checks | Listings (including unfenced chapters) |
 |---|---:|---:|
-| collections | 1 | 30 |
+| collections | 2 | 29 |
 | overview | 0 | 1 |
 | errors | 7 | 31 |
 | raw base sample | 0 | 1 |
@@ -36,9 +38,9 @@ The `.()` index fence checks syntax only; collection operations remain unsupport
 | pipelines | 11 | 6 |
 | standard library | 0 | 1 |
 | symbols | 2 | 13 |
-| syntax | 26 | 9 |
+| syntax | 29 | 6 |
 | traits | 1 | 9 |
-| types | 15 | 13 |
+| types | 16 | 12 |
 
 Chapter hashes force classification review after document edits; counts, index
 bounds, duplicate/missing classifications, nonempty reasons and the complete

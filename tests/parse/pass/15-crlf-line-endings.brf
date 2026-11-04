@@ -2,7 +2,7 @@
 
 User {
   name: str
-  tags: Vec<str>
+  tags: Vec[str]
 }
 
 main() {

@@ -412,15 +412,18 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
-  TEST("nested generics close with a single shift token") {
+  TEST("nested generics use separate brackets; shifts stay operator tokens") {
     Lexer lx;
-    init_lexer(&lx, "Vec<Vec<int>>");
+    init_lexer(&lx, "Vec[Vec[int]] >> 1");
     expect(&lx, TOK_UPPER_NAME, "Vec");
-    expect(&lx, TOK_LESS_THAN, "<");
+    expect(&lx, TOK_LBRACKET, "[");
     expect(&lx, TOK_UPPER_NAME, "Vec");
-    expect(&lx, TOK_LESS_THAN, "<");
+    expect(&lx, TOK_LBRACKET, "[");
     expect(&lx, TOK_INT, "int");
+    expect(&lx, TOK_RBRACKET, "]");
+    expect(&lx, TOK_RBRACKET, "]");
     expect(&lx, TOK_RSHIFT, ">>");
+    expect(&lx, TOK_INT_LIT, "1");
     expect(&lx, TOK_EOF, NULL);
   }
 

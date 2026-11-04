@@ -1,5 +1,5 @@
 // parse-error: line 4
 // Why: a type argument list needs at least one type.
 main() {
-  let items: Vec<> = make()
+  let items: Vec[] = make()
 }

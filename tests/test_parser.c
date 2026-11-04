@@ -68,6 +68,42 @@ static void invalid(Arena *arena, const char *source, const char *message) {
     diagnostics_print(&v->diagnostics, stderr);
   ASSERT_TRUE(found);
 }
+// Test-only application of diagnostic groups, ordered in original byte space.
+static char *apply_fixes(Arena *arena, Parsed *v) {
+  size_t count = 0, size = v->source->length + 1;
+  for (size_t i = 0; i < v->diagnostics.count; i++)
+    for (DiagnosticFix *f = v->diagnostics.items[i]->fixes; f; f = f->next) {
+      count++;
+      size += strlen(f->replacement);
+    }
+  const DiagnosticFix **fixes = arena_alloc(arena, count * sizeof(*fixes));
+  size_t n = 0;
+  for (size_t i = 0; i < v->diagnostics.count; i++)
+    for (DiagnosticFix *f = v->diagnostics.items[i]->fixes; f; f = f->next) {
+      size_t at = n++;
+      while (at && fixes[at - 1]->span.start > f->span.start) {
+        fixes[at] = fixes[at - 1];
+        at--;
+      }
+      fixes[at] = f;
+    }
+  char *result = arena_alloc(arena, size);
+  size_t source = 0, out = 0;
+  for (size_t i = 0; i < count; i++) {
+    const DiagnosticFix *f = fixes[i];
+    ASSERT_TRUE(f->span.file == v->source && f->span.start >= source);
+    if (f->span.start < source)
+      continue;
+    size_t prefix = f->span.start - source, length = strlen(f->replacement);
+    memcpy(result + out, v->source->text + source, prefix);
+    out += prefix;
+    memcpy(result + out, f->replacement, length);
+    out += length;
+    source = f->span.end;
+  }
+  strcpy(result + out, v->source->text + source);
+  return result;
+}
 int main(void) {
   Arena arena;
   arena_init(&arena);
@@ -82,7 +118,7 @@ int main(void) {
                     "(field (call (field (name User) new) (name value)) age)");
     expression_dump(&arena, "value |> { _ => value }",
                     "(|> (name value) (match (arm (wildcard) (name value))))");
-    Parsed *v = parse(&arena, "f(x: Vec<Other.User>) -> Sym<:ok(int), _> {\n"
+    Parsed *v = parse(&arena, "f(x: Vec[Other.User]) -> Sym<:ok(int), _> {\n"
                               "x |> { _ => 1 }\n}\n");
     if (v->diagnostics.count)
       diagnostics_print(&v->diagnostics, stderr);
@@ -188,7 +224,7 @@ int main(void) {
                  {"P { n = 1E2 }", "1E2"},
                  {"1 |> {\n1e2 => 0\n_ => 1\n}", "1e2"},
                  {"1 |> {\n-1E2 => 0\n_ => 1\n}", "1E2"},
-                 {"let value: int[1e2] = ()", "1e2"},
+                 {"let value: Arr[1e2] = ()", "1e2"},
                  {"let value = 1e", "1e"},
                  {"let value = 1E+", "1E+"}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
@@ -245,8 +281,7 @@ int main(void) {
     expression_dump(&arena, "0.25 + e2", "(+ (float 0.25) (name e2))");
     expression_dump(&arena, "1 // gap\n", "(int 1)");
   }
-  TEST("old dub types/converters have exact fixes, including speculative "
-       "types") {
+  TEST("old dub types/converters have exact fixes, including bracketed types") {
     const char *cases[] = {
         "Box { value: dub }\nmain() {}\n",
         "Answer = Sym<:ok(dub), :none>\nmain() {}\n",
@@ -255,11 +290,11 @@ int main(void) {
         "main() { dub(1) }\n",
         "main() { ( /* before */ dub /* after */ )(\"1e2\")! }\n",
         "main() { 1 |> dub() }\n",
-        "main() { let n: Vec<dub> = value }\n",
-        "main() { f<dub>() }\n",
-        "main() { obj.f<Vec<dub>>() }\n",
-        "main() { f<Sym<:ok(dub), :none>>() }\n",
-        "main() { f<dub>()\nf<dub>() }\n",
+        "main() { let n: Vec[dub] = value }\n",
+        "main() { f[dub]() }\n",
+        "main() { obj.f[Vec[dub]]() }\n",
+        "main() { f[Sym<:ok(dub), :none>]() }\n",
+        "main() { f[dub]()\nf[dub]() }\n",
         "main() { dub(dub(1)) }\n",
         "main() { a < dub(1) }\n"};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
@@ -460,7 +495,7 @@ int main(void) {
       ASSERT_TRUE(!bad->diagnostics.items[0]->fixes);
     invalid(&arena, "A\n= int", "Statements are only allowed");
     program_dump(
-        &arena, "A =\nVec<Vec<int>>\nB = ()\n",
+        &arena, "A =\nVec[Vec[int]]\nB = ()\n",
         "(program (type A (apply Vec (apply Vec int))) (type B ()))\n");
     program_dump(
         &arena, "type() {}\nmain() { let type = 1\ntype }\n",
@@ -585,7 +620,7 @@ int main(void) {
                  {"f() : int { 1 }\n", "->"},
                  {"f()/* before */:/* after */int { 1 }\n", " -> "},
                  {"f():\n// continuation\nint { 1 }\n", " ->"},
-                 {"pub f(x: Vec<Vec<int>>): Vec<Vec<int>> { x }\n", " ->"},
+                 {"pub f(x: Vec[Vec[int]]): Vec[Vec[int]] { x }\n", " ->"},
                  {"f(): Sym<:ok(int), _> { 1 }\n", " ->"},
                  {"P { x: int }\nimpl P { f(p: Self): int { p.x } }\n", " ->"}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
@@ -649,7 +684,7 @@ int main(void) {
     }
     program_dump(&arena, "f()->\nint { 1 }\n",
                  "(program (fn f (params) int (block (int 1))))\n");
-    invalid(&arena, "f() -> Vec<int>\n{}", "Expected '{' to start a block.");
+    invalid(&arena, "f() -> Vec[int]\n{}", "Expected '{' to start a block.");
     invalid(&arena, "f()\n-> int {}", "Expected '{' to start a block.");
   }
   TEST("not has prefix precedence below power and postfix, above comparisons") {
@@ -833,12 +868,12 @@ int main(void) {
       const char *body;
       size_t count;
     } cases[] = {{"items[0]", 1},
-                 {"rows[cols[0]][next[1]]", 4},
-                 {"f()[i].items[j].name", 2},
-                 {"items /* before */ [ /* inside */ i +\n1 /* tail */ ]", 1},
-                 {"items[\nP { x = 0\ny = 1 }.x\n]", 1},
+                 {"rows()[cols()[0]][next()[1]]", 4},
+                 {"f()[i].items[1].name", 2},
+                 {"items /* before */ [ /* inside */ 1 +\ni /* tail */ ]", 1},
+                 {"items()[\nP { x = 0\ny = 1 }.x\n]", 1},
                  {"items[if flag { 0 } else { 1 }]", 1},
-                 {"a[values |> { :a => 0\n_ => 1 }]", 1},
+                 {"a()[values |> { :a => 0\n_ => 1 }]", 1},
                  {"not rows[0] != other[1]", 2}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
       for (unsigned crlf = 0; crlf < 2; crlf++) {
@@ -922,7 +957,7 @@ int main(void) {
         {"a.(0]", "Expected ')' after index."},
         {"a.(0, 1)", "Expected ')' after index."},
         {"a.(@)", "Unexpected character."},
-        {"a[]", "Expected an expression."},
+        {"a[]", "Expected a type."},
         {"a[0", "Expected ']' after index."},
         {"a. (0)", "Expected a field or method name after '.'."},
         {"a. /* gap */ (0)", "Expected a field or method name after '.'."},
@@ -1157,14 +1192,103 @@ int main(void) {
                     "(|> (|> (name json) (? (call (name parse)))) (panic (call "
                     "(name validate))))");
   }
-  TEST("generic calls rewind cleanly, including split >> and ambiguity") {
-    expression_dump(&arena, "Vec<User>()", "(call (name Vec) (types User))");
-    expression_dump(&arena, "Vec<Vec<int>>()",
+  TEST("removed angle arguments and sized types have composable exact fixes") {
+    struct {
+      const char *text;
+      size_t count;
+      size_t fixes; // Of the one angle-list diagnostic, if any.
+    } cases[] = {{"A = Vec<Map<int, str>>\n", 1, 4},
+                 {"main() { f<int>() }\n", 1, 2},
+                 {"main() { obj.read<Vec<int>>() }\n", 1, 4},
+                 {"main() { f<Sym<Sym<:a>>>() }\n", 1, 2},
+                 {"main() { f<Vec<dub>>() }\n", 2, 4},
+                 {"A = Map<str, Vec[Vec<int>]>\n", 1, 4},
+                 {"main() { f<models.Box<int>, Self>() }\n", 1, 4},
+                 {"A = int[10][20]\n", 2, 0},
+                 {"A = Vec<int>[2]\n", 2, 2},
+                 {"A = int[ /* before */ 3 /* after */ ]\n", 1, 0},
+                 {"A = int[\n// keep\n3\n]\n", 1, 0}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned crlf = 0; crlf < 2; crlf++) {
+        char text[1024];
+        size_t n = 0;
+        for (size_t j = 0; cases[i].text[j]; j++) {
+          if (crlf && cases[i].text[j] == '\n')
+            text[n++] = '\r';
+          text[n++] = cases[i].text[j];
+        }
+        strcpy(text + n, "after() {}\n");
+        Parsed *v = parse(&arena, text);
+        ASSERT_EQ_INT(cases[i].count, v->diagnostics.count);
+        ASSERT_EQ_INT(2, v->program->count);
+        for (size_t j = 0; j < v->diagnostics.count; j++) {
+          const Diagnostic *d = v->diagnostics.items[j];
+          ASSERT_TRUE(d->fixes != NULL && d->span.file == v->source);
+          if (strcmp(d->message, "Type arguments use '[...]', not '<...>'.") ==
+              0) {
+            ASSERT_EQ_INT(d->span.start + 1, d->span.end);
+            ASSERT_EQ_INT('<', text[d->span.start]);
+            // The outermost list carries its nested lists' fixes too.
+            ASSERT_TRUE(d->fixes == NULL ||
+                        d->fixes->span.start == d->span.start);
+            size_t fixes = 0;
+            for (const DiagnosticFix *f = d->fixes; f; f = f->next, fixes++) {
+              ASSERT_EQ_INT(f->span.start + 1, f->span.end);
+              int opener = text[f->span.start] == '<';
+              ASSERT_TRUE(opener || text[f->span.start] == '>');
+              ASSERT_EQ_INT(0, strcmp(opener ? "[" : "]", f->replacement));
+            }
+            ASSERT_EQ_INT(cases[i].fixes, fixes);
+          }
+        }
+        Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
+        ASSERT_EQ_INT(0, fixed->diagnostics.count);
+        char *before = dump(&arena, v->program),
+             *after = dump(&arena, fixed->program);
+        ASSERT_TRUE(before && after);
+        if (before && after)
+          ASSERT_EQ_INT(0, strcmp(before, after));
+        TokenArray filtered = newline_filter(&arena, v->raw);
+        size_t bytes = filtered.count * sizeof(Token);
+        Token *saved = arena_alloc(&arena, bytes);
+        memcpy(saved, filtered.items, bytes);
+        Diagnostics again;
+        diagnostics_init(&again, &arena);
+        parse_program(&arena, &v->names, filtered, &again);
+        ASSERT_EQ_INT(cases[i].count, again.count);
+        ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+      }
+    }
+  }
+  TEST("type brackets retain primary errors without inventing missing "
+       "arguments") {
+    const char *bad[] = {"A = Vec[]\n",      "A = Vec[int\n",
+                         "main() { f[]() }", "main() { f[int }",
+                         "A = Vec[1.5]\n",   "main() { f[int] }"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
+      Parsed *v = parse(&arena, bad[i]);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      for (size_t j = 0; j < v->diagnostics.count; j++)
+        ASSERT_TRUE(v->diagnostics.items[j]->fixes == NULL);
+    }
+    program_dump(
+        &arena,
+        "A = Map[str, Vec[int],]\nf(a: Arr[int]) -> Vec[int] { f[int,](a) }",
+        "(program (type A (apply Map str (apply Vec int))) (fn f (params (a "
+        "(apply Arr int))) "
+        "(apply Vec int) (block (call (name f) (types int) (name a)))))\n");
+  }
+  TEST("bracketed generic calls do not speculate or steal comparisons") {
+    expression_dump(&arena, "Vec[User]()", "(call (name Vec) (types User))");
+    expression_dump(&arena, "Vec[Vec[int]]()",
                     "(call (name Vec) (types (apply Vec int)))");
-    expression_dump(&arena, "make<Sym<:ok(int), :none>>()",
+    expression_dump(&arena, "make[Sym<:ok(int), :none>]()",
                     "(call (name make) (types (Sym (:ok int) (:none))))");
-    expression_dump(&arena, "check(a < b, c > (d))",
+    expression_dump(&arena, "check(a[b, c](d))",
                     "(call (name check) (call (name a) (types b c) (name d)))");
+    expression_dump(
+        &arena, "check(a < b, c > (d))",
+        "(call (name check) (< (name a) (name b)) (> (name c) (name d)))");
     expression_dump(
         &arena, "check(a < b, c > d)",
         "(call (name check) (< (name a) (name b)) (> (name c) (name d)))");
@@ -1173,6 +1297,19 @@ int main(void) {
         "(call (name check) (< (name a) (name b)) (> (name c) (name d)))");
     expression_dump(&arena, "a < b >> c",
                     "(< (name a) (>> (name b) (name c)))");
+    // Value operands never look like a removed <...>( type list.
+    expression_dump(&arena, "check(a < 10, b > (a + 1))",
+                    "(call (name check) (< (name a) (int 10)) (> (name b) (+ "
+                    "(name a) (int 1))))");
+    expression_dump(
+        &arena, "check(a < (b), c > (d))",
+        "(call (name check) (< (name a) (name b)) (> (name c) (name d)))");
+    expression_dump(&arena, "check(a < Cfg.max, Cfg.min > (c))",
+                    "(call (name check) (< (name a) (field (name Cfg) max)) (> "
+                    "(field (name Cfg) min) (name c)))");
+    expression_dump(&arena, "check(a < b.(0), c > (d))",
+                    "(call (name check) (< (name a) (index (name b) (int 0))) "
+                    "(> (name c) (name d)))");
   }
   TEST("bindings, typed fields, methods, written and partial return types") {
     const char *text =
@@ -1283,7 +1420,7 @@ int main(void) {
         "sink(if Guest { name = name }.ok {})",
         "if outer(if Guest { name = name }.ok {}) {}",
         // Parenthesized: one case, intentionally split across two literals.
-        ("if test<Sym<:ok(Sym<:inner(int)>)>>(0) and "
+        ("if test[Sym<:ok(Sym<:inner(int)>)>](0) and "
          "Guest { name = name }.ok {}")};
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       char text[1024], crlf[2048];
@@ -1392,7 +1529,7 @@ int main(void) {
         "if items.(Guest { name = name }) {}",
         "while items.(Guest { name = name }) {}",
         "for x in items.(Guest { name = name }) {}",
-        "if check<Sym<:ok(Sym<:inner(int)>)>>(Guest { name = name }) {}"};
+        "if check[Sym<:ok(Sym<:inner(int)>)>](Guest { name = name }) {}"};
     for (size_t i = 0; i < sizeof(valid) / sizeof(valid[0]); i++) {
       char source[512];
       snprintf(source, sizeof(source), "main() { %s }", valid[i]);
@@ -1494,7 +1631,7 @@ int main(void) {
         &arena, "x |> Report.summary(a)",
         "(|> (name x) (call (field (name Report) summary) (name a)))");
     expression_dump(
-        &arena, "x |> Report.make<T>()?",
+        &arena, "x |> Report.make[T]()?",
         "(|> (name x) (? (call (field (name Report) make) (types T))))");
     expression_dump(&arena, "x |> f(g())",
                     "(|> (name x) (call (name f) (call (name g))))");
@@ -1614,7 +1751,7 @@ int main(void) {
   TEST("statement lookahead leaves filtered tokens unchanged and is "
        "repeatable") {
     Parsed *v =
-        parse(&arena, "tick(make<Vec<Vec<int>>>(User { name: \"Bob\" }))\n"
+        parse(&arena, "tick(make[Vec[Vec[int]]](User { name: \"Bob\" }))\n"
                       "main() {}\n");
     TokenArray filtered = newline_filter(&arena, v->raw);
     Token *saved = arena_alloc(&arena, filtered.count * sizeof(*saved));
@@ -1672,7 +1809,7 @@ int main(void) {
   TEST("spans, source slices, name interning and virtual type closers survive "
        "parsing") {
     const char *text =
-        "Nested = Vec<Vec<int>>\nmain(x: Nested) {\nlet x = x\nx\n}\n";
+        "Nested = Vec[Vec[Sym<Sym<:x>>]]\nmain(x: Nested) {\nlet x = x\nx\n}\n";
     Parsed *v = parse(&arena, text);
     ASSERT_EQ_INT(0, v->diagnostics.count);
     ASSERT_EQ_INT(0, v->program->span.start);
@@ -1680,8 +1817,8 @@ int main(void) {
     Type *outer = v->program->items[0]->as.alias;
     Type *inner = outer->as.apply.args[0];
     ASSERT_EQ_INT(inner->span.end + 1, outer->span.end);
-    ASSERT_EQ_INT('>', v->source->text[inner->span.end - 1]);
-    ASSERT_EQ_INT('>', v->source->text[outer->span.end - 1]);
+    ASSERT_EQ_INT(']', v->source->text[inner->span.end - 1]);
+    ASSERT_EQ_INT(']', v->source->text[outer->span.end - 1]);
     Decl *fn = v->program->items[1];
     Expr *body = fn->as.function.body;
     Decl *local = body->as.block.items[0].as.decl;
@@ -1728,10 +1865,12 @@ int main(void) {
       n += (size_t)sprintf(text + n, ".(0)");
     strcpy(text + n, " }\nafter() {}\n");
     invalid(&arena, text, "nesting limit");
-    n = (size_t)sprintf(text, "Big = int");
+    n = (size_t)sprintf(text, "Big = ");
     for (size_t i = 0; i < 1000; i++)
-      n += (size_t)sprintf(text + n, "[1]");
-    strcpy(text + n, "\nmain() {}\n");
+      n += (size_t)sprintf(text + n, "Arr[");
+    n += (size_t)sprintf(text + n, "int");
+    memset(text + n, ']', 1000);
+    strcpy(text + n + 1000, "\nmain() {}\n");
     invalid(&arena, text, "nesting limit");
   }
   TEST("malformed and arbitrary token streams terminate under sanitizers") {

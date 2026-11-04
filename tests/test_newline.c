@@ -104,33 +104,33 @@ int main(void) {
   TEST("type closers preserve separators, including nested >> and aliases") {
     const char *text =
         "Error = Sym<:bad>\nmain() {}\nUser {\n"
-        "x: Vec<Sym<:ok(int), :none>>\ny: int\nz: Mod.Box<int>\n}\n";
+        "x: Vec[Sym<:ok(int), :none>]\ny: int\nz: Mod.Box[int]\n}\n";
     check(&arena, text, text);
     check(&arena, "f() -> Sym<\n:ok(int),\n:none> { 1 }\n",
           "f() -> Sym<:ok(int), :none> { 1 }\n");
-    check(&arena, "Users =\nVec<int>\nmain() {}\n",
-          "Users = Vec<int>\nmain() {}\n");
-    check(&arena, "type\nUsers =\nVec<int>\n", "type\nUsers = Vec<int>\n");
-    check(&arena, "A = Vec<Vec<int>>\nB = Mod.Box<int>\n",
-          "A = Vec<Vec<int>>\nB = Mod.Box<int>\n");
+    check(&arena, "Users =\nVec[int]\nmain() {}\n",
+          "Users = Vec[int]\nmain() {}\n");
+    check(&arena, "type\nUsers =\nVec[int]\n", "type\nUsers = Vec[int]\n");
+    check(&arena, "A = Vec[Vec[int]]\nB = Mod.Box[int]\n",
+          "A = Vec[Vec[int]]\nB = Mod.Box[int]\n");
     check(&arena, "main() { Upper = foo < value >\n next }",
           "main() { Upper = foo < value > next }");
-    check(&arena, "User {\nusers:\nMod.\nVec<User>\ncount: int\n}\n",
-          "User {\nusers: Mod.Vec<User>\ncount: int\n}\n");
+    check(&arena, "User {\nusers:\nMod.\nVec[User]\ncount: int\n}\n",
+          "User {\nusers: Mod.Vec[User]\ncount: int\n}\n");
   }
   TEST("dbl and recovery-only dub preserve type and expression separators") {
-    check(&arena, "Box {\nx: Vec<dbl>\ny: dbl\n}\n",
-          "Box {\nx: Vec<dbl>\ny: dbl\n}\n");
-    check(&arena, "Box {\nx: Vec<dub>\ny: dub\n}\n",
-          "Box {\nx: Vec<dub>\ny: dub\n}\n");
+    check(&arena, "Box {\nx: Vec[dbl]\ny: dbl\n}\n",
+          "Box {\nx: Vec[dbl]\ny: dbl\n}\n");
+    check(&arena, "Box {\nx: Vec[dub]\ny: dub\n}\n",
+          "Box {\nx: Vec[dub]\ny: dub\n}\n");
     check(&arena, "f() ->\n dbl\n{ 1 }\n", "f() -> dbl\n{ 1 }\n");
     check(&arena, "f() ->\n dub\n{ 1 }\n", "f() -> dub\n{ 1 }\n");
     check(&arena, "dbl(\n1\n)\nnext()\n", "dbl(1)\nnext()\n");
   }
   TEST("return arrows continue, while generic type closers retain newlines") {
     check(&arena, "f()->\n// continued\nint { 1 }\n", "f()->int { 1 }\n");
-    check(&arena, "f() ->\r\n\r\nMod.Box<Vec<int>>\r\n{}\r\n",
-          "f() -> Mod.Box<Vec<int>>\r\n{}\r\n");
+    check(&arena, "f() ->\r\n\r\nMod.Box[Vec[int]]\r\n{}\r\n",
+          "f() -> Mod.Box[Vec[int]]\r\n{}\r\n");
     check(&arena, "f()\n-> int {}\n", "f()\n-> int {}\n");
     check(&arena, "f():\nint { 1 }\n", "f():int { 1 }\n");
   }
@@ -142,8 +142,8 @@ int main(void) {
           "value |> {\n_ => Upper\n}\nNext\n");
     check(&arena, "Choice = Sym<:ok(int), _>\nmain() {}\n",
           "Choice = Sym<:ok(int), _>\nmain() {}\n");
-    check(&arena, "lower {\nUpper: Vec<Item>\nnext: int\n}\n",
-          "lower {\nUpper: Vec<Item>\nnext: int\n}\n");
+    check(&arena, "lower {\nUpper: Vec[Item]\nnext: int\n}\n",
+          "lower {\nUpper: Vec[Item]\nnext: int\n}\n");
   }
   TEST("malformed delimiters do not discard EOF or diagnose twice") {
     check(&arena, "}\nfoo)\nbar]\n", "}\nfoo)\nbar]\n");
