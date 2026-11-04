@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **106 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **109 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -343,9 +343,15 @@ and suppression of replacements that would create keywords. `MAX_USERS` suggests
 `object-c-names.brf` retains its outputs, C-keyword field `auto`, naive joined-name
 collision (`A_b.c` versus `A.b_c`) and generated/global function-name collision.
 Lowercase type `string` is no longer expressible, so it becomes `String`; emitted
-names change, not runtime observations. The inventory is now 106 files. Tag,
-pattern-binding/module casing, unions/payloads and members/receivers remain
-pending.
+names change, not runtime observations. The inventory was then 106 files.
+
+N1's tag-casing slice requires lowercase tag names in type entries, values and
+patterns. `tag-names.brf` observes unchanged heap payloads, wildcard payload
+patterns, valid mixed-case suffixes and tag-looking strings. Two error fixtures
+check four exact fixes and keyword/wildcard non-fixes. This does not case-fold tag
+identities, change payload syntax or change `:ok`-based outcome rules. The inventory
+is now 109 files. Unions/payloads, members/receivers, pattern-binding/module casing
+and native chapter audits remain pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

@@ -188,6 +188,24 @@ int main(void) {
     valid(&a, "P { value: int }\nread(p: P) -> int { p.value }\nmain() { "
               "read(P { value = 1 }) }");
   }
+  TEST("invalid tag names block lowering without folding their identities") {
+    const char *sources[] = {"A = Sym<:Bad>\nmain() {}", "main() { :Bad }",
+                             "main() { :ok(1) |> { :Bad => ()\n_ => () } }"};
+    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
+      Result r = check(&a, sources[i]);
+      ASSERT_TRUE(r.errors.count > 0);
+      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+      if (r.errors.count) {
+        ASSERT_EQ_INT(0,
+                      strcmp("Symbol tags must start with a lowercase letter.",
+                             r.errors.items[0]->message));
+        ASSERT_TRUE(r.errors.items[0]->fixes != NULL);
+      }
+    }
+    valid(&a, "A = Sym<:value_HTTP(int)>\nmain() { :value_HTTP(1) |> { "
+              ":value_HTTP(_) => () } }");
+  }
   TEST("old literal field colons cannot reach lowering") {
     Result r = check(&a, "P { x: int }\nmain() { let p = P { x: 1 } }");
     ASSERT_EQ_INT(1, r.errors.count);

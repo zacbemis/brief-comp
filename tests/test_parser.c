@@ -1403,19 +1403,103 @@ int main(void) {
         ASSERT_TRUE(v->diagnostics.items[0]->fixes == NULL);
     }
   }
+  TEST("tag spelling roles require lowercase names with exact fixes") {
+    struct {
+      const char *code, *bad, *fixed;
+    } cases[] = {
+        {"A = Sym<:Bad>\n", "Bad", "bad"},
+        {"A = Sym<:Bad(int), :other>\n", "Bad", "bad"},
+        {"A = Vec[Sym<:BAD_VALUE(int)>]\n", "BAD_VALUE", "badValue"},
+        {"main() { :Bad }\n", "Bad", "bad"},
+        {"main() { :Bad(1) }\n", "Bad", "bad"},
+        {"main() { : /* keep */ BAD_VALUE(1) }\n", "BAD_VALUE", "badValue"},
+        {"main() { value |> { :Bad => 1\n_ => 0 } }\n", "Bad", "bad"},
+        {"main() { value |> { :Bad(payload) => payload } }\n", "Bad", "bad"}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned crlf = 0; crlf < 2; crlf++) {
+        char text[1024];
+        size_t n = 0;
+        for (size_t j = 0; cases[i].code[j]; j++) {
+          if (crlf && cases[i].code[j] == '\n')
+            text[n++] = '\r';
+          text[n++] = cases[i].code[j];
+        }
+        strcpy(text + n, "after() {}\n");
+        Parsed *v = parse(&arena, text);
+        ASSERT_EQ_INT(1, v->diagnostics.count);
+        ASSERT_EQ_INT(2, v->program->count);
+        if (v->diagnostics.count != 1)
+          continue;
+        Diagnostic *d = v->diagnostics.items[0];
+        size_t at = (size_t)(strstr(text, cases[i].bad) - text);
+        ASSERT_EQ_INT(0,
+                      strcmp("Symbol tags must start with a lowercase letter.",
+                             d->message));
+        ASSERT_TRUE(d->span.file == v->source);
+        ASSERT_EQ_INT(at, d->span.start);
+        ASSERT_EQ_INT(at + strlen(cases[i].bad), d->span.end);
+        ASSERT_TRUE(d->fixes && d->fixes == d->last_fix && !d->fixes->next);
+        if (d->fixes) {
+          ASSERT_TRUE(d->fixes->span.file == v->source);
+          ASSERT_EQ_INT(at, d->fixes->span.start);
+          ASSERT_EQ_INT(d->span.end, d->fixes->span.end);
+          ASSERT_EQ_INT(0, strcmp(cases[i].fixed, d->fixes->replacement));
+          Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
+          ASSERT_EQ_INT(0, fixed->diagnostics.count);
+          ASSERT_EQ_INT(2, fixed->program->count);
+        }
+        TokenArray filtered = newline_filter(&arena, v->raw);
+        size_t bytes = filtered.count * sizeof(Token);
+        Token *saved = arena_alloc(&arena, bytes);
+        memcpy(saved, filtered.items, bytes);
+        Diagnostics again;
+        diagnostics_init(&again, &arena);
+        parse_program(&arena, &v->names, filtered, &again);
+        ASSERT_EQ_INT(1, again.count);
+        ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+      }
+    }
+  }
+  TEST("tag fixes avoid keywords and wildcards; payload errors stay primary") {
+    const char *no_fix[] = {
+        "A = Sym<:Int>\n", "main() { :Not }", "main() { x |> { :True => 0 } }",
+        "A = Sym<:_>\n",   "main() { :_ }",   "main() { x |> { :_ => 0 } }"};
+    for (size_t i = 0; i < sizeof(no_fix) / sizeof(*no_fix); i++) {
+      Parsed *v = parse(&arena, no_fix[i]);
+      ASSERT_EQ_INT(1, v->diagnostics.count);
+      if (v->diagnostics.count)
+        ASSERT_TRUE(v->diagnostics.items[0]->fixes == NULL);
+    }
+    const char *bad[] = {"A = Sym<:Bad()>\n", "main() { :Bad() }",
+                         "main() { x |> { :Bad() => 0 } }"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
+      Parsed *v = parse(&arena, bad[i]);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      for (size_t j = 0; j < v->diagnostics.count; j++)
+        ASSERT_TRUE(v->diagnostics.items[j]->fixes == NULL);
+    }
+    program_dump(
+        &arena,
+        "A = Sym<:bad_HTTP(int), _>\nmain() { :bad_HTTP(1) |> { :bad_HTTP(_) "
+        "=> () } }",
+        "(program (type A (Sym (:bad_HTTP int) _)) (fn main (params) _ "
+        "(block (|> (symbol bad_HTTP (int 1)) (match (arm (tag bad_HTTP "
+        "(wildcard)) (unit)))))))\n");
+  }
   TEST("casing errors keep source order around nested declarations") {
     // Each name is checked after its syntax completes but reported where it
-    // was read, before the errors from its parameters, fields or body.
-    const char *text = "Foo(X: int, y: Sym<:bad>) -> int {\n"
+    // was read, before the errors from its parameters, body or payload.
+    const char *text = "Foo(X: int, y: Sym<:Bad>) -> int {\n"
                        "  let Y = X\n"
                        "  for I in 0..3 {\n"
-                       "    let Z = :bad\n"
+                       "    let Z = :Bad\n"
                        "  }\n"
                        "  Y\n"
                        "}\n"
                        "box { Field: int }\n"
                        "main() {}\n";
-    const char *names[] = {"Foo", "X", "Y", "I", "Z", "box", "Field"};
+    const char *names[] = {"Foo", "X",   "Bad", "Y",    "I",
+                           "Z",   "Bad", "box", "Field"};
     Parsed *v = parse(&arena, text);
     size_t count = sizeof(names) / sizeof(*names);
     ASSERT_EQ_INT(count, v->diagnostics.count);

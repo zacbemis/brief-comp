@@ -1,0 +1,3 @@
+// parse-error: line 3
+// Why: A symbol tag starts with a lowercase letter, including in a type.
+A = Sym<:Bad>

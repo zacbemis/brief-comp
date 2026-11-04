@@ -1,0 +1,6 @@
+A = Sym<:Int> // error: Symbol tags must start with a lowercase letter.
+B = Sym<:_> // error: Symbol tags must start with a lowercase letter.
+main() {
+  :Not // error: Symbol tags must start with a lowercase letter.
+  value |> { :True => () } // error: Symbol tags must start with a lowercase letter.
+}

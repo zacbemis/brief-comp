@@ -133,7 +133,7 @@ static int expect_identifier(Parser *p, const char *message) {
   error(p, message);
   return 0;
 }
-// Checks a declared name once its construct's syntax is complete, so
+// Checks a declared name or tag once its construct's syntax is complete, so
 // broken syntax keeps its primary error alone. `mark` is the diagnostic count
 // when the name was read: the error is placed there, before any errors from
 // later source. Returns a safe correction, but callers decide whether recovery
@@ -539,13 +539,17 @@ static Type *type_inner(Parser *p) {
       if (match(p, TOK_COLON)) {
         if (!expect_identifier(p, "Expected a symbol tag after ':'."))
           return NULL;
-        entry.tag = name(p, p->previous);
+        Token tag = p->previous;
+        size_t mark = p->diagnostics->count;
+        entry.tag = name(p, tag);
         if (match(p, TOK_LPAREN)) {
           entry.type = type(p);
           if (!entry.type ||
               !expect(p, TOK_RPAREN, "Expected ')' after symbol payload type."))
             return NULL;
         }
+        check_name_case(p, tag, mark, TOK_LOWER_NAME,
+                        "Symbol tags must start with a lowercase letter.");
       } else if (at(p, TOK_WILDCARD)) {
         entry.type = new_type(p, TYPE_INFER, take(p).span);
       } else {
@@ -1206,14 +1210,18 @@ static Expr *primary(Parser *p, int allow_struct) {
   if (match(p, TOK_COLON)) {
     if (!expect_identifier(p, "Expected a symbol tag after ':'."))
       return NULL;
+    Token tag = p->previous;
+    size_t mark = p->diagnostics->count;
     Expr *e = new_expr(p, EXPR_SYMBOL, token.span);
-    e->as.symbol.tag = name(p, p->previous);
+    e->as.symbol.tag = name(p, tag);
     if (match(p, TOK_LPAREN)) {
       e->as.symbol.payload = expression(p, 0, 1);
       if (!e->as.symbol.payload ||
           !expect(p, TOK_RPAREN, "Expected ')' after symbol payload."))
         return NULL;
     }
+    check_name_case(p, tag, mark, TOK_LOWER_NAME,
+                    "Symbol tags must start with a lowercase letter.");
     e->span = through(token.span, p->previous.span);
     return e;
   }
@@ -1352,14 +1360,18 @@ static Pattern *pattern_inner(Parser *p) {
   if (match(p, TOK_COLON)) {
     if (!expect_identifier(p, "Expected a symbol tag in pattern."))
       return NULL;
+    Token tag = p->previous;
+    size_t mark = p->diagnostics->count;
     Pattern *v = new_pattern(p, PAT_SYMBOL, start.span);
-    v->as.symbol.tag = name(p, p->previous);
+    v->as.symbol.tag = name(p, tag);
     if (match(p, TOK_LPAREN)) {
       v->as.symbol.payload = pattern(p);
       if (!v->as.symbol.payload ||
           !expect(p, TOK_RPAREN, "Expected ')' after payload pattern."))
         return NULL;
     }
+    check_name_case(p, tag, mark, TOK_LOWER_NAME,
+                    "Symbol tags must start with a lowercase letter.");
     v->span = through(start.span, p->previous.span);
     return v;
   }

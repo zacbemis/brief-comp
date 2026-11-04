@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: A wildcard may be a payload pattern, not a tag name.
+main() {
+  value |> { :_ => () }
+}

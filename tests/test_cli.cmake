@@ -228,6 +228,17 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")
     message(FATAL_ERROR "corrected declaration casing failed (${status}):\n${errors}")
 endif()
 
+set(tag_casing "${TEST_DIR}/tag-casing.brf")
+file(WRITE "${tag_casing}" "main() { :Bad }\r\n")
+set(expected "error: Symbol tags must start with a lowercase letter.\n  --> ${tag_casing}:1:11\n  |\n1 | main() { :Bad }\n  |           ^~~\nhelp: write `main() { :bad }`\n")
+foreach(command IN ITEMS dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${tag_casing}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} tag fix (${status}):\n${errors}")
+    endif()
+endforeach()
+
 set(invalid "${TEST_DIR}/invalid.brf")
 file(WRITE "${invalid}" "main() {\n  \"\\q\"\n  @\n  /* unfinished\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"

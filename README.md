@@ -82,7 +82,8 @@ Array annotations use `Arr[Type]`, not sized postfix `Type[size]`. Generics and
 collections remain unimplemented. Symbol payloads/unions, other declaration/type
 structure and receivers await the full switch. Struct names start uppercase;
 functions, fields, parameters, bindings and loops require lowercase names, with
-safe casing fixes. Tag, pattern-binding and module casing await later slices.
+safe casing fixes. Symbol tags also require lowercase names in types, values
+and patterns. Pattern-binding/module casing still awaits its grammar slices.
 
 Diagnostics can carry machine-applicable fixes as byte spans and replacement
 text. These print as `help:` previews below the error and its notes. Previews
@@ -264,7 +265,7 @@ Panics terminate the process without unwinding owners.
   N1 retired all v0 native chapter scripts and bridges; replacement native audits
   return milestone by milestone. Run the inventory and its structural guards with
   `ctest --test-dir build -L doc-parser --output-on-failure`.
-- `tests/parse/`: 118 parser example files that must parse or be rejected
+- `tests/parse/`: 120 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
 
@@ -290,8 +291,8 @@ Wide and combining characters do not yet have special display-width handling.
 - [Next-version compiler plan](docs/plans/next-version.txt) (N0 complete;
   N1 identifier tokens, `not`, `dbl`, `->` returns, keyword-free aliases and
   `=` literal fields, single-file visibility, `.()` indexing and `Name[Type]`
-  arguments and declaration-role casing implemented; full syntax/native audits
-  pending)
+  arguments, declaration-role casing and symbol-tag casing implemented;
+  full syntax/native audits pending)
 - [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
 
 The overview links the remaining topic documents. Milestone 5 is complete for
