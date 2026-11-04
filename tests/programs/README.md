@@ -262,5 +262,10 @@ and the [final review](../first-version-review.md) records completed
 implementation/acceptance/README status verification. M6 is complete for the
 first-version scope, without claiming the deferred surrounding features.
 
+N1's first lexer slice adds five underscore-prefixed-name rejections to
+`errors/lex-and-parse.brf`. Each must report one complete lexical error without
+parser cascades; declaration grammar and keywords are otherwise unchanged.
+The fixture inventory remains 87 files.
+
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

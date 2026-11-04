@@ -10,7 +10,9 @@ typedef enum {
   TOK_NEWLINE,
 
   // Identifiers and literals
-  TOK_IDENT,
+  TOK_UPPER_NAME, // Names starting with A-Z.
+  TOK_LOWER_NAME, // Names starting with a-z.
+  TOK_WILDCARD,   // _ (not a name).
   TOK_INT_LIT,
   TOK_FLOAT_LIT,
   TOK_STR_LIT,
@@ -127,6 +129,7 @@ typedef struct {
   size_t count; // Includes errors and the final EOF token.
 } TokenArray;
 
+int token_is_name(TokenType type); // Excludes keywords and the wildcard.
 const char *token_type_name(TokenType type);
 
 #endif

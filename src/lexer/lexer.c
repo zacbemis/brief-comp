@@ -198,12 +198,18 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_IMPORT;
   if (len == 8 && memcmp(lexer->start, "continue", 8) == 0)
     return TOK_CONTINUE;
-  return TOK_IDENT;
+  if (*lexer->start == '_')
+    return TOK_WILDCARD;
+  return *lexer->start >= 'A' && *lexer->start <= 'Z' ? TOK_UPPER_NAME
+                                                      : TOK_LOWER_NAME;
 }
 
 static Token identifier(Lexer *lexer) {
   while (is_alpha(peek(lexer)) || is_digit(peek(lexer)))
     advance(lexer);
+  if (*lexer->start == '_' && lexer->current - lexer->start > 1)
+    return err_token(
+        lexer, "Names must start with a letter; '_' alone is a wildcard.");
   return make_token(lexer, identifier_type(lexer));
 }
 

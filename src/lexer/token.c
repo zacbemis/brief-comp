@@ -1,5 +1,9 @@
 #include "lexer/token.h"
 
+int token_is_name(TokenType type) {
+  return type == TOK_UPPER_NAME || type == TOK_LOWER_NAME;
+}
+
 const char *token_type_name(TokenType type) {
   switch (type) {
   case TOK_EOF:
@@ -8,8 +12,12 @@ const char *token_type_name(TokenType type) {
     return "TOK_ERR";
   case TOK_NEWLINE:
     return "TOK_NEWLINE";
-  case TOK_IDENT:
-    return "TOK_IDENT";
+  case TOK_UPPER_NAME:
+    return "TOK_UPPER_NAME";
+  case TOK_LOWER_NAME:
+    return "TOK_LOWER_NAME";
+  case TOK_WILDCARD:
+    return "TOK_WILDCARD";
   case TOK_INT_LIT:
     return "TOK_INT_LIT";
   case TOK_FLOAT_LIT:

@@ -43,6 +43,93 @@ int main(void) {
     ASSERT_EQ_INT(TOK_EOF, t.type);
   }
 
+  TEST("names classify by their first byte and '_' is a separate wildcard") {
+    Lexer lx;
+    init_lexer(&lx, "a Z alpha Alpha aB Ab x_2 X_2 BOOL Bool _");
+    expect(&lx, TOK_LOWER_NAME, "a");
+    expect(&lx, TOK_UPPER_NAME, "Z");
+    expect(&lx, TOK_LOWER_NAME, "alpha");
+    expect(&lx, TOK_UPPER_NAME, "Alpha");
+    expect(&lx, TOK_LOWER_NAME, "aB");
+    expect(&lx, TOK_UPPER_NAME, "Ab");
+    expect(&lx, TOK_LOWER_NAME, "x_2");
+    expect(&lx, TOK_UPPER_NAME, "X_2");
+    expect(&lx, TOK_UPPER_NAME, "BOOL");
+    expect(&lx, TOK_UPPER_NAME, "Bool");
+    expect(&lx, TOK_WILDCARD, "_");
+    expect(&lx, TOK_EOF, NULL);
+    for (unsigned i = 0; i < 26; i++) {
+      char lower[] = "aType9_name", upper[] = "Avalue_1";
+      lower[0] = (char)('a' + i);
+      upper[0] = (char)('A' + i);
+      init_lexer(&lx, lower);
+      expect(&lx, TOK_LOWER_NAME, lower);
+      expect(&lx, TOK_EOF, NULL);
+      init_lexer(&lx, upper);
+      expect(&lx, TOK_UPPER_NAME, upper);
+      expect(&lx, TOK_EOF, NULL);
+    }
+    ASSERT_EQ_STRN("TOK_UPPER_NAME", token_type_name(TOK_UPPER_NAME),
+                   strlen(token_type_name(TOK_UPPER_NAME)));
+    ASSERT_EQ_STRN("TOK_LOWER_NAME", token_type_name(TOK_LOWER_NAME),
+                   strlen(token_type_name(TOK_LOWER_NAME)));
+    ASSERT_EQ_STRN("TOK_WILDCARD", token_type_name(TOK_WILDCARD),
+                   strlen(token_type_name(TOK_WILDCARD)));
+    for (int t = TOK_EOF; t <= TOK_RBRACKET; t++)
+      ASSERT_EQ_INT(t == TOK_UPPER_NAME || t == TOK_LOWER_NAME,
+                    token_is_name((TokenType)t));
+  }
+
+  TEST("underscore-prefixed names report one complete lexeme and recover") {
+    const char *bad[] = {"_name", "__", "__Name", "_0", "_if", "_Sym"};
+    const char *message =
+        "Names must start with a letter; '_' alone is a wildcard.";
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+      for (unsigned ending = 0; ending < 2; ending++) {
+        char text[128];
+        snprintf(text, sizeof(text), "\t%s%sReady _ next", bad[i],
+                 ending ? "\r\n" : "\n");
+        SourceFile *source =
+            source_create(&test_arena, "names.brf", text, strlen(text));
+        Diagnostics diagnostics;
+        diagnostics_init(&diagnostics, &test_arena);
+        TokenArray tokens = lexer_tokenize(&test_arena, source, &diagnostics);
+        ASSERT_EQ_INT(6, tokens.count);
+        ASSERT_EQ_INT(1, diagnostics.count);
+        ASSERT_EQ_INT(TOK_ERR, tokens.items[0].type);
+        ASSERT_EQ_STRN(bad[i], tokens.items[0].start, tokens.items[0].length);
+        ASSERT_EQ_STRN(message, tokens.items[0].message,
+                       strlen(tokens.items[0].message));
+        ASSERT_EQ_INT(1, tokens.items[0].span.start);
+        ASSERT_EQ_INT(1 + strlen(bad[i]), tokens.items[0].span.end);
+        ASSERT_EQ_INT(TOK_NEWLINE, tokens.items[1].type);
+        ASSERT_EQ_INT(TOK_UPPER_NAME, tokens.items[2].type);
+        ASSERT_EQ_INT(TOK_WILDCARD, tokens.items[3].type);
+        ASSERT_EQ_INT(TOK_LOWER_NAME, tokens.items[4].type);
+        ASSERT_EQ_INT(TOK_EOF, tokens.items[5].type);
+        ASSERT_EQ_INT(2, tokens.items[2].line);
+        if (diagnostics.count) {
+          const Diagnostic *d = diagnostics.items[0];
+          ASSERT_EQ_STRN(message, d->message, strlen(d->message));
+          ASSERT_EQ_INT(tokens.items[0].span.start, d->span.start);
+          ASSERT_EQ_INT(tokens.items[0].span.end, d->span.end);
+          ASSERT_TRUE(d->fixes == NULL); // Removing '_' could create a keyword.
+        }
+        Lexer streamed;
+        lexer_init(&streamed, source, NULL);
+        for (size_t j = 0; j < tokens.count; j++) {
+          Token token = lexer_next_token(&streamed);
+          ASSERT_EQ_INT(tokens.items[j].type, token.type);
+          ASSERT_EQ_INT(tokens.items[j].span.start, token.span.start);
+          ASSERT_EQ_INT(tokens.items[j].span.end, token.span.end);
+        }
+        init_lexer(&streamed, bad[i]); // The invalid name may end at EOF.
+        expect(&streamed, TOK_ERR, bad[i]);
+        expect(&streamed, TOK_EOF, NULL);
+      }
+    }
+  }
+
   TEST("single-char punctuation and operators") {
     Lexer lx;
     init_lexer(&lx, "=+-*/%;:,.?(){}[]");
@@ -109,9 +196,9 @@ int main(void) {
     expect(&lx, TOK_LET, "let");
     expect(&lx, TOK_VAR, "var");
     expect(&lx, TOK_CONST, "const");
-    expect(&lx, TOK_IDENT, "letx");
-    expect(&lx, TOK_IDENT, "vary");
-    expect(&lx, TOK_IDENT, "constant");
+    expect(&lx, TOK_LOWER_NAME, "letx");
+    expect(&lx, TOK_LOWER_NAME, "vary");
+    expect(&lx, TOK_LOWER_NAME, "constant");
     expect(&lx, TOK_EOF, NULL);
   }
 
@@ -141,17 +228,17 @@ int main(void) {
     expect(&lx, TOK_IMPL, "impl");
     expect(&lx, TOK_PUB, "pub");
     expect(&lx, TOK_OVR, "ovr");
-    expect(&lx, TOK_IDENT, "types");
-    expect(&lx, TOK_IDENT, "enum");
-    expect(&lx, TOK_IDENT, "intx");
-    expect(&lx, TOK_IDENT, "sym");
-    expect(&lx, TOK_IDENT, "self");
-    expect(&lx, TOK_IDENT, "modern");
-    expect(&lx, TOK_IDENT, "imports");
-    expect(&lx, TOK_IDENT, "traits");
-    expect(&lx, TOK_IDENT, "implicit");
-    expect(&lx, TOK_IDENT, "public");
-    expect(&lx, TOK_IDENT, "override");
+    expect(&lx, TOK_LOWER_NAME, "types");
+    expect(&lx, TOK_LOWER_NAME, "enum");
+    expect(&lx, TOK_LOWER_NAME, "intx");
+    expect(&lx, TOK_LOWER_NAME, "sym");
+    expect(&lx, TOK_LOWER_NAME, "self");
+    expect(&lx, TOK_LOWER_NAME, "modern");
+    expect(&lx, TOK_LOWER_NAME, "imports");
+    expect(&lx, TOK_LOWER_NAME, "traits");
+    expect(&lx, TOK_LOWER_NAME, "implicit");
+    expect(&lx, TOK_LOWER_NAME, "public");
+    expect(&lx, TOK_LOWER_NAME, "override");
     expect(&lx, TOK_EOF, NULL);
   }
 
@@ -167,41 +254,41 @@ int main(void) {
     expect(&lx, TOK_BREAK, "break");
     expect(&lx, TOK_CONTINUE, "continue");
     expect(&lx, TOK_RET, "ret");
-    expect(&lx, TOK_IDENT, "iffy");
-    expect(&lx, TOK_IDENT, "elsewhere");
-    expect(&lx, TOK_IDENT, "format");
-    expect(&lx, TOK_IDENT, "inner");
-    expect(&lx, TOK_IDENT, "whiley");
-    expect(&lx, TOK_IDENT, "breaks");
-    expect(&lx, TOK_IDENT, "continued");
-    expect(&lx, TOK_IDENT, "retry");
+    expect(&lx, TOK_LOWER_NAME, "iffy");
+    expect(&lx, TOK_LOWER_NAME, "elsewhere");
+    expect(&lx, TOK_LOWER_NAME, "format");
+    expect(&lx, TOK_LOWER_NAME, "inner");
+    expect(&lx, TOK_LOWER_NAME, "whiley");
+    expect(&lx, TOK_LOWER_NAME, "breaks");
+    expect(&lx, TOK_LOWER_NAME, "continued");
+    expect(&lx, TOK_LOWER_NAME, "retry");
     expect(&lx, TOK_EOF, NULL);
   }
 
   TEST("function types from docs use the Fn keyword") {
     Lexer lx;
     init_lexer(&lx, "keep: Fn<(T): bool> fn Fns");
-    expect(&lx, TOK_IDENT, "keep");
+    expect(&lx, TOK_LOWER_NAME, "keep");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_FN, "Fn");
     expect(&lx, TOK_LESS_THAN, "<");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_IDENT, "T");
+    expect(&lx, TOK_UPPER_NAME, "T");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_BOOL, "bool");
     expect(&lx, TOK_GREATER_THAN, ">");
-    expect(&lx, TOK_IDENT, "fn");
-    expect(&lx, TOK_IDENT, "Fns");
+    expect(&lx, TOK_LOWER_NAME, "fn");
+    expect(&lx, TOK_UPPER_NAME, "Fns");
     expect(&lx, TOK_EOF, NULL);
   }
 
   TEST("empty type and typed bindings from docs") {
     Lexer lx;
     init_lexer(&lx, "log(message: str): () {\n  let count: lng = 0\n}");
-    expect(&lx, TOK_IDENT, "log");
+    expect(&lx, TOK_LOWER_NAME, "log");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_IDENT, "message");
+    expect(&lx, TOK_LOWER_NAME, "message");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_STR, "str");
     expect(&lx, TOK_RPAREN, ")");
@@ -211,7 +298,7 @@ int main(void) {
     expect(&lx, TOK_LBRACE, "{");
     expect(&lx, TOK_NEWLINE, "\n");
     expect(&lx, TOK_LET, "let");
-    expect(&lx, TOK_IDENT, "count");
+    expect(&lx, TOK_LOWER_NAME, "count");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_LNG, "lng");
     expect(&lx, TOK_EQUAL, "=");
@@ -224,14 +311,14 @@ int main(void) {
   TEST("keywords dropped from the syntax are plain identifiers") {
     Lexer lx;
     init_lexer(&lx, "mut shr unit struct module priv match return");
-    expect(&lx, TOK_IDENT, "mut");
-    expect(&lx, TOK_IDENT, "shr");
-    expect(&lx, TOK_IDENT, "unit");
-    expect(&lx, TOK_IDENT, "struct");
-    expect(&lx, TOK_IDENT, "module");
-    expect(&lx, TOK_IDENT, "priv");
-    expect(&lx, TOK_IDENT, "match");
-    expect(&lx, TOK_IDENT, "return");
+    expect(&lx, TOK_LOWER_NAME, "mut");
+    expect(&lx, TOK_LOWER_NAME, "shr");
+    expect(&lx, TOK_LOWER_NAME, "unit");
+    expect(&lx, TOK_LOWER_NAME, "struct");
+    expect(&lx, TOK_LOWER_NAME, "module");
+    expect(&lx, TOK_LOWER_NAME, "priv");
+    expect(&lx, TOK_LOWER_NAME, "match");
+    expect(&lx, TOK_LOWER_NAME, "return");
     expect(&lx, TOK_EOF, NULL);
   }
 
@@ -239,19 +326,19 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, "pub Collection<T> impl<T: HasUser> Vec<User>()");
     expect(&lx, TOK_PUB, "pub");
-    expect(&lx, TOK_IDENT, "Collection");
+    expect(&lx, TOK_UPPER_NAME, "Collection");
     expect(&lx, TOK_LESS_THAN, "<");
-    expect(&lx, TOK_IDENT, "T");
+    expect(&lx, TOK_UPPER_NAME, "T");
     expect(&lx, TOK_GREATER_THAN, ">");
     expect(&lx, TOK_IMPL, "impl");
     expect(&lx, TOK_LESS_THAN, "<");
-    expect(&lx, TOK_IDENT, "T");
+    expect(&lx, TOK_UPPER_NAME, "T");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_IDENT, "HasUser");
+    expect(&lx, TOK_UPPER_NAME, "HasUser");
     expect(&lx, TOK_GREATER_THAN, ">");
-    expect(&lx, TOK_IDENT, "Vec");
+    expect(&lx, TOK_UPPER_NAME, "Vec");
     expect(&lx, TOK_LESS_THAN, "<");
-    expect(&lx, TOK_IDENT, "User");
+    expect(&lx, TOK_UPPER_NAME, "User");
     expect(&lx, TOK_GREATER_THAN, ">");
     expect(&lx, TOK_LPAREN, "(");
     expect(&lx, TOK_RPAREN, ")");
@@ -261,9 +348,9 @@ int main(void) {
   TEST("nested generics close with a single shift token") {
     Lexer lx;
     init_lexer(&lx, "Vec<Vec<int>>");
-    expect(&lx, TOK_IDENT, "Vec");
+    expect(&lx, TOK_UPPER_NAME, "Vec");
     expect(&lx, TOK_LESS_THAN, "<");
-    expect(&lx, TOK_IDENT, "Vec");
+    expect(&lx, TOK_UPPER_NAME, "Vec");
     expect(&lx, TOK_LESS_THAN, "<");
     expect(&lx, TOK_INT, "int");
     expect(&lx, TOK_RSHIFT, ">>");
@@ -276,19 +363,19 @@ int main(void) {
     expect(&lx, TOK_SYM, "Sym");
     expect(&lx, TOK_LESS_THAN, "<");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_IDENT, "ok");
+    expect(&lx, TOK_LOWER_NAME, "ok");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_IDENT, "User");
+    expect(&lx, TOK_UPPER_NAME, "User");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_COMMA, ",");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_IDENT, "err");
+    expect(&lx, TOK_LOWER_NAME, "err");
     expect(&lx, TOK_LPAREN, "(");
     expect(&lx, TOK_STR, "str");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_COMMA, ",");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_IDENT, "missing");
+    expect(&lx, TOK_LOWER_NAME, "missing");
     expect(&lx, TOK_GREATER_THAN, ">");
     expect(&lx, TOK_EOF, NULL);
   }
@@ -297,11 +384,11 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, ":ok x:int x: int");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_IDENT, "ok");
-    expect(&lx, TOK_IDENT, "x");
+    expect(&lx, TOK_LOWER_NAME, "ok");
+    expect(&lx, TOK_LOWER_NAME, "x");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_INT, "int");
-    expect(&lx, TOK_IDENT, "x");
+    expect(&lx, TOK_LOWER_NAME, "x");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_INT, "int");
     expect(&lx, TOK_EOF, NULL);
@@ -314,12 +401,12 @@ int main(void) {
     expect(&lx, TOK_LBRACKET, "[");
     expect(&lx, TOK_INT_LIT, "5");
     expect(&lx, TOK_RBRACKET, "]");
-    expect(&lx, TOK_IDENT, "User");
+    expect(&lx, TOK_UPPER_NAME, "User");
     expect(&lx, TOK_LBRACKET, "[");
     expect(&lx, TOK_RBRACKET, "]");
-    expect(&lx, TOK_IDENT, "arr");
+    expect(&lx, TOK_LOWER_NAME, "arr");
     expect(&lx, TOK_LBRACKET, "[");
-    expect(&lx, TOK_IDENT, "i");
+    expect(&lx, TOK_LOWER_NAME, "i");
     expect(&lx, TOK_RBRACKET, "]");
     expect(&lx, TOK_EOF, NULL);
   }
@@ -329,7 +416,7 @@ int main(void) {
     init_lexer(&lx, "true false trueish");
     expect(&lx, TOK_BOOL_LIT, "true");
     expect(&lx, TOK_BOOL_LIT, "false");
-    expect(&lx, TOK_IDENT, "trueish");
+    expect(&lx, TOK_LOWER_NAME, "trueish");
     expect(&lx, TOK_EOF, NULL);
   }
 
@@ -405,7 +492,7 @@ int main(void) {
           }
           expect(&lx, TOK_NEWLINE, "\n");
           Token kept = lexer_next_token(&lx);
-          ASSERT_EQ_INT(TOK_IDENT, kept.type);
+          ASSERT_EQ_INT(TOK_LOWER_NAME, kept.type);
           ASSERT_EQ_STRN("kept", kept.start, kept.length);
           ASSERT_EQ_INT(2, source_position(source, kept.span.start).line);
           ASSERT_EQ_INT(1, source_position(source, kept.span.start).column);
@@ -429,19 +516,19 @@ int main(void) {
     expect(&lx, TOK_INT_LIT, "1");
     expect(&lx, TOK_ELSE, "else");
     expect(&lx, TOK_INT_LIT, "1");
-    expect(&lx, TOK_IDENT, "equal");
+    expect(&lx, TOK_LOWER_NAME, "equal");
     expect(&lx, TOK_INT_LIT, "1");
-    expect(&lx, TOK_IDENT, "e2name");
+    expect(&lx, TOK_LOWER_NAME, "e2name");
     expect(&lx, TOK_INT_LIT, "1");
-    expect(&lx, TOK_IDENT, "E_2");
+    expect(&lx, TOK_UPPER_NAME, "E_2");
     expect(&lx, TOK_INT_LIT, "1");
-    expect(&lx, TOK_IDENT, "e");
+    expect(&lx, TOK_LOWER_NAME, "e");
     expect(&lx, TOK_PLUS, "+");
-    expect(&lx, TOK_IDENT, "name");
+    expect(&lx, TOK_LOWER_NAME, "name");
     expect(&lx, TOK_FLOAT_LIT, "1.0");
-    expect(&lx, TOK_IDENT, "e2name");
-    expect(&lx, TOK_IDENT, "e2");
-    expect(&lx, TOK_IDENT, "E2");
+    expect(&lx, TOK_LOWER_NAME, "e2name");
+    expect(&lx, TOK_LOWER_NAME, "e2");
+    expect(&lx, TOK_UPPER_NAME, "E2");
     expect(&lx, TOK_EOF, "");
     init_lexer(&lx, "1e2+3 1E-2..4 0.5e+2.foo(1e2)");
     expect(&lx, TOK_ERR, "1e2");
@@ -452,7 +539,7 @@ int main(void) {
     expect(&lx, TOK_INT_LIT, "4");
     expect(&lx, TOK_ERR, "0.5e+2");
     expect(&lx, TOK_PERIOD, ".");
-    expect(&lx, TOK_IDENT, "foo");
+    expect(&lx, TOK_LOWER_NAME, "foo");
     expect(&lx, TOK_LPAREN, "(");
     expect(&lx, TOK_ERR, "1e2");
     expect(&lx, TOK_RPAREN, ")");
@@ -468,7 +555,7 @@ int main(void) {
     expect(&lx, TOK_INT_LIT, "2");
     expect(&lx, TOK_INT_LIT, "1");
     expect(&lx, TOK_PERIOD, ".");
-    expect(&lx, TOK_IDENT, "e2");
+    expect(&lx, TOK_LOWER_NAME, "e2");
     expect(&lx, TOK_EOF, "");
   }
 
@@ -480,9 +567,9 @@ int main(void) {
     expect(&lx, TOK_INT_LIT, "100");
     expect(&lx, TOK_INT_LIT, "0");
     expect(&lx, TOK_DOT_DOT, "..");
-    expect(&lx, TOK_IDENT, "len");
+    expect(&lx, TOK_LOWER_NAME, "len");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_IDENT, "arr");
+    expect(&lx, TOK_LOWER_NAME, "arr");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_EOF, NULL);
   }
@@ -491,7 +578,7 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, "let x = 5");
     expect(&lx, TOK_LET, "let");
-    expect(&lx, TOK_IDENT, "x");
+    expect(&lx, TOK_LOWER_NAME, "x");
     expect(&lx, TOK_EQUAL, "=");
     expect(&lx, TOK_INT_LIT, "5");
     expect(&lx, TOK_EOF, NULL);
@@ -501,7 +588,7 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, "const MAX_USERS = 100");
     expect(&lx, TOK_CONST, "const");
-    expect(&lx, TOK_IDENT, "MAX_USERS");
+    expect(&lx, TOK_UPPER_NAME, "MAX_USERS");
     expect(&lx, TOK_EQUAL, "=");
     expect(&lx, TOK_INT_LIT, "100");
     expect(&lx, TOK_EOF, NULL);
@@ -511,7 +598,7 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, "let x = 5 // trailing comment\nvar");
     expect(&lx, TOK_LET, "let");
-    expect(&lx, TOK_IDENT, "x");
+    expect(&lx, TOK_LOWER_NAME, "x");
     expect(&lx, TOK_EQUAL, "=");
     expect(&lx, TOK_INT_LIT, "5");
     expect(&lx, TOK_NEWLINE, "\n");
@@ -525,7 +612,7 @@ int main(void) {
     expect(&lx, TOK_LET, "let");
     expect(&lx, TOK_NEWLINE, "\n");
     Token id = lexer_next_token(&lx);
-    ASSERT_EQ_INT(TOK_IDENT, id.type);
+    ASSERT_EQ_INT(TOK_LOWER_NAME, id.type);
     ASSERT_EQ_STRN("y", id.start, id.length);
     ASSERT_EQ_INT(2, id.line);
   }
@@ -534,12 +621,12 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, "x\ny");
     Token a = lexer_next_token(&lx);
-    ASSERT_EQ_INT(TOK_IDENT, a.type);
+    ASSERT_EQ_INT(TOK_LOWER_NAME, a.type);
     ASSERT_EQ_INT(1, a.line);
     Token nl = lexer_next_token(&lx);
     ASSERT_EQ_INT(TOK_NEWLINE, nl.type);
     Token b = lexer_next_token(&lx);
-    ASSERT_EQ_INT(TOK_IDENT, b.type);
+    ASSERT_EQ_INT(TOK_LOWER_NAME, b.type);
     ASSERT_EQ_INT(2, b.line);
   }
 
@@ -565,15 +652,15 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, "if y == 0 { err } else { ok }");
     expect(&lx, TOK_IF, "if");
-    expect(&lx, TOK_IDENT, "y");
+    expect(&lx, TOK_LOWER_NAME, "y");
     expect(&lx, TOK_EQUAL_EQUAL, "==");
     expect(&lx, TOK_INT_LIT, "0");
     expect(&lx, TOK_LBRACE, "{");
-    expect(&lx, TOK_IDENT, "err");
+    expect(&lx, TOK_LOWER_NAME, "err");
     expect(&lx, TOK_RBRACE, "}");
     expect(&lx, TOK_ELSE, "else");
     expect(&lx, TOK_LBRACE, "{");
-    expect(&lx, TOK_IDENT, "ok");
+    expect(&lx, TOK_LOWER_NAME, "ok");
     expect(&lx, TOK_RBRACE, "}");
     expect(&lx, TOK_EOF, NULL);
   }
@@ -582,13 +669,13 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, "if age < 18 { ret :err(\"Age is too low\") }");
     expect(&lx, TOK_IF, "if");
-    expect(&lx, TOK_IDENT, "age");
+    expect(&lx, TOK_LOWER_NAME, "age");
     expect(&lx, TOK_LESS_THAN, "<");
     expect(&lx, TOK_INT_LIT, "18");
     expect(&lx, TOK_LBRACE, "{");
     expect(&lx, TOK_RET, "ret");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_IDENT, "err");
+    expect(&lx, TOK_LOWER_NAME, "err");
     expect(&lx, TOK_LPAREN, "(");
     expect(&lx, TOK_STR_LIT, "\"Age is too low\"");
     expect(&lx, TOK_RPAREN, ")");
@@ -600,9 +687,9 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, "for user in users { }");
     expect(&lx, TOK_FOR, "for");
-    expect(&lx, TOK_IDENT, "user");
+    expect(&lx, TOK_LOWER_NAME, "user");
     expect(&lx, TOK_IN, "in");
-    expect(&lx, TOK_IDENT, "users");
+    expect(&lx, TOK_LOWER_NAME, "users");
     expect(&lx, TOK_LBRACE, "{");
     expect(&lx, TOK_RBRACE, "}");
     expect(&lx, TOK_EOF, NULL);
@@ -611,22 +698,22 @@ int main(void) {
   TEST("function declaration from docs") {
     Lexer lx;
     init_lexer(&lx, "add(x: int, y: int): int { x + y }");
-    expect(&lx, TOK_IDENT, "add");
+    expect(&lx, TOK_LOWER_NAME, "add");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_IDENT, "x");
+    expect(&lx, TOK_LOWER_NAME, "x");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_INT, "int");
     expect(&lx, TOK_COMMA, ",");
-    expect(&lx, TOK_IDENT, "y");
+    expect(&lx, TOK_LOWER_NAME, "y");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_INT, "int");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_INT, "int");
     expect(&lx, TOK_LBRACE, "{");
-    expect(&lx, TOK_IDENT, "x");
+    expect(&lx, TOK_LOWER_NAME, "x");
     expect(&lx, TOK_PLUS, "+");
-    expect(&lx, TOK_IDENT, "y");
+    expect(&lx, TOK_LOWER_NAME, "y");
     expect(&lx, TOK_RBRACE, "}");
     expect(&lx, TOK_EOF, NULL);
   }
@@ -635,35 +722,35 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, "let add = (x: int, y: int) => x + y");
     expect(&lx, TOK_LET, "let");
-    expect(&lx, TOK_IDENT, "add");
+    expect(&lx, TOK_LOWER_NAME, "add");
     expect(&lx, TOK_EQUAL, "=");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_IDENT, "x");
+    expect(&lx, TOK_LOWER_NAME, "x");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_INT, "int");
     expect(&lx, TOK_COMMA, ",");
-    expect(&lx, TOK_IDENT, "y");
+    expect(&lx, TOK_LOWER_NAME, "y");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_INT, "int");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_FAT_ARROW, "=>");
-    expect(&lx, TOK_IDENT, "x");
+    expect(&lx, TOK_LOWER_NAME, "x");
     expect(&lx, TOK_PLUS, "+");
-    expect(&lx, TOK_IDENT, "y");
+    expect(&lx, TOK_LOWER_NAME, "y");
     expect(&lx, TOK_EOF, NULL);
   }
 
   TEST("mutable borrow parameter from docs") {
     Lexer lx;
     init_lexer(&lx, "setAge(user: &User, age: int)");
-    expect(&lx, TOK_IDENT, "setAge");
+    expect(&lx, TOK_LOWER_NAME, "setAge");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_IDENT, "user");
+    expect(&lx, TOK_LOWER_NAME, "user");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_BIT_AND, "&");
-    expect(&lx, TOK_IDENT, "User");
+    expect(&lx, TOK_UPPER_NAME, "User");
     expect(&lx, TOK_COMMA, ",");
-    expect(&lx, TOK_IDENT, "age");
+    expect(&lx, TOK_LOWER_NAME, "age");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_INT, "int");
     expect(&lx, TOK_RPAREN, ")");
@@ -673,61 +760,61 @@ int main(void) {
   TEST("propagate and panic postfix operators from docs") {
     Lexer lx;
     init_lexer(&lx, "User.new(\"Bob\", 20)? file.close()! a != b");
-    expect(&lx, TOK_IDENT, "User");
+    expect(&lx, TOK_UPPER_NAME, "User");
     expect(&lx, TOK_PERIOD, ".");
-    expect(&lx, TOK_IDENT, "new");
+    expect(&lx, TOK_LOWER_NAME, "new");
     expect(&lx, TOK_LPAREN, "(");
     expect(&lx, TOK_STR_LIT, "\"Bob\"");
     expect(&lx, TOK_COMMA, ",");
     expect(&lx, TOK_INT_LIT, "20");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_QUESTION, "?");
-    expect(&lx, TOK_IDENT, "file");
+    expect(&lx, TOK_LOWER_NAME, "file");
     expect(&lx, TOK_PERIOD, ".");
-    expect(&lx, TOK_IDENT, "close");
+    expect(&lx, TOK_LOWER_NAME, "close");
     expect(&lx, TOK_LPAREN, "(");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_BANG, "!");
-    expect(&lx, TOK_IDENT, "a");
+    expect(&lx, TOK_LOWER_NAME, "a");
     expect(&lx, TOK_BANG_EQUAL, "!=");
-    expect(&lx, TOK_IDENT, "b");
+    expect(&lx, TOK_LOWER_NAME, "b");
     expect(&lx, TOK_EOF, NULL);
   }
 
   TEST("logical operators are the keywords and/or") {
     Lexer lx;
     init_lexer(&lx, "a and b or c android order");
-    expect(&lx, TOK_IDENT, "a");
+    expect(&lx, TOK_LOWER_NAME, "a");
     expect(&lx, TOK_AND, "and");
-    expect(&lx, TOK_IDENT, "b");
+    expect(&lx, TOK_LOWER_NAME, "b");
     expect(&lx, TOK_OR, "or");
-    expect(&lx, TOK_IDENT, "c");
-    expect(&lx, TOK_IDENT, "android");
-    expect(&lx, TOK_IDENT, "order");
+    expect(&lx, TOK_LOWER_NAME, "c");
+    expect(&lx, TOK_LOWER_NAME, "android");
+    expect(&lx, TOK_LOWER_NAME, "order");
     expect(&lx, TOK_EOF, NULL);
   }
 
   TEST("&& and || are not operators") {
     Lexer lx;
     init_lexer(&lx, "a && b || c");
-    expect(&lx, TOK_IDENT, "a");
+    expect(&lx, TOK_LOWER_NAME, "a");
     expect(&lx, TOK_BIT_AND, "&");
     expect(&lx, TOK_BIT_AND, "&");
-    expect(&lx, TOK_IDENT, "b");
+    expect(&lx, TOK_LOWER_NAME, "b");
     expect(&lx, TOK_BIT_OR, "|");
     expect(&lx, TOK_BIT_OR, "|");
-    expect(&lx, TOK_IDENT, "c");
+    expect(&lx, TOK_LOWER_NAME, "c");
     expect(&lx, TOK_EOF, NULL);
   }
 
   TEST("pipeline is distinct from bitwise or") {
     Lexer lx;
     init_lexer(&lx, "a | b |> c");
-    expect(&lx, TOK_IDENT, "a");
+    expect(&lx, TOK_LOWER_NAME, "a");
     expect(&lx, TOK_BIT_OR, "|");
-    expect(&lx, TOK_IDENT, "b");
+    expect(&lx, TOK_LOWER_NAME, "b");
     expect(&lx, TOK_PIPE, "|>");
-    expect(&lx, TOK_IDENT, "c");
+    expect(&lx, TOK_LOWER_NAME, "c");
     expect(&lx, TOK_EOF, NULL);
   }
 
@@ -735,7 +822,7 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, "age |> {\n< 18 => \"Minor\"\n18..100 => "
                     "\"Adult\"\n>= 100 => \"Senior\"\n}");
-    expect(&lx, TOK_IDENT, "age");
+    expect(&lx, TOK_LOWER_NAME, "age");
     expect(&lx, TOK_PIPE, "|>");
     expect(&lx, TOK_LBRACE, "{");
     expect(&lx, TOK_NEWLINE, "\n");
@@ -763,30 +850,30 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, "users.find(predicate) |> { :ok(user) => :found(user) "
                     ":none => :missing }");
-    expect(&lx, TOK_IDENT, "users");
+    expect(&lx, TOK_LOWER_NAME, "users");
     expect(&lx, TOK_PERIOD, ".");
-    expect(&lx, TOK_IDENT, "find");
+    expect(&lx, TOK_LOWER_NAME, "find");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_IDENT, "predicate");
+    expect(&lx, TOK_LOWER_NAME, "predicate");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_PIPE, "|>");
     expect(&lx, TOK_LBRACE, "{");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_IDENT, "ok");
+    expect(&lx, TOK_LOWER_NAME, "ok");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_IDENT, "user");
+    expect(&lx, TOK_LOWER_NAME, "user");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_FAT_ARROW, "=>");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_IDENT, "found");
+    expect(&lx, TOK_LOWER_NAME, "found");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_IDENT, "user");
+    expect(&lx, TOK_LOWER_NAME, "user");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_IDENT, "none");
+    expect(&lx, TOK_LOWER_NAME, "none");
     expect(&lx, TOK_FAT_ARROW, "=>");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_IDENT, "missing");
+    expect(&lx, TOK_LOWER_NAME, "missing");
     expect(&lx, TOK_RBRACE, "}");
     expect(&lx, TOK_EOF, NULL);
   }
@@ -795,19 +882,19 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, "mod User {\nimport std.Json\npub User {\nname: str\n}\n}");
     expect(&lx, TOK_MOD, "mod");
-    expect(&lx, TOK_IDENT, "User");
+    expect(&lx, TOK_UPPER_NAME, "User");
     expect(&lx, TOK_LBRACE, "{");
     expect(&lx, TOK_NEWLINE, "\n");
     expect(&lx, TOK_IMPORT, "import");
-    expect(&lx, TOK_IDENT, "std");
+    expect(&lx, TOK_LOWER_NAME, "std");
     expect(&lx, TOK_PERIOD, ".");
-    expect(&lx, TOK_IDENT, "Json");
+    expect(&lx, TOK_UPPER_NAME, "Json");
     expect(&lx, TOK_NEWLINE, "\n");
     expect(&lx, TOK_PUB, "pub");
-    expect(&lx, TOK_IDENT, "User");
+    expect(&lx, TOK_UPPER_NAME, "User");
     expect(&lx, TOK_LBRACE, "{");
     expect(&lx, TOK_NEWLINE, "\n");
-    expect(&lx, TOK_IDENT, "name");
+    expect(&lx, TOK_LOWER_NAME, "name");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_STR, "str");
     expect(&lx, TOK_NEWLINE, "\n");
@@ -822,16 +909,16 @@ int main(void) {
     init_lexer(&lx, "pub trait HasUser { getUser(value: Self): User }");
     expect(&lx, TOK_PUB, "pub");
     expect(&lx, TOK_TRAIT, "trait");
-    expect(&lx, TOK_IDENT, "HasUser");
+    expect(&lx, TOK_UPPER_NAME, "HasUser");
     expect(&lx, TOK_LBRACE, "{");
-    expect(&lx, TOK_IDENT, "getUser");
+    expect(&lx, TOK_LOWER_NAME, "getUser");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_IDENT, "value");
+    expect(&lx, TOK_LOWER_NAME, "value");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_SELF, "Self");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_IDENT, "User");
+    expect(&lx, TOK_UPPER_NAME, "User");
     expect(&lx, TOK_RBRACE, "}");
     expect(&lx, TOK_EOF, NULL);
   }
@@ -841,17 +928,17 @@ int main(void) {
     init_lexer(&lx, "impl Admin: HasUser { ovr pub getName(admin: Admin): "
                     "str }");
     expect(&lx, TOK_IMPL, "impl");
-    expect(&lx, TOK_IDENT, "Admin");
+    expect(&lx, TOK_UPPER_NAME, "Admin");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_IDENT, "HasUser");
+    expect(&lx, TOK_UPPER_NAME, "HasUser");
     expect(&lx, TOK_LBRACE, "{");
     expect(&lx, TOK_OVR, "ovr");
     expect(&lx, TOK_PUB, "pub");
-    expect(&lx, TOK_IDENT, "getName");
+    expect(&lx, TOK_LOWER_NAME, "getName");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_IDENT, "admin");
+    expect(&lx, TOK_LOWER_NAME, "admin");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_IDENT, "Admin");
+    expect(&lx, TOK_UPPER_NAME, "Admin");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_STR, "str");
@@ -862,9 +949,9 @@ int main(void) {
   TEST("double semicolon is a single SEMI_SEMI token") {
     Lexer lx;
     init_lexer(&lx, "some(i);; ; ;;;");
-    expect(&lx, TOK_IDENT, "some");
+    expect(&lx, TOK_LOWER_NAME, "some");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_IDENT, "i");
+    expect(&lx, TOK_LOWER_NAME, "i");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_SEMI_SEMI, ";;");
     expect(&lx, TOK_SEMI, ";");
@@ -876,11 +963,11 @@ int main(void) {
   TEST("function call with args tokenizes correctly") {
     Lexer lx;
     init_lexer(&lx, "add(5, x)");
-    expect(&lx, TOK_IDENT, "add");
+    expect(&lx, TOK_LOWER_NAME, "add");
     expect(&lx, TOK_LPAREN, "(");
     expect(&lx, TOK_INT_LIT, "5");
     expect(&lx, TOK_COMMA, ",");
-    expect(&lx, TOK_IDENT, "x");
+    expect(&lx, TOK_LOWER_NAME, "x");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_EOF, NULL);
   }
@@ -912,7 +999,7 @@ int main(void) {
       ASSERT_EQ_STRN("Unknown escape in string literal.", token.message,
                      strlen(token.message));
       ASSERT_TRUE(token.start == lx.source->text);
-      expect(&lx, TOK_IDENT, "x");
+      expect(&lx, TOK_LOWER_NAME, "x");
       expect(&lx, TOK_EOF, NULL);
       text[0] = '\'';
       text[3] = '\'';
@@ -921,7 +1008,7 @@ int main(void) {
       ASSERT_EQ_INT(TOK_ERR, token.type);
       ASSERT_EQ_STRN("Unknown escape in character literal.", token.message,
                      strlen(token.message));
-      expect(&lx, TOK_IDENT, "x");
+      expect(&lx, TOK_LOWER_NAME, "x");
       expect(&lx, TOK_EOF, NULL);
     }
   }
@@ -948,7 +1035,7 @@ int main(void) {
         ASSERT_EQ_INT(expected, highlight.start);
         ASSERT_EQ_INT(expected + 2, highlight.end);
       }
-      expect(&lx, TOK_IDENT, "next");
+      expect(&lx, TOK_LOWER_NAME, "next");
       expect(&lx, TOK_EOF, NULL);
     }
   }
@@ -1039,11 +1126,11 @@ int main(void) {
     init_lexer(&lx, "'a\nx");
     expect(&lx, TOK_ERR, "'a");
     expect(&lx, TOK_NEWLINE, "\n");
-    expect(&lx, TOK_IDENT, "x");
+    expect(&lx, TOK_LOWER_NAME, "x");
     init_lexer(&lx, "'\\\nx");
     expect(&lx, TOK_ERR, "'\\");
     expect(&lx, TOK_NEWLINE, "\n");
-    expect(&lx, TOK_IDENT, "x");
+    expect(&lx, TOK_LOWER_NAME, "x");
   }
 
   TEST("unterminated comments report the opening location only once") {
@@ -1054,7 +1141,7 @@ int main(void) {
     diagnostics_init(&diagnostics, &test_arena);
     Lexer lx;
     lexer_init(&lx, source, &diagnostics);
-    expect(&lx, TOK_IDENT, "x");
+    expect(&lx, TOK_LOWER_NAME, "x");
     expect(&lx, TOK_NEWLINE, "\n");
     expect(&lx, TOK_NEWLINE, "\n");
     Token error = lexer_next_token(&lx);
@@ -1088,10 +1175,10 @@ int main(void) {
   TEST("block-comment newlines do not merge statements") {
     Lexer lx;
     init_lexer(&lx, "x /* one\n\ntwo */ y");
-    expect(&lx, TOK_IDENT, "x");
+    expect(&lx, TOK_LOWER_NAME, "x");
     expect(&lx, TOK_NEWLINE, "\n");
     expect(&lx, TOK_NEWLINE, "\n");
-    expect(&lx, TOK_IDENT, "y");
+    expect(&lx, TOK_LOWER_NAME, "y");
     expect(&lx, TOK_EOF, NULL);
   }
 
@@ -1136,9 +1223,9 @@ int main(void) {
     TokenArray tokens = lexer_tokenize(&test_arena, source, &diagnostics);
     ASSERT_EQ_INT(5, tokens.count);
     ASSERT_EQ_INT(2, diagnostics.count);
-    ASSERT_EQ_INT(TOK_IDENT, tokens.items[0].type);
+    ASSERT_EQ_INT(TOK_LOWER_NAME, tokens.items[0].type);
     ASSERT_EQ_INT(TOK_ERR, tokens.items[1].type);
-    ASSERT_EQ_INT(TOK_IDENT, tokens.items[2].type);
+    ASSERT_EQ_INT(TOK_LOWER_NAME, tokens.items[2].type);
     ASSERT_EQ_INT(TOK_ERR, tokens.items[3].type);
     ASSERT_EQ_INT(TOK_EOF, tokens.items[tokens.count - 1].type);
   }
@@ -1167,7 +1254,7 @@ int main(void) {
   TEST("whole-file token arrays grow without losing earlier slices") {
     char text[600];
     for (size_t i = 0; i < sizeof(text); i += 2) {
-      text[i] = 'x';
+      text[i] = "xX_"[(i / 2) % 3];
       text[i + 1] = '\n';
     }
     SourceFile *source =
@@ -1175,7 +1262,9 @@ int main(void) {
     TokenArray tokens = lexer_tokenize(&test_arena, source, NULL);
     ASSERT_EQ_INT(601, tokens.count);
     for (size_t i = 0; i < 600; i++) {
-      ASSERT_EQ_INT(i % 2 ? TOK_NEWLINE : TOK_IDENT, tokens.items[i].type);
+      const TokenType kinds[] = {TOK_LOWER_NAME, TOK_UPPER_NAME, TOK_WILDCARD};
+      ASSERT_EQ_INT(i % 2 ? TOK_NEWLINE : kinds[(i / 2) % 3],
+                    tokens.items[i].type);
       ASSERT_EQ_INT(i, tokens.items[i].span.start);
       ASSERT_EQ_INT(i + 1, tokens.items[i].span.end);
     }

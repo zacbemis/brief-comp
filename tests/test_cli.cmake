@@ -10,10 +10,33 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "")
     message(FATAL_ERROR "valid lexing failed (${status}): ${errors}")
 endif()
 set(expected
-    "1:1 TOK_IDENT \"main\"\n1:5 TOK_LPAREN \"(\"\n1:6 TOK_RPAREN \")\"\n1:8 TOK_LBRACE \"{\"\n1:10 TOK_IDENT \"print\"\n1:15 TOK_LPAREN \"(\"\n1:16 TOK_STR_LIT \"\\\"Hello\\\"\"\n1:23 TOK_RPAREN \")\"\n1:25 TOK_RBRACE \"}\"\n1:26 TOK_NEWLINE \"\\n\"\n2:1 TOK_EOF \"\"\n")
+    "1:1 TOK_LOWER_NAME \"main\"\n1:5 TOK_LPAREN \"(\"\n1:6 TOK_RPAREN \")\"\n1:8 TOK_LBRACE \"{\"\n1:10 TOK_LOWER_NAME \"print\"\n1:15 TOK_LPAREN \"(\"\n1:16 TOK_STR_LIT \"\\\"Hello\\\"\"\n1:23 TOK_RPAREN \")\"\n1:25 TOK_RBRACE \"}\"\n1:26 TOK_NEWLINE \"\\n\"\n2:1 TOK_EOF \"\"\n")
 if(NOT output STREQUAL expected)
     message(FATAL_ERROR "unexpected token dump:\n${output}\nexpected:\n${expected}")
 endif()
+
+# Name classification is visible in the stable token dump, including '_'.
+set(names "${TEST_DIR}/names.brf")
+file(WRITE "${names}" "User user _ User2 user_2\n")
+execute_process(COMMAND "${BRIEF}" dump-tokens "${names}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+set(expected "1:1 TOK_UPPER_NAME \"User\"\n1:6 TOK_LOWER_NAME \"user\"\n1:11 TOK_WILDCARD \"_\"\n1:13 TOK_UPPER_NAME \"User2\"\n1:19 TOK_LOWER_NAME \"user_2\"\n1:25 TOK_NEWLINE \"\\n\"\n2:1 TOK_EOF \"\"\n")
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT output STREQUAL expected)
+    message(FATAL_ERROR "incorrect classified token dump (${status}):\n${errors}\n${output}\nexpected:\n${expected}")
+endif()
+
+# Invalid underscore names have one lexical diagnostic in each frontend mode,
+# with byte columns, tab-expanded excerpts and no guessed fix.
+set(underscores "${TEST_DIR}/underscores.brf")
+file(WRITE "${underscores}" "main() {\r\n\t_hidden\r\n}\r\n")
+set(expected "error: Names must start with a letter; '_' alone is a wildcard.\n  --> ${underscores}:2:2\n  |\n2 |     _hidden\n  |     ^~~~~~~\n")
+foreach(command IN ITEMS dump-tokens dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${underscores}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} underscore diagnostic (${status}):\n${errors}\nexpected:\n${expected}")
+    endif()
+endforeach()
 
 set(invalid "${TEST_DIR}/invalid.brf")
 file(WRITE "${invalid}" "main() {\n  \"\\q\"\n  @\n  /* unfinished\n")

@@ -12,5 +12,10 @@ main() {
   if Guest { name: "Bob" }.isAllowed() {} // error: Wrap struct literals in conditions or iterables in parentheses.
   while Guest { name: "Bob" }.ok {} // error: Wrap struct literals in conditions or iterables in parentheses.
   for i in 0..Limit { n: 2 }.n {} // error: Wrap struct literals in conditions or iterables in parentheses.
+  let _binding = 1 // error: Names must start with a letter; '_' alone is a wildcard.
+  let name = _value // error: Names must start with a letter; '_' alone is a wildcard.
+  object._field // error: Names must start with a letter; '_' alone is a wildcard.
+  for _item in 0..2 {} // error: Names must start with a letter; '_' alone is a wildcard.
+  :_tag // error: Names must start with a letter; '_' alone is a wildcard.
 }
 take(value: dub) {}

@@ -1,6 +1,6 @@
 # Plan: Moving the Compiler to the Next-Version Language
 
-> **Status: N0 complete; N1 not started.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
+> **Status: N0 complete; N1 in progress.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
 
 ## Goal
 
@@ -215,7 +215,9 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 
 ## Implementation progress
 
-N0 is complete; the compiler still accepts only the first version's language.
+N0 is complete. N1's identifier-token split is implemented; declaration grammar
+and keywords are still first-version. The full syntax switch, source conversion
+and replacement document audits remain pending.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -315,12 +317,49 @@ the previous compiler with this change on 1,265 checked-in and generated source
 files (including audit copies) found identical `emit-c` status, stdout and stderr:
 638 emitted C and 627 rejected inputs, with no differences.
 
-All three N0 items are complete. The next milestone is N1's syntax switch and
-manual conversion of the fixtures, examples and C tests; it has not started.
+All three N0 items are complete. N1 progress is recorded below.
 
 The `// fix:` marker from "New test forms" is in the program runner already, so
 N1's fixes can be tested as they are added. The `&&` and `||` fixtures and the
 first-version syntax audit's two logical-operator cases carry markers.
+
+### N1 (in progress): identifier classification
+
+- [x] `TOK_UPPER_NAME`, `TOK_LOWER_NAME`, a separate `TOK_WILDCARD`, and lexical
+  rejection of underscore-prefixed names.
+- [ ] Keyword/declaration/type/expression grammar changes, contextual casing
+  checks/fixes, struct methods and receiver inference.
+- [ ] Source conversion, old-syntax rejection tests, and replacement document
+  parser/N1 chapter audits in the full syntax switch.
+
+The lexer classifies ordinary names by their first ASCII byte, preserves their
+source spelling/spans, and reports a whole `_name` as one lexical error. `_`
+alone stays a wildcard. No fix is guessed: removing a prefix can create a keyword
+or a collision. `token_is_name` excludes both keywords and the wildcard.
+
+The existing parser and newline filter now consume the new tokens without
+changing declaration grammar or guessing a name's role from its casing. Existing
+wildcard-pattern and partial-return-type AST shapes are retained. The generic
+identifier predicate in the parser is transitional: declaration-site casing
+checks belong to the remaining grammar switch. No parallel grammar was added,
+and `not`, `self`, `dbl` and the removed-keyword changes are still pending.
+
+All existing lexer assertions now name their expected case-specific token, with
+no compatibility alias for `TOK_IDENT`. Added tests cover every ASCII initial
+letter, internal underscores/digits, keywords versus names, wildcard boundaries,
+stream/batch agreement, token-array growth, LF/CRLF, EOF, exact diagnostic spans,
+parser recovery without cascades and stable ASTs/newline filtering. CLI tests
+check the new token labels and tab-expanded diagnostics. Five rejection cases
+were added to the existing `lex-and-parse.brf` fixture; no fixture was removed.
+
+Validation: fresh `-Werror` builds passed GCC and Clang Debug with ASan/UBSan,
+and GCC Release (51/51 each), plus GCC Debug without sanitizers (37/37).
+clang-format 23.1.3 and `git diff --check` passed. Before adding the new rejection
+cases, the old/new compilers produced identical `emit-c` status, stdout and stderr
+on 1,275 existing source files (641 emitted C, 634 rejected). Separate token/AST
+comparisons on 1,275 files also matched, normalizing only the three new name-token
+labels; that comparison excluded the intentionally extended rejection fixture and
+its new underscore CLI case. N1 is not complete.
 
 ## Risks
 

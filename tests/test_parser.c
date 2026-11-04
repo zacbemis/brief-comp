@@ -77,6 +77,86 @@ int main(void) {
                  "(program (fn main (params) _ (block (call (name print) (str "
                  "\"Hello\")))))\n");
   }
+  TEST("classified names and wildcard tokens preserve current AST shapes") {
+    expression_dump(&arena, "User.new(value).age",
+                    "(field (call (field (name User) new) (name value)) age)");
+    expression_dump(&arena, "value |> { _ => value }",
+                    "(|> (name value) (match (arm (wildcard) (name value))))");
+    Parsed *v = parse(&arena, "f(x: Vec<Other.User>): Sym<:ok(int), _> {\n"
+                              "x |> { _ => 1 }\n}\n");
+    if (v->diagnostics.count)
+      diagnostics_print(&v->diagnostics, stderr);
+    ASSERT_EQ_INT(0, v->diagnostics.count);
+    ASSERT_EQ_INT(1, v->program->count);
+    if (v->program->count) {
+      const Decl *f = v->program->items[0];
+      ASSERT_EQ_INT(TYPE_APPLY, f->as.function.params[0].type->kind);
+      ASSERT_EQ_INT(TYPE_INFER,
+                    f->as.function.return_type->as.sym.items[1].type->kind);
+      const Expr *pipeline = f->as.function.body->as.block.items[0].as.expr;
+      ASSERT_EQ_INT(PAT_WILDCARD,
+                    pipeline->as.pipe.stage->as.match.arms[0].pattern->kind);
+    }
+    size_t wildcards = 0;
+    for (size_t i = 0; i < v->raw.count; i++)
+      if (v->raw.items[i].type == TOK_WILDCARD) {
+        wildcards++;
+        ASSERT_TRUE(!token_is_name(v->raw.items[i].type));
+        ASSERT_EQ_INT(1, v->raw.items[i].length);
+      }
+    ASSERT_EQ_INT(2, wildcards);
+  }
+  TEST(
+      "invalid underscore names suppress dependent parser errors and recover") {
+    const char *cases[] = {"let _binding = 1",
+                           "let value: _Type = 1",
+                           "item._field",
+                           ":_tag",
+                           "for _item in 0..2 {}",
+                           "f(_argument)",
+                           "_call()",
+                           "let value = _object"};
+    const char *message =
+        "Names must start with a letter; '_' alone is a wildcard.";
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+      for (unsigned ending = 0; ending < 2; ending++) {
+        const char *nl = ending ? "\r\n" : "\n";
+        char text[512];
+        snprintf(text, sizeof(text),
+                 "main() {%s%s%slet kept = 1%s}%safter() {}%s", nl, cases[i],
+                 nl, nl, nl, nl);
+        Parsed *v = parse(&arena, text);
+        if (v->diagnostics.count != 1)
+          diagnostics_print(&v->diagnostics, stderr);
+        ASSERT_EQ_INT(1, v->diagnostics.count);
+        if (v->diagnostics.count) {
+          const Diagnostic *d = v->diagnostics.items[0];
+          size_t start = (size_t)(strchr(text, '_') - text), end = start;
+          while (text[end] == '_' || (text[end] >= 'a' && text[end] <= 'z') ||
+                 (text[end] >= 'A' && text[end] <= 'Z'))
+            end++;
+          ASSERT_EQ_STRN(message, d->message, strlen(d->message));
+          ASSERT_EQ_INT(start, d->span.start);
+          ASSERT_EQ_INT(end, d->span.end);
+          ASSERT_TRUE(d->fixes == NULL);
+        }
+        ASSERT_EQ_INT(2, v->program->count);
+        if (v->program->count == 2) {
+          const Expr *body = v->program->items[0]->as.function.body;
+          ASSERT_TRUE(body->as.block.count > 0);
+          if (body->as.block.count) {
+            BlockItem last = body->as.block.items[body->as.block.count - 1];
+            ASSERT_EQ_INT(BLOCK_ITEM_DECL, last.kind);
+            if (last.kind == BLOCK_ITEM_DECL)
+              ASSERT_EQ_STRN("kept", last.as.decl->name,
+                             strlen(last.as.decl->name));
+          }
+          ASSERT_EQ_STRN("after", v->program->items[1]->name,
+                         strlen(v->program->items[1]->name));
+        }
+      }
+    }
+  }
   TEST("all literal forms and implicit/inferred return syntax") {
     expression_dump(&arena, "()", "(unit)");
     expression_dump(&arena, "42", "(int 42)");

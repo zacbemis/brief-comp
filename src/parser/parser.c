@@ -97,8 +97,23 @@ static Span through(Span first, Span last) {
 static const char *name(Parser *p, Token token) {
   return intern_n(p->names, token.start, token.length);
 }
+// This slice changes lexical classification, not declaration grammar. Until
+// the syntax switch, existing identifier positions still accept both cases
+// and leave '_' to the current pattern/partial-type checks.
+static int identifier_token(TokenType t) {
+  return token_is_name(t) || t == TOK_WILDCARD;
+}
+static int expect_identifier(Parser *p, const char *message) {
+  if (identifier_token(peek(p).type)) {
+    take(p);
+    return 1;
+  }
+  error(p, message);
+  return 0;
+}
 static int type_name_token(TokenType t) {
-  return t == TOK_IDENT || (t >= TOK_BOOL && t <= TOK_STR) || t == TOK_SELF;
+  return identifier_token(t) || (t >= TOK_BOOL && t <= TOK_STR) ||
+         t == TOK_SELF;
 }
 static Expr *new_expr(Parser *p, ExprKind kind, Span span) {
   Expr *e = arena_calloc(p->arena, 1, sizeof(*e));
@@ -275,7 +290,7 @@ static const char *path(Parser *p) {
   }
   const char *result = name(p, take(p));
   while (match(p, TOK_PERIOD)) {
-    if (!expect(p, TOK_IDENT, "Expected a name after '.'."))
+    if (!expect_identifier(p, "Expected a name after '.'."))
       return NULL;
     const char *part = name(p, p->previous);
     size_t a = strlen(result), b = strlen(part);
@@ -338,7 +353,7 @@ static Type *type_inner(Parser *p) {
     do {
       SymEntry entry = {.span = peek(p).span};
       if (match(p, TOK_COLON)) {
-        if (!expect(p, TOK_IDENT, "Expected a symbol tag after ':'."))
+        if (!expect_identifier(p, "Expected a symbol tag after ':'."))
           return NULL;
         entry.tag = name(p, p->previous);
         if (match(p, TOK_LPAREN)) {
@@ -347,8 +362,7 @@ static Type *type_inner(Parser *p) {
               !expect(p, TOK_RPAREN, "Expected ')' after symbol payload type."))
             return NULL;
         }
-      } else if (at(p, TOK_IDENT) && peek(p).length == 1 &&
-                 *peek(p).start == '_') {
+      } else if (at(p, TOK_WILDCARD)) {
         entry.type = new_type(p, TYPE_INFER, take(p).span);
       } else {
         entry.type = type(p);
@@ -482,7 +496,7 @@ static Decl *binding(Parser *p, Visibility visibility) {
   d->as.binding.kind = start.type == TOK_LET   ? BIND_LET
                        : start.type == TOK_VAR ? BIND_VAR
                                                : BIND_CONST;
-  if (!expect(p, TOK_IDENT, "Expected a binding name."))
+  if (!expect_identifier(p, "Expected a binding name."))
     return NULL;
   d->name = name(p, p->previous);
   if (match(p, TOK_COLON)) {
@@ -555,8 +569,8 @@ static int parameter(Parser *p, Parameter *param, int field) {
   *param = (Parameter){.span = peek(p).span};
   if (field && match(p, TOK_PUB))
     param->visibility = VISIBILITY_PUB;
-  if (!expect(p, TOK_IDENT,
-              field ? "Expected a field name." : "Expected a parameter name."))
+  if (!expect_identifier(p, field ? "Expected a field name."
+                                  : "Expected a parameter name."))
     return 0;
   param->name = name(p, p->previous);
   if (!expect(p, TOK_COLON, "Expected ':' before type."))
@@ -596,7 +610,9 @@ static int top_level_statement(Parser *p) {
   case TOK_BANG:
   case TOK_TILDE:
     return 1;
-  case TOK_IDENT:
+  case TOK_UPPER_NAME:
+  case TOK_LOWER_NAME:
+  case TOK_WILDCARD:
     break;
   default:
     if (!type_keyword)
@@ -616,7 +632,7 @@ static int top_level_statement(Parser *p) {
     if (t == TOK_EOF || t == TOK_ERR)
       return 0;
     if (t == TOK_COLON && parens == 1 && !braces && !brackets &&
-        p->tokens.items[i - 1].type == TOK_IDENT)
+        identifier_token(p->tokens.items[i - 1].type))
       return 0;
     if (t == TOK_LPAREN)
       parens++;
@@ -657,7 +673,7 @@ static Decl *declaration(Parser *p, int in_impl) {
     return d;
   }
   if (!in_impl && match(p, TOK_TYPE)) {
-    if (!expect(p, TOK_IDENT, "Expected a named type's name."))
+    if (!expect_identifier(p, "Expected a named type's name."))
       return NULL;
     Decl *d = new_decl(p, DECL_TYPE, start.span, visibility);
     d->name = name(p, p->previous);
@@ -698,10 +714,10 @@ static Decl *declaration(Parser *p, int in_impl) {
     error(p, top_level_statement_message);
     return NULL;
   }
-  if (!expect(p, TOK_IDENT,
-              in_impl ? "Expected a method declaration."
-                      : "Expected a declaration (function, struct, named "
-                        "type, or impl)."))
+  if (!expect_identifier(
+          p, in_impl ? "Expected a method declaration."
+                     : "Expected a declaration (function, struct, named "
+                       "type, or impl)."))
     return NULL;
   const char *decl_name = name(p, p->previous);
   if (!in_impl && match(p, TOK_LBRACE)) {
@@ -792,7 +808,7 @@ static Expr *struct_literal(Parser *p, Expr *head) {
   newlines(p);
   while (!at(p, TOK_RBRACE) && !at(p, TOK_EOF)) {
     FieldValue field = {.span = peek(p).span};
-    if (!expect(p, TOK_IDENT, "Expected a struct literal's field name."))
+    if (!expect_identifier(p, "Expected a struct literal's field name."))
       return NULL;
     field.name = name(p, p->previous);
     if (!expect(p, TOK_COLON, "Expected ':' after field name."))
@@ -903,7 +919,7 @@ static Expr *primary(Parser *p, int allow_struct) {
     return e;
   }
   if (match(p, TOK_COLON)) {
-    if (!expect(p, TOK_IDENT, "Expected a symbol tag after ':'."))
+    if (!expect_identifier(p, "Expected a symbol tag after ':'."))
       return NULL;
     Expr *e = new_expr(p, EXPR_SYMBOL, token.span);
     e->as.symbol.tag = name(p, p->previous);
@@ -935,7 +951,7 @@ static Expr *primary(Parser *p, int allow_struct) {
   }
   if (match(p, TOK_FOR)) {
     Expr *e = new_expr(p, EXPR_FOR, token.span);
-    if (!expect(p, TOK_IDENT, "Expected a loop variable."))
+    if (!expect_identifier(p, "Expected a loop variable."))
       return NULL;
     e->as.for_loop.name = name(p, p->previous);
     if (!expect(p, TOK_IN, "Expected 'in' after loop variable."))
@@ -999,7 +1015,7 @@ static Expr *pattern_value(Parser *p) {
     e->as.unary.value = value;
     return e;
   }
-  if (t.type == TOK_IDENT) {
+  if (identifier_token(t.type)) {
     const char *text = path(p);
     if (!text)
       return NULL;
@@ -1028,7 +1044,7 @@ static Pattern *pattern_inner(Parser *p) {
     return v;
   }
   if (match(p, TOK_COLON)) {
-    if (!expect(p, TOK_IDENT, "Expected a symbol tag in pattern."))
+    if (!expect_identifier(p, "Expected a symbol tag in pattern."))
       return NULL;
     Pattern *v = new_pattern(p, PAT_SYMBOL, start.span);
     v->as.symbol.tag = name(p, p->previous);
@@ -1051,7 +1067,7 @@ static Pattern *pattern_inner(Parser *p) {
     v->span = through(start.span, v->as.compare.value->span);
     return v;
   }
-  if (start.type == TOK_IDENT) {
+  if (identifier_token(start.type)) {
     const char *text = path(p);
     if (!text)
       return NULL;
@@ -1252,7 +1268,7 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
         *p = saved;
       }
       if (match(p, TOK_PERIOD)) {
-        if (!expect(p, TOK_IDENT, "Expected a field or method name after '.'."))
+        if (!expect_identifier(p, "Expected a field or method name after '.'."))
           return NULL;
         Expr *e =
             new_expr(p, EXPR_FIELD, through(left->span, p->previous.span));
@@ -1277,7 +1293,7 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
                p->tokens.items[field].type == TOK_NEWLINE)
           field++;
         if (field + 1 < p->tokens.count &&
-            p->tokens.items[field].type == TOK_IDENT &&
+            identifier_token(p->tokens.items[field].type) &&
             p->tokens.items[field + 1].type == TOK_COLON) {
           error(p, "Wrap struct literals in conditions or iterables in "
                    "parentheses.");

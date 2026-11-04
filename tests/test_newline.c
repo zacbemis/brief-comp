@@ -92,6 +92,17 @@ int main(void) {
     check(&arena, "User {\nusers:\nMod.\nVec<User>\ncount: int\n}\n",
           "User {\nusers: Mod.Vec<User>\ncount: int\n}\n");
   }
+  TEST("both name classes and wildcards retain statement boundaries") {
+    check(&arena, "lower\nUpper\n_\n", "lower\nUpper\n_\n");
+    check(&arena, "!\nUpper\nlower!\n_\n!\nlower\n",
+          "!Upper\nlower!\n_\n!lower\n");
+    check(&arena, "value |> {\n_ =>\n Upper\n}\nNext\n",
+          "value |> {\n_ => Upper\n}\nNext\n");
+    check(&arena, "type Choice = Sym<:ok(int), _>\nmain() {}\n",
+          "type Choice = Sym<:ok(int), _>\nmain() {}\n");
+    check(&arena, "lower {\nUpper: Vec<Item>\nnext: int\n}\n",
+          "lower {\nUpper: Vec<Item>\nnext: int\n}\n");
+  }
   TEST("malformed delimiters do not discard EOF or diagnose twice") {
     check(&arena, "}\nfoo)\nbar]\n", "}\nfoo)\nbar]\n");
     check(&arena, "f({ x\ny\n}\n)\n", "f({ x\ny\n})\n");

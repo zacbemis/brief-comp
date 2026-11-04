@@ -64,6 +64,11 @@ kind, and escaped source spelling. Lexical errors are collected and printed
 on standard error with their source line and an underline; invalid input exits
 with status 1. Invalid command arguments exit with status 2.
 
+N1's lexer work distinguishes `TOK_UPPER_NAME` and `TOK_LOWER_NAME`, with `_`
+as `TOK_WILDCARD`. Underscore-prefixed names such as `_value` are rejected.
+The parser still uses first-version declarations and keywords; contextual casing
+checks and the full syntax switch are not implemented yet.
+
 Diagnostics can carry machine-applicable fixes as byte spans and replacement
 text. These print as `help:` previews below the error and its notes. Previews
 escape control bytes and line breaks, while structured edits preserve exact
@@ -269,8 +274,8 @@ Wide and combining characters do not yet have special display-width handling.
 - [Symbols](docs/lang-symbols.txt)
 - [Errors and outcomes](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
-- [Next-version compiler plan](docs/plans/next-version.txt) (N0 groundwork
-  complete; N1 syntax switch not started)
+- [Next-version compiler plan](docs/plans/next-version.txt) (N0 complete;
+  N1 identifier classification implemented, full syntax switch pending)
 - [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
 
 The overview links the remaining topic documents. Milestone 5 is complete for
