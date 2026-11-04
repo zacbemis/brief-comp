@@ -354,6 +354,57 @@ int main(void) {
     }
   }
 
+  TEST("fixes on one line preview together; others keep their own lines") {
+    const struct {
+      const char *text;
+      size_t spans[3][2];
+      const char *replacements[3];
+      const char *help;
+    } cases[] = {
+        // Both brackets of an index, written in either order.
+        {"a[i]", {{1, 2}, {3, 4}}, {".(", ")"}, "help: write `a.(i)`\n"},
+        {"a[i]", {{3, 4}, {1, 2}}, {")", ".("}, "help: write `a.(i)`\n"},
+        // Nested edits stay disjoint, and insertions at one offset keep their
+        // written order.
+        {"a[b[0]]",
+         {{1, 2}, {3, 4}, {5, 6}},
+         {".(", ".(", ")"},
+         "help: write `a.(b.(0)]`\n"},
+        {"ab", {{1, 1}, {1, 1}}, {"x", "y"}, "help: write `axyb`\n"},
+        // Overlapping fixes cannot be combined, so each previews alone.
+        {"abc",
+         {{0, 2}, {1, 3}},
+         {"X", "Y"},
+         "help: write `Xc`\nhelp: write `aY`\n"},
+        // A multi-line fix previews alone; the single-line one still groups.
+        {"ab\ncd",
+         {{1, 4}, {0, 0}},
+         {"-", "^"},
+         "help: write `a-d`\nhelp: write `^ab`\n"},
+    };
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+      Diagnostics diagnostics;
+      diagnostics_init(&diagnostics, &arena);
+      SourceFile *source = source_create(&arena, "fix.brf", cases[i].text,
+                                         strlen(cases[i].text));
+      Diagnostic *error =
+          diagnostics_error(&diagnostics, span_make(source, 0, 0), "test");
+      for (size_t j = 0; j < 3 && cases[i].replacements[j]; j++)
+        ASSERT_EQ_INT(1, diagnostic_fix(&diagnostics, error,
+                                        span_make(source, cases[i].spans[j][0],
+                                                  cases[i].spans[j][1]),
+                                        cases[i].replacements[j]));
+      char *printed = printed_diagnostics(&arena, &diagnostics);
+      ASSERT_TRUE(printed != NULL);
+      if (printed) {
+        char *help = strstr(printed, "help:");
+        ASSERT_TRUE(help != NULL);
+        if (help)
+          ASSERT_EQ_STRN(cases[i].help, help, strlen(help));
+      }
+    }
+  }
+
   TEST("fix lists remain stable across growth and identify other locations") {
     Diagnostics diagnostics;
     diagnostics_init(&diagnostics, &arena);

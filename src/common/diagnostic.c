@@ -147,7 +147,30 @@ static void print_fix_text(FILE *output, const char *text, size_t length) {
   }
 }
 
-static void print_fix(FILE *output, const DiagnosticFix *fix, Span primary) {
+static int single_line(const DiagnosticFix *fix) {
+  return source_position(fix->span.file, fix->span.start).line ==
+         source_position(fix->span.file, fix->span.end).line;
+}
+// Fixes on one diagnostic apply together, so single-line fixes that share a
+// line preview as one corrected line. A multi-line or overlapping fix keeps a
+// preview of its own.
+static int same_line(const DiagnosticFix *a, const DiagnosticFix *b) {
+  return a->span.file == b->span.file && single_line(a) && single_line(b) &&
+         source_position(a->span.file, a->span.start).line ==
+             source_position(b->span.file, b->span.start).line;
+}
+static int overlaps(const DiagnosticFix *first, const DiagnosticFix *fix) {
+  for (const DiagnosticFix *other = first; other; other = other->next)
+    if (other != fix && same_line(other, fix) &&
+        other->span.start < fix->span.end && fix->span.start < other->span.end)
+      return 1;
+  return 0;
+}
+static int grouped(const DiagnosticFix *first, const DiagnosticFix *fix) {
+  return single_line(fix) && !overlaps(first, fix);
+}
+static void print_fix(FILE *output, const DiagnosticFix *first,
+                      const DiagnosticFix *fix, Span primary) {
   Span span = fix->span;
   SourcePosition start = source_position(span.file, span.start);
   SourcePosition end = source_position(span.file, span.end);
@@ -161,13 +184,39 @@ static void print_fix(FILE *output, const DiagnosticFix *fix, Span primary) {
       start.line != source_position(primary.file, primary.start).line)
     fprintf(output, "%s:%zu:%zu: ", span.file->path, start.line, start.column);
   fputs("write `", output);
-  size_t line_start = span.file->line_starts[start.line - 1];
-  print_fix_text(output, span.file->text + line_start, span.start - line_start);
-  print_fix_text(output, fix->replacement, strlen(fix->replacement));
-  print_fix_text(output, span.file->text + span.end, line_end - span.end);
+  size_t at = span.file->line_starts[start.line - 1];
+  // Apply the fix, or its whole line group, ordered by start offset and then
+  // list position, so insertions at one offset keep their written order.
+  const DiagnosticFix *last = NULL;
+  size_t last_index = 0;
+  for (;;) {
+    const DiagnosticFix *next = NULL;
+    size_t next_index = 0, index = 0;
+    for (const DiagnosticFix *other = first; other;
+         other = other->next, index++) {
+      int member =
+          other == fix || (grouped(first, fix) && grouped(first, other) &&
+                           same_line(other, fix));
+      if (!member || (last && (other->span.start < last->span.start ||
+                               (other->span.start == last->span.start &&
+                                index <= last_index))))
+        continue;
+      if (!next || other->span.start < next->span.start) {
+        next = other;
+        next_index = index;
+      }
+    }
+    if (!next)
+      break;
+    print_fix_text(output, span.file->text + at, next->span.start - at);
+    print_fix_text(output, next->replacement, strlen(next->replacement));
+    at = next->span.end;
+    last = next;
+    last_index = next_index;
+  }
+  print_fix_text(output, span.file->text + at, line_end - at);
   fputs("`\n", output);
 }
-
 void diagnostics_print(const Diagnostics *diagnostics, FILE *output) {
   for (size_t i = 0; i < diagnostics->count; i++) {
     const Diagnostic *error = diagnostics->items[i];
@@ -177,7 +226,15 @@ void diagnostics_print(const Diagnostics *diagnostics, FILE *output) {
       fprintf(output, "note: %s\n", note->message);
       print_excerpt(output, note->span);
     }
-    for (const DiagnosticFix *fix = error->fixes; fix; fix = fix->next)
-      print_fix(output, fix, error->span);
+    for (const DiagnosticFix *fix = error->fixes; fix; fix = fix->next) {
+      // A line group is printed once, at its first fix.
+      int printed = 0;
+      for (const DiagnosticFix *before = error->fixes;
+           before != fix && grouped(error->fixes, fix); before = before->next)
+        if (grouped(error->fixes, before) && same_line(before, fix))
+          printed = 1;
+      if (!printed)
+        print_fix(output, error->fixes, fix, error->span);
+    }
   }
 }

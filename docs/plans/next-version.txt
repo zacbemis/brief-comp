@@ -55,7 +55,7 @@ A single file is still one module. Tags are given module identity now (see "Symb
 
 ### Diagnostics (`src/common`)
 
-- A `Diagnostic` gains an optional list of fixes, each a span and replacement text. The printer shows each one after the excerpt and notes as a `help:` line: the source line with the replacement applied, and the fix's location when it is on another line or in another file.
+- A `Diagnostic` gains an optional list of fixes, each a span and replacement text. The printer shows them after the excerpt and notes as `help:` lines: the source line with the replacement applied, and the fix's location when it is on another line or in another file. All fixes on a diagnostic apply together, so single-line fixes that share a line preview as one corrected line; a multi-line or overlapping fix previews alone.
 
   ```
   error: logical not is written `not`
