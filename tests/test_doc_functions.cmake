@@ -274,7 +274,7 @@ require_prose("Context is shared across these return paths when typing number li
 example(0 literal-context "" [=[
 f(early: bool) { if early { ret 1 }
   2.5 }
-main() { let value: dub = f(true)
+main() { let value: dbl = f(true)
   print(str(value))
   print(str(f(false))) }
 // expect: 1

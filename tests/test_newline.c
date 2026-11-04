@@ -97,6 +97,15 @@ int main(void) {
     check(&arena, "User {\nusers:\nMod.\nVec<User>\ncount: int\n}\n",
           "User {\nusers: Mod.Vec<User>\ncount: int\n}\n");
   }
+  TEST("dbl and recovery-only dub preserve type and expression separators") {
+    check(&arena, "Box {\nx: Vec<dbl>\ny: dbl\n}\n",
+          "Box {\nx: Vec<dbl>\ny: dbl\n}\n");
+    check(&arena, "Box {\nx: Vec<dub>\ny: dub\n}\n",
+          "Box {\nx: Vec<dub>\ny: dub\n}\n");
+    check(&arena, "f():\n dbl\n{ 1 }\n", "f(): dbl\n{ 1 }\n");
+    check(&arena, "f():\n dub\n{ 1 }\n", "f(): dub\n{ 1 }\n");
+    check(&arena, "dbl(\n1\n)\nnext()\n", "dbl(1)\nnext()\n");
+  }
   TEST("both name classes and wildcards retain statement boundaries") {
     check(&arena, "lower\nUpper\n_\n", "lower\nUpper\n_\n");
     check(&arena, "!\nUpper\nlower!\n_\n!\nlower\n",

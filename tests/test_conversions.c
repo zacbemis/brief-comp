@@ -47,7 +47,7 @@ int main(void) {
         {0, 0, 0, 0, 1, 0, 1, 1}, {0, 0, 0, 0, 0, 1, 1, 1},
         {0, 0, 0, 0, 0, 0, 1, 1}, {0, 0, 0, 0, 0, 0, 0, 1}};
     const char *names[] = {"shrt", "ushrt", "int", "uint",
-                           "lng",  "ulng",  "flt", "dub"};
+                           "lng",  "ulng",  "flt", "dbl"};
     for (size_t i = 0; i < 8; i++)
       for (size_t j = 0; j < 8; j++) {
         char source[256];
@@ -83,7 +83,7 @@ int main(void) {
   }
   TEST("chr converts to every numeric target with a plain success ABI") {
     const char *names[] = {"shrt", "ushrt", "int", "uint",
-                           "lng",  "ulng",  "flt", "dub"};
+                           "lng",  "ulng",  "flt", "dbl"};
     for (size_t j = 0; j < 8; j++) {
       char source[256];
       snprintf(source, sizeof(source), "f(x: chr) { %s(x) }\nmain() {}",

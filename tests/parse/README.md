@@ -9,7 +9,8 @@ one run.
 ## `pass/`
 
 Every file must parse with no diagnostics: `brief dump-ast` exits with status 0
-and prints a tree. Files use only first-version syntax.
+and prints a tree. Files retain first-version declaration/type structure, with
+N1's `not` and `dbl` spelling updates; the full grammar conversion is pending.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree

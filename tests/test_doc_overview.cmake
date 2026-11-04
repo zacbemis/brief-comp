@@ -79,7 +79,7 @@ main() {
   let l: lng = 4294967296
   let ul: ulng = 18446744073709551615
   let f: flt = 0.5
-  let d: dub = 0.25
+  let d: dbl = 0.25
   let b: bool = true
   let c: chr = 'a'
   print(str(s))
@@ -88,7 +88,7 @@ main() {
   print(str(ui))
   print(str(l + 1))
   print(str(ul))
-  print(str(dub(f) + d))
+  print(str(dbl(f) + d))
   print(str(b and not false and (c == 'a' or false)))
   var total = 0
   for n in 0..5 {

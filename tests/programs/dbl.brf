@@ -1,0 +1,19 @@
+Box { value: dbl }
+identity(value: dbl): dbl { value }
+main() {
+  let value: dbl = 1.5
+  print(str(identity(value))) // expect: 1.5
+  print(str(dbl(3))) // expect: 3
+  let single: flt = 0.25
+  single |> dbl() |> str() |> print() // expect: 0.25
+  "1e+2" |> dbl()! |> str() |> print() // expect: 100
+  let box = Box { value: dbl("-0")! }
+  print(str(box.value)) // expect: -0
+  let nan = dbl("nan")!
+  print(str(nan != nan)) // expect: true
+  print(str(dbl("inf")!)) // expect: inf
+  let dubx: dbl = 2
+  let dblx = dubx
+  print(str(dblx)) // expect: 2
+  print("dub dbl") // expect: dub dbl
+}

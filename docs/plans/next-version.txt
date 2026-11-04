@@ -177,7 +177,7 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (88 fixtures, including rejection and panic cases) | First-version declaration/type syntax with `not`, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/programs/` (90 fixtures, including rejection and panic cases) | First-version declaration/type structure with `not` and `dbl`, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
 | `tests/parse/pass/` (26) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
 | `tests/parse/fail/` (80) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
@@ -215,9 +215,9 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 
 ## Implementation progress
 
-N0 is complete. N1's identifier-token split and logical `not` switch are
-implemented. Declaration/type grammar and the remaining keyword changes, their
-source conversion, and replacement document audits remain pending.
+N0 is complete. N1's identifier-token split, logical `not` switch and `dbl`
+rename are implemented. Declaration/type structure and the remaining keyword
+changes, their source conversion, and replacement document audits remain pending.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -328,6 +328,7 @@ first-version syntax audit's two logical-operator cases carry markers.
 - [x] `TOK_UPPER_NAME`, `TOK_LOWER_NAME`, a separate `TOK_WILDCARD`, and lexical
   rejection of underscore-prefixed names.
 - [x] Logical `not`, old prefix-`!` rejection/fixes, and affected source conversion.
+- [x] `dbl` type/converter spelling, old `dub` rejection/fixes and source conversion.
 - [ ] Remaining keyword/declaration/type/expression grammar changes, contextual
   casing checks/fixes, struct methods and receiver inference.
 - [ ] Source conversion, old-syntax rejection tests, and replacement document
@@ -343,8 +344,8 @@ changing declaration grammar or guessing a name's role from its casing. Existing
 wildcard-pattern and partial-return-type AST shapes are retained. The generic
 identifier predicate in the parser is transitional: declaration-site casing
 checks belong to the remaining grammar switch. No parallel grammar was added.
-This checkpoint preceded the `not` switch recorded below; `self`, `dbl` and the
-removed-keyword changes remain pending.
+This checkpoint preceded the `not` and `dbl` slices recorded below; `self` and
+the removed-keyword changes remain pending.
 
 All existing lexer assertions now name their expected case-specific token, with
 no compatibility alias for `TOK_IDENT`. Added tests cover every ASCII initial
@@ -400,6 +401,51 @@ before this slice still emit byte-identical C after their spelling conversion.
 The converted numbers example also produced identical output/status under the
 old and new compilers with sanitizers. No backend or outcome rules changed;
 N1 is still incomplete.
+
+### N1 (in progress): double precision spelled `dbl`
+
+`dbl` is the primitive type and numeric-converter keyword. The resolver's
+canonical binary64 type/converter name is `dbl`; no `dub` alias is installed.
+Internal `SEMA_DUB` and runtime/C helper names remain unchanged, preserving the
+numeric representation, conversion domains, IDs and emitted C names.
+
+The lexer recognizes old `dub` as `TOK_OLD_DUB` for parser recovery only. Uses
+in type/converter positions report `Double precision is written 'dbl', not
+'dub'.` with a three-byte replacement span. Recovery builds the canonical `dbl`
+node, but diagnostics block AST/C emission and native compilation. The raw token
+keeps its original spelling/span; this is not acceptance of both grammars.
+Comments, string values and longer identifiers are not rewritten.
+
+Generic type-argument lookahead treats the old spelling as a recoverable name,
+then replays a successful committed type parse to emit its diagnostics exactly
+once. This avoids silently losing a fix inside `f<dub>()`, or misreading it as
+a comparison because a speculative spelling diagnostic changed the error count.
+The planned deletion of angle-bracket lookahead still belongs to the full N1
+square-bracket type switch.
+
+Affected parser/program fixtures, Brief in C tests, the symbolic example and
+authored document scaffolds now use `dbl`, with existing expectations unchanged.
+`dbl.brf` observes annotations, numeric/text conversion, pipelines, signed zero,
+NaN/infinity, keyword boundaries and unchanged literal text. Nine errors in
+`errors/old-dub.brf` require exact fix previews; the native inventory is 90 files.
+Parser tests apply all fixes and compare recovered/reparsed ASTs for LF/CRLF,
+nested types, multiple occurrences, successful/failed speculation and grouped
+converter names with comments. CLI tests require exact rejection/no AST or C;
+semantic tests require the canonical name and prohibit lowering rejected input.
+
+The v0 documents stay frozen. Their type audit/parser manifest use two guarded
+single-anchor bridges for fences 4 and 5. The raw base sample's primitive-reference
+probe adapts only its annotation; its historical function name stays unchanged.
+These temporary adapters do not replace the pending new-document audits.
+
+Validation: fresh `-Werror` builds passed GCC and Clang Debug with ASan/UBSan,
+and GCC Release (51/51 each), plus GCC Debug without sanitizers (37/37).
+clang-format 23.1.3 and `git diff --check` passed. All 1,280 existing sources
+retain their `emit-c` status; all 643 previous successes emit byte-identical C
+and diagnostics after conversion. Seven rejected sources differ only in quoted
+primitive spelling, verified against reconstructed original keyword tokens.
+The converted symbolic example also has identical sanitized stdout/stderr/status.
+No backend or outcome rules changed. N1 is still incomplete.
 
 ## Risks
 

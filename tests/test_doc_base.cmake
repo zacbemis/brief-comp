@@ -166,14 +166,19 @@ foreach(line IN LISTS type_lines)
         set(observe "str(x)")
         set(result 1)
     endif()
-    string(APPEND probes "probe_${type}() { let x: ${type} = ${value}\nprint(${observe}) }\n")
+    # Preserve the raw reference's probe name, adapting only the type keyword.
+    set(spelling "${type}")
+    if(type STREQUAL "dub")
+        set(spelling dbl)
+    endif()
+    string(APPEND probes "probe_${type}() { let x: ${spelling} = ${value}\nprint(${observe}) }\n")
     string(APPEND calls "probe_${type}()\n")
     string(APPEND expected "// expect: ${result}\n")
 endforeach()
 sample(types primitive-reference "${probes}" "${calls}}" "${expected}")
 sample("typed;bindings" annotated-bindings "main() {" "${part_typed}"
     "print(str(count + 4294967296))\nprint(str(ratio / 3.0))\nratio = 1.5\nprint(str(ratio))\n}\n// expect: 4294967296\n// expect: 0.16666667\n// expect: 1.5")
-sample(defaults inferred-bindings "acceptInt(n: int) { n }\nacceptDub(n: dub) { n }\nmain() {" "${part_defaults}"
+sample(defaults inferred-bindings "acceptInt(n: int) { n }\nacceptDub(n: dbl) { n }\nmain() {" "${part_defaults}"
     "print(str(acceptInt(small)))\nprint(str(acceptDub(half)))\n}\n// expect: 10\n// expect: 0.5")
 set(code "${part_implicit}")
 error_at(code "let total:" "Binding value does not match its annotation.")

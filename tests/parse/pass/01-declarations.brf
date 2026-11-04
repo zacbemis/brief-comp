@@ -16,8 +16,8 @@ pub User {
 Empty {
 }
 
-Point { x: dub
-  y: dub }
+Point { x: dbl
+  y: dbl }
 
 impl User {
   pub new(name: str, age: int): Sym<:ok(User), :invalidAge(int)> {

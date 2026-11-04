@@ -18,4 +18,4 @@ main() {
   for _item in 0..2 {} // error: Names must start with a letter; '_' alone is a wildcard.
   :_tag // error: Names must start with a letter; '_' alone is a wildcard.
 }
-take(value: dub) {}
+take(value: dbl) {}

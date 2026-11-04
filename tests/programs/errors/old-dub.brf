@@ -1,0 +1,11 @@
+Box { value: dub } // error: Double precision is written 'dbl', not 'dub'. // fix: Box { value: dbl }
+type Answer = Sym<:ok(dub), :none> // error: Double precision is written 'dbl', not 'dub'. // fix: type Answer = Sym<:ok(dbl), :none>
+f(value: dub) {} // error: Double precision is written 'dbl', not 'dub'. // fix: f(value: dbl) {}
+result(): dub { 1 } // error: Double precision is written 'dbl', not 'dub'. // fix: result(): dbl { 1 }
+main() {
+  let value: dub = 1.5 // error: Double precision is written 'dbl', not 'dub'. // fix: let value: dbl = 1.5
+  dub(value) // error: Double precision is written 'dbl', not 'dub'. // fix: dbl(value)
+  value |> dub() // error: Double precision is written 'dbl', not 'dub'. // fix: value |> dbl()
+  (/* before */ dub /* after */)(1) // error: Double precision is written 'dbl', not 'dub'. // fix: (/* before */ dbl /* after */)(1)
+  f<dub>() // error: Double precision is written 'dbl', not 'dub'. // fix: f<dbl>()
+}

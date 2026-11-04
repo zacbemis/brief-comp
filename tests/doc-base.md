@@ -24,6 +24,14 @@ case names/count and coverage of every tested/partial span are guarded.
 Generated files live in `build/tests/test_doc_base-fixtures/programs/`, with a
 separate directory for the sanitized variant. They are not checked-in fixtures.
 
+## N1 spelling bridge
+
+The raw v0 sample stays frozen. Its primitive reference still says `dub x`;
+the generated binding probe uses `dbl` while retaining the original `probe_dub`
+name. The default-domain scaffold also takes `dbl`. No source fragments,
+boundaries, outcomes or expectations change. This is a temporary spelling bridge,
+not the replacement audit for the new declaration/type grammar.
+
 ## Complete raw-span manifest
 
 The boundaries follow source order, so these classifications cover comments,
@@ -37,7 +45,7 @@ blank lines and outer contexts as well as selected declarations/statements.
 | 4 | `bindings` | Reference: bare `let`/`var` keyword/comment lines are not complete declarations. `annotated-bindings`, `updates` and the object-alias scenario exercise the stated binding/data distinction. |
 | 5 | `const-keyword` | Deferred: `const` and deep immutable data. |
 | 6 | `typed` | Tested: `annotated-bindings` retains both declarations; a wide `lng` expression, binary32 division and `var` reassignment make their types/mutability observable. |
-| 7 | `defaults` | Tested: `inferred-bindings` retains both declarations and checks the default domains through `int`/`dub` parameter contracts. |
+| 7 | `defaults` | Tested: `inferred-bindings` retains both declarations and checks the default domains through `int`/`dbl` parameter contracts. |
 | 8 | `implicit` | Tested: `implicit-conversion` preserves the original invalid annotation and requires its binding-contract error. It is isolated from the following duplicate-name alternative. |
 | 9 | `conversions` | Tested: `conversions` retains the direct/pipeline/text calls and observes all results. `invalid-conversion` changes only the text input, requiring the exact propagated entry error and cleanup of the earlier owned string. |
 | 10 | `overflow` | Reference: `integer-overflow` applies the original `x++` statement to maximum `int`, requiring overflow and the operation's Brief source line. |

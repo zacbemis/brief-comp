@@ -3,6 +3,10 @@ cmake_minimum_required(VERSION 3.16)
 include("${CMAKE_CURRENT_LIST_DIR}/doc_examples.cmake")
 doc_examples_begin(lang-types 24)
 
+# Frozen v0 fences: change only executable uses of the renamed primitive.
+replace_once(block_4 "let whole: dub = half" "let whole: dbl = half")
+replace_once(block_5 "let precise = dub(ratio)" "let precise = dbl(ratio)")
+
 # The document's setter takes shrt, so this nominal stand-in's age is shrt too.
 set(user_api [=[
 User { name: str
@@ -21,7 +25,7 @@ set(code "${block_1}")
 replace_once(code "${set_age}\n" "")
 example(1 literal-context "${user_api}\n${set_age}\nmain() { let user = User.new(\"Bob\", 1)!"
     "${code}" "print(str(count))\nprint(str(ratio))\nprint(str(user.age))\nprint(str(total))\n}\n// expect: 10\n// expect: 0.5\n// expect: 20\n// expect: 11")
-example(2 literal-defaults "acceptInt(n: int) { n }\nacceptDub(n: dub) { n }\nmain() {" "${block_2}"
+example(2 literal-defaults "acceptInt(n: int) { n }\nacceptDub(n: dbl) { n }\nmain() {" "${block_2}"
     "print(str(acceptInt(count)))\nprint(str(acceptDub(ratio)))\n}\n// expect: 10\n// expect: 0.5")
 set(code "${block_4}")
 error_at(code "let big:" "Binding value does not match its annotation.")
@@ -195,7 +199,7 @@ main() {
   let l: lng = -9223372036854775808
   let ul: ulng = 18446744073709551615
   let f: flt = 1
-  let d: dub = 1
+  let d: dbl = 1
   let c: chr = '\0'
   let b: bool = true
   let unit: () = ()
@@ -310,11 +314,11 @@ main() { print(str(0 ** 0))
 ]=] "")
 require_prose("NaN compares unequal to every value, including itself.")
 example(0 ieee-and-field-equality "" [=[
-Box { value: dub }
+Box { value: dbl }
 main() {
-  let inf: dub = 1.0 / 0.0
-  let nan: dub = 0.0 / 0.0
-  let zero: dub = -0.0
+  let inf: dbl = 1.0 / 0.0
+  let nan: dbl = 0.0 / 0.0
+  let zero: dbl = -0.0
   let box = Box { value: nan }
   let maximum: flt = 340282346638528859811704183484516925440.0
   print(str(inf))
@@ -334,11 +338,11 @@ main() {
 require_prose("Every integer-to-floating conversion always succeeds")
 require_prose("fails only if a finite input would round to infinity.")
 example(0 numeric-domains "" [=[
-narrow(n: dub) { flt(n) |> {
+narrow(n: dbl) { flt(n) |> {
   :ok(value) => print("ok:" + str(value == 340282346638528859811704183484516925440.0 or value == -340282346638528859811704183484516925440.0))
   :overflow => print("overflow")
 } }
-integer(n: dub) { int(n) |> {
+integer(n: dbl) { int(n) |> {
   :ok(value) => print("int:" + str(value))
   :overflow => print("overflow")
 } }
@@ -351,21 +355,21 @@ main() {
   let rounded: flt = flt(source)
   print(str(rounded == 16777216.0))
   let f: flt = 0.5
-  let d: dub = dub(f)
+  let d: dbl = dbl(f)
   print(str(d))
   narrow(340282350000000000000000000000000000000.0)
   narrow(340282356779733661637539395458142568448.0)
   narrow(-340282350000000000000000000000000000000.0)
   narrow(-340282356779733661637539395458142568448.0)
-  print(str(flt(dub("-1e-100")!)!))
-  print(str(flt(dub("inf")!)!))
-  print(str(flt(dub("nan")!)!))
+  print(str(flt(dbl("-1e-100")!)!))
+  print(str(flt(dbl("inf")!)!))
+  print(str(flt(dbl("nan")!)!))
   integer(-0.0)
   print(str(uint(-0.0)!))
   integer(2.0)
   integer(2.5)
-  integer(dub("inf")!)
-  integer(dub("nan")!)
+  integer(dbl("inf")!)
+  integer(dbl("nan")!)
   let n: int = -1
   uint(n) |> { :ok(_) => print("unexpected")
     :overflow => print("overflow") }
@@ -390,7 +394,7 @@ main() {
 // expect: overflow
 ]=] "")
 require_prose("String-to-number conversions return `Sym<:ok(Target), :invalid(str)>`")
-foreach(type IN ITEMS shrt ushrt int uint lng ulng flt dub)
+foreach(type IN ITEMS shrt ushrt int uint lng ulng flt dbl)
     if(type STREQUAL "shrt")
         set(text -32768)
     elseif(type STREQUAL "ushrt")
@@ -406,7 +410,12 @@ foreach(type IN ITEMS shrt ushrt int uint lng ulng flt dub)
     else()
         set(text 0.5)
     endif()
-    example(0 "text-${type}" "main() {" "${type}(\"${text}\") |> {\n:ok(value) => print(str(value))\n:invalid(_) => print(\"unexpected\")\n}"
+    # Keep the historical fixture ID/path for byte-identical C comparisons.
+    set(case_name "text-${type}")
+    if(type STREQUAL "dbl")
+        set(case_name text-dub)
+    endif()
+    example(0 "${case_name}" "main() {" "${type}(\"${text}\") |> {\n:ok(value) => print(str(value))\n:invalid(_) => print(\"unexpected\")\n}"
         "}\n// expect: ${text}")
 endforeach()
 require_prose("Parsing consumes the whole byte string, with no whitespace trimming.")
@@ -445,7 +454,7 @@ main() {
 ]=] "")
 require_prose("Lowercase `inf` and `nan`, with an optional sign, are also accepted.")
 example(0 floating-text-grammar "" [=[
-read(text: str) { dub(text) |> {
+read(text: str) { dbl(text) |> {
   :ok(n) => print(str(n))
   :invalid(original) => print("invalid:" + str(original == text))
 } }
@@ -523,7 +532,7 @@ endforeach()
 require_prose("accept exactly one number, `chr`, or string.")
 set(code [=[
 lng()
-dub(1, 2)
+dbl(1, 2)
 int(true)
 int(user)
 str()
@@ -532,7 +541,7 @@ str(user)
 print(1)
 ]=])
 error_at(code "lng()" "Numeric conversion expects exactly one number, chr or str argument.")
-error_at(code "dub(1, 2)" "Numeric conversion expects exactly one number, chr or str argument.")
+error_at(code "dbl(1, 2)" "Numeric conversion expects exactly one number, chr or str argument.")
 error_at(code "int(true)" "Numeric conversion expects a number, chr or str argument.")
 error_at(code "int(user)" "Numeric conversion expects a number, chr or str argument.")
 error_at(code "str()" "str expects exactly one number or bool argument.")
@@ -545,7 +554,7 @@ example(0 formatting "" [=[
 main() { print(str(true))
   print(str(false))
   let f: flt = 0.1
-  let d: dub = 0.1
+  let d: dbl = 0.1
   print(str(f))
   print(str(d))
   print(str(1.5))
@@ -630,7 +639,7 @@ main() { let letter: chr = 'c'
   print(str(int('a')))
   print(str(shrt(nul)) + ":" + str(ushrt(tilde)) + ":" + str(uint(tilde)))
   print(str(lng(tilde)) + ":" + str(ulng(tilde)))
-  print(str(flt(tilde)) + ":" + str(dub(tilde)))
+  print(str(flt(tilde)) + ":" + str(dbl(tilde)))
   print(str('a' |> int())) }
 // expect: 2
 // expect: 97

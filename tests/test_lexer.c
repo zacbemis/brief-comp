@@ -204,7 +204,7 @@ int main(void) {
 
   TEST("type and definition keywords are distinguished from identifiers") {
     Lexer lx;
-    init_lexer(&lx, "bool int uint shrt ushrt lng ulng flt dub chr str "
+    init_lexer(&lx, "bool int uint shrt ushrt lng ulng flt dbl chr str "
                     "Sym Self type mod import trait impl pub ovr types enum "
                     "intx sym self modern imports traits implicit public "
                     "override");
@@ -216,7 +216,7 @@ int main(void) {
     expect(&lx, TOK_LNG, "lng");
     expect(&lx, TOK_ULNG, "ulng");
     expect(&lx, TOK_FLT, "flt");
-    expect(&lx, TOK_DUB, "dub");
+    expect(&lx, TOK_DBL, "dbl");
     expect(&lx, TOK_CHR, "chr");
     expect(&lx, TOK_STR, "str");
     expect(&lx, TOK_SYM, "Sym");
@@ -239,6 +239,21 @@ int main(void) {
     expect(&lx, TOK_LOWER_NAME, "implicit");
     expect(&lx, TOK_LOWER_NAME, "public");
     expect(&lx, TOK_LOWER_NAME, "override");
+    expect(&lx, TOK_EOF, NULL);
+  }
+
+  TEST("dbl is a keyword; dub is recognized only for parser recovery") {
+    Lexer lx;
+    init_lexer(&lx, "dbl dub dblx dubx Dbl Dub dbl_1 dub_1 \"dub\"");
+    expect(&lx, TOK_DBL, "dbl");
+    expect(&lx, TOK_OLD_DUB, "dub");
+    expect(&lx, TOK_LOWER_NAME, "dblx");
+    expect(&lx, TOK_LOWER_NAME, "dubx");
+    expect(&lx, TOK_UPPER_NAME, "Dbl");
+    expect(&lx, TOK_UPPER_NAME, "Dub");
+    expect(&lx, TOK_LOWER_NAME, "dbl_1");
+    expect(&lx, TOK_LOWER_NAME, "dub_1");
+    expect(&lx, TOK_STR_LIT, "\"dub\"");
     expect(&lx, TOK_EOF, NULL);
   }
 

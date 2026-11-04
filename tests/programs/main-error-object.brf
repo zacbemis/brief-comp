@@ -5,7 +5,7 @@ Report {
   count: ulng
   marker: chr
   ready: bool
-  real: dub
+  real: dbl
   empty: ()
   detail: Sym<:note(str)>
 }

@@ -33,7 +33,7 @@ typedef enum {
   TOK_LNG,   // lng
   TOK_ULNG,  // ulng
   TOK_FLT,   // flt
-  TOK_DUB,   // dub
+  TOK_DBL,   // dbl
   TOK_CHR,   // chr
   TOK_STR,   // str
   TOK_SYM,   // Sym
@@ -48,6 +48,9 @@ typedef enum {
   TOK_IMPL,   // impl
   TOK_PUB,    // pub
   TOK_OVR,    // ovr
+
+  // Recovery only: never accepted as a type/converter without a diagnostic.
+  TOK_OLD_DUB, // dub (write dbl)
 
   // Keywords Control Flow
   TOK_IF,       // if

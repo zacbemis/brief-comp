@@ -3,7 +3,7 @@
 // evaluation that reports division by zero, and Newton's method built on the
 // derivative.
 
-type Expr = Sym<:num(dub), :x, :add(Pair), :sub(Pair), :mul(Pair),
+type Expr = Sym<:num(dbl), :x, :add(Pair), :sub(Pair), :mul(Pair),
   :div(Pair), :pow(Power), :neg(Unary)>
 
 // Recursive symbol types reach themselves through a struct.
@@ -17,7 +17,7 @@ Power {
 }
 Unary { value: Expr }
 
-num(v: dub): Expr { :num(v) }
+num(v: dbl): Expr { :num(v) }
 x(): Expr { :x }
 add(a: Expr, b: Expr): Expr { :add(Pair { left: a, right: b }) }
 sub(a: Expr, b: Expr): Expr { :sub(Pair { left: a, right: b }) }
@@ -61,14 +61,14 @@ show(e: Expr): str {
 
 // ---- Simplification -----------------------------------------------------
 
-constant(e: Expr): Sym<:ok(dub), :none> {
+constant(e: Expr): Sym<:ok(dbl), :none> {
   e |> {
     :num(v) => v
     _ => :none
   }
 }
 
-isConstant(e: Expr, value: dub): bool {
+isConstant(e: Expr, value: dbl): bool {
   constant(e) |> {
     :ok(v) => v == value
     :none => false
@@ -148,7 +148,7 @@ simplifyPow(a: Expr, n: int): Expr {
   if n == 0 { ret num(1) }
   if n == 1 { ret a }
   constant(a) |> {
-    :ok(v) => if v != 0 or n > 0 { ret num(v ** dub(n)) }
+    :ok(v) => if v != 0 or n > 0 { ret num(v ** dbl(n)) }
     :none => ()
   }
   // (b^m)^n = b^(m*n)
@@ -192,13 +192,13 @@ derive(e: Expr): Expr {
     :div(p) => div(sub(mul(derive(p.left), p.right), mul(p.left, derive(p.right))),
       pow(p.right, 2))
     // Power and chain rules: (f^n)' = n * f^(n-1) * f'
-    :pow(p) => mul(mul(num(dub(p.exponent)), pow(p.base, p.exponent - 1)),
+    :pow(p) => mul(mul(num(dbl(p.exponent)), pow(p.base, p.exponent - 1)),
       derive(p.base))
     :neg(u) => neg(derive(u.value))
   }
 }
 
-eval(e: Expr, at: dub): Sym<:ok(dub), :divideByZero> {
+eval(e: Expr, at: dbl): Sym<:ok(dbl), :divideByZero> {
   e |> {
     :num(v) => v
     :x => at
@@ -213,16 +213,16 @@ eval(e: Expr, at: dub): Sym<:ok(dub), :divideByZero> {
     :pow(p) => {
       let base = eval(p.base, at)?
       if base == 0 and p.exponent < 0 { ret :divideByZero }
-      base ** dub(p.exponent)
+      base ** dbl(p.exponent)
     }
     :neg(u) => -eval(u.value, at)?
   }
 }
 
-absolute(v: dub): dub { if v < 0 { -v } else { v } }
+absolute(v: dbl): dbl { if v < 0 { -v } else { v } }
 
-newton(f: Expr, guess: dub):
-  Sym<:ok(dub), :divideByZero, :flatSlope(dub), :noConvergence> {
+newton(f: Expr, guess: dbl):
+  Sym<:ok(dbl), :divideByZero, :flatSlope(dbl), :noConvergence> {
   let slope = simplify(derive(f))
   var at = guess
   for i in 0..60 {
@@ -247,7 +247,7 @@ study(name: str, f: Expr) {
   print("f'(x)  = " + show(first))
   print("f''(x) = " + show(simplify(derive(first))))
   for i in -1..3 {
-    let at = dub(i)
+    let at = dbl(i)
     eval(simple, at) |> {
       // Adding zero turns IEEE negative zero into zero for display.
       :ok(v) => print("  f(" + str(at) + ") = " + str(v + 0))
@@ -256,7 +256,7 @@ study(name: str, f: Expr) {
   }
 }
 
-solve(name: str, f: Expr, guess: dub) {
+solve(name: str, f: Expr, guess: dbl) {
   newton(f, guess) |> {
     :ok(root) => print(name + " from " + str(guess) + ": x = " + str(root))
     :divideByZero => print(name + " from " + str(guess) + ": division by zero")

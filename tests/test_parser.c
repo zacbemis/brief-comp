@@ -240,10 +240,88 @@ int main(void) {
       ASSERT_TRUE(strcmp(message, v->diagnostics.items[i]->message) == 0 ||
                   strcmp("Expected a binding name.",
                          v->diagnostics.items[i]->message) == 0);
-    expression_dump(&arena, "dub(\"1E+2\")!",
-                    "(panic (call (name dub) (str \"1E+2\")))");
+    expression_dump(&arena, "dbl(\"1E+2\")!",
+                    "(panic (call (name dbl) (str \"1E+2\")))");
     expression_dump(&arena, "0.25 + e2", "(+ (float 0.25) (name e2))");
     expression_dump(&arena, "1 // gap\n", "(int 1)");
+  }
+  TEST("old dub types/converters have exact fixes, including speculative "
+       "types") {
+    const char *cases[] = {
+        "Box { value: dub }\nmain() {}\n",
+        "type Answer = Sym<:ok(dub), :none>\nmain() {}\n",
+        "f(x: dub): dub { x }\nmain() {}\n",
+        "main() { let n: dub = 1.5\nn }\n",
+        "main() { dub(1) }\n",
+        "main() { ( /* before */ dub /* after */ )(\"1e2\")! }\n",
+        "main() { 1 |> dub() }\n",
+        "main() { let n: Vec<dub> = value }\n",
+        "main() { f<dub>() }\n",
+        "main() { obj.f<Vec<dub>>() }\n",
+        "main() { f<Sym<:ok(dub), :none>>() }\n",
+        "main() { f<dub>()\nf<dub>() }\n",
+        "main() { dub(dub(1)) }\n",
+        "main() { a < dub(1) }\n"};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned ending = 0; ending < 2; ending++) {
+        char text[1024];
+        size_t length = 0;
+        for (size_t j = 0; cases[i][j]; j++) {
+          if (ending && cases[i][j] == '\n')
+            text[length++] = '\r';
+          text[length++] = cases[i][j];
+        }
+        text[length] = 0;
+        Parsed *v = parse(&arena, text);
+        size_t old_count = 0;
+        for (size_t j = 0; j < v->raw.count; j++) {
+          const Token *token = &v->raw.items[j];
+          if (token->type == TOK_OLD_DUB) {
+            old_count++;
+            ASSERT_EQ_INT(3, token->length);
+            ASSERT_TRUE(token->start == v->source->text + token->span.start);
+            ASSERT_EQ_STRN("dub", token->start, 3);
+          }
+        }
+        ASSERT_TRUE(old_count > 0);
+        if (v->diagnostics.count != old_count)
+          diagnostics_print(&v->diagnostics, stderr);
+        ASSERT_EQ_INT(old_count, v->diagnostics.count);
+        char rewritten[1024];
+        memcpy(rewritten, text, length + 1);
+        for (size_t j = 0; j < v->diagnostics.count; j++) {
+          const Diagnostic *d = v->diagnostics.items[j];
+          ASSERT_EQ_STRN("Double precision is written 'dbl', not 'dub'.",
+                         d->message, strlen(d->message));
+          ASSERT_EQ_INT(3, d->span.end - d->span.start);
+          ASSERT_EQ_STRN("dub", text + d->span.start, 3);
+          ASSERT_TRUE(d->span.file == v->source);
+          ASSERT_TRUE(d->fixes && d->fixes == d->last_fix);
+          if (d->fixes) {
+            const DiagnosticFix *fix = d->fixes;
+            ASSERT_TRUE(fix->next == NULL && fix->span.file == v->source);
+            ASSERT_EQ_INT(d->span.start, fix->span.start);
+            ASSERT_EQ_INT(d->span.end, fix->span.end);
+            ASSERT_EQ_INT(0, strcmp("dbl", fix->replacement));
+            memcpy(rewritten + fix->span.start, fix->replacement, 3);
+          }
+        }
+        Parsed *fixed = parse(&arena, rewritten);
+        ASSERT_EQ_INT(0, fixed->diagnostics.count);
+        char *before = dump(&arena, v->program);
+        char *after = dump(&arena, fixed->program);
+        ASSERT_TRUE(before && after);
+        if (before && after)
+          ASSERT_EQ_STRN(before, after, strlen(after));
+      }
+    }
+    // Names with either prefix, and literal/comment text, are not rewrites.
+    program_dump(&arena,
+                 "main() { let dubx: dbl = 1\nlet dblx = dubx\n"
+                 "print(\"dub dbl\") /* dub */ }\n",
+                 "(program (fn main (params) _ (block (let dubx dbl (int 1)) "
+                 "(let dblx _ (name dubx)) (call (name print) "
+                 "(str \"dub dbl\")))))\n");
   }
   TEST("not has prefix precedence below power and postfix, above comparisons") {
     expression_dump(&arena, "not not flag", "(not (not (name flag)))");

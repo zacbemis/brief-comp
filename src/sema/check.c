@@ -187,7 +187,7 @@ static const SemaType *hint(SemaExpr *e) {
   }
 }
 // Only direct numeric literals adopt a converter's target. Typed expressions
-// keep their source domain; decimal literals still require flt/dub context.
+// keep their source domain; decimal literals still require flt/dbl context.
 static const SemaType *conversion_context(SemaSymbol *s, SemaExpr *arg,
                                           const SemaType *fallback) {
   return s && s->builtin == SEMA_BUILTIN_CONVERT &&
@@ -344,7 +344,7 @@ static const SemaType *operand_type(Checker *c, SemaExpr *a, SemaExpr *b,
   h = hint(b);
   if (!special(h))
     return h;
-  // Let the literal on either side establish the fallback; 1 + 2.0 is dub.
+  // Let the literal on either side establish the fallback; 1 + 2.0 is dbl.
   if (c->defaults) {
     if ((a && a->kind == SEMA_EXPR_FLOAT) || (b && b->kind == SEMA_EXPR_FLOAT))
       return t(c, SEMA_DUB);

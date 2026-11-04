@@ -12,5 +12,5 @@ main() {
   int(true) // error: Numeric conversion expects a number, chr or str argument.
   int(Box {}) // error: Numeric conversion expects a number, chr or str argument.
   lng() // error: Numeric conversion expects exactly one number, chr or str argument.
-  dub(1, 2) // error: Numeric conversion expects exactly one number, chr or str argument.
+  dbl(1, 2) // error: Numeric conversion expects exactly one number, chr or str argument.
 }

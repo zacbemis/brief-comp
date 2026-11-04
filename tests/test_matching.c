@@ -77,7 +77,7 @@ int main(void) {
     invalid(&a, "f() {}\nmain() { 1 |> f() }", "Wrong number");
   }
   TEST("match arms infer values and keep independent lexical bindings") {
-    valid(&a, "main() { let x: dub = true |> { true => 1\nfalse => 2.0 } }");
+    valid(&a, "main() { let x: dbl = true |> { true => 1\nfalse => 2.0 } }");
     Result r = valid(
         &a, "f(b: bool) { b |> { true => ret 1\nfalse => 2.0 } }\nmain() {}");
     ASSERT_EQ_INT(SEMA_DUB, r.program->functions[0].symbol.return_type->kind);
@@ -244,9 +244,9 @@ int main(void) {
     valid(
         &a,
         "f(n: flt) { n |> { < 0 => 1\n0 => 2\n> 0 => 3\n_ => 4 } }\nmain() {}");
-    valid(&a, "f(n: dub) { n |> { < -0.0 => 1\n0 => 2\n> 0 => 3\n_ => 4 } "
+    valid(&a, "f(n: dbl) { n |> { < -0.0 => 1\n0 => 2\n> 0 => 3\n_ => 4 } "
               "}\nmain() {}");
-    invalid(&a, "f(n: dub) { n |> { < 0 => 1\n>= 0 => 2 } }\nmain() {}",
+    invalid(&a, "f(n: dbl) { n |> { < 0 => 1\n>= 0 => 2 } }\nmain() {}",
             "catch-all for NaN");
     invalid(&a, "f(n: flt) { n |> { -0.0 => 1\n0.0 => 2\n_ => 3 } }\nmain() {}",
             "Unreachable match arm");

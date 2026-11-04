@@ -20,7 +20,7 @@ typedef enum {
   SEMA_LNG,
   SEMA_ULNG,
   SEMA_FLT,
-  SEMA_DUB,
+  SEMA_DUB, // Binary64, written dbl; internal/runtime names stay stable.
   SEMA_STR,
   SEMA_STRUCT,
   SEMA_SYM,

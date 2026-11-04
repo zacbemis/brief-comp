@@ -44,7 +44,7 @@ shortStep(p: shrt, b: bool) { if b { ret shortCycle(p, true) }
 main() {
   print(str(lng(12)))
   let half: flt = 0.5
-  print(str(dub(half)))
+  print(str(dbl(half)))
   "42" |> int()? |> lng() |> str() |> print()
   print(str(ulng("18446744073709551615")!))
   print(str(lng("-9223372036854775808")?))
@@ -70,9 +70,9 @@ main() {
   ulng(minimum) |> { :ok(_) => print("wrong")
     :overflow => print("minimum") }
   let exact: ulng = 9007199254740992
-  print(str(ulng(dub(exact)!)!))
+  print(str(ulng(dbl(exact)!)!))
   let inexact: lng = 9007199254740993
-  print(str(dub(inexact)))
+  print(str(dbl(inexact)))
   let decimal = 0.1
   print(str(flt(decimal)!))
   print(str(flt(0.1)))
@@ -81,18 +81,18 @@ main() {
   1 |> shrt() |> str() |> print()
   print(str(lng(4294967296)))
   print(str(uint(-0)))
-  let tooBig = dub("3.5e38")!
+  let tooBig = dbl("3.5e38")!
   flt(tooBig) |> { :ok(_) => print("wrong")
     :overflow => print("range") }
-  let tiny = dub("-1e-300")!
+  let tiny = dbl("-1e-300")!
   print(str(flt(tiny)!))
-  let edge = dub("3.402823466385289e38")!
+  let edge = dbl("3.402823466385289e38")!
   if flt(edge)! == flt("3.4028234663852886e38")! { print("edge") }
   else { print("wrong") }
   // Decimal text still accepts exponent notation; source literals do not.
   print(str(flt("1e+2")! == 100.0))
-  print(str(dub("-1.25E+2")! == -125.0))
-  print(str(dub("1E-2")! == 0.01))
+  print(str(dbl("-1.25E+2")! == -125.0))
+  print(str(dbl("1E-2")! == 0.01))
   recursiveForward() |> { :ok(_) => print("wrong")
     :bad => print("recursive") }
   print(str(shortCycle(7, false)))

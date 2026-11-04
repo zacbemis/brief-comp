@@ -19,7 +19,7 @@ main() {
   check(tiny > 0 and tiny + tiny > tiny, "finite underflow is accepted")
   let zero: flt = -0.000000000000000000000000000000000000000000000000000000000000000001
   check(zero == 0 and 1 / zero < 0, "underflow preserves negative zero")
-  let precise: dub = 1.000000059604644776257986737988403547205962240695953369140625
+  let precise: dbl = 1.000000059604644776257986737988403547205962240695953369140625
   check(precise == 1.000000059604644775390625, "dub still uses binary64 rounding")
   print("float literals ok")
 }

@@ -1,8 +1,9 @@
 # Examples
 
 Small programs that show the first-version feature scope, with N1 spelling
-updates as they are implemented (`not` for logical negation). Declaration/type
-syntax has not switched yet. Each program is a single file that runs on its own:
+updates as they are implemented (`not` for logical negation and `dbl` for double
+precision). Declaration/type structure has not switched yet. Each program is a
+single file that runs on its own:
 
 ```sh
 ./build/brief run examples/calendar.brf

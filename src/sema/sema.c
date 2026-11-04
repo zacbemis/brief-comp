@@ -817,7 +817,7 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
   name_map_init(&p->method_names, a);
   const char *names[] = {"unknown", "never", "error", "()",     "bool", "chr",
                          "shrt",    "ushrt", "int",   "uint",   "lng",  "ulng",
-                         "flt",     "dub",   "str",   "struct", "Sym"};
+                         "flt",     "dbl",   "str",   "struct", "Sym"};
   unsigned bits[] = {0, 0, 0, 0, 1, 8, 16, 16, 32, 32, 64, 64, 32, 64, 0, 0, 0};
   for (size_t i = 0; i < SEMA_TYPE_COUNT; i++)
     p->types[i] = (SemaType){.kind = (SemaTypeKind)i,

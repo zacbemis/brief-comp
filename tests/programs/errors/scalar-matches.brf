@@ -11,7 +11,7 @@ empty(n: ulng) {
   n |> { > 18446744073709551615 => () // error: Unreachable match arm.
     _ => () }
 }
-floatMissing(n: dub) {
+floatMissing(n: dbl) {
   n |> { < 0 => () // error: Match is not exhaustive; add a catch-all for NaN.
     >= 0 => () }
 }

@@ -113,7 +113,7 @@ int main(void) {
   arena_init(&a);
   TEST("all primitives are canonical parameter and return types") {
     const char *types[] = {"()",  "str",  "bool", "chr",  "shrt", "ushrt",
-                           "int", "uint", "lng",  "ulng", "flt",  "dub"};
+                           "int", "uint", "lng",  "ulng", "flt",  "dbl"};
     for (size_t i = 0; i < sizeof(types) / sizeof(*types); i++) {
       char text[256];
       snprintf(text, sizeof(text), "main() {}\nf(x: %s): %s { x }", types[i],
@@ -126,6 +126,24 @@ int main(void) {
     valid(&a, "main() { let x = 1\nif true { let x = x + 1 }\nx }");
     valid(&a,
           "main() { \"a normal result is discarded by the entry wrapper\" }");
+  }
+  TEST("dbl is the canonical binary64 type and converter, not a dub alias") {
+    Result r = check(&a, "f(x: dbl): dbl { x }\nmain() { let x: dbl = dbl(1)\n"
+                         "f(x)\n0.5 |> dbl() }");
+    ASSERT_EQ_INT(0, r.errors.count);
+    ASSERT_TRUE(r.program->checked);
+    ASSERT_TRUE(r.program->functions[0].symbol.return_type ==
+                &r.program->types[SEMA_DUB]);
+    ASSERT_EQ_INT(0, strcmp("dbl", r.program->types[SEMA_DUB].name));
+    const char *old[] = {"f(x: dub) {}\nmain() {}", "main() { dub(1) }",
+                         "main() { 1 |> dub() }"};
+    for (size_t i = 0; i < sizeof(old) / sizeof(*old); i++) {
+      r = check(&a, old[i]);
+      ASSERT_EQ_INT(1, r.errors.count);
+      ASSERT_TRUE(!r.program->checked);
+      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+    }
+    invalid(&a, "main() { let dbl = 1 }", "Expected a binding name.");
   }
   TEST("bindings are lexical, checked in declaration order, and mutable only "
        "with var") {
@@ -317,7 +335,7 @@ int main(void) {
             "same type");
     invalid(&a, "main() { f(true) }\nf(x: int) {}",
             "argument has the wrong type");
-    invalid(&a, "main() { let x: flt = 0.5\nlet y: dub = x }", "annotation");
+    invalid(&a, "main() { let x: flt = 0.5\nlet y: dbl = x }", "annotation");
     invalid(&a, "main() { let x: int = 1.0 }", "annotation");
     invalid(&a, "main() { 2147483648 }", "outside the range");
     invalid(&a, "main() { let x: shrt = -32769 }", "outside the range");
@@ -381,7 +399,7 @@ int main(void) {
     real_literal(&a, "flt", "1.000000178813934326171874", 0x1.000002p0);
     real_literal(&a, "flt", "36028799166447617", 0x1.000002p55);
     real_literal(
-        &a, "dub",
+        &a, "dbl",
         "1.000000059604644776257986737988403547205962240695953369140625",
         0x1.000001p0);
     real_literal(&a, "flt", "340282356779733661637539395458142568447.0",
@@ -405,7 +423,7 @@ int main(void) {
         "main() { let x: flt = -340282356779733661637539395458142568449.0 }",
         "outside the range");
     char huge[512];
-    snprintf(huge, sizeof(huge), "main() { let x: dub = 1%0400d.0 }", 0);
+    snprintf(huge, sizeof(huge), "main() { let x: dbl = 1%0400d.0 }", 0);
     invalid(&a, huge, "outside the range");
   }
   TEST("conditions, branch values, loops, and control-flow placement are "

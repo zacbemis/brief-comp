@@ -19,7 +19,7 @@ main() {
   print(str(0.1)) // expect: 0.1
   print(str(10.0)) // expect: 10
   print(str(1000.0)) // expect: 1000
-  let huge: dub = 1234567890123456700000
+  let huge: dbl = 1234567890123456700000
   print(str(huge)) // expect: 1234567890123456774144
   print(str(0.0)) // expect: 0
   print(str(-0.0)) // expect: -0

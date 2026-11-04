@@ -74,6 +74,32 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR found LESS 0)
     message(FATAL_ERROR "corrected logical-not source failed (${status}):\n${errors}\n${output}")
 endif()
 
+# dbl is the binary64 keyword; dub is lexed only for precise parser fixes.
+set(binary64 "${TEST_DIR}/binary64.brf")
+file(WRITE "${binary64}" "dbl dub dblx dubx\n")
+execute_process(COMMAND "${BRIEF}" dump-tokens "${binary64}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+set(expected "1:1 TOK_DBL \"dbl\"\n1:5 TOK_OLD_DUB \"dub\"\n1:9 TOK_LOWER_NAME \"dblx\"\n1:14 TOK_LOWER_NAME \"dubx\"\n1:18 TOK_NEWLINE \"\\n\"\n2:1 TOK_EOF \"\"\n")
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT output STREQUAL expected)
+    message(FATAL_ERROR "incorrect dbl/recovery tokens (${status}):\n${errors}\n${output}")
+endif()
+file(WRITE "${binary64}" "main() { let n = dub(1) }\r\n")
+string(REPEAT " " 17 indent)
+set(expected "error: Double precision is written 'dbl', not 'dub'.\n  --> ${binary64}:1:18\n  |\n1 | main() { let n = dub(1) }\n  | ${indent}^~~\nhelp: write `main() { let n = dbl(1) }`\n")
+foreach(command IN ITEMS dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${binary64}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} dub fix (${status}):\n${errors}\nexpected:\n${expected}")
+    endif()
+endforeach()
+file(WRITE "${binary64}" "main() { let n = dbl(1) }\r\n")
+execute_process(COMMAND "${BRIEF}" emit-c "${binary64}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")
+    message(FATAL_ERROR "corrected dbl source failed (${status}):\n${errors}")
+endif()
+
 set(invalid "${TEST_DIR}/invalid.brf")
 file(WRITE "${invalid}" "main() {\n  \"\\q\"\n  @\n  /* unfinished\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"

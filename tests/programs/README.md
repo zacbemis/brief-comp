@@ -270,9 +270,17 @@ That checkpoint retained 87 files.
 N1's logical-negation slice converts the existing prefix expressions to `not`
 without changing their expectations. `not.brf` adds direct observations of
 boolean results, short-circuit side effects, newline continuation and combinations
-with `?`, postfix `!` and `!=`; the inventory is now 88 files. Five old prefix-`!`
-expressions in `errors/update-values.brf` must reject with exact fix previews.
-Declaration/type syntax and the other keyword changes are still pending.
+with `?`, postfix `!` and `!=`; that checkpoint brought the inventory to 88
+files. Five old prefix-`!` expressions in `errors/update-values.brf` must reject
+with exact fix previews.
+
+N1's double-precision slice converts the type and converter spelling to `dbl`,
+keeping all existing outcomes and literal strings unchanged. `dbl.brf` observes
+annotations, direct and pipeline conversions, text parsing, signed zero, NaN,
+infinity and keyword boundaries. `errors/old-dub.brf` checks nine old-spelling
+errors with exact fix previews, including nested types and a parenthesized
+converter with comments. The inventory is now 90 files. Declaration/type
+structure and the remaining keyword changes are still pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

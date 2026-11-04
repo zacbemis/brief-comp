@@ -20,12 +20,23 @@ anchors are guarded. The primitive and escape tables are also exact anchors.
 Generated files live under `build/tests/test_doc_types-fixtures/programs/`,
 with a separate directory for the sanitized variant.
 
+## N1 spelling bridge
+
+The v0 chapter remains frozen, including prose/table anchors and comment text.
+Since N1's `dbl` slice, the native audit and parser manifest each use two guarded,
+single-anchor replacements: `let whole: dub = half` in fence 4 and
+`let precise = dub(ratio)` in fence 5 use `dbl` instead. Authored scaffolds and
+probes use `dbl` too; the historical `text-dub` case ID/path stays unchanged.
+These temporary adapters preserve the original numeric domains, error lines and
+observations. They are not the new type-document audit; N1 still replaces the
+v0 scripts when the declaration/type grammar switches.
+
 ## Fence-by-fence record
 
 | Fence | Example | Check or classification |
 |---|---|---|
 | 1 | Contextual literals | `literal-context`: keep all declarations, setter body, call and arithmetic. Move only the exact setter definition to file scope; run the other statements in `main`, observing count, ratio, updated age and total. |
-| 2 | Default literal types | `literal-defaults`: retain both declarations; pass the results to explicitly `int`/`dub`-typed functions before observing them. |
+| 2 | Default literal types | `literal-defaults`: retain both declarations; pass the results to explicitly `int`/`dbl`-typed functions before observing them. |
 | 3 | Constant annotations | Deferred: `const`. The analogous local binding contexts/defaults execute in fences 1/2; they do not establish constant support. |
 | 4 | No implicit numeric conversions | `implicit-conversions`: retain every statement and require the two binding-contract errors and the mixed-operand error on their original lines. |
 | 5 | Conversion calls/pipelines | `infallible-conversions`: retain every original conversion expression. Rename only the second duplicate `label` binding to `pipedLabel`, allowing both alternative spellings to execute and be observed. |
@@ -88,8 +99,8 @@ approximate user function.
 - IEEE behavior: infinities, signed-zero division, NaN and finite floating
   overflow. A struct containing NaN compares unequal even to itself, checking
   content equality without an identity shortcut.
-- Numeric domains: widening, rounded integer-to-float success, `flt` to `dub`,
-  signed `dub`-to-`flt` finite-boundary rounding/overflow, preserved infinity/NaN,
+- Numeric domains: widening, rounded integer-to-float success, `flt` to `dbl`,
+  signed `dbl`-to-`flt` finite-boundary rounding/overflow, preserved infinity/NaN,
   underflow to negative zero, float-to-integer zero/integrality/nonfinite checks,
   and fallible signed-to-unsigned conversion. Typed/computed inputs cannot avoid
   handling by having a small runtime value.

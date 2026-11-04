@@ -95,6 +95,17 @@ static Span through(Span first, Span last) {
   return span_make(first.file, first.start, last.end);
 }
 static const char *name(Parser *p, Token token) {
+  if (token.type == TOK_OLD_DUB) {
+    // A spelling error does not change the shape of a speculative type list.
+    // Successful lookahead is replayed below to emit its diagnostics once.
+    if (!p->probing) {
+      Diagnostic *d = error_at(p, token.span,
+                               "Double precision is written 'dbl', not 'dub'.");
+      if (d)
+        diagnostic_fix(p->diagnostics, d, token.span, "dbl");
+    }
+    return intern(p->names, "dbl");
+  }
   return intern_n(p->names, token.start, token.length);
 }
 // Until the syntax switch, identifier positions still accept both name cases
@@ -109,7 +120,7 @@ static int expect_identifier(Parser *p, const char *message) {
 }
 static int type_name_token(TokenType t) {
   return token_is_identifier(t) || (t >= TOK_BOOL && t <= TOK_STR) ||
-         t == TOK_SELF;
+         t == TOK_SELF || t == TOK_OLD_DUB;
 }
 static Expr *new_expr(Parser *p, ExprKind kind, Span span) {
   Expr *e = arena_calloc(p->arena, 1, sizeof(*e));
@@ -590,7 +601,8 @@ static int top_level_statement(Parser *p) {
   TokenType first = peek(p).type;
   if (first >= TOK_INT_LIT && first <= TOK_BOOL_LIT)
     return 1;
-  int type_keyword = first >= TOK_BOOL && first <= TOK_STR;
+  int type_keyword =
+      (first >= TOK_BOOL && first <= TOK_STR) || first == TOK_OLD_DUB;
   switch (first) {
   case TOK_LET:
   case TOK_VAR:
@@ -1272,14 +1284,18 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
         List types = {0};
         int success = type_arguments(p, &types) && at(p, TOK_LPAREN) &&
                       p->errors == saved.errors;
+        *p = saved;
         if (success) {
-          p->probing = saved.probing;
+          // Replay committed types: speculative parsing suppresses fixes and
+          // must not silently accept a recoverable old spelling.
+          types = (List){0};
+          if (!type_arguments(p, &types))
+            return NULL;
           left = call(p, left, types);
           if (!left)
             return NULL;
           continue;
         }
-        *p = saved;
       }
       if (match(p, TOK_PERIOD)) {
         if (!expect_identifier(p, "Expected a field or method name after '.'."))

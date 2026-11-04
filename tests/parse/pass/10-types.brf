@@ -41,7 +41,7 @@ AllPrimitives {
   f: lng
   g: ulng
   h: flt
-  i: dub
+  i: dbl
   j: chr
   k: str
 }

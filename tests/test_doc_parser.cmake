@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 include("${CMAKE_CURRENT_LIST_DIR}/doc_examples.cmake") # Guarded replace_once.
 
 # Complete first-version examples are read from the frozen design docs, with
-# explicit N1 logical-not spelling adapters for the two affected syntax fences.
+# explicit N1 spelling adapters for logical-not and binary64 type/conversion.
 # Expression/statement fragments are wrapped in main; bare types and pattern
 # arms get their own small wrappers. Semantic-error examples must still parse.
 # Standalone signatures, pseudo-code, multiple-file API notation, and blocks
@@ -55,6 +55,11 @@ function(doc filename expected_count body top types arms bad_body bad_top)
             if(filename STREQUAL "lang-syntax" AND (index EQUAL 13 OR index EQUAL 14))
                 # Only the logical-not spelling changes; docs/v0 stays frozen.
                 replace_once(code "!user.isActive()" "not user.isActive()")
+            endif()
+            if(filename STREQUAL "lang-types" AND index EQUAL 4)
+                replace_once(code "let whole: dub = half" "let whole: dbl = half")
+            elseif(filename STREQUAL "lang-types" AND index EQUAL 5)
+                replace_once(code "let precise = dub(ratio)" "let precise = dbl(ratio)")
             endif()
             if(mode STREQUAL "body" OR mode STREQUAL "bad_body")
                 set(code "main() {\n${code}\n}\n")
