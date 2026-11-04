@@ -177,7 +177,7 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (87 fixtures, including rejection and panic cases) | First-version syntax, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/programs/` (88 fixtures, including rejection and panic cases) | First-version declaration/type syntax with `not`, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
 | `tests/parse/pass/` (26) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
 | `tests/parse/fail/` (80) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
@@ -215,9 +215,9 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 
 ## Implementation progress
 
-N0 is complete. N1's identifier-token split is implemented; declaration grammar
-and keywords are still first-version. The full syntax switch, source conversion
-and replacement document audits remain pending.
+N0 is complete. N1's identifier-token split and logical `not` switch are
+implemented. Declaration/type grammar and the remaining keyword changes, their
+source conversion, and replacement document audits remain pending.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -327,8 +327,9 @@ first-version syntax audit's two logical-operator cases carry markers.
 
 - [x] `TOK_UPPER_NAME`, `TOK_LOWER_NAME`, a separate `TOK_WILDCARD`, and lexical
   rejection of underscore-prefixed names.
-- [ ] Keyword/declaration/type/expression grammar changes, contextual casing
-  checks/fixes, struct methods and receiver inference.
+- [x] Logical `not`, old prefix-`!` rejection/fixes, and affected source conversion.
+- [ ] Remaining keyword/declaration/type/expression grammar changes, contextual
+  casing checks/fixes, struct methods and receiver inference.
 - [ ] Source conversion, old-syntax rejection tests, and replacement document
   parser/N1 chapter audits in the full syntax switch.
 
@@ -341,8 +342,9 @@ The existing parser and newline filter now consume the new tokens without
 changing declaration grammar or guessing a name's role from its casing. Existing
 wildcard-pattern and partial-return-type AST shapes are retained. The generic
 identifier predicate in the parser is transitional: declaration-site casing
-checks belong to the remaining grammar switch. No parallel grammar was added,
-and `not`, `self`, `dbl` and the removed-keyword changes are still pending.
+checks belong to the remaining grammar switch. No parallel grammar was added.
+This checkpoint preceded the `not` switch recorded below; `self`, `dbl` and the
+removed-keyword changes remain pending.
 
 All existing lexer assertions now name their expected case-specific token, with
 no compatibility alias for `TOK_IDENT`. Added tests cover every ASCII initial
@@ -360,6 +362,44 @@ on 1,275 existing source files (641 emitted C, 634 rejected). Separate token/AST
 comparisons on 1,275 files also matched, normalizing only the three new name-token
 labels; that comparison excluded the intentionally extended rejection fixture and
 its new underscore CLI case. N1 is not complete.
+
+### N1 (in progress): logical `not`
+
+`not` is now a keyword and the logical prefix operator, with the existing
+`UNARY_NOT` checking/lowering behavior and precedence. It continues across
+newlines and prints as `(not ...)` in AST dumps. Identifier prefixes such as
+`notifier` remain names; postfix `!`, `?` and `!=` retain their existing behavior.
+
+Old prefix `!` is rejected with `Logical not is written 'not'.` and a one-byte
+replacement span. Recovery still builds the operand/tree, but diagnostics block
+emission. Fixes preserve whitespace and insert separation when needed, including
+`if!flag` and `ret!flag`. A missing operand keeps its primary expression error
+rather than getting a speculative spelling fix. Legacy bang-newline handling
+remains only for useful rejection/recovery, not acceptance of both spellings.
+
+Affected program/parser fixtures, Brief strings in C tests and the numbers
+example were converted without changing their existing expectations. The new
+`not.brf` fixture observes boolean results, newline continuation, short-circuit
+side effects, `?`/postfix-`!` combinations, keyword boundaries and literal text;
+there are now 88 native fixtures. Existing update-value rejection tests also
+check five old-style expressions and their fix previews. Parser tests inspect
+exact fix spans/text, apply them, reparse and compare recovered ASTs, including
+LF/CRLF, nested operators and adjacency. CLI tests require rejection with no
+AST/C output and retain lexer-only token dumping.
+
+The first-version documents stay frozen. Their syntax audit/parser manifest use
+two explicit, single-anchor adapters for logical-not expressions in fences 13
+and 14. Hand-written acceptance scaffolds were converted too. These are temporary
+spelling bridges, not the new chapter audits; they disappear when N1 replaces
+those scripts. All other declaration/type conversion remains pending.
+
+Validation: fresh `-Werror` builds passed GCC and Clang Debug with ASan/UBSan,
+and GCC Release (51/51 each), plus GCC Debug without sanitizers (37/37).
+clang-format 23.1.3 and `git diff --check` passed. All 641 sources that emitted C
+before this slice still emit byte-identical C after their spelling conversion.
+The converted numbers example also produced identical output/status under the
+old and new compilers with sanitizers. No backend or outcome rules changed;
+N1 is still incomplete.
 
 ## Risks
 

@@ -84,7 +84,7 @@ impl User {
   getAge(user: User): int { user.age }
 }
 input(found: bool): Sym<:ok(User), :none> {
-  if !found { ret :none }
+  if not found { ret :none }
   :ok(User { name: "B" + "ob", age: 20 })
 }
 ]=])

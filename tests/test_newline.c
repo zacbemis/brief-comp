@@ -52,7 +52,7 @@ int main(void) {
     check(&arena, "x + /* a\n\nb */ y\nz\n", "x + y\nz\n");
     check(&arena, "x /* a\nb */ y", "x\ny");
   }
-  TEST("all binary operator continuations, prefix and postfix bang") {
+  TEST("binary operator continuations, not, and bang recovery") {
     const char *ops[] = {"+",  "-",  "*",  "/",  "%",  "**", "==", "!=", "<",
                          "<=", ">",  ">=", "<<", ">>", "&",  "|",  "^",  "and",
                          "or", "..", "=",  "+=", "-=", "*=", "/=", "%="};
@@ -62,6 +62,11 @@ int main(void) {
       snprintf(expected, sizeof(expected), "a %s b", ops[i]);
       check(&arena, raw, expected);
     }
+    check(&arena, "not\nflag\nx!\ny?\nz++\na--\n",
+          "not flag\nx!\ny?\nz++\na--\n");
+    check(&arena, "not\nnot\nflag\nx!\nnot\nflag",
+          "not not flag\nx!\nnot flag");
+    // Old prefix '!' still continues only for a useful parser error/fix.
     check(&arena, "!\nflag\nx!\ny?\nz++\na--\n", "!flag\nx!\ny?\nz++\na--\n");
     check(&arena, "!\n!\nflag\nx!\n!\nflag", "!!flag\nx!\n!flag");
     check(&arena, "let first = :a < :b\nlet next = x >\n 0\n",
@@ -70,8 +75,8 @@ int main(void) {
           "User { flag: a < b and c > d }\n");
   }
   TEST("documented continuation keywords do not end statements") {
-    const char *keywords[] = {"let", "var",  "const", "type", "impl", "pub",
-                              "if",  "else", "for",   "in",   "while"};
+    const char *keywords[] = {"let", "var",  "const", "type", "impl",  "pub",
+                              "if",  "else", "for",   "in",   "while", "not"};
     for (size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++) {
       char raw[64], expected[64];
       snprintf(raw, sizeof(raw), "%s\n\nx", keywords[i]);

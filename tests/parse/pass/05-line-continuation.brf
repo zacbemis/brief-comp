@@ -97,8 +97,8 @@ main() {
     step()
   }
 
-  // A prefix `!` at the end of a line continues; a postfix `!` does not.
-  let negated = !
+  // The prefix `not` continues at the end of a line; postfix `!` does not.
+  let negated = not
     ready
 }
 

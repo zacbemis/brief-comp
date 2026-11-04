@@ -604,6 +604,7 @@ static int top_level_statement(Parser *p) {
   case TOK_COLON:
   case TOK_MINUS:
   case TOK_BANG:
+  case TOK_NOT:
   case TOK_TILDE:
     return 1;
   case TOK_UPPER_NAME:
@@ -961,16 +962,33 @@ static Expr *primary(Parser *p, int allow_struct) {
     e->span = through(token.span, e->as.for_loop.body->span);
     return e;
   }
-  if (token.type == TOK_MINUS || token.type == TOK_BANG ||
-      token.type == TOK_TILDE) {
+  if (token.type == TOK_MINUS || token.type == TOK_NOT ||
+      token.type == TOK_BANG || token.type == TOK_TILDE) {
     take(p);
     Expr *value = expression(p, 130, allow_struct);
     if (!value)
       return NULL;
+    if (token.type == TOK_BANG) {
+      Diagnostic *d = error_at(p, token.span, "Logical not is written 'not'.");
+      if (d) {
+        const SourceFile *file = token.span.file;
+        char before = token.span.start ? file->text[token.span.start - 1] : 0;
+        // In if!ready / ret!ready, replacing only '!' must not join keywords.
+        int separate_before = (before >= 'a' && before <= 'z') ||
+                              (before >= 'A' && before <= 'Z') ||
+                              (before >= '0' && before <= '9') || before == '_';
+        int separate_after =
+            token.span.end < file->length && !blank(file->text[token.span.end]);
+        char replacement[8];
+        snprintf(replacement, sizeof(replacement), "%snot%s",
+                 separate_before ? " " : "", separate_after ? " " : "");
+        diagnostic_fix(p->diagnostics, d, token.span, replacement);
+      }
+    }
     Expr *e = new_expr(p, EXPR_UNARY, through(token.span, value->span));
-    e->as.unary.op = token.type == TOK_MINUS  ? UNARY_NEG
-                     : token.type == TOK_BANG ? UNARY_NOT
-                                              : UNARY_BIT_NOT;
+    e->as.unary.op = token.type == TOK_MINUS   ? UNARY_NEG
+                     : token.type == TOK_TILDE ? UNARY_BIT_NOT
+                                               : UNARY_NOT;
     e->as.unary.value = value;
     return e;
   }

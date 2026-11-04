@@ -1,0 +1,29 @@
+Counter { hits: int }
+touch(counter: &Counter): bool {
+  counter.hits++
+  true
+}
+fallible(flag: bool): Sym<:ok(bool), :bad> {
+  if not flag { ret :bad }
+  flag
+}
+notifier(): bool { true }
+main() {
+  print(str(not false)) // expect: true
+  print(str(not true)) // expect: false
+  print(str(not not true)) // expect: true
+  let negated = not
+    false
+  print(str(negated)) // expect: true
+  print(str(not fallible(true)!)) // expect: false
+  print(str(not fallible(true)?)) // expect: false
+  print(str(notifier())) // expect: true
+  print(str(fallible(true)! != false)) // expect: true
+  let counter = Counter { hits: 0 }
+  print(str(not true and touch(counter))) // expect: false
+  print(str(not false or touch(counter))) // expect: true
+  print(str(counter.hits)) // expect: 0
+  print(str(not (false or touch(counter)))) // expect: false
+  print(str(counter.hits)) // expect: 1
+  print("not ! !=") // expect: not ! !=
+}

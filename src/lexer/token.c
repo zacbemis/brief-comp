@@ -144,6 +144,8 @@ const char *token_type_name(TokenType type) {
     return "TOK_AND";
   case TOK_OR:
     return "TOK_OR";
+  case TOK_NOT:
+    return "TOK_NOT";
   case TOK_TILDE:
     return "TOK_TILDE";
   case TOK_BIT_AND:

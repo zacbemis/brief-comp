@@ -12,7 +12,7 @@
 // expect: control ok
 Gate { n: int }
 impl Gate { open(gate: Self): bool { gate.n < 2 } }
-check(ok: bool, message: str): () { if !ok { print(message) } }
+check(ok: bool, message: str): () { if not ok { print(message) } }
 trace(label: str, value: int) { print(label)
   value }
 add(a: int, b: int) { a + b }
@@ -39,7 +39,7 @@ main() {
     true } else { false }
   let skippedOr = true or if true { hits++
     false } else { true }
-  check(!skippedAnd and skippedOr and hits == 0, "logical short circuit")
+  check(not skippedAnd and skippedOr and hits == 0, "logical short circuit")
   let enteredAnd = true and if true { hits++
     true } else { false }
   let enteredOr = false or if true { hits++

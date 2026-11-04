@@ -14,10 +14,10 @@ main() {
   a - -b                    // a - (-b)
   a + -b                    // a + (-b)
   - - a                     // -(-a)
-  !!a                       // !(!a)
+  not not a                 // not (not a)
   ~a & b                    // (~a) & b
   ~~a                       // ~(~a)
-  !user.isActive()          // !(user.isActive())
+  not user.isActive()       // not (user.isActive())
   -user.age                 // -(user.age)
   1 << 2 + 3                // 1 << (2 + 3)
   a << b >> c               // (a << b) >> c
@@ -33,7 +33,7 @@ main() {
   a |> f() and b |> g()     // (a |> f()) and (b |> g())
   a or b and c              // a or (b and c)
   a and b or c and d        // (a and b) or (c and d)
-  !a and b                  // (!a) and b
+  not a and b               // (not a) and b
   a < b and b < c           // (a < b) and (b < c)
   a == b or c != d          // (a == b) or (c != d)
   (a < b) == (c < d)        // grouped comparisons may be compared

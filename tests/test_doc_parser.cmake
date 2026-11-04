@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
+include("${CMAKE_CURRENT_LIST_DIR}/doc_examples.cmake") # Guarded replace_once.
 
-# Complete first-version examples are read directly from the design docs.
+# Complete first-version examples are read from the frozen design docs, with
+# explicit N1 logical-not spelling adapters for the two affected syntax fences.
 # Expression/statement fragments are wrapped in main; bare types and pattern
 # arms get their own small wrappers. Semantic-error examples must still parse.
 # Standalone signatures, pseudo-code, multiple-file API notation, and blocks
@@ -49,6 +51,10 @@ function(doc filename expected_count body top types arms bad_body bad_top)
                     message(FATAL_ERROR "lang-syntax block 3 changed; update its lambda adapter")
                 endif()
                 string(REPLACE "${lambda_call}" ".findOlderThan(30)" code "${code}")
+            endif()
+            if(filename STREQUAL "lang-syntax" AND (index EQUAL 13 OR index EQUAL 14))
+                # Only the logical-not spelling changes; docs/v0 stays frozen.
+                replace_once(code "!user.isActive()" "not user.isActive()")
             endif()
             if(mode STREQUAL "body" OR mode STREQUAL "bad_body")
                 set(code "main() {\n${code}\n}\n")

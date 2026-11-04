@@ -1,7 +1,8 @@
 # Examples
 
-Small programs that show what the first-version compiler can do. Each one is a
-single file that runs on its own:
+Small programs that show the first-version feature scope, with N1 spelling
+updates as they are implemented (`not` for logical negation). Declaration/type
+syntax has not switched yet. Each program is a single file that runs on its own:
 
 ```sh
 ./build/brief run examples/calendar.brf

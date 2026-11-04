@@ -2,6 +2,10 @@
 cmake_minimum_required(VERSION 3.16)
 include("${CMAKE_CURRENT_LIST_DIR}/doc_examples.cmake")
 doc_examples_begin(lang-syntax 33)
+# Temporary N1 spelling bridge: keep the frozen document and behavior checks,
+# adapting only its two logical-not expressions until the new audits replace it.
+replace_once(block_13 "!user.isActive()" "not user.isActive()")
+replace_once(block_14 "!user.isActive()" "not user.isActive()")
 
 set(user_api [=[
 User { name: str

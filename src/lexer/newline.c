@@ -58,7 +58,7 @@ static int continues(TokenType t, int type_close, int prefix_bang) {
   case TOK_RSHIFT:
     return !type_close;
   case TOK_BANG:
-    return prefix_bang;
+    return prefix_bang; // Recovery for old prefix syntax; parsing rejects it.
   case TOK_COMMA:
   case TOK_COLON:
   case TOK_PERIOD:
@@ -83,6 +83,7 @@ static int continues(TokenType t, int type_close, int prefix_bang) {
   case TOK_GREATER_THAN_EQUAL:
   case TOK_AND:
   case TOK_OR:
+  case TOK_NOT:
   case TOK_TILDE:
   case TOK_BIT_AND:
   case TOK_BIT_OR:
@@ -144,7 +145,7 @@ TokenArray newline_filter(Arena *arena, TokenArray raw) {
     closed_type = 0;
     // Logical operators cannot occur in a type argument list: a speculative
     // angle in a struct field's value was a comparison, not a generic type.
-    if (t == TOK_AND || t == TOK_OR)
+    if (t == TOK_AND || t == TOK_OR || t == TOK_NOT)
       for (size_t a = 0; a < angle_depth; a++)
         angles[a] = 0;
     if (t == TOK_LESS_THAN) {

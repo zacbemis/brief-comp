@@ -362,7 +362,9 @@ int main(void) {
     invalid(&a, "main() { 1.0 % 2.0 }", "requires integers");
     invalid(&a, "main() { true + false }", "requires numbers");
     invalid(&a, "main() { 1 and 2 }", "require bool");
-    invalid(&a, "main() { !1 }", "requires bool");
+    invalid(&a, "main() { not 1 }", "requires bool");
+    valid(&a, "main() { not false }");
+    invalid(&a, "main() { let not = true }", "Expected a binding name.");
     invalid(&a, "main() { ~1.0 }", "requires integers");
     valid(&a, "main() { \"a\" == \"b\" }");
   }
@@ -571,7 +573,7 @@ int main(void) {
          "? and ! require a symbol outcome with an :ok variant.", "f(p,b)!", 0},
         {"Sym<:yes(shrt), :no>", "f(p,b)?", "f(p,b) |> { _ => p }",
          "? and ! require a symbol outcome with an :ok variant.", "f(p,b)?", 0},
-        {"bool", "~f(p,b)", "!f(p,b)",
+        {"bool", "~f(p,b)", "not f(p,b)",
          "This unary operator requires numbers (bitwise not requires "
          "integers).",
          "~f(p,b)", 0},

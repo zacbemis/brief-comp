@@ -89,7 +89,7 @@ main() {
   print(str(l + 1))
   print(str(ul))
   print(str(dub(f) + d))
-  print(str(b and !false and (c == 'a' or false)))
+  print(str(b and not false and (c == 'a' or false)))
   var total = 0
   for n in 0..5 {
     if n == 1 { continue }

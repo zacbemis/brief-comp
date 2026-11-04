@@ -256,16 +256,23 @@ and program signals, failed publication and semantic rejection before CC.
 `structs.brf` also drops a 200,000-link chain built in a loop, which previously
 exhausted the C stack through recursive release in debug runs.
 
-These generated cases remain separate from the 87 source fixtures here. Every
-tracked chapter has an audit, the initial diagnostic inventory is addressed,
-and the [final review](../first-version-review.md) records completed
+These generated cases remained separate from the 87 source fixtures at M6
+completion. Every tracked chapter has an audit, the initial diagnostic
+inventory is addressed, and the [final review](../first-version-review.md) records completed
 implementation/acceptance/README status verification. M6 is complete for the
 first-version scope, without claiming the deferred surrounding features.
 
 N1's first lexer slice adds five underscore-prefixed-name rejections to
 `errors/lex-and-parse.brf`. Each must report one complete lexical error without
 parser cascades; declaration grammar and keywords are otherwise unchanged.
-The fixture inventory remains 87 files.
+That checkpoint retained 87 files.
+
+N1's logical-negation slice converts the existing prefix expressions to `not`
+without changing their expectations. `not.brf` adds direct observations of
+boolean results, short-circuit side effects, newline continuation and combinations
+with `?`, postfix `!` and `!=`; the inventory is now 88 files. Five old prefix-`!`
+expressions in `errors/update-values.brf` must reject with exact fix previews.
+Declaration/type syntax and the other keyword changes are still pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

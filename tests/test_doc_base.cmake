@@ -366,12 +366,12 @@ Json { name: str
 impl Json {
   getStr(json: Json, key: str): Sym<:ok(str), JsonError> {
     print("getStr:" + key)
-    if !json.hasName { ret :missing(key) }
+    if not json.hasName { ret :missing(key) }
     json.name
   }
   getInt(json: Json, key: str): Sym<:ok(int), JsonError> {
     print("getInt:" + key)
-    if !json.hasAge { ret :missing(key) }
+    if not json.hasAge { ret :missing(key) }
     json.age
   }
 }

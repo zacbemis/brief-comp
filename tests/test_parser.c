@@ -245,6 +245,90 @@ int main(void) {
     expression_dump(&arena, "0.25 + e2", "(+ (float 0.25) (name e2))");
     expression_dump(&arena, "1 // gap\n", "(int 1)");
   }
+  TEST("not has prefix precedence below power and postfix, above comparisons") {
+    expression_dump(&arena, "not not flag", "(not (not (name flag)))");
+    expression_dump(&arena, "not (a and b)", "(not (and (name a) (name b)))");
+    expression_dump(&arena, "not a == b", "(== (not (name a)) (name b))");
+    expression_dump(&arena, "not a ** b", "(not (** (name a) (name b)))");
+    expression_dump(&arena, "not f()!", "(not (panic (call (name f))))");
+    expression_dump(&arena, "not(a)", "(not (name a))");
+    expression_dump(&arena, "not\n// continued\nflag", "(not (name flag))");
+  }
+  TEST("old prefix bang gets a precise fix and reparses without changing its "
+       "AST") {
+    const struct {
+      const char *code, *replacement;
+    } cases[] = {{"!flag", "not "},         {"! flag", "not"},
+                 {"!\tflag", "not"},        {"!\nflag", "not"},
+                 {"!(a and b)", "not "},    {"!f()!", "not "},
+                 {"if!flag {}", " not "},   {"ret!flag", " not "},
+                 {"not!flag", " not "},     {"(true and!flag)", " not "},
+                 {"!/* gap */flag", "not "}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+      for (unsigned ending = 0; ending < 2; ending++) {
+        char lf[512], crlf[1024];
+        snprintf(lf, sizeof(lf), "main() {\n%s\nlet kept = 1\n}\nafter() {}\n",
+                 cases[i].code);
+        size_t count = 0;
+        for (size_t j = 0; lf[j]; j++) {
+          if (lf[j] == '\n')
+            crlf[count++] = '\r';
+          crlf[count++] = lf[j];
+        }
+        crlf[count] = 0;
+        const char *text = ending ? crlf : lf;
+        Parsed *v = parse(&arena, text);
+        if (v->diagnostics.count != 1)
+          diagnostics_print(&v->diagnostics, stderr);
+        ASSERT_EQ_INT(1, v->diagnostics.count);
+        ASSERT_EQ_INT(2, v->program->count);
+        if (v->diagnostics.count == 1) {
+          const Diagnostic *d = v->diagnostics.items[0];
+          size_t start = (size_t)(strchr(text, '!') - text);
+          ASSERT_EQ_STRN("Logical not is written 'not'.", d->message,
+                         strlen(d->message));
+          ASSERT_EQ_INT(start, d->span.start);
+          ASSERT_EQ_INT(start + 1, d->span.end);
+          ASSERT_TRUE(d->fixes != NULL && d->fixes == d->last_fix);
+          if (d->fixes) {
+            const DiagnosticFix *fix = d->fixes;
+            ASSERT_EQ_INT(start, fix->span.start);
+            ASSERT_EQ_INT(start + 1, fix->span.end);
+            ASSERT_TRUE(fix->span.file == v->source && fix->next == NULL);
+            ASSERT_EQ_STRN(cases[i].replacement, fix->replacement,
+                           strlen(fix->replacement));
+            char rewritten[1200];
+            snprintf(rewritten, sizeof(rewritten), "%.*s%s%s", (int)start, text,
+                     fix->replacement, text + start + 1);
+            Parsed *fixed = parse(&arena, rewritten);
+            ASSERT_EQ_INT(0, fixed->diagnostics.count);
+            char *before = dump(&arena, v->program);
+            char *after = dump(&arena, fixed->program);
+            ASSERT_TRUE(before != NULL && after != NULL);
+            if (before && after)
+              ASSERT_EQ_STRN(before, after, strlen(after));
+          }
+        }
+      }
+    }
+    Parsed *nested = parse(&arena, "main() { !!flag\nlet kept = 1 }\n");
+    ASSERT_EQ_INT(2, nested->diagnostics.count);
+    if (nested->diagnostics.count == 2) {
+      const Diagnostic *a = nested->diagnostics.items[0];
+      const Diagnostic *b = nested->diagnostics.items[1];
+      ASSERT_TRUE(a->fixes && b->fixes);
+      ASSERT_TRUE(a->span.start != b->span.start);
+    }
+    // A missing operand has its own primary error, not a guessed spelling fix.
+    Parsed *missing = parse(&arena, "main() { ! }\n");
+    ASSERT_EQ_INT(1, missing->diagnostics.count);
+    if (missing->diagnostics.count) {
+      ASSERT_EQ_STRN("Expected an expression.",
+                     missing->diagnostics.items[0]->message,
+                     strlen(missing->diagnostics.items[0]->message));
+      ASSERT_TRUE(missing->diagnostics.items[0]->fixes == NULL);
+    }
+  }
   TEST("arithmetic grouping, right-associative power, and prefix binding") {
     expression_dump(&arena, "a + b * c", "(+ (name a) (* (name b) (name c)))");
     expression_dump(&arena, "a - b - c", "(- (- (name a) (name b)) (name c))");
@@ -252,8 +336,8 @@ int main(void) {
     expression_dump(&arena, "-2 ** 2", "(- (** (int 2) (int 2)))");
     expression_dump(&arena, "2 ** -2", "(** (int 2) (- (int 2)))");
     expression_dump(&arena, "(-2) ** 2", "(** (- (int 2)) (int 2))");
-    expression_dump(&arena, "!user.isActive()",
-                    "(! (call (field (name user) isActive)))");
+    expression_dump(&arena, "not user.isActive()",
+                    "(not (call (field (name user) isActive)))");
   }
   TEST("bitwise, range, pipeline, comparisons and logical precedence") {
     expression_dump(&arena, "flags & MASK == 0",
@@ -482,8 +566,8 @@ int main(void) {
     expression_dump(&arena, "a & b | c", "(| (& (name a) (name b)) (name c))");
     expression_dump(&arena, "a & // gap\nb", "(& (name a) (name b))");
     expression_dump(&arena, "a | // gap\nb", "(| (name a) (name b))");
-    expression_dump(&arena, "a or b and !c",
-                    "(or (name a) (and (name b) (! (name c))))");
+    expression_dump(&arena, "a or b and not c",
+                    "(or (name a) (and (name b) (not (name c))))");
     expression_dump(&arena, "- -x", "(- (- (name x)))");
     program_dump(&arena, "P {}\nf(p: &P) {}",
                  "(program (struct P) (fn f (params (p & P)) _ (block)))\n");
@@ -522,7 +606,8 @@ int main(void) {
     expression_dump(
         &arena, "items[0].get()?!",
         "(panic (? (call (field (index (name items) (int 0)) get))))");
-    expression_dump(&arena, "!x != y!", "(!= (! (name x)) (panic (name y)))");
+    expression_dump(&arena, "not x != y!",
+                    "(!= (not (name x)) (panic (name y)))");
     expression_dump(&arena, "json |> parse()? |> validate()!",
                     "(|> (|> (name json) (? (call (name parse)))) (panic (call "
                     "(name validate))))");
@@ -642,7 +727,7 @@ int main(void) {
         "for x in Guest { name: name }.items {}",
         "for i in 0..Limit { n: 2 }.n {}",
         "if ready and Guest { name: name }.ok {}",
-        "if !Guest { name: name }.ok {}",
+        "if not Guest { name: name }.ok {}",
         "if module.Guest { name: name }.ok {}",
         "if (Guest) { name: name }.ok {}",
         "if Guest { /* comment */ name: name }.ok {}",
@@ -910,7 +995,7 @@ int main(void) {
                                 ":ok(1)",
                                 "()",
                                 "-1",
-                                "!true",
+                                "not true",
                                 "~1",
                                 "value",
                                 "tick()?",

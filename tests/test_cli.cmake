@@ -38,6 +38,42 @@ foreach(command IN ITEMS dump-tokens dump-ast emit-c)
     endif()
 endforeach()
 
+# not is a keyword; postfix panic and inequality retain their own tokens.
+set(logical "${TEST_DIR}/logical.brf")
+file(WRITE "${logical}" "not flag! != false\n")
+execute_process(COMMAND "${BRIEF}" dump-tokens "${logical}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+set(expected "1:1 TOK_NOT \"not\"\n1:5 TOK_LOWER_NAME \"flag\"\n1:9 TOK_BANG \"!\"\n1:11 TOK_BANG_EQUAL \"!=\"\n1:14 TOK_BOOL_LIT \"false\"\n1:19 TOK_NEWLINE \"\\n\"\n2:1 TOK_EOF \"\"\n")
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT output STREQUAL expected)
+    message(FATAL_ERROR "incorrect not/panic tokens (${status}):\n${errors}\n${output}")
+endif()
+
+# The spelling fix must separate keywords even for adjacent if!false input.
+# Token dumping remains lexer-only; parsing/emission cannot accept old prefix !.
+set(old_not "${TEST_DIR}/old-not.brf")
+file(WRITE "${old_not}" "main() { if!false {} }\r\n")
+string(REPEAT " " 11 indent)
+set(expected "error: Logical not is written 'not'.\n  --> ${old_not}:1:12\n  |\n1 | main() { if!false {} }\n  | ${indent}^\nhelp: write `main() { if not false {} }`\n")
+foreach(command IN ITEMS dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${old_not}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} prefix-not fix (${status}):\n${errors}\nexpected:\n${expected}")
+    endif()
+endforeach()
+execute_process(COMMAND "${BRIEF}" dump-tokens "${old_not}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT output MATCHES "TOK_BANG")
+    message(FATAL_ERROR "old prefix ! must stay lexically valid (${status}):\n${errors}")
+endif()
+file(WRITE "${old_not}" "main() { if not false {} }\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${old_not}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+string(FIND "${output}" "(not (bool false))" found)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR found LESS 0)
+    message(FATAL_ERROR "corrected logical-not source failed (${status}):\n${errors}\n${output}")
+endif()
+
 set(invalid "${TEST_DIR}/invalid.brf")
 file(WRITE "${invalid}" "main() {\n  \"\\q\"\n  @\n  /* unfinished\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"

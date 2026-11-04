@@ -18,7 +18,7 @@ isPrime(n: lng): bool {
 
 nextPrime(n: lng): lng {
   var candidate = n + 1
-  while !isPrime(candidate) { candidate++ }
+  while not isPrime(candidate) { candidate++ }
   candidate
 }
 

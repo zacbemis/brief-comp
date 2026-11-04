@@ -203,7 +203,7 @@ static void expr(FILE *out, const Expr *e) {
     fputc(')', out);
     break;
   case EXPR_UNARY: {
-    static const char *ops[] = {"-", "!", "~"};
+    static const char *ops[] = {"-", "not", "~"};
     fprintf(out, "(%s ", ops[e->as.unary.op]);
     expr(out, e->as.unary.value);
     fputc(')', out);

@@ -1,6 +1,6 @@
 // expect: numbers ok
 check(ok: bool, message: str): () {
-  if !ok { print(message) }
+  if not ok { print(message) }
 }
 main() {
   let s: shrt = -32768
@@ -51,6 +51,6 @@ main() {
   let nan = 0.0 / 0.0
   check(inf > 1.0 and negInf < -1.0 and nan != nan, "IEEE division by zero")
   check('a' < 'b' and '\0' == '\0', "character comparison")
-  check(true != false and !false and () == (), "bool and unit equality")
+  check(true != false and not false and () == (), "bool and unit equality")
   print("numbers ok")
 }

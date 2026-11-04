@@ -84,10 +84,11 @@ typedef enum {
   TOK_GREATER_THAN,       // >
   TOK_GREATER_THAN_EQUAL, // >=
 
-  TOK_BANG,     // ! (logical not, postfix panic)
+  TOK_BANG,     // ! (postfix panic; prefix spelling gets a diagnostic)
   TOK_QUESTION, // ? (postfix error propagation)
   TOK_AND,      // and
   TOK_OR,       // or
+  TOK_NOT,      // not
 
   // Bitwise
   TOK_TILDE,   // ~

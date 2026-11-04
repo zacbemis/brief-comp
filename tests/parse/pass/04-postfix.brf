@@ -29,8 +29,8 @@ main() {
   list[0]--
   a != b                    // one token, not a panic followed by =
   a! != b                   // panic, then not-equal
-  !a!                       // !(a!)
+  not a!                    // not (a!)
   -a?                       // -(a?)
-  !f()?.ok                  // !((f()?).ok)
+  not f()?.ok               // not ((f()?).ok)
   x!.y!.z!
 }

@@ -1,5 +1,5 @@
 // expect: returns ok
-check(ok: bool, message: str): () { if !ok { print(message) } }
+check(ok: bool, message: str): () { if not ok { print(message) } }
 factorial(n: int) {
   if n == 0 { 1 } else { n * factorial(n - 1) }
 }
@@ -55,7 +55,7 @@ main() {
   unitEarly(false)
   forReturn()
   forBreak()
-  check(!(false and 1 / 0 == 0), "short-circuit and")
+  check(not (false and 1 / 0 == 0), "short-circuit and")
   check(true or 1 / 0 == 0, "short-circuit or")
   print(text())
 }

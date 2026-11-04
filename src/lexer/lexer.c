@@ -138,6 +138,8 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_SYM;
   if (len == 3 && memcmp(lexer->start, "and", 3) == 0)
     return TOK_AND;
+  if (len == 3 && memcmp(lexer->start, "not", 3) == 0)
+    return TOK_NOT;
   if (len == 3 && memcmp(lexer->start, "chr", 3) == 0)
     return TOK_CHR;
   if (len == 3 && memcmp(lexer->start, "dub", 3) == 0)

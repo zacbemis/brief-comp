@@ -8,6 +8,12 @@ main() {
   true || false // error: Use 'or' instead of '||'. // fix: true or false
   print(true && false) // error: Use 'and' instead of '&&'. // fix: print(true and false)
   if true || false {} // error: Use 'or' instead of '||'. // fix: if true or false {}
+  !true // error: Logical not is written 'not'. // fix: not true
+  !(count == 0) // error: Logical not is written 'not'. // fix: not (count == 0)
+  if!true {} // error: Logical not is written 'not'. // fix: if not true {}
+  not!false // error: Logical not is written 'not'. // fix: not not false
+  ! // error: Logical not is written 'not'. // fix: not
+    false
   let old = count++ // error: Increment and decrement are only allowed as standalone statements.
   while count++ < 3 {} // error: Increment and decrement are only allowed as standalone statements.
   print(count--) // error: Increment and decrement are only allowed as standalone statements.

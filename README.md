@@ -66,18 +66,21 @@ with status 1. Invalid command arguments exit with status 2.
 
 N1's lexer work distinguishes `TOK_UPPER_NAME` and `TOK_LOWER_NAME`, with `_`
 as `TOK_WILDCARD`. Underscore-prefixed names such as `_value` are rejected.
-The parser still uses first-version declarations and keywords; contextual casing
-checks and the full syntax switch are not implemented yet.
+Logical negation now uses `not`; old prefix `!` is rejected with a fix, while
+postfix `!` and `!=` are unchanged. Declaration/type syntax and the remaining
+keywords are still first-version; contextual casing checks and the full syntax
+switch are not implemented yet.
 
 Diagnostics can carry machine-applicable fixes as byte spans and replacement
 text. These print as `help:` previews below the error and its notes. Previews
 escape control bytes and line breaks, while structured edits preserve exact
 replacement bytes. The `&&` and `||` errors show the corrected `and`/`or` source.
 
-`dump-ast` filters continuation newlines and parses first-version syntax into
-an arena-owned tree, printed as a stable S-expression. Syntax errors are
-collected with source locations; malformed items are skipped so later errors
-can still be reported, even when the file also contains lexer errors. Assignment
+`dump-ast` filters continuation newlines and parses the currently implemented
+syntax into an arena-owned tree, printed as a stable S-expression (`not` is
+printed as `(not ...)`). Syntax errors are collected with source locations;
+malformed items are skipped so later errors can still be reported, even when
+the file also contains lexer errors. Assignment
 is parsed only as a standalone, non-chaining statement, and pipeline calls must
 have a name or dotted-path callee. Bare block expressions and standalone block
 statements are rejected; blocks remain valid in documented body and match
@@ -275,7 +278,7 @@ Wide and combining characters do not yet have special display-width handling.
 - [Errors and outcomes](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
 - [Next-version compiler plan](docs/plans/next-version.txt) (N0 complete;
-  N1 identifier classification implemented, full syntax switch pending)
+  N1 identifier classification and `not` implemented, full syntax switch pending)
 - [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
 
 The overview links the remaining topic documents. Milestone 5 is complete for

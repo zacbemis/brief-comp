@@ -781,16 +781,23 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
-  TEST("logical operators are the keywords and/or") {
+  TEST("logical operators are the keywords and/or/not") {
     Lexer lx;
-    init_lexer(&lx, "a and b or c android order");
+    init_lexer(
+        &lx, "a and b or not c android order notifier not1 not_thing NOT Not");
     expect(&lx, TOK_LOWER_NAME, "a");
     expect(&lx, TOK_AND, "and");
     expect(&lx, TOK_LOWER_NAME, "b");
     expect(&lx, TOK_OR, "or");
+    expect(&lx, TOK_NOT, "not");
     expect(&lx, TOK_LOWER_NAME, "c");
     expect(&lx, TOK_LOWER_NAME, "android");
     expect(&lx, TOK_LOWER_NAME, "order");
+    expect(&lx, TOK_LOWER_NAME, "notifier");
+    expect(&lx, TOK_LOWER_NAME, "not1");
+    expect(&lx, TOK_LOWER_NAME, "not_thing");
+    expect(&lx, TOK_UPPER_NAME, "NOT");
+    expect(&lx, TOK_UPPER_NAME, "Not");
     expect(&lx, TOK_EOF, NULL);
   }
 

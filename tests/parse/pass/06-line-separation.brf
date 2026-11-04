@@ -11,9 +11,9 @@ main() {
   let d = e
   -f
 
-  // A line starting with `!` is a prefix not, not a panic on `g`.
+  // A line starting with `not` is a new expression, not a panic on `g`.
   let h = g
-  !ready
+  not ready
 
   // A postfix `!` ends the line's statement.
   let i = load()!
@@ -27,7 +27,7 @@ main() {
   count++
   -other
   count--
-  !flag
+  not flag
 
   // A symbol on its own line is a new statement.
   let k = value

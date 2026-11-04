@@ -18,6 +18,16 @@ counts, single adaptation anchors, classifications, unique case names and the
 expected case count are guarded. Expression wrappers preserve the original
 expression and comment, placing only the complete expression inside `print(str(...))`.
 
+## N1 spelling bridge
+
+The frozen v0 source still writes logical negation with prefix `!`. Since N1's
+`not` slice, the syntax audit and parser manifest each apply two guarded,
+single-anchor replacements in fences 13 and 14, changing only `!user.isActive()`
+to `not user.isActive()`. Grouping, paths and existing output expectations are
+unchanged. The old spelling is separately rejected with fix-it coverage. This is
+a temporary bridge until N1 replaces the v0 audit scripts, not acceptance of the
+rest of the new grammar or a claim that the raw v0 spelling still compiles.
+
 ## Fence-by-fence record
 
 Names identify generated `.brf` files under
