@@ -6,7 +6,7 @@ executable scripts and CTest registrations are deleted; they are not maintained
 as a second syntax or extended into a migration system. `docs/v0/` is untouched.
 
 The replacement [current-document parser inventory](doc-parser.md) reads all
-13 current chapters: 239 fences, 109 parser checks, 130 explicitly listed fences
+13 current chapters: 239 fences, 125 parser checks, 114 explicitly listed fences
 and two zero-fence listings. Parser checks are not native acceptance. The
 retirement leaves an intentional native document-coverage gap; the checked-in
 program fixtures and independent C/compiler/native-driver tests remain active.
@@ -25,6 +25,14 @@ they can actually test, rather than through rewritten v0 scaffolds:
 - **N3:** error handling section 6, pipelines and memory.
 - **N4/N5:** add bindings/loops and interpolation fences to their chapter audits.
 - **N6:** overview, traits, collections and standard library scope inventories.
+
+N1's `:!name` syntax/kind checks are not the N2 native audit. Entry status,
+propagation, outcome classification, `:ok` equivalence and runtime formatting
+still use the first-version rules. The explicit N1 error-only entry fixture
+exits 0 until N2 changes and reviews that expectation. Bracketed payload lists
+now parse; zero/one payload preserves native behavior, while multiple payloads
+still block compilation. Sixteen additional parser checks do not complete a
+native audit.
 
 ## N1 spelling bridges
 

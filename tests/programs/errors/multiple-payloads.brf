@@ -1,0 +1,8 @@
+Bad = Sym<:many[Missing, Other]> // error: Multiple symbol payloads are not implemented yet.
+values() {
+  :tuple[unknown, absent()] // error: Multiple symbol payloads are not implemented yet.
+}
+patterns() {
+  1 |> { :tuple[a, b] => missing(a, b) } // error: Multiple symbol payloads are not implemented yet.
+}
+main() {}

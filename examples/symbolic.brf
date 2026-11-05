@@ -3,8 +3,8 @@
 // evaluation that reports division by zero, and Newton's method built on the
 // derivative.
 
-Expr = Sym<:num(dbl), :x, :add(Pair), :sub(Pair), :mul(Pair),
-  :div(Pair), :pow(Power), :neg(Unary)>
+Expr = Sym<:num[dbl], :x, :add[Pair], :sub[Pair], :mul[Pair],
+  :div[Pair], :pow[Power], :neg[Unary]>
 
 // Recursive symbol types reach themselves through a struct.
 Pair {
@@ -17,26 +17,26 @@ Power {
 }
 Unary { value: Expr }
 
-num(v: dbl) -> Expr { :num(v) }
+num(v: dbl) -> Expr { :num[v] }
 x() -> Expr { :x }
-add(a: Expr, b: Expr) -> Expr { :add(Pair { left = a, right = b }) }
-sub(a: Expr, b: Expr) -> Expr { :sub(Pair { left = a, right = b }) }
-mul(a: Expr, b: Expr) -> Expr { :mul(Pair { left = a, right = b }) }
-div(a: Expr, b: Expr) -> Expr { :div(Pair { left = a, right = b }) }
-pow(a: Expr, n: int) -> Expr { :pow(Power { base = a, exponent = n }) }
-neg(a: Expr) -> Expr { :neg(Unary { value = a }) }
+add(a: Expr, b: Expr) -> Expr { :add[Pair { left = a, right = b }] }
+sub(a: Expr, b: Expr) -> Expr { :sub[Pair { left = a, right = b }] }
+mul(a: Expr, b: Expr) -> Expr { :mul[Pair { left = a, right = b }] }
+div(a: Expr, b: Expr) -> Expr { :div[Pair { left = a, right = b }] }
+pow(a: Expr, n: int) -> Expr { :pow[Power { base = a, exponent = n }] }
+neg(a: Expr) -> Expr { :neg[Unary { value = a }] }
 
 // ---- Printing -----------------------------------------------------------
 
 precedence(e: Expr) -> int {
   e |> {
-    :add(_) => 1
-    :sub(_) => 1
-    :mul(_) => 2
-    :div(_) => 2
-    :neg(_) => 3
-    :pow(_) => 4
-    :num(v) => if v < 0 { 3 } else { 5 }
+    :add[_] => 1
+    :sub[_] => 1
+    :mul[_] => 2
+    :div[_] => 2
+    :neg[_] => 3
+    :pow[_] => 4
+    :num[v] => if v < 0 { 3 } else { 5 }
     :x => 5
   }
 }
@@ -48,29 +48,29 @@ operand(e: Expr, minimum: int) -> str {
 
 show(e: Expr) -> str {
   e |> {
-    :num(v) => str(v)
+    :num[v] => str(v)
     :x => "x"
-    :add(p) => operand(p.left, 1) + " + " + operand(p.right, 1)
-    :sub(p) => operand(p.left, 1) + " - " + operand(p.right, 2)
-    :mul(p) => operand(p.left, 2) + " * " + operand(p.right, 2)
-    :div(p) => operand(p.left, 2) + " / " + operand(p.right, 3)
-    :neg(u) => "-" + operand(u.value, 3)
-    :pow(p) => operand(p.base, 5) + "^" + str(p.exponent)
+    :add[p] => operand(p.left, 1) + " + " + operand(p.right, 1)
+    :sub[p] => operand(p.left, 1) + " - " + operand(p.right, 2)
+    :mul[p] => operand(p.left, 2) + " * " + operand(p.right, 2)
+    :div[p] => operand(p.left, 2) + " / " + operand(p.right, 3)
+    :neg[u] => "-" + operand(u.value, 3)
+    :pow[p] => operand(p.base, 5) + "^" + str(p.exponent)
   }
 }
 
 // ---- Simplification -----------------------------------------------------
 
-constant(e: Expr) -> Sym<:ok(dbl), :none> {
+constant(e: Expr) -> Sym<:ok[dbl], :none> {
   e |> {
-    :num(v) => v
+    :num[v] => v
     _ => :none
   }
 }
 
 isConstant(e: Expr, value: dbl) -> bool {
   constant(e) |> {
-    :ok(v) => v == value
+    :ok[v] => v == value
     :none => false
   }
 }
@@ -79,8 +79,8 @@ simplifyAdd(a: Expr, b: Expr) -> Expr {
   if isConstant(a, 0) { ret b }
   if isConstant(b, 0) { ret a }
   constant(a) |> {
-    :ok(x) => constant(b) |> {
-      :ok(y) => ret num(x + y)
+    :ok[x] => constant(b) |> {
+      :ok[y] => ret num(x + y)
       :none => ()
     }
     :none => ()
@@ -92,8 +92,8 @@ simplifySub(a: Expr, b: Expr) -> Expr {
   if isConstant(b, 0) { ret a }
   if isConstant(a, 0) { ret simplifyNeg(b) }
   constant(a) |> {
-    :ok(x) => constant(b) |> {
-      :ok(y) => ret num(x - y)
+    :ok[x] => constant(b) |> {
+      :ok[y] => ret num(x - y)
       :none => ()
     }
     :none => ()
@@ -107,22 +107,22 @@ simplifyMul(a: Expr, b: Expr) -> Expr {
   if isConstant(b, 1) { ret a }
   if isConstant(a, -1) { ret simplifyNeg(b) }
   constant(a) |> {
-    :ok(x) => constant(b) |> {
-      :ok(y) => ret num(x * y)
+    :ok[x] => constant(b) |> {
+      :ok[y] => ret num(x * y)
       :none => ()
     }
     :none => ()
   }
   // Keep constants on the left: x * 3 becomes 3 * x.
   constant(b) |> {
-    :ok(_) => ret simplifyMul(b, a)
+    :ok[_] => ret simplifyMul(b, a)
     :none => ()
   }
   // Fold a constant into a product that starts with one: 3 * (2 * x) = 6 * x.
   constant(a) |> {
-    :ok(x) => b |> {
-      :mul(p) => constant(p.left) |> {
-        :ok(y) => ret simplifyMul(num(x * y), p.right)
+    :ok[x] => b |> {
+      :mul[p] => constant(p.left) |> {
+        :ok[y] => ret simplifyMul(num(x * y), p.right)
         :none => ()
       }
       _ => ()
@@ -135,8 +135,8 @@ simplifyMul(a: Expr, b: Expr) -> Expr {
 simplifyDiv(a: Expr, b: Expr) -> Expr {
   if isConstant(b, 1) { ret a }
   constant(a) |> {
-    :ok(x) => constant(b) |> {
-      :ok(y) => if y != 0 { ret num(x / y) }
+    :ok[x] => constant(b) |> {
+      :ok[y] => if y != 0 { ret num(x / y) }
       :none => ()
     }
     :none => ()
@@ -148,32 +148,32 @@ simplifyPow(a: Expr, n: int) -> Expr {
   if n == 0 { ret num(1) }
   if n == 1 { ret a }
   constant(a) |> {
-    :ok(v) => if v != 0 or n > 0 { ret num(v ** dbl(n)) }
+    :ok[v] => if v != 0 or n > 0 { ret num(v ** dbl(n)) }
     :none => ()
   }
   // (b^m)^n = b^(m*n)
   a |> {
-    :pow(p) => simplifyPow(p.base, p.exponent * n)
+    :pow[p] => simplifyPow(p.base, p.exponent * n)
     other => pow(other, n)
   }
 }
 
 simplifyNeg(a: Expr) -> Expr {
   a |> {
-    :num(v) => num(-v)
-    :neg(u) => u.value
+    :num[v] => num(-v)
+    :neg[u] => u.value
     other => neg(other)
   }
 }
 
 simplify(e: Expr) -> Expr {
   e |> {
-    :add(p) => simplifyAdd(simplify(p.left), simplify(p.right))
-    :sub(p) => simplifySub(simplify(p.left), simplify(p.right))
-    :mul(p) => simplifyMul(simplify(p.left), simplify(p.right))
-    :div(p) => simplifyDiv(simplify(p.left), simplify(p.right))
-    :pow(p) => simplifyPow(simplify(p.base), p.exponent)
-    :neg(u) => simplifyNeg(simplify(u.value))
+    :add[p] => simplifyAdd(simplify(p.left), simplify(p.right))
+    :sub[p] => simplifySub(simplify(p.left), simplify(p.right))
+    :mul[p] => simplifyMul(simplify(p.left), simplify(p.right))
+    :div[p] => simplifyDiv(simplify(p.left), simplify(p.right))
+    :pow[p] => simplifyPow(simplify(p.base), p.exponent)
+    :neg[u] => simplifyNeg(simplify(u.value))
     other => other
   }
 }
@@ -182,53 +182,53 @@ simplify(e: Expr) -> Expr {
 
 derive(e: Expr) -> Expr {
   e |> {
-    :num(_) => num(0)
+    :num[_] => num(0)
     :x => num(1)
-    :add(p) => add(derive(p.left), derive(p.right))
-    :sub(p) => sub(derive(p.left), derive(p.right))
+    :add[p] => add(derive(p.left), derive(p.right))
+    :sub[p] => sub(derive(p.left), derive(p.right))
     // Product rule: (fg)' = f'g + fg'
-    :mul(p) => add(mul(derive(p.left), p.right), mul(p.left, derive(p.right)))
+    :mul[p] => add(mul(derive(p.left), p.right), mul(p.left, derive(p.right)))
     // Quotient rule: (f/g)' = (f'g - fg') / g^2
-    :div(p) => div(sub(mul(derive(p.left), p.right), mul(p.left, derive(p.right))),
+    :div[p] => div(sub(mul(derive(p.left), p.right), mul(p.left, derive(p.right))),
       pow(p.right, 2))
     // Power and chain rules: (f^n)' = n * f^(n-1) * f'
-    :pow(p) => mul(mul(num(dbl(p.exponent)), pow(p.base, p.exponent - 1)),
+    :pow[p] => mul(mul(num(dbl(p.exponent)), pow(p.base, p.exponent - 1)),
       derive(p.base))
-    :neg(u) => neg(derive(u.value))
+    :neg[u] => neg(derive(u.value))
   }
 }
 
-eval(e: Expr, at: dbl) -> Sym<:ok(dbl), :divideByZero> {
+eval(e: Expr, at: dbl) -> Sym<:ok[dbl], :divideByZero> {
   e |> {
-    :num(v) => v
+    :num[v] => v
     :x => at
-    :add(p) => eval(p.left, at)? + eval(p.right, at)?
-    :sub(p) => eval(p.left, at)? - eval(p.right, at)?
-    :mul(p) => eval(p.left, at)? * eval(p.right, at)?
-    :div(p) => {
+    :add[p] => eval(p.left, at)? + eval(p.right, at)?
+    :sub[p] => eval(p.left, at)? - eval(p.right, at)?
+    :mul[p] => eval(p.left, at)? * eval(p.right, at)?
+    :div[p] => {
       let divisor = eval(p.right, at)?
       if divisor == 0 { ret :divideByZero }
       eval(p.left, at)? / divisor
     }
-    :pow(p) => {
+    :pow[p] => {
       let base = eval(p.base, at)?
       if base == 0 and p.exponent < 0 { ret :divideByZero }
       base ** dbl(p.exponent)
     }
-    :neg(u) => -eval(u.value, at)?
+    :neg[u] => -eval(u.value, at)?
   }
 }
 
 absolute(v: dbl) -> dbl { if v < 0 { -v } else { v } }
 
 newton(f: Expr, guess: dbl) ->
-  Sym<:ok(dbl), :divideByZero, :flatSlope(dbl), :noConvergence> {
+  Sym<:ok[dbl], :divideByZero, :flatSlope[dbl], :noConvergence> {
   let slope = simplify(derive(f))
   var at = guess
   for i in 0..60 {
     let height = eval(f, at)?
     let tilt = eval(slope, at)?
-    if tilt == 0 { ret :flatSlope(at) }
+    if tilt == 0 { ret :flatSlope[at] }
     let next = at - height / tilt
     if absolute(next - at) < 0.000000000001 { ret next }
     at = next
@@ -250,7 +250,7 @@ study(name: str, f: Expr) {
     let at = dbl(i)
     eval(simple, at) |> {
       // Adding zero turns IEEE negative zero into zero for display.
-      :ok(v) => print("  f(" + str(at) + ") = " + str(v + 0))
+      :ok[v] => print("  f(" + str(at) + ") = " + str(v + 0))
       :divideByZero => print("  f(" + str(at) + ") divides by zero")
     }
   }
@@ -258,9 +258,9 @@ study(name: str, f: Expr) {
 
 solve(name: str, f: Expr, guess: dbl) {
   newton(f, guess) |> {
-    :ok(root) => print(name + " from " + str(guess) + ": x = " + str(root))
+    :ok[root] => print(name + " from " + str(guess) + ": x = " + str(root))
     :divideByZero => print(name + " from " + str(guess) + ": division by zero")
-    :flatSlope(at) => print(name + " from " + str(guess) +
+    :flatSlope[at] => print(name + " from " + str(guess) +
       ": the slope is flat at x = " + str(at))
     :noConvergence => print(name + " from " + str(guess) + ": no convergence")
   }

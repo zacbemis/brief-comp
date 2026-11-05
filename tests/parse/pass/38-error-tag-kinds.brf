@@ -1,0 +1,13 @@
+// Kind syntax only. N1 still uses Sym and :ok outcomes.
+Failure = Sym<:!bad[int], :!missing>
+main() {
+  :!bad[1]
+  :!missing
+  value |> {
+    :!bad[code] => code
+    :!missing => 0
+  }
+  :!bad != :!missing
+  :!bad!
+  :neutral!
+}

@@ -1,14 +1,14 @@
-Result = Sym<:ok(int), :bad>
+Result = Sym<:ok[int], :bad>
 f() -> Result { 1 }
 take(r: Result) {}
 unhandled() {
   f() // error: A call that can fail must be handled with ?, !, or a match.
   let x = f() // error: A call that can fail must be handled with ?, !, or a match.
   take(f()) // error: A call that can fail must be handled with ?, !, or a match.
-  :outer(f()) // error: A call that can fail must be handled with ?, !, or a match.
+  :outer[f()] // error: A call that can fail must be handled with ?, !, or a match.
   ret f() // error: A call that can fail must be handled with ?, !, or a match.
 }
-TextResult = Sym<:ok(str), :bad>
+TextResult = Sym<:ok[str], :bad>
 readName() -> TextResult { "owned" + " name" }
 consumeName(name: str, age: int) {}
 getters() {
@@ -19,7 +19,7 @@ getters() {
 }
 P { number: int }
 impl P { read(p: Self) -> int { p.number } }
-readObject() -> Sym<:ok(P), :bad> { P { number = 1 } }
+readObject() -> Sym<:ok[P], :bad> { P { number = 1 } }
 projection() {
   let value = readObject() // error: A call that can fail must be handled with ?, !, or a match.
   value.number

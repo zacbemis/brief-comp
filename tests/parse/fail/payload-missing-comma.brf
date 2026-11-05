@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: Separate payload positions with commas, even on different lines.
+main() {
+  :value[1 2]
+}

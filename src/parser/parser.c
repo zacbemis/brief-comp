@@ -183,6 +183,38 @@ static const char *check_name_case(Parser *p, Token token, size_t mark,
   diagnostic_fix(p->diagnostics, d, token.span, fixed);
   return fixed;
 }
+// ':' and '!' stay separate tokens; only an adjacent pair spells :!.
+// Recovery moves the bang before trivia, preserving comments and line endings.
+static int symbol_name(Parser *p, Token colon, SymbolKind *kind, Span *span,
+                       const char *message) {
+  Token bang = {0};
+  *kind = SYMBOL_NEUTRAL;
+  if (match(p, TOK_BANG)) {
+    bang = p->previous;
+    *kind = SYMBOL_ERROR;
+  }
+  if (!expect_identifier(p, message))
+    return 0;
+  *span = through(colon.span, p->previous.span);
+  if (*kind == SYMBOL_ERROR && (bang.span.file != colon.span.file ||
+                                bang.span.start != colon.span.end)) {
+    Diagnostic *d = error_at(p, through(colon.span, bang.span),
+                             "The ':!' error-symbol prefix must be adjacent.");
+    int blank = bang.span.file == colon.span.file;
+    for (size_t i = colon.span.end; blank && i < bang.span.start; i++)
+      blank = colon.span.file->text[i] &&
+              strchr(" \t\r\n", colon.span.file->text[i]);
+    if (blank) { // Close a whitespace-only gap: `: !bad` becomes `:!bad`.
+      diagnostic_fix(p->diagnostics, d,
+                     span_make(colon.span.file, colon.span.end, bang.span.end),
+                     "!");
+    } else { // Move the bang before comments, keeping them.
+      diagnostic_fix(p->diagnostics, d, colon.span, ":!");
+      diagnostic_fix(p->diagnostics, d, bang.span, "");
+    }
+  }
+  return 1;
+}
 static int type_name_token(TokenType t) {
   return token_is_identifier(t) || (t >= TOK_BOOL && t <= TOK_STR) ||
          t == TOK_SELF || t == TOK_OLD_DUB;
@@ -226,7 +258,8 @@ static Expr *checked_expr(Parser *p, Expr *e) {
   } while (0)
   switch (e->kind) {
   case EXPR_SYMBOL:
-    CHILD(e->as.symbol.payload);
+    for (size_t i = 0; i < e->as.symbol.count; i++)
+      CHILD(e->as.symbol.payloads[i]);
     break;
   case EXPR_UNARY:
     CHILD(e->as.unary.value);
@@ -326,8 +359,12 @@ static Type *checked_type(Parser *p, Type *t) {
       CHILD(t->as.apply.args[i]);
     break;
   case TYPE_SYM:
-    for (size_t i = 0; i < t->as.sym.count; i++)
-      CHILD(t->as.sym.items[i].type);
+    for (size_t i = 0; i < t->as.sym.count; i++) {
+      SymEntry entry = t->as.sym.items[i];
+      CHILD(entry.type);
+      for (size_t j = 0; j < entry.count; j++)
+        CHILD(entry.payloads[j]);
+    }
     break;
   default:
     break;
@@ -457,7 +494,10 @@ static int old_type_list_token(const Token *items, size_t i) {
   case TOK_LOWER_NAME:
     // A module qualifier, a symbol tag, or a named tuple member; a type
     // name is uppercase or a primitive keyword.
-    return after == TOK_PERIOD || after == TOK_COLON || before == TOK_COLON;
+    return after == TOK_PERIOD || after == TOK_COLON || before == TOK_COLON ||
+           (before == TOK_BANG && i >= 2 && items[i - 2].type == TOK_COLON);
+  case TOK_BANG:
+    return before == TOK_COLON;
   case TOK_INT_LIT: // A size in old int[4].
     return before == TOK_LBRACKET;
   case TOK_LPAREN: // A symbol payload, or a unit/tuple type.
@@ -532,6 +572,26 @@ static int old_index(Parser *p, Expr *left) {
   return 0;
 }
 
+static int payload_open(Parser *p, Token *open) {
+  if (!at(p, TOK_LBRACKET) && !at(p, TOK_LPAREN))
+    return 0;
+  *open = take(p);
+  return 1;
+}
+static TokenType payload_end(Token open) {
+  return open.type == TOK_LPAREN ? TOK_RPAREN : TOK_RBRACKET;
+}
+static int payload_close(Parser *p, Token open, const char *message) {
+  if (!expect(p, payload_end(open), message))
+    return 0;
+  if (open.type == TOK_LPAREN) {
+    Diagnostic *d =
+        error_at(p, open.span, "Symbol payloads use '[...]', not '(...)'.");
+    diagnostic_fix(p->diagnostics, d, open.span, "[");
+    diagnostic_fix(p->diagnostics, d, p->previous.span, "]");
+  }
+  return 1;
+}
 static Type *type_inner(Parser *p) {
   Token start = peek(p);
   Type *t;
@@ -549,16 +609,33 @@ static Type *type_inner(Parser *p) {
     do {
       SymEntry entry = {.span = peek(p).span};
       if (match(p, TOK_COLON)) {
-        if (!expect_identifier(p, "Expected a symbol tag after ':'."))
+        if (!symbol_name(p, p->previous, &entry.kind, &entry.tag_span,
+                         "Expected a symbol tag after ':'."))
           return NULL;
         Token tag = p->previous;
         size_t mark = p->diagnostics->count;
         entry.tag = name(p, tag);
-        if (match(p, TOK_LPAREN)) {
-          entry.type = type(p);
-          if (!entry.type ||
-              !expect(p, TOK_RPAREN, "Expected ')' after symbol payload type."))
+        Token open;
+        if (payload_open(p, &open)) {
+          List payloads = {0};
+          // Legacy () had no empty-payload spelling: keep its missing-type
+          // error.
+          if (open.type == TOK_LPAREN || !at(p, TOK_RBRACKET))
+            do {
+              Type *payload = type(p);
+              if (!payload)
+                return NULL;
+              PUSH(p, payloads, payload);
+              if (!match(p, TOK_COMMA) || at(p, payload_end(open)))
+                break;
+            } while (!at(p, TOK_EOF));
+          if (!payload_close(p, open,
+                             open.type == TOK_LPAREN
+                                 ? "Expected ')' after symbol payload type."
+                                 : "Expected ']' after symbol payload types."))
             return NULL;
+          entry.payloads = payloads.data;
+          entry.count = payloads.count;
         }
         check_name_case(p, tag, mark, TOK_LOWER_NAME,
                         "Symbol tags must start with a lowercase letter.");
@@ -1344,17 +1421,32 @@ static Expr *primary(Parser *p, int allow_struct) {
     return e;
   }
   if (match(p, TOK_COLON)) {
-    if (!expect_identifier(p, "Expected a symbol tag after ':'."))
+    Expr *e = new_expr(p, EXPR_SYMBOL, token.span);
+    if (!symbol_name(p, token, &e->as.symbol.kind, &e->as.symbol.tag_span,
+                     "Expected a symbol tag after ':'."))
       return NULL;
     Token tag = p->previous;
     size_t mark = p->diagnostics->count;
-    Expr *e = new_expr(p, EXPR_SYMBOL, token.span);
     e->as.symbol.tag = name(p, tag);
-    if (match(p, TOK_LPAREN)) {
-      e->as.symbol.payload = expression(p, 0, 1);
-      if (!e->as.symbol.payload ||
-          !expect(p, TOK_RPAREN, "Expected ')' after symbol payload."))
+    Token open;
+    if (payload_open(p, &open)) {
+      List payloads = {0};
+      if (open.type == TOK_LPAREN || !at(p, TOK_RBRACKET))
+        do {
+          Expr *payload = expression(p, 0, 1);
+          if (!payload)
+            return NULL;
+          PUSH(p, payloads, payload);
+          if (!match(p, TOK_COMMA) || at(p, payload_end(open)))
+            break;
+        } while (!at(p, TOK_EOF));
+      if (!payload_close(p, open,
+                         open.type == TOK_LPAREN
+                             ? "Expected ')' after symbol payload."
+                             : "Expected ']' after symbol payloads."))
         return NULL;
+      e->as.symbol.payloads = payloads.data;
+      e->as.symbol.count = payloads.count;
     }
     check_name_case(p, tag, mark, TOK_LOWER_NAME,
                     "Symbol tags must start with a lowercase letter.");
@@ -1494,17 +1586,32 @@ static Pattern *pattern_inner(Parser *p) {
     return v;
   }
   if (match(p, TOK_COLON)) {
-    if (!expect_identifier(p, "Expected a symbol tag in pattern."))
+    Pattern *v = new_pattern(p, PAT_SYMBOL, start.span);
+    if (!symbol_name(p, start, &v->as.symbol.kind, &v->as.symbol.tag_span,
+                     "Expected a symbol tag in pattern."))
       return NULL;
     Token tag = p->previous;
     size_t mark = p->diagnostics->count;
-    Pattern *v = new_pattern(p, PAT_SYMBOL, start.span);
     v->as.symbol.tag = name(p, tag);
-    if (match(p, TOK_LPAREN)) {
-      v->as.symbol.payload = pattern(p);
-      if (!v->as.symbol.payload ||
-          !expect(p, TOK_RPAREN, "Expected ')' after payload pattern."))
+    Token open;
+    if (payload_open(p, &open)) {
+      List payloads = {0};
+      if (open.type == TOK_LPAREN || !at(p, TOK_RBRACKET))
+        do {
+          Pattern *payload = pattern(p);
+          if (!payload)
+            return NULL;
+          PUSH(p, payloads, payload);
+          if (!match(p, TOK_COMMA) || at(p, payload_end(open)))
+            break;
+        } while (!at(p, TOK_EOF));
+      if (!payload_close(p, open,
+                         open.type == TOK_LPAREN
+                             ? "Expected ')' after payload pattern."
+                             : "Expected ']' after payload patterns."))
         return NULL;
+      v->as.symbol.payloads = payloads.data;
+      v->as.symbol.count = payloads.count;
     }
     check_name_case(p, tag, mark, TOK_LOWER_NAME,
                     "Symbol tags must start with a lowercase letter.");

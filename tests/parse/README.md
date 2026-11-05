@@ -20,7 +20,10 @@ ordinary names; old declaration/modifier spellings still reject. Unqualified
 lowercase pattern names bind; uppercase names reference symbol sets. Imports
 select module paths at top level, with uppercase final module names; compilation
 still reports them as unimplemented. Symbol/type/member grammar and broader
-module casing remain pending.
+module casing remain pending. Error tags use adjacent `:!name` in the existing
+type/value/pattern contexts. Payload lists use brackets, including empty lists,
+trailing commas and several positional values/patterns. Native compilation still
+supports at most one payload; union type syntax remains pending.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
@@ -37,10 +40,16 @@ module casing remain pending.
   does not implement module loading.
 - `37`: typed array/vector literals, nesting, layout, chains and header escapes;
   these remain unimplemented at native compilation.
+- `38`: error-tag kind spelling in types, values, patterns and postfix
+  expressions.
+- `39`: bracketed payload lists in types, values and patterns, including
+  nesting, empty/unit payloads, multiple positions, layout and trailing commas.
 
 ## `fail/`
 
-There are 96 rejection fixtures, including `collection-header.brf`,
+There are 100 rejection fixtures, including `old-payload-parentheses.brf`,
+`payload-missing-close.brf`, `payload-missing-comma.brf`,
+`error-tag-spacing.brf`, `collection-header.brf`,
 `collection-missing-comma.brf`, `bare-collection-literal.brf`,
 `import-missing-name.brf`, `import-in-body.brf`, `tag-casing.brf`,
 `tag-wildcard.brf`, `declaration-casing.brf`, `declaration-wildcard.brf`,

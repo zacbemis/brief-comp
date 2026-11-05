@@ -24,10 +24,10 @@ main() {
   let braceInString = "{ not a block }"
   let unit = ()
   let tag = :ok
-  let tagged = :ok(1)
-  let nested = :ok(:some(:value(1.5)))
-  let computed = :sum(1 + 2 * 3)
-  let text = :message("hello, world")
+  let tagged = :ok[1]
+  let nested = :ok[:some[:value[1.5]]]
+  let computed = :sum[1 + 2 * 3]
+  let text = :message["hello, world"]
   let floatRange = 0.5..1.5
   let intRange = 1..5
 }

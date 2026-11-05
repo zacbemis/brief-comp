@@ -13,7 +13,7 @@ while false { tick() } // error: Statements are only allowed inside a function.
 for i in 0..2 { print(str(i)) } // error: Statements are only allowed inside a function.
 ret 1 // error: Statements are only allowed inside a function.
 42 // error: Statements are only allowed inside a function.
-:ok(1) // error: Statements are only allowed inside a function.
+:ok[1] // error: Statements are only allowed inside a function.
 () // error: Statements are only allowed inside a function.
 
 // Explicit declaration evidence must keep its specific parameter diagnostic.

@@ -88,49 +88,49 @@ int main(void) {
   TEST("success-only functions retain their plain ABI and support symbol "
        "handlers") {
     Result r = valid(&a, "double(n: int) -> int { n * 2 }\n"
-                         "only() -> Sym<:ok(str)> { :ok(\"a\" + \"b\") }\n"
+                         "only() -> Sym<:ok[str]> { :ok[\"a\" + \"b\"] }\n"
                          "main() { let n = double(2) + 1\n"
-                         "double(n) |> { :ok(value) => print(str(value)) }\n"
+                         "double(n) |> { :ok[value] => print(str(value)) }\n"
                          "only() |> print()\nprint(only()!)\nprint(only()?) }");
     ASSERT_EQ_INT(SEMA_INT, r.program->functions[0].symbol.return_type->kind);
     ASSERT_TRUE(sema_ok(r.program->functions[0].symbol.outcome_type) != NULL);
     ASSERT_EQ_INT(SEMA_STR, r.program->functions[1].symbol.return_type->kind);
-    valid(&a, "main() { let n = :ok(1)\nprint(str(n))\n"
-              "let x: Sym<:ok(int)> = :ok(2)\nprint(str(x))\n"
-              "x |> { :ok(v) => print(str(v)) } }");
+    valid(&a, "main() { let n = :ok[1]\nprint(str(n))\n"
+              "let x: Sym<:ok[int]> = :ok[2]\nprint(str(x))\n"
+              "x |> { :ok[v] => print(str(v)) } }");
     valid(&a,
-          "f() -> Sym<:ok(())> { :ok(()) }\nmain() { f() |> { :ok(x) => x } }");
-    valid(&a, "f() -> lng { ret :ok(4294967296) }\n"
-              "g() -> flt { :ok(0.1) }\nmain() { f()\ng() }");
+          "f() -> Sym<:ok[()]> { :ok[()] }\nmain() { f() |> { :ok[x] => x } }");
+    valid(&a, "f() -> lng { ret :ok[4294967296] }\n"
+              "g() -> flt { :ok[0.1] }\nmain() { f()\ng() }");
     valid(&a,
           "Data = Sym<:a, :b>\n"
-          "f() -> Sym<:ok(Data)> { :ok(:a) }\n"
-          "main() { f() |> { :ok(data) => data |> { :a => ()\n:b => () } } }");
+          "f() -> Sym<:ok[Data]> { :ok[:a] }\n"
+          "main() { f() |> { :ok[data] => data |> { :a => ()\n:b => () } } }");
     invalid(&a, "main() { 1? }", "require a symbol outcome");
     invalid(&a, "main() { :data! }", "require a symbol outcome");
-    invalid(&a, "f() {}\nmain() { f() |> { :ok(x) => x } }", "payload shape");
+    invalid(&a, "f() {}\nmain() { f() |> { :ok[x] => x } }", "payload shape");
   }
   TEST("typed errors propagate and panic, with explicit or implicit success") {
     valid(
         &a,
-        "f(b: bool) -> Sym<:ok(lng), :bad(str)> { if b { ret :bad(\"bad\") }\n"
+        "f(b: bool) -> Sym<:ok[lng], :bad[str]> { if b { ret :bad[\"bad\"] }\n"
         "4294967296 }\n"
-        "g() -> Sym<:ok(lng), :bad(str)> { f(false)? }\n"
-        "h() -> Sym<:ok(lng), :bad(str)> { :ok(f(false)!) }\n"
+        "g() -> Sym<:ok[lng], :bad[str]> { f(false)? }\n"
+        "h() -> Sym<:ok[lng], :bad[str]> { :ok[f(false)!] }\n"
         "main() { print(str(g()?))\nprint(str(h()!)) }");
     valid(&a, "f() -> Sym<:ok, :bad> { :ok }\nmain() { f()?\nf()! }");
     invalid(
         &a,
-        "f() -> Sym<:ok(int), :bad> { :bad }\ng() -> int { f()? }\nmain() {}",
+        "f() -> Sym<:ok[int], :bad> { :bad }\ng() -> int { f()? }\nmain() {}",
         "Propagated variants");
     invalid(&a,
-            "f() -> Sym<:ok(lng), :bad> { 1 + 4294967296 }\n"
-            "g() -> Sym<:ok(int), :bad> { f()? }\nmain() {}",
+            "f() -> Sym<:ok[lng], :bad> { 1 + 4294967296 }\n"
+            "g() -> Sym<:ok[int], :bad> { f()? }\nmain() {}",
             "body does not match");
-    invalid(&a, "f() -> Sym<:ok(int)> { ret :bad }\nmain() {}", "Return value");
+    invalid(&a, "f() -> Sym<:ok[int]> { ret :bad }\nmain() {}", "Return value");
   }
   TEST("fallible calls must be handled at the call, in every position") {
-    const char *prefix = "f() -> Sym<:ok(int), :bad> { 1 }\n";
+    const char *prefix = "f() -> Sym<:ok[int], :bad> { 1 }\n";
     char text[4096];
 #define CASE(body)                                                             \
   (snprintf(text, sizeof(text), "%smain() { %s }", prefix, body), text)
@@ -138,24 +138,24 @@ int main(void) {
     invalid(&a, CASE("let x = f()"), "must be handled");
     invalid(&a, CASE("ret f()"), "must be handled");
     invalid(&a, CASE("print(str(f()))"), "must be handled");
-    invalid(&a, CASE(":ok(f())"), "must be handled");
+    invalid(&a, CASE(":ok[f()]"), "must be handled");
     invalid(&a, CASE("f() |> str()"), "must be handled");
-    valid(&a, CASE("f() |> { :ok(n) => print(str(n))\n:bad => () }"));
+    valid(&a, CASE("f() |> { :ok[n] => print(str(n))\n:bad => () }"));
     valid(&a, CASE("print(str(f()!))\nf()?"));
 #undef CASE
     valid(&a, "f() { :a }\nmain() -> () { let x = f()\nf() }");
     invalid(&a,
-            "f() -> Sym<:ok(int), :bad> { 1 }\nmain() { true |> { true => "
+            "f() -> Sym<:ok[int], :bad> { 1 }\nmain() { true |> { true => "
             "()\nfalse => f() } }",
             "must be handled");
   }
   TEST("unhandled outcomes do not become usable binding or argument types") {
     const char *prefix =
         "P { value: int }\nPair { number: int\nflag: bool }\n"
-        "Result = Sym<:ok(int), :bad>\n"
+        "Result = Sym<:ok[int], :bad>\n"
         "source() -> Result { 1 }\n"
-        "text() -> Sym<:ok(str), :bad> { \"owned\" + \" text\" }\n"
-        "object() -> Sym<:ok(P), :bad> { P { value = 1 } }\n"
+        "text() -> Sym<:ok[str], :bad> { \"owned\" + \" text\" }\n"
+        "object() -> Sym<:ok[P], :bad> { P { value = 1 } }\n"
         "effect() -> Sym<:ok, :bad> { :ok }\n"
         "take(value: int, flag: bool) {}\ntakeFloat(value: flt) {}\n"
         "takeData(value: Result) {}\n"
@@ -177,21 +177,21 @@ int main(void) {
         {"f() { str(source()) }", "f() { str(source()!) }"},
         {"f() { int(source()) }", "f() { int(source()!) }"},
         {"f() { source() |> str() }", "f() { source()! |> str() }"},
-        {"f() { :outer(source()) }", "f() { :outer(source()!) }"},
+        {"f() { :outer[source()] }", "f() { :outer[source()!] }"},
         {"f() { takeData(source()) }",
          "f() { takeData(source() |> { other => other }) }"},
         {"f() { let value = source()\nvalue? }",
          "f() { let value = source() |> { other => other }\nvalue? }"},
         {"f() { let value = source()\nvalue! }",
          "f() { let value = source() |> { other => other }\nvalue! }"},
-        {"f() { let value = source()\nvalue |> { :ok(n) => take(n, true)\n"
+        {"f() { let value = source()\nvalue |> { :ok[n] => take(n, true)\n"
          ":bad => () } }",
          "f() { let value = source() |> { other => other }\n"
-         "value |> { :ok(n) => take(n, true)\n:bad => () } }"},
+         "value |> { :ok[n] => take(n, true)\n:bad => () } }"},
         {"f() -> int { ret source() }", "f() -> int { ret source()! }"},
         {"f() -> Result { source() }", "f() -> Result { source()? }"},
-        {"f() -> Sym<:ok(int), _> { source() }",
-         "f() -> Sym<:ok(int), _> { source()? }"},
+        {"f() -> Sym<:ok[int], _> { source() }",
+         "f() -> Sym<:ok[int], _> { source()? }"},
         {"f() { effect() }", "f() { effect()! }"},
         {"f() { ret 0\nlet value = source()\ntake(value, true) }",
          "f() { ret 0\nlet value = source()!\ntake(value, true) }"},
@@ -232,15 +232,15 @@ int main(void) {
       ASSERT_EQ_INT(2, call->as.call.target->outcome_type->symbols->count);
     }
     valid(&a, "data() -> Sym<:left, :right> { :left }\n"
-              "only() -> Sym<:ok(str)> { :ok(\"owned\" + \" text\") }\n"
+              "only() -> Sym<:ok[str]> { :ok[\"owned\" + \" text\"] }\n"
               "main() { let data = data()\nlet text = only()\nprint(text)\n"
               "data |> { :left => ()\n:right => () } }");
   }
   TEST("handling recovery preserves unrelated errors and SCC fallibility") {
     const char *prefix = "P { value: int }\nPair { number: int\nflag: bool }\n"
-                         "source() -> Sym<:ok(int), :bad> { 1 }\n"
+                         "source() -> Sym<:ok[int], :bad> { 1 }\n"
                          "take(value: int, flag: bool) {}\n"
-                         "writable(value: &P) -> Sym<:ok(P), :bad> { value }\n";
+                         "writable(value: &P) -> Sym<:ok[P], :bad> { value }\n";
     struct {
       const char *body, *message;
       size_t handling;
@@ -256,7 +256,7 @@ int main(void) {
          "Struct field initializer has the wrong type.", 1},
         {"f() -> int { source()\nfalse }",
          "Function body does not match the written return type.", 1},
-        {"f() -> Sym<:ok(int), _> { source()\nfalse }",
+        {"f() -> Sym<:ok[int], _> { source()\nfalse }",
          "Function body does not match the written return type.", 1},
         {"f(flag: bool) { if flag { ret 1 }\nif flag { ret true }\nsource() }",
          "Incompatible return types.", 1},
@@ -293,15 +293,15 @@ int main(void) {
         2, NULL, 0);
     handling_errors(&a,
                     "a() { b() }\nb() { source() }\n"
-                    "source() -> Sym<:ok(int), :bad> { 1 }\nmain() {}",
+                    "source() -> Sym<:ok[int], :bad> { 1 }\nmain() {}",
                     1, NULL, 0);
   }
   TEST("return inference accumulates errors and narrows handled variants") {
-    Result r = valid(&a, "Problems = Sym<:a(str), :b(int)>\n"
-                         "source(b: bool) -> Sym<:ok(str), Problems> { if b { "
-                         "ret :a(\"a\") }\n\"x\" }\n"
+    Result r = valid(&a, "Problems = Sym<:a[str], :b[int]>\n"
+                         "source(b: bool) -> Sym<:ok[str], Problems> { if b { "
+                         "ret :a[\"a\"] }\n\"x\" }\n"
                          "f() { source(false)? }\n"
-                         "g() { source(false) |> { :ok(text) => text\n:a(_) => "
+                         "g() { source(false) |> { :ok[text] => text\n:a[_] => "
                          "\"\"\nother => ret other } }\n"
                          "main() { f()!\ng()! }");
     const SemaType *f = r.program->functions[1].symbol.outcome_type;
@@ -315,7 +315,7 @@ int main(void) {
     ASSERT_EQ_INT(0, again.errors.count);
     ASSERT_TRUE(g == r.program->functions[2].symbol.outcome_type);
     invalid(&a,
-            "a() -> Sym<:ok, :bad(int)> { :ok }\nb() -> Sym<:ok, :bad(str)> { "
+            "a() -> Sym<:ok, :bad[int]> { :ok }\nb() -> Sym<:ok, :bad[str]> { "
             ":ok }\n"
             "f() { a()?\nb()? }\nmain() {}",
             "conflicting payload");
@@ -323,13 +323,13 @@ int main(void) {
   TEST(
       "partial returns fix success types and grow only compatible error sets") {
     Result r =
-        valid(&a, "source() -> Sym<:ok(lng), :bad> { 4294967296 }\n"
-                  "f() -> Sym<:ok(lng), _> { source()? }\nmain() { f()! }");
+        valid(&a, "source() -> Sym<:ok[lng], :bad> { 4294967296 }\n"
+                  "f() -> Sym<:ok[lng], _> { source()? }\nmain() { f()! }");
     ASSERT_EQ_INT(2,
                   r.program->functions[1].symbol.outcome_type->symbols->count);
-    valid(&a, "f(b: bool) -> Sym<:ok(lng), _> { if b { ret :bad }\n4294967296 "
+    valid(&a, "f(b: bool) -> Sym<:ok[lng], _> { if b { ret :bad }\n4294967296 "
               "}\nmain() {}\n");
-    invalid(&a, "f() -> Sym<:ok(int), _> { false }\nmain() {}",
+    invalid(&a, "f() -> Sym<:ok[int], _> { false }\nmain() {}",
             "body does not match");
     invalid(&a, "f() -> Sym<:a, _> { :a }\nmain() {}", "must declare :ok");
     invalid(&a, "f() -> Sym<:ok, _, _> {}\nmain() {}", "Duplicate partial");
@@ -340,17 +340,17 @@ int main(void) {
       const char *text;
       size_t returns, bodies;
     } cases[] = {
-        {"f() -> Sym<:ok(int), _> { false }", 0, 1},
-        {"f() -> Sym<:ok(A), _> { B {} }", 0, 1},
-        {"f() -> Sym<:ok(int), _> { ret false }", 1, 0},
-        {"f(b: bool) -> Sym<:ok(int), _> { if b { ret false }\n1 }", 1, 0},
-        {"f() -> Sym<:ok(int), _> { :ok(false) }", 0, 1},
-        {"f() -> Sym<:ok(int), _> { ret :ok }", 1, 0},
-        {"f(b: bool) -> Sym<:ok(int), _> { if b { ret false }\n\"bad\" }", 1,
+        {"f() -> Sym<:ok[int], _> { false }", 0, 1},
+        {"f() -> Sym<:ok[A], _> { B {} }", 0, 1},
+        {"f() -> Sym<:ok[int], _> { ret false }", 1, 0},
+        {"f(b: bool) -> Sym<:ok[int], _> { if b { ret false }\n1 }", 1, 0},
+        {"f() -> Sym<:ok[int], _> { :ok[false] }", 0, 1},
+        {"f() -> Sym<:ok[int], _> { ret :ok }", 1, 0},
+        {"f(b: bool) -> Sym<:ok[int], _> { if b { ret false }\n\"bad\" }", 1,
          1},
-        {"f() -> Sym<:ok(int), _> { ret 1\nret false }", 1, 0},
-        {"f() -> Sym<:ok(A), _> { B {} }\ng() { f()! }", 0, 1},
-        {"f() -> Sym<:ok(A), _> { B {} }\ng() -> Sym<:ok(int), _> { false }", 0,
+        {"f() -> Sym<:ok[int], _> { ret 1\nret false }", 1, 0},
+        {"f() -> Sym<:ok[A], _> { B {} }\ng() { f()! }", 0, 1},
+        {"f() -> Sym<:ok[A], _> { B {} }\ng() -> Sym<:ok[int], _> { false }", 0,
          2},
     };
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
@@ -387,7 +387,7 @@ int main(void) {
         ASSERT_TRUE(ok && ok->payload == sema_ok(f->written_type)->payload);
       }
     }
-    Result callers = check(&a, "f(b: bool) -> Sym<:ok(int), :bad, _> {\n"
+    Result callers = check(&a, "f(b: bool) -> Sym<:ok[int], :bad, _> {\n"
                                "if b { ret :bad }\nfalse }\n"
                                "g() { f(true)\nlet s: str = f(true)! }\n"
                                "main() {}");
@@ -401,9 +401,9 @@ int main(void) {
           !strcmp(caller_messages[i], callers.errors.items[i]->message));
     Result collision =
         invalid(&a,
-                "a() -> Sym<:ok(int), :bad(int)> { 1 }\n"
-                "b() -> Sym<:ok(int), :bad(str)> { 1 }\n"
-                "f() -> Sym<:ok(int), _> { a()?\nb()? }\nmain() {}",
+                "a() -> Sym<:ok[int], :bad[int]> { 1 }\n"
+                "b() -> Sym<:ok[int], :bad[str]> { 1 }\n"
+                "f() -> Sym<:ok[int], _> { a()?\nb()? }\nmain() {}",
                 "Symbol tag has conflicting payload types.");
     ASSERT_EQ_INT(1, collision.errors.count);
   }
@@ -448,7 +448,7 @@ int main(void) {
         reach[i] = (1u << i) | (1u << x) | (1u << y);
         length += (size_t)snprintf(
             text + length, sizeof(text) - length,
-            "f%zu(n: int) -> Sym<:ok(int), _> { if n == 0 { ret :e%zu }\n"
+            "f%zu(n: int) -> Sym<:ok[int], _> { if n == 0 { ret :e%zu }\n"
             "f%u(n - 1)?\nf%u(n - 1)?\n1 }\n",
             i, i, x, y);
       }
@@ -476,19 +476,19 @@ int main(void) {
   TEST("permissions follow success projection, handlers and propagated "
        "payloads") {
     const char *prefix =
-        "P { x: int }\npass(p: P) -> Sym<:ok(P), :bad> { p }\n";
+        "P { x: int }\npass(p: P) -> Sym<:ok[P], :bad> { p }\n";
     char text[4096];
 #define CASE(body)                                                             \
   (snprintf(text, sizeof(text), "%s%s\nmain() {}", prefix, body), text)
     invalid(&a, CASE("f(p: P) { pass(p)!.x = 1 }"), "Cannot mutate");
     invalid(&a, CASE("f(p: P) { let q = pass(p)?\nq.x = 1 }"), "Cannot mutate");
     invalid(&a,
-            CASE("f(p: P) { pass(p) |> { :ok(q) => q.x = 1\n:bad => () } }"),
+            CASE("f(p: P) { pass(p) |> { :ok[q] => q.x = 1\n:bad => () } }"),
             "Cannot mutate");
     valid(&a, CASE("f(p: &P) { pass(p)!.x = 1 }"));
 #undef CASE
     invalid(&a,
-            "P { x: int }\nidentity(p: P) { :ok(p) }\nf(p: P) { identity(p).x "
+            "P { x: int }\nidentity(p: P) { :ok[p] }\nf(p: P) { identity(p).x "
             "= 1 }\nmain() {}",
             "Cannot mutate");
   }

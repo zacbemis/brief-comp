@@ -1,0 +1,14 @@
+Item = Sym<:item[str,]>
+Empty = Sym<:empty[]>
+make() -> Item { :item["heap" + " value",] }
+main() -> () {
+  let value: Empty = :empty[]
+  value |> { :empty[] => print("empty") } // expect: empty
+  :unit[()] |> { :unit[_] => print("unit") } // expect: unit
+  make() |> { :item[text,] => print(text) } // expect: heap value
+  :outer[:inner["he" + "ap"]] |> {
+    :outer[inner] => inner |> { :inner[text] => print(text) }
+  } // expect: heap
+  print(str(:empty == :empty[])) // expect: true
+  print(":outer(value)") // expect: :outer(value)
+}

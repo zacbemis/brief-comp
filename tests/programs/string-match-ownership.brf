@@ -43,9 +43,9 @@ main() {
   }
   print(str(count))
   parse("bad" + "input") |> {
-    :ok(_) => print("wrong")
+    :ok[_] => print("wrong")
     :none => print("wrong")
-    :invalid(text) => text |> {
+    :invalid[text] => text |> {
       "badinput" => print("invalid")
       _ => print("wrong")
     }

@@ -3,8 +3,8 @@
 // test that the newline filter keeps the newline after a closing type `>`.
 
 Simple = Sym<:a>
-WithPayload = Sym<:ok(int), :err(str)>
-Nested = Sym<:ok(Sym<:inner(int), :none>), :outer>
+WithPayload = Sym<:ok[int], :err[str]>
+Nested = Sym<:ok[Sym<:inner[int], :none>], :outer>
 Merged = Sym<Simple, WithPayload, :extra>
 Qualified = Sym<Json.Error, File.Error>
 Applied = Vec[int]
@@ -14,9 +14,9 @@ Grid = Arr[Arr[int]]
 Unit = ()
 TrailingComma = Sym<:a, :b,>
 Multiline = Sym<
-  :notFound(str),
-  :denied(str),
-  :tooLarge(lng)>
+  :notFound[str],
+  :denied[str],
+  :tooLarge[lng]>
 LastAfterMultiline = Sym<:z>
 
 Holder {
@@ -24,8 +24,8 @@ Holder {
   generic: Vec[User]
   nested: Vec[Vec[int]]
   tripleClose: Vec[Vec[Vec[int]]]
-  symbol: Sym<:ok(Node), :none>
-  symbolNested: Vec[Sym<:ok(int), :none>]
+  symbol: Sym<:ok[Node], :none>
+  symbolNested: Vec[Sym<:ok[int], :none>]
   qualified: models.Box[int]
   array: Arr[int]
   unit: ()
@@ -51,8 +51,8 @@ impl Holder {
     holder
   }
 
-  pub get(holder: &Self, index: int) -> Sym<:ok(int), :outOfRange(int)> {
-    :ok(holder.plain)
+  pub get(holder: &Self, index: int) -> Sym<:ok[int], :outOfRange[int]> {
+    :ok[holder.plain]
   }
 }
 
@@ -64,12 +64,12 @@ returnsNestedGeneric() -> Map[str, Vec[int]] {
   Map[str, Vec[int]]()
 }
 
-returnsSym() -> Sym<:ok(Vec[int]), :none> {
+returnsSym() -> Sym<:ok[Vec[int]], :none> {
   :none
 }
 
-returnsPartial() -> Sym<:ok(int), _> {
-  :ok(1)
+returnsPartial() -> Sym<:ok[int], _> {
+  :ok[1]
 }
 
 returnsUnit() -> () {
@@ -94,7 +94,7 @@ multilineParams(
 main() {
   let a: int = 1
   let b: Vec[User] = Vec[User]()
-  let c: Sym<:ok(int), :none> = :none
+  let c: Sym<:ok[int], :none> = :none
   var d: Map[str, Vec[int]] = Map[str, Vec[int]]()
   let e: Arr[int] = make()
   let f: () = ()

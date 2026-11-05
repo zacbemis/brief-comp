@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: The error prefix is two adjacent tokens, not colon/trivia/bang.
+main() {
+  : /* keep */ !bad
+}

@@ -458,10 +458,10 @@ int main(void) {
     valid(&a, "P {}\nsame(p: P) { p }\n"
               "f(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
               "g(p: P, b: bool) { f(p, true) |> same() }\nmain() {}");
-    valid(&a, "Link { next: Sym<:end, :more(Link)> }\n"
+    valid(&a, "Link { next: Sym<:end, :more[Link]> }\n"
               "f(p: Link, b: bool) { if b { ret p }\ng(p, b) }\n"
               "g(p: Link, b: bool) { f(p, true).next |> { :end => "
-              "p\n:more(next) => next } }\n"
+              "p\n:more[next] => next } }\n"
               "main() { f(Link { next = :end }, false) }");
   }
   TEST("read-only aliases and immutable parameter bindings") {

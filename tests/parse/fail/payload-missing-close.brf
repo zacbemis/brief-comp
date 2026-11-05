@@ -1,0 +1,6 @@
+// parse-error: line 5
+// Why: The payload list must close before the containing block ends.
+main() {
+  :value[1
+}
+after() {}

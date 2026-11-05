@@ -1,0 +1,10 @@
+A = Sym<:typeClash>
+B = Sym<:!typeClash> // error: A symbol name cannot be both neutral and error in one module.
+main() {
+  :valueClash
+  :!valueClash // error: A symbol name cannot be both neutral and error in one module.
+  :!patternClash |> { :patternClash => () } // error: A symbol name cannot be both neutral and error in one module.
+  :!lateClash
+}
+// Aliases resolve before bodies; the error still goes on the later spelling.
+Late = Sym<:lateClash> // error: A symbol name cannot be both neutral and error in one module.

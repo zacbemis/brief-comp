@@ -87,9 +87,9 @@ int main(void) {
     ASSERT_EQ_INT(PAT_SET, match->as.match.arms[0].kind);
     ASSERT_TRUE(match->as.match.arms[0].binding == NULL);
     ASSERT_TRUE(match->as.match.arms[0].invalid);
-    invalid(&a, "main() { :a(1) |> { :a(Value) => () } }",
+    invalid(&a, "main() { :a[1] |> { :a[Value] => () } }",
             "Refutable symbol payload patterns");
-    valid(&a, "main() { :a(1) |> { :a(value) => str(value) } }");
+    valid(&a, "main() { :a[1] |> { :a[value] => str(value) } }");
   }
   TEST("pipeline lookup prefers methods, then module functions") {
     Result r = valid(&a, "A {}\nimpl A { get(a: Self) { true } }\n"

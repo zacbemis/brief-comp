@@ -1,0 +1,6 @@
+main() {
+  :!ok // error: ':ok' and ':none' are neutral symbols and cannot use ':!'.
+  :!none // error: ':ok' and ':none' are neutral symbols and cannot use ':!'.
+}
+// A later neutral spelling does not take the reserved-kind error.
+Shared = Sym<:ok>

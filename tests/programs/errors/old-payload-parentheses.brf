@@ -1,0 +1,5 @@
+E = Sym<:typed(int)> // error: Symbol payloads use '[...]', not '(...)'. // fix: E = Sym<:typed[int]>
+main() {
+  :value(1) // error: Symbol payloads use '[...]', not '(...)'. // fix: :value[1]
+  1 |> { :some(x) => x } // error: Symbol payloads use '[...]', not '(...)'. // fix: 1 |> { :some[x] => x }
+}

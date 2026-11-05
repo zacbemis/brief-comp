@@ -47,12 +47,12 @@ main() {
   // Symbol patterns, with and without payloads, nested, and named sets.
   result |> {
     :ok => print("done")
-    :ok(value) => print(value)
-    :ok(:some(inner)) => print(inner)
-    :notFound(_) => print("missing")
-    :denied("root") => print("root denied")
-    :tooLarge(< 100) => print("slightly large")
-    :range(1..10) => print("small range")
+    :ok[value] => print(value)
+    :ok[:some[inner]] => print(inner)
+    :notFound[_] => print("missing")
+    :denied["root"] => print("root denied")
+    :tooLarge[< 100] => print("slightly large")
+    :range[1..10] => print("small range")
     Json.Error => print("bad json")
     models.Json.Error => print("bad json again")
     other => print("other")
@@ -64,7 +64,7 @@ main() {
     item |> {
       :skip => continue
       :stop => break
-      :fail(reason) => ret :failed(reason)
+      :fail[reason] => ret :failed[reason]
       :bare => ret
       :count => total += 1
       :reset => total = 0
@@ -84,9 +84,9 @@ main() {
 
   // An arm value spread across lines by continuation rules.
   value |> {
-    :sum(a) => a +
+    :sum[a] => a +
       1
-    :call(a) => f(
+    :call[a] => f(
       a
     )
     _ => 0
@@ -94,7 +94,7 @@ main() {
 
   // A match block nested inside call arguments keeps its arm separators.
   print(value |> {
-    :ok(v) => v
+    :ok[v] => v
     :none => 0
   })
   save(a, b |> {

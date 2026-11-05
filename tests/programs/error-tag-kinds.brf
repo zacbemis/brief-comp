@@ -1,0 +1,8 @@
+Failure = Sym<:!failed[str]>
+make() -> Failure { :!failed["heap" + " error"] }
+main() -> () {
+  make() |> { :!failed[text] => print(text) } // expect: heap error
+  :!unit[()] |> { :!unit[_] => print("unit") } // expect: unit
+  print(str(:!same == :!same)) // expect: true
+  print(":!failed") // expect: :!failed
+}

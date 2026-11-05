@@ -11,14 +11,14 @@
 // expect: xy
 // expect: xy
 double(n: int) -> int { n * 2 }
-done() -> Sym<:ok(())> { () }
-text() -> Sym<:ok(str)> { :ok("te" + "xt") }
-data() -> Sym<:ok(Sym<:found(str), :empty>)> { :ok(:found("x" + "y")) }
-read(n: int) -> Sym<:ok(str), :bad(int)> {
-  if n == 0 { ret :bad(n) }
-  if n == 1 { :ok("one") } else { "two" }
+done() -> Sym<:ok[()]> { () }
+text() -> Sym<:ok[str]> { :ok["te" + "xt"] }
+data() -> Sym<:ok[Sym<:found[str], :empty>]> { :ok[:found["x" + "y"]] }
+read(n: int) -> Sym<:ok[str], :bad[int]> {
+  if n == 0 { ret :bad[n] }
+  if n == 1 { :ok["one"] } else { "two" }
 }
-append(s: str) -> Sym<:ok(str), :empty> {
+append(s: str) -> Sym<:ok[str], :empty> {
   if s == "" { ret :empty }
   s + "!"
 }
@@ -32,24 +32,24 @@ g(n: int) {
   f(n - 1)?
 }
 main() {
-  done() |> { :ok(_) => () }
+  done() |> { :ok[_] => () }
   print(str(double(2) + 1))
-  double(5) |> { :ok(value) => print(str(value)) }
+  double(5) |> { :ok[value] => print(str(value)) }
   print(text())
   print(text()!)
   2 |> read()? |> append()! |> print()
   for i in 0..3 {
     read(i) |> {
-      :ok(value) => print(value)
-      :bad(n) => print("bad: " + str(n))
+      :ok[value] => print(value)
+      :bad[n] => print("bad: " + str(n))
     }
   }
-  f(1) |> { :ok(_) => ()
+  f(1) |> { :ok[_] => ()
     :first => print("wrong")
     :second => print("second") }
   print(str(f(2)!))
-  data() |> { :ok(inner) => inner |> { :found(s) => print(s)
+  data() |> { :ok[inner] => inner |> { :found[s] => print(s)
     :empty => () } }
-  data()? |> { :found(s) => print(s)
+  data()? |> { :found[s] => print(s)
     :empty => () }
 }

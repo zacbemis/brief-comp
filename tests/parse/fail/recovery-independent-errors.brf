@@ -22,7 +22,7 @@ third(a, b: int) {
 
 fourth() {
   value |> {
-    :ok(v) v
+    :ok[v] v
     :none => 0
   }
 }

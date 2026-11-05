@@ -5,7 +5,7 @@
 History {
   board: ulng
   generation: int
-  older: Sym<:none, :more(History)>
+  older: Sym<:none, :more[History]>
 }
 
 bit(row: int, col: int) -> ulng {
@@ -52,20 +52,20 @@ population(board: ulng) -> int {
 
 // Sets the listed columns of one row. Without string indexing, a row is
 // written as a list of column numbers rather than as text.
-place(board: ulng, row: int, cols: Sym<:none, :col(Cell)>) -> ulng {
+place(board: ulng, row: int, cols: Sym<:none, :col[Cell]>) -> ulng {
   cols |> {
     :none => board
-    :col(cell) => place(board | bit(row, cell.col), row, cell.rest)
+    :col[cell] => place(board | bit(row, cell.col), row, cell.rest)
   }
 }
 
 Cell {
   col: int
-  rest: Sym<:none, :col(Cell)>
+  rest: Sym<:none, :col[Cell]>
 }
 
-cells(a: int, b: int, c: int) -> Sym<:none, :col(Cell)> {
-  :col(Cell { col = a, rest = :col(Cell { col = b, rest = :col(Cell { col = c, rest = :none }) }) })
+cells(a: int, b: int, c: int) -> Sym<:none, :col[Cell]> {
+  :col[Cell { col = a, rest = :col[Cell { col = b, rest = :col[Cell { col = c, rest = :none }] }] }]
 }
 
 show(board: ulng) {
@@ -77,20 +77,20 @@ show(board: ulng) {
 }
 
 // Returns the generation at which `board` appeared before, if it did.
-seen(history: History, board: ulng) -> Sym<:ok(int), :none> {
+seen(history: History, board: ulng) -> Sym<:ok[int], :none> {
   if history.board == board { ret history.generation }
   history.older |> {
     :none => :none
-    :more(older) => seen(older, board)?
+    :more[older] => seen(older, board)?
   }
 }
 
-describe(outcome: Sym<:dead(int), :still(int), :cycle(Period), :running(int)>) {
+describe(outcome: Sym<:dead[int], :still[int], :cycle[Period], :running[int]>) {
   outcome |> {
-    :dead(g) => print("  died out at generation " + str(g))
-    :still(g) => print("  froze into a still life at generation " + str(g))
-    :cycle(p) => print("  repeats every " + str(p.length) + " generations from generation " + str(p.start))
-    :running(g) => print("  still changing after " + str(g) + " generations")
+    :dead[g] => print("  died out at generation " + str(g))
+    :still[g] => print("  froze into a still life at generation " + str(g))
+    :cycle[p] => print("  repeats every " + str(p.length) + " generations from generation " + str(p.start))
+    :running[g] => print("  still changing after " + str(g) + " generations")
   }
 }
 
@@ -111,22 +111,22 @@ run(name: str, start: ulng, limit: int, frames: int) {
       show(board)
     }
     if board == 0 {
-      describe(:dead(generation))
+      describe(:dead[generation])
       ret
     }
     seen(history, board) |> {
-      :ok(earlier) => {
+      :ok[earlier] => {
         let length = generation - earlier
-        if length == 1 { describe(:still(earlier)) } else {
-          describe(:cycle(Period { start = earlier, length = length }))
+        if length == 1 { describe(:still[earlier]) } else {
+          describe(:cycle[Period { start = earlier, length = length }])
         }
         ret
       }
       :none => ()
     }
-    history = History { board = board, generation = generation, older = :more(history) }
+    history = History { board = board, generation = generation, older = :more[history] }
   }
-  describe(:running(limit))
+  describe(:running[limit])
 }
 
 main() {

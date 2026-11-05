@@ -8,23 +8,23 @@
 // expect: nested
 // expect: 9
 // expect: copied text
-Choice = Sym<:text(str), :node(Node), :empty>
+Choice = Sym<:text[str], :node[Node], :empty>
 Node { name: str }
 Holder { value: Choice }
-wrap(n: &Node) -> Choice { :node(n) }
+wrap(n: &Node) -> Choice { :node[n] }
 set(h: &Holder, s: &Choice) { h.value = s }
-replace(h: &Holder) { h.value = :text("n" + "ew") }
+replace(h: &Holder) { h.value = :text["n" + "ew"] }
 first(a: Choice, b: ()) -> Choice { a }
 get(s: Choice) {
   s |> {
-    :text(text) => text
-    :node(node) => node.name
+    :text[text] => text
+    :node[node] => node.name
     :empty => "empty"
   }
 }
 escape(s: Choice) {
   s |> {
-    :text(text) => ret :text(text + "ult")
+    :text[text] => ret :text[text + "ult"]
     other => other
   }
 }
@@ -33,7 +33,7 @@ main() -> () {
   let node = Node { name = "ke" + "pt" }
   set(h, wrap(node))
   get(h.value) |> print()
-  h.value = :text("o" + "ld")
+  h.value = :text["o" + "ld"]
   h.value |> first(replace(h)) |> get() |> print()
   h.value |> get() |> print()
   h.value = h.value
@@ -41,46 +41,46 @@ main() -> () {
   for i in 0..1000 {
     var value: Choice = :empty
     if i % 2 == 0 {
-      value = :node(Node { name = "a" + "b" })
-    } else { value = :text("a" + "b") }
+      value = :node[Node { name = "a" + "b" }]
+    } else { value = :text["a" + "b"] }
     value |> {
-      :node(n) => { total += 1
+      :node[n] => { total += 1
         if i % 4 == 0 { continue }
-        h.value = :node(n) }
-      :text(t) => { total += 2
-        h.value = :text(t) }
+        h.value = :node[n] }
+      :text[t] => { total += 2
+        h.value = :text[t] }
       :empty => break
     }
     value = :empty
   }
   print(str(total))
-  var result: Choice = if true { :text("res") } else { :empty }
+  var result: Choice = if true { :text["res"] } else { :empty }
   result = escape(result)
   result |> get() |> print()
   let saved = result |> { :empty => :empty
     other => other }
   result = :empty
   get(saved) |> print()
-  :outer(saved) |> { :outer(inner) => get(inner) |> print() }
-  let nested = :a(:b("nest" + "ed"))
-  nested |> { :a(inner) => inner |> { :b(text) => print(text) } }
+  :outer[saved] |> { :outer[inner] => get(inner) |> print() }
+  let nested = :a[:b["nest" + "ed"]]
+  nested |> { :a[inner] => inner |> { :b[text] => print(text) } }
   // Borrowed symbol parameters grant mutable payload access only with &.
   let object = Counter { count = 0 }
-  bump(:counter(object))
+  bump(:counter[object])
   print(str(object.count))
   // Ordinary immutable-only symbols may be retained and passed to & parameters.
-  let atoms = AtomHolder { value = :number(0) }
-  copyImmutable(atoms, :text("copied" + " text"))
+  let atoms = AtomHolder { value = :number[0] }
+  copyImmutable(atoms, :text["copied" + " text"])
   atoms.value |> {
-    :text(text) => print(text)
-    :number(n) => print(str(n))
+    :text[text] => print(text)
+    :number[n] => print(str(n))
   }
 }
 Counter { count: int }
-bump(s: &Sym<:counter(Counter)>) {
-  s |> { :counter(c) => c.count = 9 }
+bump(s: &Sym<:counter[Counter]>) {
+  s |> { :counter[c] => c.count = 9 }
 }
-Atom = Sym<:text(str), :number(int)>
+Atom = Sym<:text[str], :number[int]>
 AtomHolder { value: Atom }
 mutImmutable(value: &Atom) {}
 copyImmutable(holder: &AtomHolder, source: Atom) {

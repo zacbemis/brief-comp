@@ -16,10 +16,50 @@ SemaTag *sema_tag(SemaProgram *p, const SourceFile *module, const char *name) {
   *tag = (SemaTag){.name = name,
                    .module = module,
                    .kind = SEMA_TAG_NEUTRAL,
+                   .kind_declared = module == NULL && (!strcmp(name, "ok") ||
+                                                       !strcmp(name, "none")),
                    .id = ++p->tag_count,
                    .next = p->tags};
   p->tags = tag;
   name_map_put(&p->tag_names, module, name, tag);
+  return tag;
+}
+SemaTag *sema_declare_tag(SemaProgram *p, const SourceFile *module,
+                          const char *name, SemaTagKind kind, Span span,
+                          Diagnostics *errors) {
+  SemaTag *tag = sema_tag(p, module, name);
+  if (!tag) {
+    diagnostics_error(errors, span, "Too many symbol tags.");
+    return NULL;
+  }
+  if (tag->kind_declared && tag->kind != kind) {
+    if (!tag->kind_conflict) {
+      int reserved = !strcmp(name, "ok") || !strcmp(name, "none");
+      // Resolution order differs from source order (aliases are resolved
+      // before bodies), so report at the later spelling, noting the earlier.
+      // A reserved tag's error always belongs on its ':!' spelling.
+      Span primary = span, other = tag->kind_span;
+      if (!reserved && other.file == span.file && other.start > span.start) {
+        primary = other;
+        other = span;
+      }
+      Diagnostic *d = diagnostics_error(
+          errors, primary,
+          reserved
+              ? "':ok' and ':none' are neutral symbols and cannot use ':!'."
+              : "A symbol name cannot be both neutral and error in one "
+                "module.");
+      if (other.file)
+        diagnostic_note(errors, d, other,
+                        "The other symbol kind is declared here.");
+      tag->kind_conflict = 1;
+    }
+    return NULL;
+  }
+  tag->kind = kind;
+  tag->kind_declared = 1;
+  if (!tag->kind_span.file)
+    tag->kind_span = span;
   return tag;
 }
 const SemaVariant *sema_variant(const SemaType *type, const SemaTag *tag) {

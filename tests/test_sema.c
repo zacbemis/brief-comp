@@ -190,7 +190,7 @@ int main(void) {
   }
   TEST("invalid tag names block lowering without folding their identities") {
     const char *sources[] = {"A = Sym<:Bad>\nmain() {}", "main() { :Bad }",
-                             "main() { :ok(1) |> { :Bad => ()\n_ => () } }"};
+                             "main() { :ok[1] |> { :Bad => ()\n_ => () } }"};
     for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
       Result r = check(&a, sources[i]);
       ASSERT_TRUE(r.errors.count > 0);
@@ -203,8 +203,8 @@ int main(void) {
         ASSERT_TRUE(r.errors.items[0]->fixes != NULL);
       }
     }
-    valid(&a, "A = Sym<:value_HTTP(int)>\nmain() { :value_HTTP(1) |> { "
-              ":value_HTTP(_) => () } }");
+    valid(&a, "A = Sym<:value_HTTP[int]>\nmain() { :value_HTTP[1] |> { "
+              ":value_HTTP[_] => () } }");
   }
   TEST(
       "trait-only word retirement does not enable trait or override lowering") {
@@ -344,8 +344,8 @@ int main(void) {
                  {"1 |> missing[int]()", "missing[int]()"},
                  {"let f = 0\n1 |> f[int]()", "f[int]()"},
                  {"P {} |> P.make[int]()", "P.make[int]()"},
-                 {"f[Sym<:ok(Sym<:inner(int)>)>](1)",
-                  "f[Sym<:ok(Sym<:inner(int)>)>](1)"},
+                 {"f[Sym<:ok[Sym<:inner[int]>]>](1)",
+                  "f[Sym<:ok[Sym<:inner[int]>]>](1)"},
                  {"f[int]()?", "f[int]()"},
                  {"f[int]()!", "f[int]()"},
                  {"f[int]() |> { _ => () }", "f[int]()"},
@@ -424,7 +424,7 @@ int main(void) {
          "An if without else cannot be used as a value."},
         {"take(n: int) {}\nmain() { missing[int](take(false)) }",
          "missing[int](take(false))", "Function argument has the wrong type."},
-        {"fail() -> Sym<:ok(int), :bad> { 1 }\nmain() { missing[int](fail()) }",
+        {"fail() -> Sym<:ok[int], :bad> { 1 }\nmain() { missing[int](fail()) }",
          "missing[int](fail())",
          "A call that can fail must be handled with ?, !, or a match."},
         {"P {}\nmut(p: &P) {}\nf(p: P) { missing[int](mut(p)) }\nmain() {}",
@@ -508,7 +508,7 @@ int main(void) {
     snprintf(huge_real, sizeof(huge_real), "main() { let x: Bogus = %s.0 }",
              digits);
     const char *unknown_contexts[] = {
-        "mk() -> Sym<:ok(lng), :e(Bogus)> { 5000000000 }\nmain() {}",
+        "mk() -> Sym<:ok[lng], :e[Bogus]> { 5000000000 }\nmain() {}",
         "main() { let x: Bogus = 5000000000 }",
         "main() { let x: Bogus = -5000000000 }",
         "f(x: Bogus) {}\nmain() { f(5000000000) }",
@@ -713,22 +713,22 @@ int main(void) {
         {"str", "f(p,b) |> { 0..1 => p\n_ => p }",
          "f(p,b) |> { \"x\" => p\n_ => p }",
          "Range and comparison patterns require numbers or chr.", "0..1", 0},
-        {"Sym<:yes(shrt), :no>", "f(p,b) |> { :yes => p\n:no => p }",
-         "f(p,b) |> { :yes(_) => p\n:no => p }",
+        {"Sym<:yes[shrt], :no>", "f(p,b) |> { :yes => p\n:no => p }",
+         "f(p,b) |> { :yes[_] => p\n:no => p }",
          "Symbol pattern has the wrong payload shape.", ":yes", 0},
-        {"Sym<:yes(shrt), :no>", "f(p,b) |> { :missing => p\n_ => p }",
-         "f(p,b) |> { :yes(_) => p\n_ => p }",
+        {"Sym<:yes[shrt], :no>", "f(p,b) |> { :missing => p\n_ => p }",
+         "f(p,b) |> { :yes[_] => p\n_ => p }",
          "Symbol pattern tag is not in the input set.", ":missing", 0},
-        {"Sym<:yes(shrt), :no>", "f(p,b) |> { :yes(_) => p }",
-         "f(p,b) |> { :yes(_) => p\n:no => p }", "Match is not exhaustive.",
-         "f(p,b) |> { :yes(_) => p }", 0},
-        {"Sym<:yes(shrt), :no>", "f(p,b) |> { Wrong => p\n_ => p }",
-         "f(p,b) |> { :yes(_) => p\n_ => p }",
+        {"Sym<:yes[shrt], :no>", "f(p,b) |> { :yes[_] => p }",
+         "f(p,b) |> { :yes[_] => p\n:no => p }", "Match is not exhaustive.",
+         "f(p,b) |> { :yes[_] => p }", 0},
+        {"Sym<:yes[shrt], :no>", "f(p,b) |> { Wrong => p\n_ => p }",
+         "f(p,b) |> { :yes[_] => p\n_ => p }",
          "Symbol tag has conflicting payload types.", "Wrong", 0},
-        {"Sym<:yes(shrt), :no>",
-         "f(p,b) |> { :yes(_) => p\n:yes(_) => p\n:no => p }",
-         "f(p,b) |> { :yes(_) => p\n:no => p }", "Unreachable match arm.",
-         ":yes(_) => p\n:no", 7},
+        {"Sym<:yes[shrt], :no>",
+         "f(p,b) |> { :yes[_] => p\n:yes[_] => p\n:no => p }",
+         "f(p,b) |> { :yes[_] => p\n:no => p }", "Unreachable match arm.",
+         ":yes[_] => p\n:no", 7},
         {"bool", "f(p,b) |> { true => p }",
          "f(p,b) |> { true => p\nfalse => p }", "Match is not exhaustive.",
          "f(p,b) |> { true => p }", 0},
@@ -738,9 +738,9 @@ int main(void) {
         {"str", "f(p,b) |> { \"x\" => p\n\"x\" => p\n_ => p }",
          "f(p,b) |> { \"x\" => p\n_ => p }", "Unreachable match arm.",
          "\"x\" => p\n_", 3},
-        {"Sym<:yes(shrt), :no>", "f(p,b)!", "f(p,b) |> { _ => p }",
+        {"Sym<:yes[shrt], :no>", "f(p,b)!", "f(p,b) |> { _ => p }",
          "? and ! require a symbol outcome with an :ok variant.", "f(p,b)!", 0},
-        {"Sym<:yes(shrt), :no>", "f(p,b)?", "f(p,b) |> { _ => p }",
+        {"Sym<:yes[shrt], :no>", "f(p,b)?", "f(p,b) |> { _ => p }",
          "? and ! require a symbol outcome with an :ok variant.", "f(p,b)?", 0},
         {"bool", "~f(p,b)", "not f(p,b)",
          "This unary operator requires numbers (bitwise not requires "
@@ -766,7 +766,7 @@ int main(void) {
                    "g(p: %s,b: bool) { if b { ret f(p,b) }\n%s }\n",
                    cases[i].type, body);
           snprintf(text, sizeof(text),
-                   "P {}\nWrong = Sym<:yes(str)>\n%s%smain() {}", order ? g : f,
+                   "P {}\nWrong = Sym<:yes[str]>\n%s%smain() {}", order ? g : f,
                    order ? f : g);
           const char *body_at = strstr(text, body);
           ASSERT_TRUE(body_at != NULL);

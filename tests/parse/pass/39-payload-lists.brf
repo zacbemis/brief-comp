@@ -1,0 +1,19 @@
+// Syntax coverage only: multiple payloads cannot yet compile natively.
+Data = Sym<:!pair[int, str,], :empty[], :unit[()], :nested[Sym<:inside[int]>]>
+main() {
+  :!pair[1, "two",]
+  :empty[]
+  :unit[()]
+  :nested[:inside[make[int](1)]]
+  :mixed[
+    P { x = 1 },
+    Arr[int] { 2, 3 },
+    if flag { 1 } else { 2 },
+    value |> { :item[first] => first },
+  ]
+  value |> {
+    :!pair[number, text,] => number
+    :empty[] => ()
+    :nested[:inside[inner]] => inner
+  }
+}

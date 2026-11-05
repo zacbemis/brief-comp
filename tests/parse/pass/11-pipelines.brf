@@ -21,7 +21,7 @@ main() {
 
   // A match block as a stage, then more stages.
   x |> {
-    :ok(v) => v
+    :ok[v] => v
     :none => 0
   } |> double()
 

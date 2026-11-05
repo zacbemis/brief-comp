@@ -728,7 +728,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       SemaArm *a = &e->as.match.arms[i];
       if (a->binding)
         a->binding->type = it;
-      if (it->kind == SEMA_SYM)
+      if (it->kind == SEMA_SYM || a->invalid)
         continue;
       if (!special(it) && (a->kind == PAT_SYMBOL || a->kind == PAT_SET))
         error(c, a->span, "Symbol patterns require a symbol input.");

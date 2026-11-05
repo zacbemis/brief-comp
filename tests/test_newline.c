@@ -56,9 +56,17 @@ int main(void) {
     check(&arena, "main() { rows.(\n0\n}\nafter() {}\n",
           "main() { rows.(0 }\nafter() {}\n");
   }
+  TEST("payload brackets enclose lists but preserve inner arm separators") {
+    check(&arena, ":many[\n1,\n:inner[\n2\n],\n]\nnext()\n",
+          ":many[1,:inner[2],]\nnext()\n");
+    check(&arena, ":many[x |> {\n:a => 1\n:b => 2\n},\n3]\n",
+          ":many[x |> {\n:a => 1\n:b => 2\n},3]\n");
+    check(&arena, "E = Sym<:many[\r\nint,\r\nstr,\r\n]>\r\nmain() {}\r\n",
+          "E = Sym<:many[int,str,]>\r\nmain() {}\r\n");
+  }
   TEST("innermost braces restore arm and field separators") {
-    check(&arena, "f(\nx |> {\n:ok(x) => x\n:none => 0\n}\n)\n",
-          "f(x |> {\n:ok(x) => x\n:none => 0\n})\n");
+    check(&arena, "f(\nx |> {\n:ok[x] => x\n:none => 0\n}\n)\n",
+          "f(x |> {\n:ok[x] => x\n:none => 0\n})\n");
     check(&arena, "f(User {\nx = (\n1 +\n2\n)\ny = 3\n})\n",
           "f(User {\nx = (1 + 2)\ny = 3\n})\n");
   }
@@ -106,6 +114,13 @@ int main(void) {
           "pub trait(ovr: int) -> int { ovr }\n");
     check(&arena, "trait\n.ovr()\nnext()\n", "trait.ovr()\nnext()\n");
   }
+  TEST("error-symbol prefixes continue, while postfix panic still ends lines") {
+    check(&arena, "let value = :!\nbad\nnext()\n",
+          "let value = :!bad\nnext()\n");
+    check(&arena, ":!bad!\nnext()\n", ":!bad!\nnext()\n");
+    check(&arena, "x |> {\n:!bad[value] => value\n_ => 0\n}\n",
+          "x |> {\n:!bad[value] => value\n_ => 0\n}\n");
+  }
   TEST("documented continuation keywords do not end statements") {
     const char *keywords[] = {"let",  "var", "const", "impl",  "pub", "if",
                               "else", "for", "in",    "while", "not"};
@@ -120,10 +135,10 @@ int main(void) {
   TEST("type closers preserve separators, including nested >> and aliases") {
     const char *text =
         "Error = Sym<:bad>\nmain() {}\nUser {\n"
-        "x: Vec[Sym<:ok(int), :none>]\ny: int\nz: Mod.Box[int]\n}\n";
+        "x: Vec[Sym<:ok[int], :none>]\ny: int\nz: Mod.Box[int]\n}\n";
     check(&arena, text, text);
-    check(&arena, "f() -> Sym<\n:ok(int),\n:none> { 1 }\n",
-          "f() -> Sym<:ok(int), :none> { 1 }\n");
+    check(&arena, "f() -> Sym<\n:ok[int],\n:none> { 1 }\n",
+          "f() -> Sym<:ok[int], :none> { 1 }\n");
     check(&arena, "Users =\nVec[int]\nmain() {}\n",
           "Users = Vec[int]\nmain() {}\n");
     check(&arena, "type\nUsers =\nVec[int]\n", "type\nUsers = Vec[int]\n");
@@ -156,8 +171,8 @@ int main(void) {
           "!Upper\nlower!\n_\n!lower\n");
     check(&arena, "value |> {\n_ =>\n Upper\n}\nNext\n",
           "value |> {\n_ => Upper\n}\nNext\n");
-    check(&arena, "Choice = Sym<:ok(int), _>\nmain() {}\n",
-          "Choice = Sym<:ok(int), _>\nmain() {}\n");
+    check(&arena, "Choice = Sym<:ok[int], _>\nmain() {}\n",
+          "Choice = Sym<:ok[int], _>\nmain() {}\n");
     check(&arena, "lower {\nUpper: Vec[Item]\nnext: int\n}\n",
           "lower {\nUpper: Vec[Item]\nnext: int\n}\n");
   }

@@ -81,11 +81,17 @@ and calls, without speculative parsing; old angle arguments have delimiter fixes
 Array annotations use `Arr[Type]`, not sized postfix `Type[size]`. Generics and
 collections remain unimplemented. Typed `Arr[Type] { ... }` and
 `Vec[Type] { ... }` literals parse, but emission reports that collection
-literals are not implemented. Symbol payloads/unions, other declaration/type
-structure and receivers await the full switch. Struct names start uppercase;
+literals are not implemented. Symbol payloads use `[...]` in types, values and
+patterns, with paired fixes for old parentheses. Lists parse with zero or more
+positions; native compilation supports zero or one, and rejects multiple
+payloads as not implemented. Union types, other declaration/type structure and
+receivers await the full switch. Struct names start uppercase;
 functions, fields, parameters, bindings and loops require lowercase names, with
 safe casing fixes. Symbol tags also require lowercase names in types, values
-and patterns. `trait` and `ovr` are ordinary names, not declaration/modifier
+and patterns. `:!name` records an error tag; a name cannot have both neutral and
+error kinds in one module. `:!` must be adjacent. This is N1 metadata only:
+outcomes, entry status and runtime formatting retain first-version rules until
+N2. `trait` and `ovr` are ordinary names, not declaration/modifier
 keywords; trait declarations and conformance remain unsupported. In patterns,
 lowercase names bind and uppercase names denote symbol sets, without
 lookup-based reclassification. Module-selection declarations such as
@@ -142,7 +148,7 @@ Compilation supports:
   string matches require a wildcard or binding catch-all. Duplicate literals and
   arms after a catch-all are rejected.
   Match results can be values, and arms support `ret`, `break`, and `continue`.
-- Data symbols such as `:missing` and `:found(user)`, canonical `Sym<...>` types,
+- Data symbols such as `:missing` and `:found[user]`, canonical `Sym<...>` types,
   forward named-set aliases and composition, and subset assignment/arguments/returns.
   Symbol matches support tags, payload bindings/wildcards and named groups;
   catch-all bindings receive only the remaining variants. Data-symbol return sets
@@ -150,7 +156,7 @@ Compilation supports:
   equality; payload-free symbol ordering is not implemented yet.
 - Implicit `:ok` success returns, explicit outcomes, `?` propagation and `!` panics.
   Error sets accumulate through recursive calls; partial return annotations such as
-  `Sym<:ok(User), _>` fix the success type and infer additional errors. Success-only
+  `Sym<:ok[User], _>` fix the success type and infer additional errors. Success-only
   functions retain plain-value C ABIs. Calls with both success and error variants
   must be handled directly with `?`, `!`, or a match, even when discarded or returned.
 - Typed parameters, forward calls, recursion, written or inferred
@@ -170,7 +176,7 @@ Compilation supports:
   succeeding. `dbl` to `flt` fails only on finite overflow. Numeric
   literals take the converter's target type, so `shrt(1)` succeeds directly and
   `shrt(70000)` is a compile error. Other numeric failures return `:overflow`.
-  Parsing text returns `:invalid(original)` on bad syntax or range, with binary-safe
+  Parsing text returns `:invalid[original]` on bad syntax or range, with binary-safe
   full-input validation. Floating decimal text rounds directly to its destination
   width. Conversions work with pipelines, matching,
   `?` and `!`; see `docs/v0/lang-types.txt` for the exact rules.
@@ -268,12 +274,12 @@ Panics terminate the process without unwinding owners.
 - `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
   native driver tests; program tests in normal and sanitizer configurations;
   and the [current-document parser inventory](tests/doc-parser.md): 239 fences
-  across 13 chapters, with 109 parser checks and 130 explicit fence listings,
+  across 13 chapters, with 125 parser checks and 114 explicit fence listings,
   plus two unfenced-chapter listings. Listed examples are not passing coverage.
   N1 retired all v0 native chapter scripts and bridges; replacement native audits
   return milestone by milestone. Run the inventory and its structural guards with
   `ctest --test-dir build -L doc-parser --output-on-failure`.
-- `tests/parse/`: 125 parser example files that must parse or be rejected
+- `tests/parse/`: 131 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
 
@@ -296,11 +302,12 @@ Wide and combining characters do not yet have special display-width handling.
 - [Symbols](docs/lang-symbols.txt)
 - [Errors and outcomes](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
-- [Next-version compiler plan](docs/plans/next-version.txt) (N0 complete;
-  N1 identifier tokens, `not`, `dbl`, `->` returns, keyword-free aliases and
-  `=` literal fields, single-file visibility, `.()` indexing and `Name[Type]`
+- [Next-version compiler plan](docs/plans/next-version.txt) (N0 complete; N1
+  identifier tokens, `not`, `dbl`, `->` returns, keyword-free aliases and `=`
+  literal fields, single-file visibility, `.()` indexing and `Name[Type]`
   arguments, declaration/tag/pattern roles, ordinary `trait`/`ovr` names and
-  import/typed-collection syntax implemented; full syntax/native audits pending)
+  import/typed-collection syntax and error-tag kinds implemented; full
+  syntax/native audits pending)
 - [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
 
 The overview links the remaining topic documents. Milestone 5 is complete for

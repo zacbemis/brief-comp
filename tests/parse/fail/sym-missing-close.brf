@@ -1,3 +1,3 @@
 // parse-error: line 3
 // Why: the `Sym<...>` list is never closed with `>`.
-Error = Sym<:ok(int), :bad
+Error = Sym<:ok[int], :bad

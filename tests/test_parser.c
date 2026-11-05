@@ -118,7 +118,7 @@ int main(void) {
                     "(field (call (field (name User) new) (name value)) age)");
     expression_dump(&arena, "value |> { _ => value }",
                     "(|> (name value) (match (arm (wildcard) (name value))))");
-    Parsed *v = parse(&arena, "f(x: Vec[Other.User]) -> Sym<:ok(int), _> {\n"
+    Parsed *v = parse(&arena, "f(x: Vec[Other.User]) -> Sym<:ok[int], _> {\n"
                               "x |> { _ => 1 }\n}\n");
     if (v->diagnostics.count)
       diagnostics_print(&v->diagnostics, stderr);
@@ -202,7 +202,7 @@ int main(void) {
     expression_dump(&arena, "\"x\ry\"", "(str \"x\\ry\")");
     expression_dump(&arena, "\"x\ty\"", "(str \"x\\ty\")");
     expression_dump(&arena, "'\x01'", "(chr '\\x01')");
-    expression_dump(&arena, ":ok(42)", "(symbol ok (int 42))");
+    expression_dump(&arena, ":ok[42]", "(symbol ok (int 42))");
     expression_dump(&arena, ":none", "(symbol none)");
     program_dump(&arena, "pub add(x: int, y: int) -> int { x + y }",
                  "(program (fn pub add (params (x int) (y int)) int (block (+ "
@@ -284,7 +284,7 @@ int main(void) {
   TEST("old dub types/converters have exact fixes, including bracketed types") {
     const char *cases[] = {
         "Box { value: dub }\nmain() {}\n",
-        "Answer = Sym<:ok(dub), :none>\nmain() {}\n",
+        "Answer = Sym<:ok[dub], :none>\nmain() {}\n",
         "f(x: dub) -> dub { x }\nmain() {}\n",
         "main() { let n: dub = 1.5\nn }\n",
         "main() { dub(1) }\n",
@@ -293,7 +293,7 @@ int main(void) {
         "main() { let n: Vec[dub] = value }\n",
         "main() { f[dub]() }\n",
         "main() { obj.f[Vec[dub]]() }\n",
-        "main() { f[Sym<:ok(dub), :none>]() }\n",
+        "main() { f[Sym<:ok[dub], :none>]() }\n",
         "main() { f[dub]()\nf[dub]() }\n",
         "main() { dub(dub(1)) }\n",
         "main() { a < dub(1) }\n"};
@@ -521,7 +521,7 @@ int main(void) {
                  {"P { x:\n// value\n1 }", 1},
                  {"P { x::none }", 1},
                  {"P { x: Q { value: 1 }, y: 2 }", 3},
-                 {":outer(P { x: 1 })", 1},
+                 {":outer[P { x: 1 }]", 1},
                  {"let x: P = P { x: 1 }", 1}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
       for (unsigned ending = 0; ending < 2; ending++) {
@@ -628,7 +628,7 @@ int main(void) {
                  {"f()/* before */:/* after */int { 1 }\n", " -> "},
                  {"f():\n// continuation\nint { 1 }\n", " ->"},
                  {"pub f(x: Vec[Vec[int]]): Vec[Vec[int]] { x }\n", " ->"},
-                 {"f(): Sym<:ok(int), _> { 1 }\n", " ->"},
+                 {"f(): Sym<:ok[int], _> { 1 }\n", " ->"},
                  {"P { x: int }\nimpl P { f(p: Self): int { p.x } }\n", " ->"}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
       for (unsigned ending = 0; ending < 2; ending++) {
@@ -823,7 +823,7 @@ int main(void) {
         "main() { a = b = c }",   "main() { a += b = c }",
         "main() { if a = b {} }", "main() { while a += 1 {} }",
         "main() { f(a = 1) }",    "main() { let x = (a = 1) }",
-        "main() { ret a = 1 }",   "main() { :ok(a = 1) }",
+        "main() { ret a = 1 }",   "main() { :ok[a = 1] }",
         "main() { a = (b = c) }", "main() { for x in a = b {} }",
         "main() { a + b = c }",   "main() { a + b += c }",
     };
@@ -1017,7 +1017,7 @@ int main(void) {
                          "main() { x++() }",
                          "main() { x++.field }",
                          "main() { x++ |> f() }",
-                         "main() { :ok(x--) }"};
+                         "main() { :ok[x--] }"};
     for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++)
       invalid(&arena, bad[i], "only allowed as standalone statements");
     invalid(&arena, "main() { 1++ }", "increment/decrement target");
@@ -1050,7 +1050,7 @@ int main(void) {
                  {"for i in 0..++x {}", "++", prefix},
                  {"x + --y", "--", prefix},
                  {"(++x)", "++", prefix},
-                 {":ok(--x)", "--", prefix},
+                 {":ok[--x]", "--", prefix},
                  {"items.(++x)", "++", prefix},
                  {"x |> { _ => ++x }", "++", prefix},
                  {"true && false", "&&", and_hint},
@@ -1067,7 +1067,7 @@ int main(void) {
                  {"if true || false {}", "||", or_hint},
                  {"while true && false {}", "&&", and_hint},
                  {"(true || false)", "||", or_hint},
-                 {":ok(true && false)", "&&", and_hint},
+                 {":ok[true && false]", "&&", and_hint},
                  {"x |> { _ => true || false }", "||", or_hint},
                  {"a < b && c > d", "&&", and_hint},
                  {"a + b||c", "||", or_hint}};
@@ -1208,6 +1208,7 @@ int main(void) {
                  {"main() { f<int>() }\n", 1, 2},
                  {"main() { obj.read<Vec<int>>() }\n", 1, 4},
                  {"main() { f<Sym<Sym<:a>>>() }\n", 1, 2},
+                 {"main() { f<Sym<:!bad>>() }\n", 1, 2},
                  {"main() { f<Vec<dub>>() }\n", 2, 4},
                  {"A = Map<str, Vec[Vec<int>]>\n", 1, 4},
                  {"main() { f<models.Box<int>, Self>() }\n", 1, 4},
@@ -1289,7 +1290,7 @@ int main(void) {
     expression_dump(&arena, "Vec[User]()", "(call (name Vec) (types User))");
     expression_dump(&arena, "Vec[Vec[int]]()",
                     "(call (name Vec) (types (apply Vec int)))");
-    expression_dump(&arena, "make[Sym<:ok(int), :none>]()",
+    expression_dump(&arena, "make[Sym<:ok[int], :none>]()",
                     "(call (name make) (types (Sym (:ok int) (:none))))");
     expression_dump(&arena, "check(a[b, c](d))",
                     "(call (name check) (call (name a) (types b c) (name d)))");
@@ -1704,18 +1705,264 @@ int main(void) {
         ASSERT_TRUE(v->diagnostics.items[0]->fixes == NULL);
     }
   }
+  TEST(
+      "bracketed symbol payload lists retain zero, one and several positions") {
+    program_dump(
+        &arena,
+        "E = Sym<:!pair[int, str,], :empty[], :unit[()]>\n"
+        "main() { :!pair[1, \"x\",] |> { :!pair[number, text,] => number }\n"
+        ":empty[]\n:unit[()] }",
+        "(program (type E (Sym (:!pair int str) (:empty) (:unit ()))) "
+        "(fn main (params) _ (block (|> (symbol !pair (int 1) (str \"x\")) "
+        "(match (arm (tag !pair (bind number) (bind text)) (name number)))) "
+        "(symbol empty) (symbol unit (unit)))))\n");
+    expression_dump(&arena, ":outer[:inner[make[int](1)], P { x = 2 }].field",
+                    "(field (symbol outer (symbol inner (call (name make) "
+                    "(types int) (int 1))) "
+                    "(struct-value (name P) (x (int 2)))) field)");
+    const char *code = "E = Sym<:many[\nint,\nVec[Other],\n]>\n"
+                       "main() { :many[\n1,\nArr[int] { 2, 3 },\n] |> {\n"
+                       ":many[first, second,] => first\n} }\nafter() {}\n";
+    for (unsigned crlf = 0; crlf < 2; crlf++) {
+      char text[1024];
+      size_t n = 0;
+      for (size_t i = 0; code[i]; i++) {
+        if (crlf && code[i] == '\n')
+          text[n++] = '\r';
+        text[n++] = code[i];
+      }
+      text[n] = 0;
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(0, v->diagnostics.count);
+      ASSERT_EQ_INT(3, v->program->count);
+      SymEntry entry = v->program->items[0]->as.alias->as.sym.items[0];
+      ASSERT_TRUE(entry.type == NULL);
+      ASSERT_EQ_INT(2, entry.count);
+      ASSERT_EQ_INT(TYPE_NAME, entry.payloads[0]->kind);
+      ASSERT_EQ_INT(TYPE_APPLY, entry.payloads[1]->kind);
+      Expr *pipe =
+          v->program->items[1]->as.function.body->as.block.items[0].as.expr;
+      ASSERT_EQ_INT(2, pipe->as.pipe.value->as.symbol.count);
+      ASSERT_EQ_INT(
+          2, pipe->as.pipe.stage->as.match.arms[0].pattern->as.symbol.count);
+      TokenArray filtered = newline_filter(&arena, v->raw);
+      size_t bytes = filtered.count * sizeof(Token);
+      Token *saved = arena_alloc(&arena, bytes);
+      memcpy(saved, filtered.items, bytes);
+      Diagnostics again;
+      diagnostics_init(&again, &arena);
+      Program *next = parse_program(&arena, &v->names, filtered, &again);
+      ASSERT_EQ_INT(0, again.count);
+      ASSERT_EQ_INT(0, strcmp(dump(&arena, v->program), dump(&arena, next)));
+      ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+    }
+  }
+  TEST("legacy payload delimiter fixes compose without dropping trivia") {
+    struct {
+      const char *code;
+      size_t count;
+    } cases[] = {
+        {"E = Sym<:ok(int)>\nmain() { :ok(1) |> { :ok(x) => x } }\n", 3},
+        {"E = Sym<:outer(Sym<:inner(int)>)>\nmain() { :outer(:inner(1)) }", 4},
+        {"main() { : /* keep */ !bad(/* before */ 1 /* after */) }", 2},
+        {"main() { :Bad(1) }", 2},
+        {"main() { :!many(1, 2,) |> { :!many(a, b) => a } }", 2},
+        {"main() { make<Vec<Sym<:ok(int)>>>() }", 2}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned crlf = 0; crlf < 2; crlf++) {
+        char text[2048];
+        size_t n = 0;
+        for (size_t j = 0; cases[i].code[j]; j++) {
+          if (crlf && cases[i].code[j] == '\n')
+            text[n++] = '\r';
+          text[n++] = cases[i].code[j];
+        }
+        text[n] = 0;
+        Parsed *v = parse(&arena, text);
+        ASSERT_EQ_INT(cases[i].count, v->diagnostics.count);
+        size_t payloads = 0;
+        for (size_t j = 0; j < v->diagnostics.count; j++) {
+          Diagnostic *d = v->diagnostics.items[j];
+          if (strcmp(d->message, "Symbol payloads use '[...]', not '(...)'.") ==
+              0) {
+            payloads++;
+            ASSERT_TRUE(d->span.file == v->source);
+            ASSERT_TRUE(d->fixes && d->fixes->next && !d->fixes->next->next);
+            ASSERT_EQ_INT(0, strcmp("[", d->fixes->replacement));
+            ASSERT_EQ_INT(0, strcmp("]", d->fixes->next->replacement));
+            ASSERT_EQ_INT(1, d->fixes->span.end - d->fixes->span.start);
+            ASSERT_EQ_INT(1, d->fixes->next->span.end -
+                                 d->fixes->next->span.start);
+          }
+        }
+        ASSERT_TRUE(payloads > 0);
+        Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
+        ASSERT_EQ_INT(0, fixed->diagnostics.count);
+        if (i !=
+            3) // Casing recovery retains the written name; its fix renames it.
+          ASSERT_EQ_INT(0, strcmp(dump(&arena, v->program),
+                                  dump(&arena, fixed->program)));
+        if (strstr(cases[i].code, "/* before */"))
+          ASSERT_TRUE(strstr(fixed->source->text,
+                             "/* before */ 1 /* after */") != NULL);
+        TokenArray filtered = newline_filter(&arena, v->raw);
+        size_t bytes = filtered.count * sizeof(Token);
+        Token *saved = arena_alloc(&arena, bytes);
+        memcpy(saved, filtered.items, bytes);
+        Diagnostics again;
+        diagnostics_init(&again, &arena);
+        parse_program(&arena, &v->names, filtered, &again);
+        ASSERT_EQ_INT(v->diagnostics.count, again.count);
+        ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+      }
+    }
+    const char *bad[] = {"main() { :tag( }",
+                         "E = Sym<:tag(>\n",
+                         "main() { 1 |> { :tag( => () } }",
+                         "main() { :tag[1 2] }",
+                         "E = Sym<:tag[int str]>\n",
+                         "main() { 1 |> { :tag[a b] => () } }"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
+      Parsed *v = parse(&arena, bad[i]);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      for (size_t j = 0; j < v->diagnostics.count; j++)
+        ASSERT_TRUE(v->diagnostics.items[j]->fixes == NULL);
+    }
+  }
+  TEST("payload list width and nesting limits are independent") {
+    char *text = arena_alloc(&arena, 20000);
+    size_t n = 0;
+    n += (size_t)sprintf(text + n, "main() { :wide[");
+    for (size_t i = 0; i < 512; i++)
+      n += (size_t)sprintf(text + n, "%s1", i ? "," : "");
+    strcpy(text + n, "] }");
+    Parsed *v = parse(&arena, text);
+    ASSERT_EQ_INT(0, v->diagnostics.count);
+    ASSERT_EQ_INT(512, v->program->items[0]
+                           ->as.function.body->as.block.items[0]
+                           .as.expr->as.symbol.count);
+    n = (size_t)sprintf(text, "main() { ");
+    for (size_t i = 0; i < 140; i++)
+      n += (size_t)sprintf(text + n, ":deep[");
+    text[n++] = '1';
+    for (size_t i = 0; i < 140; i++)
+      text[n++] = ']';
+    strcpy(text + n, " }");
+    invalid(&arena, text, "Syntax nesting limit exceeded.");
+  }
+  TEST("error tag kinds are retained in type, value and pattern syntax") {
+    program_dump(&arena,
+                 "E = Sym<:!bad[int], :ok[int]>\nmain() { :!bad[1] |> { "
+                 ":!bad[value] => value } }",
+                 "(program (type E (Sym (:!bad int) (:ok int))) (fn main "
+                 "(params) _ (block "
+                 "(|> (symbol !bad (int 1)) (match (arm (tag !bad (bind "
+                 "value)) (name value)))))))\n");
+    expression_dump(&arena, ":!bad!", "(panic (symbol !bad))");
+    expression_dump(&arena, ":bad!", "(panic (symbol bad))");
+    expression_dump(&arena, ":!bad != :!other",
+                    "(!= (symbol !bad) (symbol !other))");
+    Parsed *v =
+        parse(&arena,
+              "E = Sym<:!bad[int]>\nmain() { :!bad[1] |> { :!bad[_] => () } }");
+    ASSERT_EQ_INT(0, v->diagnostics.count);
+    if (v->program->count == 2) {
+      SymEntry entry = v->program->items[0]->as.alias->as.sym.items[0];
+      ASSERT_EQ_INT(SYMBOL_ERROR, entry.kind);
+      ASSERT_EQ_INT(5, entry.tag_span.end - entry.tag_span.start);
+      Expr *pipe =
+          v->program->items[1]->as.function.body->as.block.items[0].as.expr;
+      ASSERT_EQ_INT(SYMBOL_ERROR, pipe->as.pipe.value->as.symbol.kind);
+      ASSERT_EQ_INT(
+          SYMBOL_ERROR,
+          pipe->as.pipe.stage->as.match.arms[0].pattern->as.symbol.kind);
+    }
+  }
+  TEST("error tag prefix fixes preserve trivia and never mutate tokens") {
+    const char *cases[] = {"main() { : !bad }",
+                           "main() { :/* keep */!bad }",
+                           "main() { :\n!bad }",
+                           "E = Sym<: /* keep */ !bad[int]>\n",
+                           "main() { x |> { : !bad[_] => () } }",
+                           "main() { : !Bad }"};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned crlf = 0; crlf < 2; crlf++) {
+        char text[512];
+        size_t n = 0;
+        for (size_t j = 0; cases[i][j]; j++) {
+          if (crlf && cases[i][j] == '\n')
+            text[n++] = '\r';
+          text[n++] = cases[i][j];
+        }
+        strcpy(text + n, "\nafter() {}\n");
+        Parsed *v = parse(&arena, text);
+        ASSERT_EQ_INT(i == 5 ? 2 : 1, v->diagnostics.count);
+        ASSERT_EQ_INT(2, v->program->count);
+        if (v->diagnostics.count) {
+          const Diagnostic *d = v->diagnostics.items[0];
+          ASSERT_EQ_INT(0,
+                        strcmp("The ':!' error-symbol prefix must be adjacent.",
+                               d->message));
+          ASSERT_TRUE(d->span.file == v->source);
+          if (strstr(text, "/* keep */")) {
+            // A comment stays put; the bang moves before it.
+            ASSERT_TRUE(d->fixes && d->fixes->next && !d->fixes->next->next);
+            if (d->fixes && d->fixes->next) {
+              ASSERT_EQ_INT(0, strcmp(":!", d->fixes->replacement));
+              ASSERT_EQ_INT(0, strcmp("", d->fixes->next->replacement));
+              ASSERT_EQ_INT(1, d->fixes->span.end - d->fixes->span.start);
+              ASSERT_EQ_INT(1, d->fixes->next->span.end -
+                                   d->fixes->next->span.start);
+            }
+          } else {
+            // A whitespace-only gap closes into one ':!' spelling.
+            ASSERT_TRUE(d->fixes && !d->fixes->next);
+            if (d->fixes) {
+              ASSERT_EQ_INT(0, strcmp("!", d->fixes->replacement));
+              ASSERT_EQ_INT(':', text[d->fixes->span.start - 1]);
+              ASSERT_EQ_INT('!', text[d->fixes->span.end - 1]);
+            }
+          }
+        }
+        Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
+        ASSERT_EQ_INT(0, fixed->diagnostics.count);
+        if (strstr(text, "/* keep */"))
+          ASSERT_TRUE(strstr(fixed->source->text, "/* keep */") != NULL);
+        else
+          ASSERT_TRUE(strstr(fixed->source->text, ":!bad") ||
+                      strstr(fixed->source->text, ":!Bad"));
+        TokenArray filtered = newline_filter(&arena, v->raw);
+        size_t bytes = filtered.count * sizeof(Token);
+        Token *saved = arena_alloc(&arena, bytes);
+        memcpy(saved, filtered.items, bytes);
+        Diagnostics again;
+        diagnostics_init(&again, &arena);
+        parse_program(&arena, &v->names, filtered, &again);
+        ASSERT_EQ_INT(v->diagnostics.count, again.count);
+        ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+      }
+    }
+    const char *bad[] = {"main() { :! }", "main() { : ! }", "E = Sym<:![]>\n",
+                         "main() { x |> { :! => () } }"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
+      Parsed *v = parse(&arena, bad[i]);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      for (size_t j = 0; j < v->diagnostics.count; j++)
+        ASSERT_TRUE(v->diagnostics.items[j]->fixes == NULL);
+    }
+  }
   TEST("tag spelling roles require lowercase names with exact fixes") {
     struct {
       const char *code, *bad, *fixed;
     } cases[] = {
         {"A = Sym<:Bad>\n", "Bad", "bad"},
-        {"A = Sym<:Bad(int), :other>\n", "Bad", "bad"},
-        {"A = Vec[Sym<:BAD_VALUE(int)>]\n", "BAD_VALUE", "badValue"},
+        {"A = Sym<:Bad[int], :other>\n", "Bad", "bad"},
+        {"A = Vec[Sym<:BAD_VALUE[int]>]\n", "BAD_VALUE", "badValue"},
         {"main() { :Bad }\n", "Bad", "bad"},
-        {"main() { :Bad(1) }\n", "Bad", "bad"},
-        {"main() { : /* keep */ BAD_VALUE(1) }\n", "BAD_VALUE", "badValue"},
+        {"main() { :Bad[1] }\n", "Bad", "bad"},
+        {"main() { : /* keep */ BAD_VALUE[1] }\n", "BAD_VALUE", "badValue"},
         {"main() { value |> { :Bad => 1\n_ => 0 } }\n", "Bad", "bad"},
-        {"main() { value |> { :Bad(payload) => payload } }\n", "Bad", "bad"}};
+        {"main() { value |> { :Bad[payload] => payload } }\n", "Bad", "bad"}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
       for (unsigned crlf = 0; crlf < 2; crlf++) {
         char text[1024];
@@ -1771,8 +2018,8 @@ int main(void) {
       if (v->diagnostics.count)
         ASSERT_TRUE(v->diagnostics.items[0]->fixes == NULL);
     }
-    const char *bad[] = {"A = Sym<:Bad()>\n", "main() { :Bad() }",
-                         "main() { x |> { :Bad() => 0 } }"};
+    const char *bad[] = {"A = Sym<:Bad[,]>\n", "main() { :Bad[,] }",
+                         "main() { x |> { :Bad[,] => 0 } }"};
     for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
       Parsed *v = parse(&arena, bad[i]);
       ASSERT_TRUE(v->diagnostics.count > 0);
@@ -1781,7 +2028,7 @@ int main(void) {
     }
     program_dump(
         &arena,
-        "A = Sym<:bad_HTTP(int), _>\nmain() { :bad_HTTP(1) |> { :bad_HTTP(_) "
+        "A = Sym<:bad_HTTP[int], _>\nmain() { :bad_HTTP[1] |> { :bad_HTTP[_] "
         "=> () } }",
         "(program (type A (Sym (:bad_HTTP int) _)) (fn main (params) _ "
         "(block (|> (symbol bad_HTTP (int 1)) (match (arm (tag bad_HTTP "
@@ -1835,12 +2082,12 @@ int main(void) {
   }
   TEST("bindings, typed fields, methods, written and partial return types") {
     const char *text =
-        "Error = Sym<:bad(str), :missing>\n"
-        "User {\nname: str\nresult: Sym<:ok(User), Error>\ncount: int\n}\n"
-        "impl User {\npub new(name: str) -> Sym<:ok(User), _> {\n"
-        "var count: shrt = 0\ncount += 1\n:ok(User { name = name, count = "
+        "Error = Sym<:bad[str], :missing>\n"
+        "User {\nname: str\nresult: Sym<:ok[User], Error>\ncount: int\n}\n"
+        "impl User {\npub new(name: str) -> Sym<:ok[User], _> {\n"
+        "var count: shrt = 0\ncount += 1\n:ok[User { name = name, count = "
         "count "
-        "})\n}\n"
+        "}]\n}\n"
         "setAge(user: &User, age: int) -> () { user.count = age }\n}\n";
     Parsed *v = parse(&arena, text);
     if (v->diagnostics.count)
@@ -1942,7 +2189,7 @@ int main(void) {
         "sink(if Guest { name = name }.ok {})",
         "if outer(if Guest { name = name }.ok {}) {}",
         // Parenthesized: one case, intentionally split across two literals.
-        ("if test[Sym<:ok(Sym<:inner(int)>)>](0) and "
+        ("if test[Sym<:ok[Sym<:inner[int]>]>](0) and "
          "Guest { name = name }.ok {}")};
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       char text[1024], crlf[2048];
@@ -2051,7 +2298,7 @@ int main(void) {
         "if items.(Guest { name = name }) {}",
         "while items.(Guest { name = name }) {}",
         "for x in items.(Guest { name = name }) {}",
-        "if check[Sym<:ok(Sym<:inner(int)>)>](Guest { name = name }) {}"};
+        "if check[Sym<:ok[Sym<:inner[int]>]>](Guest { name = name }) {}"};
     for (size_t i = 0; i < sizeof(valid) / sizeof(valid[0]); i++) {
       char source[512];
       snprintf(source, sizeof(source), "main() { %s }", valid[i]);
@@ -2099,13 +2346,13 @@ int main(void) {
         "100)) (str \"Senior\"))))");
     expression_dump(
         &arena,
-        "parse(text) |> {\n:ok(value) => value\nJson.Error => ret "
+        "parse(text) |> {\n:ok[value] => value\nJson.Error => ret "
         ":invalid\nother => ret other\n}",
         "(|> (call (name parse) (name text)) (match (arm (tag ok (bind value)) "
         "(name value)) (arm (set Json.Error) (block (ret (symbol invalid)))) "
         "(arm (bind other) (block (ret (name other))))))");
     expression_dump(
-        &arena, "x |> {\n:ok(:some(user)) => user\n:none => ()\n_ => 0\n}",
+        &arena, "x |> {\n:ok[:some[user]] => user\n:none => ()\n_ => 0\n}",
         "(|> (name x) (match (arm (tag ok (tag some (bind user))) (name user)) "
         "(arm (tag none) (unit)) (arm (wildcard) (int 0))))");
     expression_dump(
@@ -2122,7 +2369,7 @@ int main(void) {
     expression_dump(&arena, "x |> { Error => 0\nerror => 1\n_ => 2 }",
                     "(|> (name x) (match (arm (set Error) (int 0)) (arm (bind "
                     "error) (int 1)) (arm (wildcard) (int 2))))");
-    expression_dump(&arena, "x |> { :ok(Value) => 0\n:ok(value) => value }",
+    expression_dump(&arena, "x |> { :ok[Value] => 0\n:ok[value] => value }",
                     "(|> (name x) (match (arm (tag ok (set Value)) (int 0)) "
                     "(arm (tag ok (bind value)) (name value))))");
     expression_dump(&arena,
@@ -2167,7 +2414,7 @@ int main(void) {
       ASSERT_EQ_INT(0, strcmp(first, second));
   }
   TEST("match blocks nested in call arguments retain arm separators") {
-    expression_dump(&arena, "f(\nx |> {\n:ok(x) => x\n:none => 0\n}\n)",
+    expression_dump(&arena, "f(\nx |> {\n:ok[x] => x\n:none => 0\n}\n)",
                     "(call (name f) (|> (name x) (match (arm (tag ok (bind x)) "
                     "(name x)) (arm (tag none) (int 0)))))");
   }
@@ -2217,7 +2464,7 @@ int main(void) {
     invalid(&arena, "main() { x;; }", "newline");
     invalid(&arena, "main() { let x = }", "expression");
     invalid(&arena, "f(x: int { x }", "')'");
-    invalid(&arena, "E = Sym<:ok(int), :bad(str)\n", "'>'");
+    invalid(&arena, "E = Sym<:ok[int], :bad[str]\n", "'>'");
     invalid(&arena, "f() -> _ {}", "only allowed");
     invalid(&arena, "print(\"top-level statement\")", "inside a function");
   }
@@ -2249,7 +2496,7 @@ int main(void) {
                                 "true",
                                 "'x'",
                                 "\"text\"",
-                                ":ok(1)",
+                                ":ok[1]",
                                 "()",
                                 "-1",
                                 "not true",
@@ -2313,7 +2560,7 @@ int main(void) {
     ASSERT_EQ_STRN("Unexpected character.", v->diagnostics.items[0]->message,
                    strlen(v->diagnostics.items[0]->message));
     ASSERT_EQ_INT(1, v->program->count);
-    v = parse(&arena, "pub f(x: &Self) -> Sym<:ok(int)> { :ok(1) }\n"
+    v = parse(&arena, "pub f(x: &Self) -> Sym<:ok[int]> { :ok[1] }\n"
                       "main() {}\nconst value = 1\n");
     ASSERT_EQ_INT(0, v->diagnostics.count);
     ASSERT_EQ_INT(3, v->program->count);
@@ -2347,7 +2594,7 @@ int main(void) {
                    strlen(v->program->items[1]->name));
     v = parse(&arena,
               "User {\n: bad\ngood: int\n}\nimpl User {\nbad(x) {}\ngood() "
-              "{}\n}\nmain() {\nx |> {\n:ok(x) x\n:none => 0\n}\n}\n");
+              "{}\n}\nmain() {\nx |> {\n:ok[x] x\n:none => 0\n}\n}\n");
     ASSERT_TRUE(v->diagnostics.count >= 3);
     ASSERT_EQ_INT(3, v->program->count);
     ASSERT_EQ_INT(1, v->program->items[0]->as.structure.count);

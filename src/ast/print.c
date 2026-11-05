@@ -57,10 +57,11 @@ static void type(FILE *out, const Type *t) {
       SymEntry entry = t->as.sym.items[i];
       fputc(' ', out);
       if (entry.tag) {
-        fprintf(out, "(:%s", entry.tag);
-        if (entry.type) {
+        fprintf(out, "(:%s%s", entry.kind == SYMBOL_ERROR ? "!" : "",
+                entry.tag);
+        for (size_t j = 0; j < entry.count; j++) {
           fputc(' ', out);
-          type(out, entry.type);
+          type(out, entry.payloads[j]);
         }
         fputc(')', out);
       } else if (entry.type->kind == TYPE_INFER)
@@ -139,10 +140,11 @@ static void pattern(FILE *out, const Pattern *p) {
     fputc(')', out);
     break;
   case PAT_SYMBOL:
-    fprintf(out, "(tag %s", p->as.symbol.tag);
-    if (p->as.symbol.payload) {
+    fprintf(out, "(tag %s%s", p->as.symbol.kind == SYMBOL_ERROR ? "!" : "",
+            p->as.symbol.tag);
+    for (size_t i = 0; i < p->as.symbol.count; i++) {
       fputc(' ', out);
-      pattern(out, p->as.symbol.payload);
+      pattern(out, p->as.symbol.payloads[i]);
     }
     fputc(')', out);
     break;
@@ -203,10 +205,11 @@ static void expr(FILE *out, const Expr *e) {
     fputc(')', out);
     break;
   case EXPR_SYMBOL:
-    fprintf(out, "(symbol %s", e->as.symbol.tag);
-    if (e->as.symbol.payload) {
+    fprintf(out, "(symbol %s%s", e->as.symbol.kind == SYMBOL_ERROR ? "!" : "",
+            e->as.symbol.tag);
+    for (size_t i = 0; i < e->as.symbol.count; i++) {
       fputc(' ', out);
-      expr(out, e->as.symbol.payload);
+      expr(out, e->as.symbol.payloads[i]);
     }
     fputc(')', out);
     break;

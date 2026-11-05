@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **117 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **125 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -381,9 +381,30 @@ N1 parses typed array/vector literals, but `errors/collection-literals.brf`
 keeps native compilation explicitly unimplemented. Empty/nonempty literals and
 unknown internal names/types each get one collection-scope error, not guessed
 element or API behavior. No allocation, fill, iteration, indexing or collection
-ownership is implemented. The inventory is now 117 files. Unions/payloads,
-members/receivers, remaining keywords, broader module casing and native chapter
-audits remain pending.
+ownership is implemented. The inventory was then 117 files.
+
+N1 records `:!name` error kinds, requiring one kind per module/name. The new
+`error-tag-kinds.brf` observes heap/unit payloads, error-tag matching, equality
+and literal text under the still-current outcome rules. `error-tag-main-n1.brf`
+intentionally exits 0: kind-based entry failure belongs to N2, not this metadata
+slice. Payload delimiters and runtime formatting were also unchanged in that
+increment. Three rejection fixtures cover kind conflicts with source notes,
+shared neutral `:ok`/`:none`, and adjacency fixes that preserve trivia. Existing
+failure tags remain neutral until their source conversion. The inventory was
+then 122 files.
+
+N1 now uses `[...]` for payloads in type entries, values and patterns, and all
+existing native sources keep their output/status/panic markers. The entry/panic
+formatter still prints parentheses until N2; expected output text is not syntax
+and was not rewritten. `bracketed-payloads.brf` adds empty versus unit payloads,
+trailing commas, heap/nested values and literal text containing the old
+spelling. `errors/old-payload-parentheses.brf` rejects all three old contexts
+with paired fixes. `errors/multiple-payloads.brf` locks the explicit scope error
+for lists with several positions, without unknown-type/name or arm-body
+cascades. Such lists parse but have no native representation yet. The inventory
+is now 125 files. Union types, multiple-payload checking/lowering,
+typed/refutable payload patterns, members/receivers, remaining keywords, broader
+module casing, N2 outcome behavior and native chapter audits remain pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

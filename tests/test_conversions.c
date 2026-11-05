@@ -186,8 +186,8 @@ int main(void) {
   TEST("conversion definitions borrow invalid strings and get standalone "
        "ownership insertion") {
     SemaProgram *p = check(&a,
-                           "main() { int(\"b\" + \"ad\") |> { :ok(_) => "
-                           "()\n:invalid(s) => print(s) } }",
+                           "main() { int(\"b\" + \"ad\") |> { :ok[_] => "
+                           "()\n:invalid[s] => print(s) } }",
                            NULL);
     IrProgram *ir = ir_lower(&a, p);
     ir_insert_rc(&a, ir);

@@ -226,6 +226,52 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
     message(FATAL_ERROR "collection escaped its scope boundary (${status}):\n${errors}")
 endif()
 
+set(kind_conflict "${TEST_DIR}/kind-conflict.brf")
+file(WRITE "${kind_conflict}" "A = Sym<:bad>\r\nB = Sym<:!bad>\r\nmain() {}\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${kind_conflict}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT output MATCHES "\\(:!bad\\)")
+    message(FATAL_ERROR "error kind missing from AST (${status}):\n${errors}\n${output}")
+endif()
+execute_process(COMMAND "${BRIEF}" emit-c "${kind_conflict}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
+   NOT errors MATCHES "^error: A symbol name cannot be both neutral and error in one module" OR
+   NOT errors MATCHES "note: The other symbol kind is declared here" OR errors MATCHES "help:")
+    message(FATAL_ERROR "incorrect kind conflict (${status}):\n${errors}")
+endif()
+
+set(payloads "${TEST_DIR}/payload-lists.brf")
+file(WRITE "${payloads}" "E = Sym<:many[Missing, Other]>\r\nmain() { :many[unknown, absent()]\r\n  1 |> { :many[a, b] => missing(a, b) }\r\n}\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${payloads}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
+   NOT output MATCHES "symbol many" OR NOT output MATCHES "tag many")
+    message(FATAL_ERROR "payload lists did not retain syntax (${status}):\n${errors}\n${output}")
+endif()
+execute_process(COMMAND "${BRIEF}" emit-c "${payloads}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+string(REGEX MATCHALL "(^|\n)error:" payload_errors "${errors}")
+list(LENGTH payload_errors payload_errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT payload_errors EQUAL 3 OR
+   NOT errors MATCHES "^error: Multiple symbol payloads are not implemented yet\\." OR
+   errors MATCHES "Unknown|require a symbol input|help:")
+    message(FATAL_ERROR "multiple payloads escaped scope or cascaded (${status}):\n${errors}")
+endif()
+file(WRITE "${payloads}" "E = Sym<:typed(int)>\r\nmain() { :value(1)\r\n  1 |> { :some(x) => x }\r\n}\r\n")
+foreach(command dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${payloads}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    string(REGEX MATCHALL "(^|\n)error:" payload_errors "${errors}")
+    list(LENGTH payload_errors payload_errors)
+    string(FIND "${errors}" "help: write `E = Sym<:typed[int]>`" type_fix)
+    string(FIND "${errors}" ":some[x] => x" pattern_fix)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT payload_errors EQUAL 3 OR
+       type_fix LESS 0 OR pattern_fix LESS 0)
+        message(FATAL_ERROR "old payloads accepted or lost fixes (${command}, ${status}):\n${errors}")
+    endif()
+endforeach()
+
 set(generic "${TEST_DIR}/generic-invalid.brf")
 file(WRITE "${generic}" "check(value: int) {}\r\nmain() { let a = 1\r\n  let d = 2\r\n  check(a[b, c](d))\r\n}\r\n")
 set(expected "error: Generic calls are not implemented yet.\n  --> ${generic}:4:9\n  |\n4 |   check(a[b, c](d))\n  |         ^~~~~~~~~~\n")

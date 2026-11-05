@@ -2,7 +2,7 @@
 // without the later-version features (lambdas, traits, tuples, modules).
 
 Tier = Sym<:tier1, :tier2, :tier3>
-Error = Sym<:invalidAge(int), :emptyName>
+Error = Sym<:invalidAge[int], :emptyName>
 
 const minAge = 0
 const maxAge: int = 150
@@ -19,12 +19,12 @@ Admin {
 }
 
 impl User {
-  pub new(name: str, age: int) -> Sym<:ok(User), Error> {
+  pub new(name: str, age: int) -> Sym<:ok[User], Error> {
     if name == "" {
       ret :emptyName
     }
     if age < minAge or age > maxAge {
-      ret :invalidAge(age)
+      ret :invalidAge[age]
     }
     User { name = name, age = age, tier = :tier1 }
   }
@@ -59,7 +59,7 @@ impl User {
 }
 
 impl Admin {
-  pub new(name: str, age: int) -> Sym<:ok(Admin), Error> {
+  pub new(name: str, age: int) -> Sym<:ok[Admin], Error> {
     Admin { user = User.new(name, age)?, level = 1 }
   }
 }
@@ -98,9 +98,9 @@ main() {
   admin.user.promote()
 
   User.new("", 10) |> {
-    :ok(user) => print(user.describe())
+    :ok[user] => print(user.describe())
     :emptyName => print("A name is required")
-    :invalidAge(age) => print("Not a valid age: " + str(age))
+    :invalidAge[age] => print("Not a valid age: " + str(age))
   }
 
   print(bob.describe())

@@ -7,9 +7,9 @@
 Node { text: str }
 Pair { first: Node
   second: Node }
-Holder { value: Sym<:ok(str), :bad(str)> }
-fault(n: int) -> Sym<:ok(str), :bad(str)> {
-  if n % 2 == 0 { ret :bad("b" + "ad") }
+Holder { value: Sym<:ok[str], :bad[str]> }
+fault(n: int) -> Sym<:ok[str], :bad[str]> {
+  if n % 2 == 0 { ret :bad["b" + "ad"] }
   "o" + "k"
 }
 work(n: int) {
@@ -19,30 +19,30 @@ work(n: int) {
     second = Node { text = fault(n)? + "!" }
   }.second
 }
-partial(n: int) -> Sym<:ok(Node), _> { work(n)? }
-replace(h: &Holder) { h.value = :bad("after") }
-first(a: Sym<:ok(str), :bad(str)>, b: ()) { a |> {
-  :ok(s) => s
-  :bad(s) => s
+partial(n: int) -> Sym<:ok[Node], _> { work(n)? }
+replace(h: &Holder) { h.value = :bad["after"] }
+first(a: Sym<:ok[str], :bad[str]>, b: ()) { a |> {
+  :ok[s] => s
+  :bad[s] => s
 } }
-ready(n: int) -> Sym<:ok(bool), :bad(str)> { n < 3 }
-start() -> Sym<:ok(int), :bad(str)> { 0 }
-replaceOrFail(h: &Holder, failed: bool) -> Sym<:ok, :bad(str)> {
-  h.value = :bad("mutated" + " holder")
-  if failed { ret :bad("later" + " failure") }
+ready(n: int) -> Sym<:ok[bool], :bad[str]> { n < 3 }
+start() -> Sym<:ok[int], :bad[str]> { 0 }
+replaceOrFail(h: &Holder, failed: bool) -> Sym<:ok, :bad[str]> {
+  h.value = :bad["mutated" + " holder"]
+  if failed { ret :bad["later" + " failure"] }
   ()
 }
-observeFirst(a: Sym<:ok(str), :bad(str)>, ignored: ()) {
+observeFirst(a: Sym<:ok[str], :bad[str]>, ignored: ()) {
   print("callee")
   first(a, ())
 }
 argumentWork(failed: bool) {
-  let h = Holder { value = :ok("argument" + " snapshot") }
+  let h = Holder { value = :ok["argument" + " snapshot"] }
   h.value |> observeFirst(replaceOrFail(h, failed)?)
 }
-ownedCondition(n: int, failAt: int) -> Sym<:ok(bool), :bad(str)> {
+ownedCondition(n: int, failAt: int) -> Sym<:ok[bool], :bad[str]> {
   let scratch = Node { text = "condition" + str(n) }
-  if n == failAt { ret :bad(scratch.text + ":stop") }
+  if n == failAt { ret :bad[scratch.text + ":stop"] }
   n < 3
 }
 conditionWork(failAt: int) {
@@ -59,18 +59,18 @@ main() {
   var total = 0
   for i in 0..1000 {
     partial(i) |> {
-      :ok(node) => { total += 1
+      :ok[node] => { total += 1
         if i % 4 == 1 { continue }
-        let copy = :ok(node) }
-      :bad(message) => { total += 2
-        let copy = :ok(message) }
+        let copy = :ok[node] }
+      :bad[message] => { total += 2
+        let copy = :ok[message] }
     }
   }
   print(str(total))
   print(work(1)!.text)
-  work(0) |> { :ok(_) => ()
-    other => other |> { :bad(message) => print(message) } }
-  let h = Holder { value = :ok("be" + "fore") }
+  work(0) |> { :ok[_] => ()
+    other => other |> { :bad[message] => print(message) } }
+  let h = Holder { value = :ok["be" + "fore"] }
   h.value |> first(replace(h)) |> print()
   // Propagation from an initializer must release the unfinished scope too.
   let node = Node { text = fault(1)? }
@@ -78,17 +78,17 @@ main() {
   var n = start()?
   while ready(n)? { n++ }
   print(str(n))
-  argumentWork(false) |> { :ok(text) => print(text)
-    :bad(text) => print(text) }
+  argumentWork(false) |> { :ok[text] => print(text)
+    :bad[text] => print(text) }
   // expect: callee
   // expect: argument snapshot
-  argumentWork(true) |> { :ok(text) => print(text)
-    :bad(text) => print(text) }
+  argumentWork(true) |> { :ok[text] => print(text)
+    :bad[text] => print(text) }
   // expect: later failure
-  conditionWork(-1) |> { :ok(text) => print(text)
-    :bad(text) => print(text) }
+  conditionWork(-1) |> { :ok[text] => print(text)
+    :bad[text] => print(text) }
   // expect: guard owner
-  conditionWork(2) |> { :ok(text) => print(text)
-    :bad(text) => print(text) }
+  conditionWork(2) |> { :ok[text] => print(text)
+    :bad[text] => print(text) }
   // expect: condition2:stop
 }

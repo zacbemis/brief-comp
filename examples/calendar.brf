@@ -2,7 +2,7 @@
 // days, Easter Sunday and a printed month grid. Dates use the proleptic
 // Gregorian calendar, counting days from 0001-01-01 (a Monday).
 
-DateError = Sym<:badYear(int), :badMonth(int), :badDay(int)>
+DateError = Sym<:badYear[int], :badMonth[int], :badDay[int]>
 
 Date {
   year: int
@@ -69,10 +69,10 @@ dayName(weekday: int) -> str {
 }
 
 impl Date {
-  new(year: int, month: int, day: int) -> Sym<:ok(Self), DateError> {
-    if year < 1 or year > 9999 { ret :badYear(year) }
-    if month < 1 or month > 12 { ret :badMonth(month) }
-    if day < 1 or day > daysIn(year, month) { ret :badDay(day) }
+  new(year: int, month: int, day: int) -> Sym<:ok[Self], DateError> {
+    if year < 1 or year > 9999 { ret :badYear[year] }
+    if month < 1 or month > 12 { ret :badMonth[month] }
+    if day < 1 or day > daysIn(year, month) { ret :badDay[day] }
     Self { year = year, month = month, day = day }
   }
 
@@ -143,15 +143,15 @@ easter(year: int) -> Date {
 
 explain(e: DateError) -> str {
   e |> {
-    :badYear(y) => "year " + str(y) + " is outside 1-9999"
-    :badMonth(m) => "month " + str(m) + " is outside 1-12"
-    :badDay(d) => "day " + str(d) + " does not exist in that month"
+    :badYear[y] => "year " + str(y) + " is outside 1-9999"
+    :badMonth[m] => "month " + str(m) + " is outside 1-12"
+    :badDay[d] => "day " + str(d) + " does not exist in that month"
   }
 }
 
 check(year: int, month: int, day: int) {
   Date.new(year, month, day) |> {
-    :ok(d) => print(d.label() + " is a " + dayName(d.weekday()) +
+    :ok[d] => print(d.label() + " is a " + dayName(d.weekday()) +
       ", day " + str(d.dayOfYear()) + " of the year")
     problem => print(pad(year, 4) + "-" + pad(month, 2) + "-" + pad(day, 2) +
       " rejected: " + explain(problem))

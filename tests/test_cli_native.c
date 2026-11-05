@@ -148,9 +148,9 @@ int main(int argc, char **argv) {
   }
   TEST("merged output keeps stdout before entry errors and all panic headers") {
     const char *texts[] = {
-        "f() -> Sym<:ok, :bad(str)> { :bad(\"he\" + \"ap\") }\n"
+        "f() -> Sym<:ok, :bad[str]> { :bad[\"he\" + \"ap\"] }\n"
         "main() { print(\"before\")\nf()? }\n",
-        "f() -> Sym<:ok, :bad(str)> { :bad(\"he\" + \"ap\") }\n"
+        "f() -> Sym<:ok, :bad[str]> { :bad[\"he\" + \"ap\"] }\n"
         "main() { print(\"before\")\nf()! }\n",
         "main() { print(\"before\")\n2147483647 + 1 }\n",
         "main() { print(\"before\")\n:bad }\n"};
@@ -191,13 +191,13 @@ int main(int argc, char **argv) {
        "owners") {
     char *input = test_path(&a, root, "shared.brf");
     ASSERT_TRUE(test_write_file(
-        input, TEST_BYTES("Link = Sym<:none, :child(Node)>\n"
+        input, TEST_BYTES("Link = Sym<:none, :child[Node]>\n"
                           "Node { left: Link\nright: Link }\n"
-                          "main() -> Sym<:ok, :bad(Node)> {\n"
+                          "main() -> Sym<:ok, :bad[Node]> {\n"
                           "var node = Node { left = :none, right = :none }\n"
-                          "for i in 0..24 { node = Node { left = :child(node), "
-                          "right = :child(node) } }\n"
-                          ":bad(node) }\n")));
+                          "for i in 0..24 { node = Node { left = :child[node], "
+                          "right = :child[node] } }\n"
+                          ":bad[node] }\n")));
     for (int debug = 0; debug < (argc == 5 ? 2 : 1); debug++) {
       ProcessResult r = call(
           &c, (const char *[]){"run", input, debug ? "--debug" : NULL, NULL}, 1,

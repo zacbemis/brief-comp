@@ -23,18 +23,18 @@ throughPipe(user: User, stop: bool) {
 }
 pipeStep(user: User, stop: bool) { throughPipe(user, true) |> sameUser() }
 Link { name: str
-  next: Sym<:end, :more(Link)> }
+  next: Sym<:end, :more[Link]> }
 throughField(link: Link, stop: bool) {
   if stop { ret link }
   fieldStep(link, stop)
 }
 fieldStep(link: Link, stop: bool) {
   throughField(link, true).next |> { :end => link
-    :more(next) => next }
+    :more[next] => next }
 }
 longChain(n: int) {
   var head = Link { name = "e" + "nd", next = :end }
-  for i in 0..n { head = Link { name = "n" + str(i), next = :more(head) } }
+  for i in 0..n { head = Link { name = "n" + str(i), next = :more[head] } }
   head.name
 }
 main() {
@@ -55,7 +55,7 @@ main() {
   print(alias.label()) // expect: Robert!: 23
   print(throughMethod(user, false).label()) // expect: Robert!: 23
   print(throughPipe(user, false).label()) // expect: Robert!: 23
-  let chain = Link { name = "he" + "ad", next = :more(Link { name = "ta" + "il", next = :end }) }
+  let chain = Link { name = "he" + "ad", next = :more[Link { name = "ta" + "il", next = :end }] }
   print(throughField(chain, false).name) // expect: tail
   let terminal = Link { name = "e" + "nd", next = :end }
   print(throughField(terminal, false).name) // expect: end

@@ -1,7 +1,7 @@
-Value = Sym<:value_HTTP(str)>
-make() -> Value { :value_HTTP("heap" + " payload") }
+Value = Sym<:value_HTTP[str]>
+make() -> Value { :value_HTTP["heap" + " payload"] }
 main() {
-  make() |> { :value_HTTP(text) => print(text) } // expect: heap payload
-  :value_HTTP(()) |> { :value_HTTP(_) => print("wildcard") } // expect: wildcard
+  make() |> { :value_HTTP[text] => print(text) } // expect: heap payload
+  :value_HTTP[()] |> { :value_HTTP[_] => print("wildcard") } // expect: wildcard
   print(":Bad :BAD_VALUE") // expect: :Bad :BAD_VALUE
 }

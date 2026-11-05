@@ -5,8 +5,8 @@
 // functions it calls, and callers must handle every case.
 
 Kind = Sym<:checking, :savings>
-BankError = Sym<:noAccount(int), :badAmount(lng), :frozen(int),
-  :insufficient(Shortfall), :sameAccount>
+BankError = Sym<:noAccount[int], :badAmount[lng], :frozen[int],
+  :insufficient[Shortfall], :sameAccount>
 
 Shortfall {
   id: int
@@ -17,7 +17,7 @@ Entry {
   label: str
   amount: lng
   balance: lng
-  older: Sym<:none, :more(Entry)>
+  older: Sym<:none, :more[Entry]>
 }
 
 Account {
@@ -26,17 +26,17 @@ Account {
   kind: Kind
   balance: lng
   frozen: bool
-  history: Sym<:none, :more(Entry)>
+  history: Sym<:none, :more[Entry]>
 }
 
 Node {
   account: Account
-  next: Sym<:none, :more(Node)>
+  next: Sym<:none, :more[Node]>
 }
 
 Bank {
   name: str
-  accounts: Sym<:none, :more(Node)>
+  accounts: Sym<:none, :more[Node]>
   nextId: int
 }
 
@@ -58,28 +58,28 @@ kindName(kind: Kind) -> str {
 impl Account {
   record(account: &Self, label: str, amount: lng) {
     account.balance += amount
-    account.history = :more(Entry {
+    account.history = :more[Entry {
       label = label
       amount = amount
       balance = account.balance
       older = account.history
-    })
+    }]
   }
 
   deposit(account: &Self, amount: lng, label: str) ->
-    Sym<:ok, :badAmount(lng), :frozen(int)> {
-    if amount <= 0 { ret :badAmount(amount) }
-    if account.frozen { ret :frozen(account.id) }
+    Sym<:ok, :badAmount[lng], :frozen[int]> {
+    if amount <= 0 { ret :badAmount[amount] }
+    if account.frozen { ret :frozen[account.id] }
     account.record(label, amount)
   }
 
   // The withdrawal's error set is inferred: :badAmount, :frozen and
   // :insufficient, from the returns below.
   withdraw(account: &Self, amount: lng, label: str) {
-    if amount <= 0 { ret :badAmount(amount) }
-    if account.frozen { ret :frozen(account.id) }
+    if amount <= 0 { ret :badAmount[amount] }
+    if account.frozen { ret :frozen[account.id] }
     if amount > account.balance {
-      ret :insufficient(Shortfall { id = account.id, needed = amount - account.balance })
+      ret :insufficient[Shortfall { id = account.id, needed = amount - account.balance }]
     }
     account.record(label, -amount)
   }
@@ -98,17 +98,17 @@ impl Bank {
       history = :none
     }
     bank.nextId++
-    bank.accounts = :more(Node { account = account, next = bank.accounts })
+    bank.accounts = :more[Node { account = account, next = bank.accounts }]
     account
   }
 
   // Taking the bank as & makes the account it returns writable.
-  find(bank: &Self, id: int) -> Sym<:ok(Account), :noAccount(int)> {
+  find(bank: &Self, id: int) -> Sym<:ok[Account], :noAccount[int]> {
     var cursor = bank.accounts
     while true {
       let node = cursor |> {
-        :none => ret :noAccount(id)
-        :more(node) => node
+        :none => ret :noAccount[id]
+        :more[node] => node
       }
       if node.account.id == id { ret node.account }
       cursor = node.next
@@ -121,7 +121,7 @@ impl Bank {
     if from == to { ret :sameAccount }
     let source = bank.find(from)?
     let target = bank.find(to)?
-    if target.frozen { ret :frozen(to) }
+    if target.frozen { ret :frozen[to] }
     source.withdraw(amount, "transfer to #" + str(to))?
     target.deposit(amount, "transfer from #" + str(from))?
   }
@@ -132,7 +132,7 @@ impl Bank {
     while true {
       let node = cursor |> {
         :none => break
-        :more(node) => node
+        :more[node] => node
       }
       let account = node.account
       account.kind |> {
@@ -154,7 +154,7 @@ impl Bank {
     while true {
       let node = cursor |> {
         :none => break
-        :more(node) => node
+        :more[node] => node
       }
       let account = node.account
       print("  #" + str(account.id) + " " + account.owner + " (" +
@@ -172,10 +172,10 @@ impl Bank {
 }
 
 // Prints oldest entries first by recursing to the end of the history.
-printHistory(history: Sym<:none, :more(Entry)>) {
+printHistory(history: Sym<:none, :more[Entry]>) {
   history |> {
     :none => ()
-    :more(entry) => {
+    :more[entry] => {
       printHistory(entry.older)
       let sign = if entry.amount > 0 { "+" } else { "" }
       print("    " + entry.label + ": " + sign + money(entry.amount) +
@@ -191,10 +191,10 @@ statement(account: Account) {
 
 explain(e: BankError) -> str {
   e |> {
-    :noAccount(id) => "there is no account #" + str(id)
-    :badAmount(a) => money(a) + " is not a positive amount"
-    :frozen(id) => "account #" + str(id) + " is frozen"
-    :insufficient(s) => "account #" + str(s.id) + " is short by " + money(s.needed)
+    :noAccount[id] => "there is no account #" + str(id)
+    :badAmount[a] => money(a) + " is not a positive amount"
+    :frozen[id] => "account #" + str(id) + " is frozen"
+    :insufficient[s] => "account #" + str(s.id) + " is short by " + money(s.needed)
     :sameAccount => "an account cannot transfer to itself"
   }
 }
@@ -207,7 +207,7 @@ attempt(bank: &Bank, from: int, to: int, amount: lng) {
   }
 }
 
-main() -> Sym<:ok, :badAmount(lng), :frozen(int)> {
+main() -> Sym<:ok, :badAmount[lng], :frozen[int]> {
   let bank = Bank.new("Brief Savings & Loan")
   let ada = bank.open("Ada", :checking)
   let ada2 = bank.open("Ada", :savings)

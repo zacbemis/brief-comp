@@ -54,11 +54,11 @@ SemaSymbol *sema_method(SemaProgram *p, const SemaType *t, const char *name) {
 static SemaAlias *alias(SemaProgram *p, const char *name) {
   return name_map_get(&p->alias_names, NULL, name);
 }
-static SemaTag *tag(Resolver *r, const char *name, Span span) {
-  SemaTag *result = sema_tag(r->program, r->program->module, name);
-  if (!result)
-    diagnostics_error(r->errors, span, "Too many symbol tags.");
-  return result;
+static SemaTag *tag(Resolver *r, const char *name, SymbolKind kind, Span span) {
+  return sema_declare_tag(r->program, r->program->module, name,
+                          kind == SYMBOL_ERROR ? SEMA_TAG_ERROR
+                                               : SEMA_TAG_NEUTRAL,
+                          span, r->errors);
 }
 static const SemaType *type(Resolver *r, const Type *syntax) {
   if (!syntax)
@@ -85,8 +85,17 @@ static const SemaType *type(Resolver *r, const Type *syntax) {
       SymEntry entry = syntax->as.sym.items[i];
       const SemaType *part;
       if (entry.tag) {
-        SemaTag *name = tag(r, entry.tag, entry.span);
-        const SemaType *payload = entry.type ? type(r, entry.type) : NULL;
+        if (entry.count > 1) {
+          diagnostics_error(
+              r->errors, entry.span,
+              "Multiple symbol payloads are not implemented yet.");
+          valid = 0;
+          continue;
+        }
+        SemaTag *name = tag(r, entry.tag, entry.kind,
+                            entry.tag_span.file ? entry.tag_span : entry.span);
+        const SemaType *payload =
+            entry.count ? type(r, entry.payloads[0]) : NULL;
         if (!name || (payload && payload->kind == SEMA_ERROR)) {
           valid = 0;
           continue;
@@ -139,9 +148,13 @@ static void alias_dependencies(Resolver *r, const Type *syntax,
       *head = edge;
     }
   } else if (syntax->kind == TYPE_SYM) {
-    for (size_t i = 0; i < syntax->as.sym.count; i++)
-      if (syntax->as.sym.items[i].type)
-        alias_dependencies(r, syntax->as.sym.items[i].type, head);
+    for (size_t i = 0; i < syntax->as.sym.count; i++) {
+      SymEntry entry = syntax->as.sym.items[i];
+      if (entry.type)
+        alias_dependencies(r, entry.type, head);
+      if (entry.count == 1)
+        alias_dependencies(r, entry.payloads[0], head);
+    }
   }
 }
 static void resolve_aliases(Resolver *r) {
@@ -553,9 +566,16 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
         } else if (p->kind == PAT_BIND)
           a->binding = variable(r, p->as.name, p->span,
                                 &r->program->types[SEMA_UNKNOWN], 0);
-        else if (p->kind == PAT_SYMBOL) {
-          a->tag = tag(r, p->as.symbol.tag, p->span);
-          const Pattern *payload = p->as.symbol.payload;
+        else if (p->kind == PAT_SYMBOL && p->as.symbol.count > 1) {
+          a->invalid = 1;
+          a->body = unsupported(
+              r, p->span, "Multiple symbol payloads are not implemented yet.");
+        } else if (p->kind == PAT_SYMBOL) {
+          a->tag =
+              tag(r, p->as.symbol.tag, p->as.symbol.kind,
+                  p->as.symbol.tag_span.file ? p->as.symbol.tag_span : p->span);
+          const Pattern *payload =
+              p->as.symbol.count ? p->as.symbol.payloads[0] : NULL;
           a->payload = payload != NULL;
           if (!a->tag)
             a->invalid = 1;
@@ -580,7 +600,8 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
           a->invalid = 1;
           diagnostics_error(r->errors, p->span, "Unknown named symbol set.");
         }
-        a->body = resolve_expr(r, source.value);
+        if (!a->body)
+          a->body = resolve_expr(r, source.value);
         restore(r, arm_scope);
         r->depth--;
       }
@@ -604,10 +625,15 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     return e;
   }
   case EXPR_SYMBOL:
+    if (s->as.symbol.count > 1)
+      return unsupported(r, s->span,
+                         "Multiple symbol payloads are not implemented yet.");
     e = node(r, SEMA_EXPR_SYMBOL, s->span);
-    e->as.symbol.tag = tag(r, s->as.symbol.tag, s->span);
-    if (s->as.symbol.payload)
-      e->as.symbol.payload = resolve_expr(r, s->as.symbol.payload);
+    e->as.symbol.tag =
+        tag(r, s->as.symbol.tag, s->as.symbol.kind,
+            s->as.symbol.tag_span.file ? s->as.symbol.tag_span : s->span);
+    if (s->as.symbol.count)
+      e->as.symbol.payload = resolve_expr(r, s->as.symbol.payloads[0]);
     return e;
   case EXPR_FIELD:
     e = node(r, SEMA_EXPR_FIELD, s->span);

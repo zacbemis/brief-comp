@@ -11,7 +11,7 @@ effect(value: int) -> () {
   print(str(value))
   99
 }
-choose(fail: bool) -> Sym<:ok(int), _> {
+choose(fail: bool) -> Sym<:ok[int], _> {
   if fail { ret :bad }
   7
 }
@@ -22,11 +22,11 @@ main() -> () {
   print(str(box.read())) // expect: 6
   effect(value) // expect: 6
   choose(false) |> {
-    :ok(n) => print(str(n)) // expect: 7
+    :ok[n] => print(str(n)) // expect: 7
     :bad => print("wrong")
   }
   choose(true) |> {
-    :ok(_) => print("wrong")
+    :ok[_] => print("wrong")
     :bad => print("bad") // expect: bad
   }
   print("f(): int") // expect: f(): int

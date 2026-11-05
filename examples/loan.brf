@@ -3,7 +3,7 @@
 // payment is the smallest whole-cent amount that repays the loan in its term,
 // found by binary search over a month-by-month simulation.
 
-LoanError = Sym<:badPrincipal(lng), :badRate(int), :badTerm(int)>
+LoanError = Sym<:badPrincipal[lng], :badRate[int], :badTerm[int]>
 
 Loan {
   principal: lng
@@ -74,17 +74,17 @@ column(cents: lng, width: int) -> str {
 }
 
 impl Loan {
-  new(principal: lng, rateBps: int, years: int) -> Sym<:ok(Self), LoanError> {
-    if principal <= 0 { ret :badPrincipal(principal) }
-    if rateBps < 0 or rateBps > 5000 { ret :badRate(rateBps) }
-    if years < 1 or years > 50 { ret :badTerm(years) }
+  new(principal: lng, rateBps: int, years: int) -> Sym<:ok[Self], LoanError> {
+    if principal <= 0 { ret :badPrincipal[principal] }
+    if rateBps < 0 or rateBps > 5000 { ret :badRate[rateBps] }
+    if years < 1 or years > 50 { ret :badTerm[years] }
     Self { principal = principal, rateBps = rateBps, months = years * 12 }
   }
 
   // Simulates paying `payment` (plus `extra`) every month. Returns the months
   // taken and total interest, or the balance left if the term runs out.
   simulate(loan: Self, payment: lng, extra: lng) ->
-    Sym<:ok(Summary), :unpaid(lng)> {
+    Sym<:ok[Summary], :unpaid[lng]> {
     var balance = loan.principal
     var paid: lng = 0
     for month in 1..loan.months + 1 {
@@ -93,10 +93,10 @@ impl Loan {
       balance += due
       balance -= payment + extra
       if balance <= 0 {
-        ret :ok(Summary { payment = payment, months = month, interest = paid })
+        ret :ok[Summary { payment = payment, months = month, interest = paid }]
       }
     }
-    :unpaid(balance)
+    :unpaid[balance]
   }
 
   payment(loan: Self) -> lng {
@@ -105,8 +105,8 @@ impl Loan {
     while low < high {
       let middle = (low + high) / 2
       loan.simulate(middle, 0) |> {
-        :ok(_) => high = middle
-        :unpaid(_) => low = middle + 1
+        :ok[_] => high = middle
+        :unpaid[_] => low = middle + 1
       }
     }
     low
@@ -115,8 +115,8 @@ impl Loan {
   summary(loan: Self, extra: lng) -> Summary {
     let payment = loan.payment()
     loan.simulate(payment, extra) |> {
-      :ok(result) => result
-      :unpaid(_) => Summary { payment = payment, months = loan.months, interest = 0 }
+      :ok[result] => result
+      :unpaid[_] => Summary { payment = payment, months = loan.months, interest = 0 }
     }
   }
 
@@ -157,16 +157,16 @@ describe(name: str, loan: Loan) {
 
 explain(e: LoanError) -> str {
   e |> {
-    :badPrincipal(p) => "the principal " + money(p) + " must be positive"
-    :badRate(r) => "the rate " + percent(r) + " is outside 0%-50%"
-    :badTerm(t) => "a " + str(t) + "-year term is outside 1-50 years"
+    :badPrincipal[p] => "the principal " + money(p) + " must be positive"
+    :badRate[r] => "the rate " + percent(r) + " is outside 0%-50%"
+    :badTerm[t] => "a " + str(t) + "-year term is outside 1-50 years"
   }
 }
 
 // A fallible call is handled where it is made, here with a match.
 attempt(principal: lng, rateBps: int, years: int) {
   Loan.new(principal, rateBps, years) |> {
-    :ok(loan) => print("accepted " + money(loan.principal))
+    :ok[loan] => print("accepted " + money(loan.principal))
     problem => print("rejected: " + explain(problem))
   }
 }

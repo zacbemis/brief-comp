@@ -177,14 +177,14 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (117 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports and typed collection literals; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
-| `tests/parse/pass/` (29) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
-| `tests/parse/fail/` (96) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
+| `tests/programs/` (125 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds and bracketed payload lists (zero/one native); other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/parse/pass/` (31) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
+| `tests/parse/fail/` (100) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
 | CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
 | Document acceptance (13 v0 audits, now retired) | Scripts, bridges and registrations deleted in N1; records retained as historical evidence | Each new document's audit is written in the milestone that implements its rules (see "Milestones"), so document coverage returns chapter by chapter instead of all at the end. |
-| `test_doc_parser` | Reads 13 current chapters: 239 fences, 109 parser checks, 130 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
+| `test_doc_parser` | Reads 13 current chapters: 239 fences, 125 parser checks, 114 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
 | `examples/*.brf` | Not run in CI | Converted in N1, and added to the program runner with their output as expectations, so the examples cannot rot again. |
 
 ### New test forms
@@ -227,7 +227,12 @@ receivers, module casing, source conversion and replacement native chapter
 audits remain pending. Pattern binding/set roles now follow the name classes.
 Module-selection imports parse, with an explicit not-implemented compilation
 barrier and no file loading. Typed `Arr`/`Vec` literals parse but remain
-unimplemented at native compilation.
+unimplemented at native compilation. Error tags use adjacent `:!name`; kinds and
+conflict source locations are retained, without switching outcomes or formatting.
+Bracketed payload lists parse in types, values and patterns; zero/one payload
+preserves native behavior, while several positions report not implemented.
+Union types, multi-payload checking/lowering and the old failure-tag conversion
+remain pending.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -1072,6 +1077,110 @@ changes its syntax diagnostic, on its original error line; other diagnostics are
 identical. All six examples preserve sanitized stdout/stderr/status. N1 remains
 in progress: unions/payloads/error tags, remaining declarations/keywords,
 members/receivers, fieldless traits, broader module casing and native chapter audits.
+
+### N1 increment: error-tag syntax and kind identity
+
+`:!name` now parses in symbol type entries, values and patterns. The AST records
+neutral/error kinds and prefix-through-name spans; printing distinguishes the kind
+without changing neutral trees. The lexer still emits separate `:` and `!` tokens.
+Only an adjacent pair is the error prefix. Recovery closes a whitespace-only gap
+(`: !bad` becomes `:!bad`); across a comment, disjoint fixes move the bang before
+it, preserving the comment and LF/CRLF. Missing names keep their primary errors
+without fabricated fixes. Postfix panic, `!=`, logical `not`, casing rules and
+ordinary neutral tags are unchanged.
+
+`sema_declare_tag` enforces one explicit kind per module/name. The error goes on
+the later spelling in the source, whatever the resolution order, with a note to
+the earlier one; a reserved `:!ok`/`:!none` error stays on its `:!` spelling.
+Repeated uses do not duplicate that conflict. A conflict never changes the first
+kind or allocates another identity. Shared `:ok` and `:none` are always neutral,
+including before any source spelling; no payload restriction is added for `:none`
+here. The bare interner still serves implicit tags. An explicit error declaration
+can set such a tag's kind without changing its ID or canonical-set identity; this
+does not convert old source tags. Independent module API tests allow different
+kinds for the same name in different files. Module loading and qualified tags
+remain unimplemented.
+
+This is N1 metadata, not N2 semantics. Outcomes, conversions, propagation, entry
+status and runtime formatting retain their first-version rules. In particular,
+`error-tag-main-n1.brf` intentionally exits 0 for a bare error-only return; N2 will
+review/change that expectation. `error-tag-kinds.brf` checks heap/unit payloads,
+matching and equality under current rules. Three rejection fixtures lock conflicts,
+reserved kinds and trivia-preserving adjacency fixes. Parser, lexer, newline,
+semantic and CLI tests cover kind/span retention, exact trees, immutable reparse,
+LF/CRLF fixes, missing names and no C emission after conflicts.
+
+Inventory: 122 programs, 30 parse-pass and 97 parse-fail files. Document parser
+coverage stays 104 successful parses plus five rejections: complete symbol/error
+fences still need unions/bracketed payloads or later semantics. No partial listing
+is extracted, and no replacement native chapter audit is complete.
+
+Validation: fresh `-Werror` GCC/Clang Debug ASan/UBSan and GCC Release pass 25/25;
+GCC Debug without sanitizers passes 24/24. clang-format 23.1.3 and
+`git diff --check` pass. All 276 retained baseline sources preserve statuses,
+AST/C bytes and complete diagnostics; all 86 prior C successes are byte-identical.
+All six examples preserve sanitized stdout/stderr/status. N1 remains in progress:
+unions/bracketed or multiple payloads, failure-tag source conversion, remaining
+members/declarations/keywords, receivers, fieldless traits, broader module casing
+and native chapter audits. N2's outcome switch is not implemented here.
+
+### N1 increment: bracketed payload lists, with zero/one native support
+
+Symbol payloads now use `[...]` in the existing type-entry, expression and pattern
+contexts. The AST stores lists, including empty lists, trailing commas and several
+positions, and checked syntax walks visit every payload. Printing is unchanged
+for zero/one payload; several positions print in source order. An empty list means
+no payload, not a unit payload: `:tag[]` and `:tag[()]` remain distinct shapes.
+
+Old `(...)` payloads recover only with `Symbol payloads use '[...]', not '(...)'.`
+and disjoint one-byte delimiter fixes. Missing operands/closers retain primary
+errors without guessed edits. Nested payload/type-argument/casing/prefix fixes
+compose, including LF/CRLF and comments; raw/filtered tokens stay immutable.
+Legacy empty `()` never had a missing-payload meaning, so it is not guessed to
+mean `[]` or `[()]`. Malformed-payload casing tests now use malformed bracket
+lists, rather than accidentally turning their old empty-parenthesis errors into
+valid empty payloads.
+
+Zero/one payload still resolves to the existing semantic payload slot. All
+previous program/parser/example sources and Brief strings in C tests are converted
+without changing their coverage. The deliberate CRLF fixture retains every line
+ending. Expected entry/panic text keeps its old parentheses: runtime formatting,
+outcomes, entry status and tag-kind conversion remain for N2/later N1 work.
+No IR, generated layout, RC, ABI or runtime change is made here.
+
+Several positions parse but compilation reports `Multiple symbol payloads are not
+implemented yet.` at each unsupported type entry, value or pattern. Their
+unavailable payload types/names and pattern-arm bodies are not resolved into
+cascades. Checking respects already-invalid arms instead of inventing an input
+shape error; it never reclassifies those patterns as bindings/catch-alls. This is
+an explicit unfinished N1 boundary, not multi-payload native support or a tuple
+encoding. Typed/refutable payload patterns also remain unfinished.
+
+`bracketed-payloads.brf` observes empty versus unit shapes, heap/nested payloads,
+trailing commas and old-looking literal text. Native rejection fixtures cover the
+old delimiters and the multi-payload scope barrier. Lexer/newline/parser/semantic
+and CLI tests cover exact ASTs/counts/spans, recovery/fixes, immutable reparsing,
+layout, 512-wide lists, deep nesting and no AST/C output after syntax errors.
+Inventory: 125 programs, 31 parse-pass and 100 parse-fail files (131 parser files).
+
+The current-document inventory gains 16 parser checks: nine complete payload/
+match/cursor fences and seven already-applicable field/function/call/loop fences
+found in this review. Standalone pattern arms become a fragment, never a
+synthesized match. Type-union examples are not accepted as bitwise expressions or
+assignments in a wrong body wrapper. Coverage is 120 successful parses plus five
+intentional rejections, 114 listed fences (44 pending syntax, 55 later features,
+15 fragments) and two unfenced listings. These checks do not assert module,
+collection, multi-payload or outcome behavior. No native chapter audit is complete.
+
+Validation: fresh `-Werror` GCC/Clang Debug ASan/UBSan and GCC Release pass 25/25;
+GCC Debug without sanitizers passes 24/24. clang-format 23.1.4 and
+`git diff --check` pass. All 284 retained sources preserve statuses and AST/C bytes;
+all 88 prior C successes are byte-identical. Primary/note messages and locations
+are unchanged; 26 diagnostic renders change only converted source/fix previews.
+All six examples preserve sanitized stdout/stderr/status. N1 remains in progress:
+union types, multi-payload checking/lowering, typed/refutable patterns, remaining
+members/declarations/keywords, receivers, fieldless traits, failure-tag conversion,
+broader module casing and replacement native audits. N2 has not begun.
 
 ## Risks
 

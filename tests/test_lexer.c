@@ -254,6 +254,20 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
+  TEST("error-symbol prefix remains separate colon and bang tokens") {
+    Lexer lx;
+    init_lexer(&lx, ":!bad :bad! : /* keep */ !bad");
+    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_BANG, "!");
+    expect(&lx, TOK_LOWER_NAME, "bad");
+    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_LOWER_NAME, "bad");
+    expect(&lx, TOK_BANG, "!");
+    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_BANG, "!");
+    expect(&lx, TOK_LOWER_NAME, "bad");
+    expect(&lx, TOK_EOF, NULL);
+  }
   TEST("trait and ovr are ordinary names, including case and prefix "
        "boundaries") {
     const char *text = "trait ovr Trait Ovr traits ovride trait_2 ovr2";
@@ -453,22 +467,22 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
-  TEST("Sym type from docs uses angle brackets and colon-prefixed symbols") {
+  TEST("transitional Sym type uses angle sets and bracketed payloads") {
     Lexer lx;
-    init_lexer(&lx, "Sym<:ok(User), :err(str), :missing>");
+    init_lexer(&lx, "Sym<:ok[User], :err[str], :missing>");
     expect(&lx, TOK_SYM, "Sym");
     expect(&lx, TOK_LESS_THAN, "<");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_LOWER_NAME, "ok");
-    expect(&lx, TOK_LPAREN, "(");
+    expect(&lx, TOK_LBRACKET, "[");
     expect(&lx, TOK_UPPER_NAME, "User");
-    expect(&lx, TOK_RPAREN, ")");
+    expect(&lx, TOK_RBRACKET, "]");
     expect(&lx, TOK_COMMA, ",");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_LOWER_NAME, "err");
-    expect(&lx, TOK_LPAREN, "(");
+    expect(&lx, TOK_LBRACKET, "[");
     expect(&lx, TOK_STR, "str");
-    expect(&lx, TOK_RPAREN, ")");
+    expect(&lx, TOK_RBRACKET, "]");
     expect(&lx, TOK_COMMA, ",");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_LOWER_NAME, "missing");
@@ -763,7 +777,7 @@ int main(void) {
 
   TEST("early return from docs") {
     Lexer lx;
-    init_lexer(&lx, "if age < 18 { ret :err(\"Age is too low\") }");
+    init_lexer(&lx, "if age < 18 { ret :err[\"Age is too low\"] }");
     expect(&lx, TOK_IF, "if");
     expect(&lx, TOK_LOWER_NAME, "age");
     expect(&lx, TOK_LESS_THAN, "<");
@@ -772,9 +786,9 @@ int main(void) {
     expect(&lx, TOK_RET, "ret");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_LOWER_NAME, "err");
-    expect(&lx, TOK_LPAREN, "(");
+    expect(&lx, TOK_LBRACKET, "[");
     expect(&lx, TOK_STR_LIT, "\"Age is too low\"");
-    expect(&lx, TOK_RPAREN, ")");
+    expect(&lx, TOK_RBRACKET, "]");
     expect(&lx, TOK_RBRACE, "}");
     expect(&lx, TOK_EOF, NULL);
   }
@@ -951,7 +965,7 @@ int main(void) {
 
   TEST("pipeline symbol match from docs") {
     Lexer lx;
-    init_lexer(&lx, "users.find(predicate) |> { :ok(user) => :found(user) "
+    init_lexer(&lx, "users.find(predicate) |> { :ok[user] => :found[user] "
                     ":none => :missing }");
     expect(&lx, TOK_LOWER_NAME, "users");
     expect(&lx, TOK_PERIOD, ".");
@@ -963,15 +977,15 @@ int main(void) {
     expect(&lx, TOK_LBRACE, "{");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_LOWER_NAME, "ok");
-    expect(&lx, TOK_LPAREN, "(");
+    expect(&lx, TOK_LBRACKET, "[");
     expect(&lx, TOK_LOWER_NAME, "user");
-    expect(&lx, TOK_RPAREN, ")");
+    expect(&lx, TOK_RBRACKET, "]");
     expect(&lx, TOK_FAT_ARROW, "=>");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_LOWER_NAME, "found");
-    expect(&lx, TOK_LPAREN, "(");
+    expect(&lx, TOK_LBRACKET, "[");
     expect(&lx, TOK_LOWER_NAME, "user");
-    expect(&lx, TOK_RPAREN, ")");
+    expect(&lx, TOK_RBRACKET, "]");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_LOWER_NAME, "none");
     expect(&lx, TOK_FAT_ARROW, "=>");

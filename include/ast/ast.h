@@ -12,10 +12,15 @@
 // All nodes, lists, and interned names live in the compilation arena. Literal
 // tokens keep their source spelling: decoding and numeric conversion belong
 // to later stages. Types here are syntax, not canonical semantic types.
+typedef enum { SYMBOL_NEUTRAL, SYMBOL_ERROR } SymbolKind;
 typedef struct {
   Span span;
   const char *tag; // NULL includes a named set (or TYPE_INFER).
-  Type *type;      // NULL for a tag with no payload.
+  SymbolKind kind;
+  Span tag_span; // Prefix through name, excluding the payload.
+  Type *type;    // Named-set inclusion or inference; NULL for a tag.
+  Type **payloads;
+  size_t count;
 } SymEntry;
 
 struct Type {
@@ -82,7 +87,10 @@ struct Expr {
     Token literal;
     struct {
       const char *tag;
-      Expr *payload;
+      SymbolKind kind;
+      Span tag_span;
+      Expr **payloads;
+      size_t count;
     } symbol;
     struct {
       Expr *constructor;
@@ -167,13 +175,15 @@ struct Pattern {
   PatternKind kind;
   Span span;
   union {
-    // An unqualified name is syntactically ambiguous: resolution may turn a
-    // PAT_BIND into a reference to a named symbol set. Do not guess by case.
+    // The parser assigns binding versus named-set roles from name classes.
     const char *name;
     Expr *literal;
     struct {
       const char *tag;
-      Pattern *payload;
+      SymbolKind kind;
+      Span tag_span;
+      Pattern **payloads;
+      size_t count;
     } symbol;
     struct {
       Expr *lower;

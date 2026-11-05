@@ -41,7 +41,9 @@ typedef struct SemaTag SemaTag;
 struct SemaTag {
   const char *name;
   const SourceFile *module; // Defining file identity; NULL for :ok and :none.
-  SemaTagKind kind;         // All tags remain neutral until the syntax switch.
+  SemaTagKind kind;         // Metadata only until N2's outcome switch.
+  Span kind_span;           // First explicit spelling of this kind.
+  int kind_declared, kind_conflict;
   size_t id; // Program-global; zero is reserved for empty ownership slots.
   SemaTag *next;
 };
@@ -301,6 +303,12 @@ int sema_assignable(const SemaType *actual, const SemaType *wanted);
 // 32-bit limit.
 SemaTag *sema_tag(SemaProgram *program, const SourceFile *module,
                   const char *name);
+// Explicit source spelling: enforces one kind per (module, name), with source
+// notes. The bare interner above also serves implicit tags; it does not declare
+// a kind.
+SemaTag *sema_declare_tag(SemaProgram *program, const SourceFile *module,
+                          const char *name, SemaTagKind kind, Span span,
+                          Diagnostics *errors);
 const SemaVariant *sema_variant(const SemaType *type, const SemaTag *tag);
 // Interns a set; NULL indicates conflicting payloads. No empty sets are made.
 const SemaType *sema_symbol_set(SemaProgram *program,

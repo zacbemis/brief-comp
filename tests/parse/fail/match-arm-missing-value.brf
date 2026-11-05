@@ -3,7 +3,7 @@
 //   becomes this arm's value and its `=>` is unexpected.
 main() {
   x |> {
-    :ok(v) =>
+    :ok[v] =>
     :none => 0
   }
 }

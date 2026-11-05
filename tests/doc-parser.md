@@ -3,9 +3,9 @@
 `test_doc_parser` reads the 13 language chapters in `docs/lang-*.txt`, not
 `docs/v0/`. The rationale file `lang-post-0-notes.txt` is not a language chapter.
 The manifest in `test_doc_parser.cmake` classifies all **239 code fences** and
-the two unfenced chapters. It runs **104 successful parses and five intentional
-syntax rejections**. The other **130 fences** are explicit listings, not passing
-parser tests: 54 await N1/N4/N5 syntax, 62 need later features, and 14 are
+the two unfenced chapters. It runs **120 successful parses and five intentional
+syntax rejections**. The other **114 fences** are explicit listings, not passing
+parser tests: 44 await N1/N4/N5 syntax, 55 need later features, and 15 are
 incomplete signatures/operator/context fragments. The overview and raw base
 sample have separate zero-fence listings.
 
@@ -24,9 +24,9 @@ and no function body is extracted. Intentional syntax errors must reject with no
 AST and exactly one error, on a line the document marks `Compiler error`, so the
 rest of the fence is shown to parse. Semantic-error examples can parse: this is
 **not** proof of typing, complete casing rules, outcomes, ownership, modules or
-library APIs. In particular, some unimplemented payload/interpolation syntax
-could otherwise be mistaken for an old index or a plain string; those fences
-remain listed.
+library APIs. Bracketed payload lists now build symbol nodes, not old index
+recovery. Unimplemented interpolation could still be mistaken for a plain
+string; those fences remain listed.
 The `.()` index, bracketed constructors and typed collection literals check
 syntax only; collection operations remain unsupported. In the header-escape
 fence, only the unwrapped struct header rejects; its grouped, call-argument and
@@ -38,19 +38,19 @@ than being extracted or accepted for the wrong error.
 
 | Chapter | Parser checks | Listings (including unfenced chapters) |
 |---|---:|---:|
-| collections | 2 | 29 |
+| collections | 3 | 28 |
 | overview | 0 | 1 |
-| errors | 7 | 31 |
+| errors | 10 | 28 |
 | raw base sample | 0 | 1 |
-| functions | 15 | 12 |
+| functions | 17 | 10 |
 | memory | 16 | 2 |
-| modules | 8 | 11 |
-| pipelines | 11 | 6 |
+| modules | 12 | 7 |
+| pipelines | 13 | 4 |
 | standard library | 0 | 1 |
-| symbols | 2 | 13 |
+| symbols | 3 | 12 |
 | syntax | 30 | 5 |
 | traits | 1 | 9 |
-| types | 17 | 11 |
+| types | 20 | 8 |
 
 Chapter hashes force classification review after document edits; counts, index
 bounds, duplicate/missing classifications, nonempty reasons and the complete
@@ -59,6 +59,16 @@ failure guards, the import context wrapper and positive listing/zero-fence
 accounting without a compiler.
 When syntax is implemented, move its applicable listings into parser checks;
 when documents change, review classifications before updating their hashes.
+
+Error-tag prefixes and bracketed payload lists now work in symbol contexts. Nine
+complete payload-value/match/cursor fences move to syntax checks, together with
+seven previously applicable field/function/call/loop fences found in this
+review. File labels and inferred-type comments are preserved, not interpreted as
+module loading or qualified-tag grammar. Standalone pattern arms are a fragment,
+not a test with a synthesized match wrapper. Union types, typed patterns and
+module-qualified/merged tags still block other complete fences. Native
+multi-payload support and N2/N3 semantics remain separate gaps; no partial
+listing is extracted or rewritten into a passing test.
 
 ## Native acceptance gap
 
