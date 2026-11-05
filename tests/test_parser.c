@@ -1897,6 +1897,55 @@ int main(void) {
         "(arm (literal (chr 'c')) (int 4)) (arm (literal (unit)) (int 5)) (arm "
         "(bind x) (name x))))");
   }
+  TEST("pattern name classes determine binding versus named set without "
+       "lookup") {
+    expression_dump(&arena, "x |> { Error => 0\nerror => 1\n_ => 2 }",
+                    "(|> (name x) (match (arm (set Error) (int 0)) (arm (bind "
+                    "error) (int 1)) (arm (wildcard) (int 2))))");
+    expression_dump(&arena, "x |> { :ok(Value) => 0\n:ok(value) => value }",
+                    "(|> (name x) (match (arm (tag ok (set Value)) (int 0)) "
+                    "(arm (tag ok (bind value)) (name value))))");
+    expression_dump(&arena,
+                    "x |> { (Error) => 0\n(error) => error\nJson.Error => 1 }",
+                    "(|> (name x) (match (arm (set Error) (int 0)) (arm (bind "
+                    "error) (name error)) (arm (set Json.Error) (int 1))))");
+    // Range endpoints remain value references, not named-set/catch-all
+    // patterns.
+    expression_dump(&arena, "x |> { MIN..MAX => 0\nmin..max => 1 }",
+                    "(|> (name x) (match (arm (range (name MIN) (name MAX)) "
+                    "(int 0)) (arm (range (name min) (name max)) (int 1))))");
+    const char *text = "Known = Sym<:a>\nmain() { value |> { Known => "
+                       "0\nUnknown => 1\nknown => 2\n_ => 3 } }";
+    Parsed *v = parse(&arena, text);
+    ASSERT_EQ_INT(0, v->diagnostics.count);
+    ASSERT_EQ_INT(2, v->program->count);
+    if (v->program->count == 2) {
+      Expr *pipe =
+          v->program->items[1]->as.function.body->as.block.items[0].as.expr;
+      const PatternKind kinds[] = {PAT_SET, PAT_SET, PAT_BIND, PAT_WILDCARD};
+      ASSERT_EQ_INT(4, pipe->as.pipe.stage->as.match.count);
+      for (size_t i = 0; i < pipe->as.pipe.stage->as.match.count; i++) {
+        const Pattern *p = pipe->as.pipe.stage->as.match.arms[i].pattern;
+        if (i < sizeof(kinds) / sizeof(*kinds))
+          ASSERT_EQ_INT(kinds[i], p->kind);
+        ASSERT_TRUE(p->span.file == v->source);
+        ASSERT_EQ_INT(strlen(p->as.name), p->span.end - p->span.start);
+      }
+    }
+    TokenArray filtered = newline_filter(&arena, v->raw);
+    size_t bytes = filtered.count * sizeof(Token);
+    Token *saved = arena_alloc(&arena, bytes);
+    memcpy(saved, filtered.items, bytes);
+    Diagnostics again;
+    diagnostics_init(&again, &arena);
+    Program *repeated = parse_program(&arena, &v->names, filtered, &again);
+    ASSERT_EQ_INT(0, again.count);
+    ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+    char *first = dump(&arena, v->program), *second = dump(&arena, repeated);
+    ASSERT_TRUE(first && second);
+    if (first && second)
+      ASSERT_EQ_INT(0, strcmp(first, second));
+  }
   TEST("match blocks nested in call arguments retain arm separators") {
     expression_dump(&arena, "f(\nx |> {\n:ok(x) => x\n:none => 0\n}\n)",
                     "(call (name f) (|> (name x) (match (arm (tag ok (bind x)) "

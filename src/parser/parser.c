@@ -1421,8 +1421,9 @@ static Pattern *pattern_inner(Parser *p) {
       return NULL;
     if (!at(p, TOK_DOT_DOT)) {
       PatternKind kind = strcmp(text, "_") == 0 ? PAT_WILDCARD
-                         : strchr(text, '.')    ? PAT_SET
-                                                : PAT_BIND;
+                         : start.type == TOK_UPPER_NAME || strchr(text, '.')
+                             ? PAT_SET
+                             : PAT_BIND;
       Pattern *v = new_pattern(p, kind, through(start.span, p->previous.span));
       v->as.name = text;
       return v;

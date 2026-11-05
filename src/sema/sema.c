@@ -540,18 +540,15 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
         MatchArm source = stage->as.match.arms[i];
         const Pattern *p = source.pattern;
         SemaArm *a = &result->as.match.arms[i];
-        if (p->kind == PAT_SYMBOL || p->kind == PAT_SET ||
-            (p->kind == PAT_BIND && alias(r->program, p->as.name)))
+        if (p->kind == PAT_SYMBOL || p->kind == PAT_SET)
           bind->as.binding.outcome = 1;
         a->kind = p->kind;
         a->span = p->span;
         Local *arm_scope = r->locals;
         r->depth++;
-        SemaAlias *named = (p->kind == PAT_BIND || p->kind == PAT_SET)
-                               ? alias(r->program, p->as.name)
-                               : NULL;
+        SemaAlias *named =
+            p->kind == PAT_SET ? alias(r->program, p->as.name) : NULL;
         if (named) {
-          a->kind = PAT_SET;
           a->set = named->type;
         } else if (p->kind == PAT_BIND)
           a->binding = variable(r, p->as.name, p->span,
@@ -562,8 +559,7 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
           a->payload = payload != NULL;
           if (!a->tag)
             a->invalid = 1;
-          if (payload && payload->kind == PAT_BIND &&
-              !alias(r->program, payload->as.name))
+          if (payload && payload->kind == PAT_BIND)
             a->binding = variable(r, payload->as.name, payload->span,
                                   &r->program->types[SEMA_UNKNOWN], 0);
           else if (payload && payload->kind != PAT_WILDCARD) {

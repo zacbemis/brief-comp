@@ -180,6 +180,22 @@ endforeach()
 # reinterpreted as comparisons. Unsupported generic headers get no follow-on
 # ordinary-call lookup error. The one-argument check scaffold isolates that
 # diagnostic; surrounding ordinary arity checks have separate stage coverage.
+# Uppercase patterns are set references even when no declaration is found.
+set(pattern_name "${TEST_DIR}/pattern-name.brf")
+file(WRITE "${pattern_name}" "main() { :a |> { Unknown => () } }\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${pattern_name}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
+   NOT output STREQUAL "(program (fn main (params) _ (block (|> (symbol a) (match (arm (set Unknown) (unit)))))))\n")
+    message(FATAL_ERROR "incorrect named-set AST (${status}):\n${errors}\n${output}")
+endif()
+execute_process(COMMAND "${BRIEF}" emit-c "${pattern_name}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
+   NOT errors MATCHES "^error: Unknown named symbol set\\." OR errors MATCHES "help:")
+    message(FATAL_ERROR "unknown set became a binding (${status}):\n${errors}")
+endif()
+
 set(generic "${TEST_DIR}/generic-invalid.brf")
 file(WRITE "${generic}" "check(value: int) {}\r\nmain() { let a = 1\r\n  let d = 2\r\n  check(a[b, c](d))\r\n}\r\n")
 set(expected "error: Generic calls are not implemented yet.\n  --> ${generic}:4:9\n  |\n4 |   check(a[b, c](d))\n  |         ^~~~~~~~~~\n")

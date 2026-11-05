@@ -1,0 +1,17 @@
+Group = Sym<:first, :second(str)>
+choose(first: bool) -> Sym<Group, :third> {
+  if first { :second("heap" + " payload") } else { :third }
+}
+main() {
+  choose(true) |> {
+    Group => print("group") // expect: group
+    rest => rest |> { :third => print("wrong") }
+  }
+  choose(false) |> {
+    Group => print("wrong")
+    rest => rest |> { :third => print("rest") } // expect: rest
+  }
+  :box("heap" + " binding") |> { :box(value) => print(value) } // expect: heap binding
+  7 |> { value => print(str(value)) } // expect: 7
+  print("Group group Value value") // expect: Group group Value value
+}

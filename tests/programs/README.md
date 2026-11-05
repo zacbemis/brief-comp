@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **112 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **114 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -358,8 +358,18 @@ heap strings, tags and unchanged keyword-looking literals. Two removed-prefix
 fixtures still reject, with fixes that delete the old word: the new language
 writes traits without `trait` and replaced defaults without `ovr`. This adds no
 trait, override or fieldless-declaration capability. The inventory
-is now 112 files. Unions/payloads, members/receivers, `Sym`/`Self`/`impl` retirement,
-`self`, pattern-binding/module casing and native chapter audits remain pending.
+was then 112 files.
+
+N1's pattern-name slice assigns roles directly from casing: lowercase names
+bind, uppercase names reference symbol sets, and `_` stays a wildcard. Known set
+matches and residual/payload binders keep their old behavior; the resolver no
+longer guesses whether a binding is an alias. `pattern-names.brf` observes both
+group and residual arms, heap payloads and scalar bindings. Its error companion
+ensures an unknown uppercase name cannot silently become a catch-all, and
+uppercase payload references remain unsupported refutable patterns. No
+speculative lowercase rename is offered for an unknown reference. The inventory
+is now 114 files. Unions/payloads, members/receivers, remaining keywords/module
+casing and native chapter audits remain pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

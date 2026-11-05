@@ -177,7 +177,7 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (112 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag casing and ordinary `trait`/`ovr` names; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/programs/` (114 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
 | `tests/parse/pass/` (27) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
 | `tests/parse/fail/` (93) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
@@ -223,8 +223,8 @@ tags. `trait` and `ovr` are ordinary names. Sized array annotations recover as
 Structs/aliases reject `pub`; checked fields/functions retain written
 visibility. The v0 scripts/bridges are retired and the current-document parser
 inventory is active. Other declaration/type structure, remaining keywords,
-receivers, pattern-binding/module casing, source conversion and replacement
-native chapter audits remain pending.
+receivers, module casing, source conversion and replacement native chapter
+audits remain pending. Pattern binding/set roles now follow the name classes.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -350,8 +350,10 @@ first-version syntax audit's two logical-operator cases carry markers.
   and rejection of wildcard tag names, without changing wildcard payloads.
 - [x] Retire `trait`/`ovr` keyword tokens; ordinary name uses work while removed
   declaration/modifier prefixes retain explicit unsupported-scope diagnostics.
-- [ ] Remaining keyword/declaration/type/expression grammar changes, pattern-binding/
-  module casing, struct methods and receiver inference.
+- [x] Lowercase binding versus uppercase named-set pattern roles determined by
+  the parser, with no resolver alias-lookup fallback for bindings.
+- [ ] Remaining keyword/declaration/type/expression grammar changes, module
+  casing, struct methods and receiver inference.
 - [ ] Remaining source conversion, old-syntax rejection tests and N1 native
   chapter audits in the full syntax switch.
 
@@ -923,6 +925,50 @@ N1 is incomplete: unions/payloads/error tags, `Sym`/`Self`/`impl` retirement and
 `self`, members/receivers, fieldless traits, pattern-binding/module casing and
 native chapter audits remain pending. No semantic, IR, emission or runtime code
 changes, v0 bridge or migration tool is introduced.
+
+### N1 (in progress): pattern roles follow name classes
+
+An unqualified lowercase pattern name is `PAT_BIND`; an uppercase name is
+`PAT_SET`, whether or not an alias with that name exists. `_` remains
+`PAT_WILDCARD`. Existing dotted names remain set references, with module casing
+still deferred. Grouping preserves the inner role, and range endpoints remain
+value references rather than binding/set patterns. Payload names follow the
+same rule; named-set/literal/nested payload patterns remain explicitly refutable
+and unsupported, not silently rebound as variables.
+
+Resolution now trusts those roles. It resolves aliases only for `PAT_SET` and
+creates variables only for `PAT_BIND`, including payload binders. Binding-dependent
+alias probes and reclassification paths are removed. Supported named-set
+coverage, residual narrowing, permissions, ownership and emitted C are unchanged.
+Unknown uppercase names report `Unknown named symbol set.` without an invented
+lowercase rename: that spelling might be an intended type reference, not a
+misspelled binding. Such inputs cannot reach successful checking/lowering.
+
+The parser match fixture's old uppercase catch-all `User` is renamed `userGroup`
+to retain its original binding meaning; placeholder constant/range names become
+lowercase too, preserving error lines. Dedicated tests now cover uppercase set
+heads rather than retaining an uppercase-binding grammar. Parser tests verify
+known/unknown roles, grouping, payloads, range endpoints, spans, repeatability
+and token immutability. Matching tests inspect resolved kinds/bindings/alias types,
+unknown-set failure and the unchanged refutable-payload boundary. CLI tests require
+an uppercase unknown name to print as a set in dump-ast and reject emission.
+`pattern-names.brf` observes group/residual arms, heap payloads, scalar bindings
+and unchanged strings; its error companion rejects unknown sets and uppercase
+payload references. There are 114 programs, 27 parse-pass and 93 parse-fail files.
+The document parser remains at 105 checks/134 fence listings plus two unfenced
+listings; replacement native chapter audits remain pending.
+
+Validation: fresh `-Werror` GCC/Clang Debug ASan/UBSan and GCC Release pass 25/25;
+GCC Debug without sanitizers passes 24/24. clang-format 23.1.3 and
+`git diff --check` pass. All 263 retained sources preserve statuses, diagnostic
+text/order and error lines, and all 85 prior C successes are byte-identical.
+Five AST dumps change intentionally: four files now print named sets as `(set ...)`,
+and the parser match fixture has renamed lowercase binding/value references.
+Only that parser fixture's rejection rendering changes its source excerpts.
+All six examples preserve sanitized stdout/stderr/status. N1 is still incomplete:
+unions/payloads/error tags, remaining declarations/keywords, receivers, fieldless
+traits, module casing and native chapter audits remain pending. No IR, emission,
+runtime, v0 adapter or migration-tool changes are introduced.
 
 ## Risks
 

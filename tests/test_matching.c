@@ -55,6 +55,42 @@ static void invalid(Arena *a, const char *text, const char *message) {
 int main(void) {
   Arena a;
   arena_init(&a);
+  TEST("pattern roles survive resolution without guessing aliases for "
+       "bindings") {
+    Result r = valid(&a, "Only = Sym<:a>\nmain() { :a |> { Only => () } }");
+    SemaExpr *pipe = r.program->functions[0].body->as.block.items[0];
+    ASSERT_EQ_INT(SEMA_EXPR_BLOCK, pipe->kind);
+    SemaExpr *match = pipe->as.block.items[1];
+    ASSERT_EQ_INT(SEMA_EXPR_MATCH, match->kind);
+    ASSERT_EQ_INT(PAT_SET, match->as.match.arms[0].kind);
+    ASSERT_TRUE(match->as.match.arms[0].binding == NULL);
+    ASSERT_TRUE(match->as.match.arms[0].set == r.program->aliases[0].type);
+    r = valid(
+        &a,
+        "Only = Sym<:a>\nmain() { :a |> { only => only |> { Only => () } } }");
+    pipe = r.program->functions[0].body->as.block.items[0];
+    match = pipe->as.block.items[1];
+    ASSERT_EQ_INT(PAT_BIND, match->as.match.arms[0].kind);
+    ASSERT_TRUE(match->as.match.arms[0].binding != NULL);
+    ASSERT_EQ_INT(0, strcmp("only", match->as.match.arms[0].binding->name));
+    r = check(&a, "main() { :a |> { Unknown => () } }");
+    ASSERT_EQ_INT(1, r.errors.count);
+    ASSERT_TRUE(!r.program->checked && ir_lower(&a, r.program) == NULL);
+    if (r.errors.count) {
+      ASSERT_EQ_INT(
+          0, strcmp("Unknown named symbol set.", r.errors.items[0]->message));
+      ASSERT_TRUE(r.errors.items[0]->fixes ==
+                  NULL); // Unknown reference, not a certain rename.
+    }
+    pipe = r.program->functions[0].body->as.block.items[0];
+    match = pipe->as.block.items[1];
+    ASSERT_EQ_INT(PAT_SET, match->as.match.arms[0].kind);
+    ASSERT_TRUE(match->as.match.arms[0].binding == NULL);
+    ASSERT_TRUE(match->as.match.arms[0].invalid);
+    invalid(&a, "main() { :a(1) |> { :a(Value) => () } }",
+            "Refutable symbol payload patterns");
+    valid(&a, "main() { :a(1) |> { :a(value) => str(value) } }");
+  }
   TEST("pipeline lookup prefers methods, then module functions") {
     Result r = valid(&a, "A {}\nimpl A { get(a: Self) { true } }\n"
                          "get(a: A) { 1 }\nmain() { A {} |> get() }");

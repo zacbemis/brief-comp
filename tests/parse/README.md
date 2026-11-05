@@ -16,7 +16,8 @@ not supported runtime operations. Structs require uppercase names; functions,
 fields, parameters, bindings and loops require lowercase names. Symbol tags must
 start lowercase in type entries, values and patterns; `_` is not a tag name. `trait`
 and `ovr` are ordinary names; old declaration/modifier spellings still reject.
-Symbol/type/member grammar and pattern-binding/module casing remain pending.
+Unqualified lowercase pattern names bind; uppercase names reference symbol sets.
+Symbol/type/member grammar and module casing remain pending.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree

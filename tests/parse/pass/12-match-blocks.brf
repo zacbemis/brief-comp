@@ -20,8 +20,8 @@ main() {
     _ => "large"
   }
   index |> {
-    MIN..MAX => "inside"
-    LIMIT => "at the limit"
+    min..max => "inside"
+    limit => "at the limit"
     _ => "outside"
   }
 
@@ -125,9 +125,9 @@ main() {
     print("ok")
   }
 
-  // A catch-all binding and a pattern that looks like a struct literal head.
+  // Catch-all bindings use lowercase names; uppercase set roles have unit tests.
   value |> {
-    User => 1
+    userGroup => 1
     user => 2
   }
 }

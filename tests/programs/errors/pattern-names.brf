@@ -1,0 +1,4 @@
+main() {
+  :a |> { Unknown => () } // error: Unknown named symbol set.
+  :ok(1) |> { :ok(Value) => () } // error: Refutable symbol payload patterns are not implemented yet.
+}
