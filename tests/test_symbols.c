@@ -261,6 +261,34 @@ int main(void) {
                       r.errors.items[0]->message));
     }
   }
+  TEST(
+      "typed payload patterns stop before type, binder and arm-body cascades") {
+    const char *cases[] = {
+        "main() { :item[1] |> { :item[value: Missing] => unknown(value) } }",
+        "main() { 1 |> { :item[value: int] => value } }",
+        ("main() { :outer[:inner[1]] |> { :outer[:inner[x: Missing]] => f(x) } "
+         "}"),
+        "main() { :item[1] |> { :item[(x: :a | :b)] => f(x) } }"};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      Result r = check(&a, cases[i]);
+      ASSERT_EQ_INT(1, r.errors.count);
+      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+      if (r.errors.count) {
+        ASSERT_EQ_INT(
+            0, strcmp("Typed symbol payload patterns are not implemented yet.",
+                      r.errors.items[0]->message));
+        ASSERT_TRUE(r.errors.items[0]->span.file == r.program->module);
+        ASSERT_TRUE(r.errors.items[0]->fixes == NULL);
+      }
+    }
+    Result many =
+        check(&a, "main() { 1 |> { :pair[x: Missing, y: Other] => f(x, y) } }");
+    ASSERT_EQ_INT(1, many.errors.count);
+    if (many.errors.count)
+      ASSERT_EQ_INT(0,
+                    strcmp("Multiple symbol payloads are not implemented yet.",
+                           many.errors.items[0]->message));
+  }
   TEST("union syntax and ordinary Sym names preserve checked set identity") {
     Result r = valid(&a, "A = :a | :b[str]\nB = A | :c\nSym = B\n"
                          "main() { let value: Sym = :b[\"heap\"]\nvalue |> { "

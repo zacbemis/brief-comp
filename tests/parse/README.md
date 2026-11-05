@@ -26,7 +26,11 @@ trailing commas and several positional values/patterns. Native compilation still
 supports at most one payload. Union types use `|` in type positions, including
 payloads and type arguments, without changing bitwise or in expressions. `Sym`
 is ordinary; old `Sym<...>` wrappers reject. A bare `_` parses as a type marker,
-but checking restricts it to partial return unions with a written `:ok`.
+but checking restricts it to partial return unions with a written `:ok`. Typed
+payload bindings (`:tag[name: Type]`) preserve annotations and require
+lowercase, unqualified binding names. They parse only in payload patterns,
+including grouped/nested forms; native type-directed matching remains
+unsupported.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
@@ -49,15 +53,19 @@ but checking restricts it to partial return unions with a written `:ok`.
   nesting, empty/unit payloads, multiple positions, layout and trailing commas.
 - `40`: union types in aliases/fields/parameters/returns/type arguments, nested
   payload unions, bitwise-or separation and ordinary `Sym` names.
+- `41`: typed payload binders, grouping, nested/union/generic annotations and
+  multiple typed positions, without native matching claims.
 - `underscore-type-syntax`: promoted from the old parser rejection; semantic
   checking still rejects its bare partial return marker.
 
 ## `fail/`
 
-There are 100 rejection fixtures, including `old-symbol-union.brf`,
-`union-missing-member.brf`, `union-missing-separator.brf`,
-`old-payload-parentheses.brf`, `payload-missing-close.brf`,
-`payload-missing-comma.brf`, `error-tag-spacing.brf`, `collection-header.brf`,
+There are 103 rejection fixtures, including `typed-pattern-outside-payload.brf`,
+`typed-payload-missing-name.brf`, `typed-payload-missing-type.brf`,
+`old-symbol-union.brf`, `union-missing-member.brf`,
+`union-missing-separator.brf`, `old-payload-parentheses.brf`,
+`payload-missing-close.brf`, `payload-missing-comma.brf`,
+`error-tag-spacing.brf`, `collection-header.brf`,
 `collection-missing-comma.brf`, `bare-collection-literal.brf`,
 `import-missing-name.brf`, `import-in-body.brf`, `tag-casing.brf`,
 `tag-wildcard.brf`, `declaration-casing.brf`, `declaration-wildcard.brf`,

@@ -1,0 +1,12 @@
+// Syntax only. Type-directed merged-symbol matching is not implemented.
+main() {
+  value |> {
+    :!notFound[path: str] => path
+    :!notFound[id: int] => id
+    :item[(grouped: Vec[models.User])] => grouped
+    :union[choice: :first | :second[str]] => choice
+    :pair[left: int, right: str,] => left
+    :nested[:inner[deep: ()]] => deep
+    _ => ()
+  }
+}

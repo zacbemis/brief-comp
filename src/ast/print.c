@@ -128,6 +128,11 @@ static void pattern(FILE *out, const Pattern *p) {
   case PAT_BIND:
     fprintf(out, "(bind %s)", p->as.name);
     break;
+  case PAT_TYPED_BIND:
+    fprintf(out, "(typed-bind %s ", p->as.typed_binding.name);
+    type(out, p->as.typed_binding.annotation);
+    fputc(')', out);
+    break;
   case PAT_WILDCARD:
     fputs("(wildcard)", out);
     break;

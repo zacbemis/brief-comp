@@ -397,7 +397,7 @@ static Expr *expression(Parser *p, int minimum, int allow_struct);
 static int simple_item(Parser *p, BlockItem *item);
 static Expr *block(Parser *p);
 static Type *type(Parser *p);
-static Pattern *pattern(Parser *p);
+static Pattern *pattern(Parser *p, int payload);
 static Decl *declaration(Parser *p, int in_impl);
 
 static int enter(Parser *p) {
@@ -587,6 +587,15 @@ static int old_index(Parser *p, Expr *left) {
   return 0;
 }
 
+// `name: Type` binds only in a payload pattern. In a value or type entry, say
+// so rather than reporting a generic missing ']' at the colon.
+static int typed_binding_elsewhere(Parser *p, int name) {
+  if (!name || !at(p, TOK_COLON))
+    return 0;
+  error_at(p, peek(p).span,
+           "Typed bindings are only allowed in symbol payload patterns.");
+  return 1;
+}
 static int payload_open(Parser *p, Token *open) {
   if (!at(p, TOK_LBRACKET) && !at(p, TOK_LPAREN))
     return 0;
@@ -745,7 +754,8 @@ static Type *type_atom(Parser *p) {
       if (open.type == TOK_LPAREN || !at(p, TOK_RBRACKET))
         do {
           Type *payload = type(p);
-          if (!payload)
+          if (!payload ||
+              typed_binding_elsewhere(p, payload->kind == TYPE_NAME))
             return NULL;
           PUSH(p, payloads, payload);
           if (!match(p, TOK_COMMA) || at(p, payload_end(open)))
@@ -1557,7 +1567,8 @@ static Expr *primary(Parser *p, int allow_struct) {
       if (open.type == TOK_LPAREN || !at(p, TOK_RBRACKET))
         do {
           Expr *payload = expression(p, 0, 1);
-          if (!payload)
+          if (!payload ||
+              typed_binding_elsewhere(p, payload->kind == EXPR_NAME))
             return NULL;
           PUSH(p, payloads, payload);
           if (!match(p, TOK_COMMA) || at(p, payload_end(open)))
@@ -1693,7 +1704,7 @@ static Expr *pattern_value(Parser *p) {
   error(p, "Expected a literal or constant in pattern.");
   return NULL;
 }
-static Pattern *pattern_inner(Parser *p) {
+static Pattern *pattern_inner(Parser *p, int payload_context) {
   Token start = peek(p);
   if (match(p, TOK_LPAREN)) {
     if (match(p, TOK_RPAREN)) {
@@ -1702,7 +1713,7 @@ static Pattern *pattern_inner(Parser *p) {
       unit->as.literal = new_expr(p, EXPR_UNIT, span);
       return unit;
     }
-    Pattern *v = pattern(p);
+    Pattern *v = pattern(p, payload_context);
     if (!v || !expect(p, TOK_RPAREN, "Expected ')' after pattern."))
       return NULL;
     v->span = through(start.span, p->previous.span);
@@ -1721,7 +1732,7 @@ static Pattern *pattern_inner(Parser *p) {
       List payloads = {0};
       if (open.type == TOK_LPAREN || !at(p, TOK_RBRACKET))
         do {
-          Pattern *payload = pattern(p);
+          Pattern *payload = pattern(p, 1);
           if (!payload)
             return NULL;
           PUSH(p, payloads, payload);
@@ -1755,6 +1766,34 @@ static Pattern *pattern_inner(Parser *p) {
     const char *text = path(p);
     if (!text)
       return NULL;
+    if (match(p, TOK_COLON)) {
+      Token colon = p->previous;
+      if (!payload_context) {
+        error_at(p, colon.span,
+                 "Typed bindings are only allowed in symbol payload patterns.");
+        return NULL;
+      }
+      if (start.type == TOK_WILDCARD || strchr(text, '.')) {
+        error_at(p, through(start.span, colon.span),
+                 "Typed symbol payload patterns require a binding name.");
+        return NULL;
+      }
+      size_t mark = p->diagnostics->count;
+      Type *annotation = type(p);
+      if (!annotation)
+        return NULL;
+      Pattern *v =
+          new_pattern(p, PAT_TYPED_BIND, through(start.span, annotation->span));
+      v->as.typed_binding.name = text;
+      v->as.typed_binding.name_span = start.span;
+      v->as.typed_binding.annotation = annotation;
+      // Keep malformed payload syntax primary if its boundary is missing.
+      if (at(p, TOK_COMMA) || at(p, TOK_RBRACKET) || at(p, TOK_RPAREN))
+        check_name_case(
+            p, start, mark, TOK_LOWER_NAME,
+            "Payload binding names must start with a lowercase letter.");
+      return v;
+    }
     if (!at(p, TOK_DOT_DOT)) {
       PatternKind kind = strcmp(text, "_") == 0 ? PAT_WILDCARD
                          : start.type == TOK_UPPER_NAME || strchr(text, '.')
@@ -1791,10 +1830,10 @@ static Pattern *pattern_inner(Parser *p) {
   v->as.literal = lower;
   return v;
 }
-static Pattern *pattern(Parser *p) {
+static Pattern *pattern(Parser *p, int payload) {
   if (!enter(p))
     return NULL;
-  Pattern *result = pattern_inner(p);
+  Pattern *result = pattern_inner(p, payload);
   p->depth--;
   return result;
 }
@@ -1847,7 +1886,7 @@ static Expr *match_block(Parser *p) {
   while (!at(p, TOK_RBRACE) && !at(p, TOK_EOF)) {
     size_t checkpoint = p->position;
     MatchArm arm = {.span = peek(p).span};
-    arm.pattern = pattern(p);
+    arm.pattern = pattern(p, 0);
     if (arm.pattern && expect(p, TOK_FAT_ARROW, "Expected '=>' after pattern."))
       arm.value = arm_value(p);
     if (arm.value) {

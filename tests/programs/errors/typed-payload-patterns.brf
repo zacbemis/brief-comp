@@ -1,0 +1,5 @@
+main() {
+  :data[1] |> { :data[value: Missing] => missing(value) } // error: Typed symbol payload patterns are not implemented yet.
+  1 |> { :!failed[code: int] => code } // error: Typed symbol payload patterns are not implemented yet.
+  :outer[:inner[1]] |> { :outer[:inner[deep: int]] => unknown(deep) } // error: Typed symbol payload patterns are not implemented yet.
+}

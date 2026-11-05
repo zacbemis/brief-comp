@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: A payload binding annotation requires a complete type after its colon.
+main() {
+  value |> { :item[Value:] => () }
+}

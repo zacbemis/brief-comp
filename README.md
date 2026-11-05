@@ -96,6 +96,9 @@ status and runtime formatting retain first-version rules until N2. `trait` and
 `ovr` are ordinary names, not declaration/modifier keywords; trait declarations
 and conformance remain unsupported. In patterns, lowercase names bind and
 uppercase names denote symbol sets, without lookup-based reclassification.
+Typed symbol payload bindings such as `:!notFound[path: str]` retain their
+annotations in the AST, but native compilation explicitly rejects them until
+merged-symbol matching exists. Whole-value typed arms are not added.
 Module-selection declarations such as `import models.User` parse, but
 compilation stops with `Imports are not implemented yet.` No module loading or
 cross-file lookup is added; broader module casing remains pending.
@@ -210,8 +213,9 @@ explicit non-unit `ret`. `print` remains a reserved top-level builtin taking exa
 also reserved as a top-level builtin and accepts exactly one number or `bool`.
 
 Partial `:ok[T] | _` annotations are return-only and must declare `:ok`; they
-are not general open symbol-set types. Symbol payload patterns currently must be
-a binding or `_`; refutable/nested patterns and symbol ordering remain deferred
+are not general open symbol-set types. Native symbol payload patterns currently
+require an unannotated binding or `_`; typed matching, refutable/nested patterns
+and symbol ordering remain deferred
 features outside M5's acceptance scope. `const`,
 character/object/string-to-string conversions, indexing, function values,
 cloning, identity comparison, and other later features also remain unsupported.
@@ -280,7 +284,7 @@ Panics terminate the process without unwinding owners.
   N1 retired all v0 native chapter scripts and bridges; replacement native audits
   return milestone by milestone. Run the inventory and its structural guards with
   `ctest --test-dir build -L doc-parser --output-on-failure`.
-- `tests/parse/`: 133 parser example files that must parse or be rejected
+- `tests/parse/`: 137 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
 

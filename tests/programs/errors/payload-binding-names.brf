@@ -1,0 +1,4 @@
+main() {
+  value |> { :item[Value: int] => () } // error: Payload binding names must start with a lowercase letter. // fix: value |> { :item[value: int] => () }
+  value |> { :item[Not: int] => () } // error: Payload binding names must start with a lowercase letter.
+}

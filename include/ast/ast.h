@@ -179,6 +179,11 @@ struct Pattern {
     const char *name;
     Expr *literal;
     struct {
+      const char *name;
+      Span name_span;
+      Type *annotation;
+    } typed_binding;
+    struct {
       const char *tag;
       SymbolKind kind;
       Span tag_span;

@@ -226,6 +226,31 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
     message(FATAL_ERROR "collection escaped its scope boundary (${status}):\n${errors}")
 endif()
 
+set(typed_pattern "${TEST_DIR}/typed-payload-pattern.brf")
+file(WRITE "${typed_pattern}" "main() { :data[1] |> { :data[value: Missing] => unknown(value) } }\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${typed_pattern}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+string(FIND "${output}" "(typed-bind value Missing)" typed_at)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR typed_at LESS 0)
+    message(FATAL_ERROR "typed payload lost its annotation (${status}):\n${errors}\n${output}")
+endif()
+execute_process(COMMAND "${BRIEF}" emit-c "${typed_pattern}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+string(REGEX MATCHALL "(^|\n)error:" typed_errors "${errors}")
+list(LENGTH typed_errors typed_errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT typed_errors EQUAL 1 OR
+   NOT errors MATCHES "^error: Typed symbol payload patterns are not implemented yet" OR
+   errors MATCHES "Unknown|not exhaustive|help:")
+    message(FATAL_ERROR "typed payload escaped scope or cascaded (${status}):\n${errors}")
+endif()
+file(WRITE "${typed_pattern}" "main() { value |> { whole: int => whole } }\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${typed_pattern}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
+   NOT errors MATCHES "^error: Typed bindings are only allowed in symbol payload patterns")
+    message(FATAL_ERROR "whole-value type pattern accepted (${status}):\n${errors}")
+endif()
+
 set(kind_conflict "${TEST_DIR}/kind-conflict.brf")
 file(WRITE "${kind_conflict}" "A = :bad\r\nB = :!bad\r\nmain() {}\r\n")
 execute_process(COMMAND "${BRIEF}" dump-ast "${kind_conflict}"

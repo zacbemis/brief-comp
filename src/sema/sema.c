@@ -318,6 +318,19 @@ static SemaExpr *unsupported(Resolver *r, Span span, const char *message) {
   diagnostics_error(r->errors, span, message);
   return node(r, SEMA_EXPR_ERROR, span);
 }
+// Annotation matching needs merged-symbol type-directed coverage. Find the
+// first unsupported binder without resolving its types or inventing locals.
+static const Pattern *typed_payload(const Pattern *p) {
+  if (p->kind == PAT_TYPED_BIND)
+    return p;
+  if (p->kind == PAT_SYMBOL)
+    for (size_t i = 0; i < p->as.symbol.count; i++) {
+      const Pattern *typed = typed_payload(p->as.symbol.payloads[i]);
+      if (typed)
+        return typed;
+    }
+  return NULL;
+}
 static SemaExpr *resolve_expr(Resolver *r, const Expr *syntax);
 static SemaExpr *resolve_stmt(Resolver *r, const Stmt *s) {
   if (s->kind == STMT_EXPR)
@@ -569,6 +582,7 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
       for (size_t i = 0; i < stage->as.match.count; i++) {
         MatchArm source = stage->as.match.arms[i];
         const Pattern *p = source.pattern;
+        const Pattern *typed = typed_payload(p);
         SemaArm *a = &result->as.match.arms[i];
         if (p->kind == PAT_SYMBOL || p->kind == PAT_SET)
           bind->as.binding.outcome = 1;
@@ -587,6 +601,11 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
           a->invalid = 1;
           a->body = unsupported(
               r, p->span, "Multiple symbol payloads are not implemented yet.");
+        } else if (typed) {
+          a->invalid = 1;
+          a->body = unsupported(
+              r, typed->span,
+              "Typed symbol payload patterns are not implemented yet.");
         } else if (p->kind == PAT_SYMBOL) {
           a->tag =
               tag(r, p->as.symbol.tag, p->as.symbol.kind,

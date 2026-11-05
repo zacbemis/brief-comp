@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **129 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **131 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -413,8 +413,17 @@ wrapper, with no guessed unwrap of a lone named inclusion.
 partial markers rejected. The older inclusion fixture now uses `int |
 :included`, preserving the invalid inclusion rule rather than accidentally
 converting it into a plain type alias. All previous source/expectation lines are
-retained except syntax spelling. The inventory is now 129 files.
-Multiple-payload checking/lowering, typed/refutable payload patterns,
+retained except syntax spelling. The inventory was then 129 files.
+
+Typed payload binders now parse with retained annotations, but
+`errors/typed-payload-patterns.brf` requires one explicit scope error per
+affected arm. Unknown annotation types, input-shape checks, nested refutability
+and uses of the unavailable binder do not cascade into additional errors.
+Existing multiple-payload scope diagnostics still take precedence for several
+positions. `errors/payload-binding-names.brf` checks exact lowercase-name fixes
+and keyword safeguards. These are rejection tests, not merged-symbol or typed
+matching support. The inventory is now 131 files. Multiple-payload
+checking/lowering, typed matching, refutable payload patterns,
 members/receivers, remaining keywords, broader module casing, N2 outcome
 behavior and native chapter audits remain pending.
 

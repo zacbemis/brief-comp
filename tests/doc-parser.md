@@ -69,7 +69,14 @@ qualified-tag grammar. Remaining listings now state their actual blockers:
 member/receiver grammar, N4/N5, lambdas, qualified symbols or incomplete/mixed
 contexts. Standalone signatures, ellipsis bodies, pattern arms and unsupported
 mixed contexts are not extracted or stubbed into tests. Native multi-payload
-support, typed/refutable patterns and N2/N3 semantics remain separate gaps.
+support, typed/refutable matching and N2/N3 semantics remain separate gaps.
+
+Typed payload binding syntax now parses, but the sole current-document example
+is still inside the complete signature/ellipsis/module-qualified fragment in
+symbols fence 10. It is not extracted into a passing test: counts remain 146
+checks and 93 fenced listings. Dedicated parser fixtures test the new syntax;
+native rejection fixtures keep its type-directed matching explicitly
+unsupported.
 
 ## Native acceptance gap
 

@@ -177,9 +177,9 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (129 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types and ordinary `Sym` names; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
-| `tests/parse/pass/` (33) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
-| `tests/parse/fail/` (100) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
+| `tests/programs/` (131 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym` names and scope-only typed payload binders; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/parse/pass/` (34) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
+| `tests/parse/fail/` (103) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
 | CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
@@ -232,7 +232,9 @@ conflict source locations are retained, without switching outcomes or formatting
 Bracketed payload lists parse in types, values and patterns; zero/one payload
 preserves native behavior, while several positions report not implemented.
 Union types now use `|` in every type context; old `Sym<...>` wrappers reject.
-Multi-payload checking/lowering and the old failure-tag conversion remain pending.
+Typed payload binders retain annotations, with explicit native rejection until
+merged-symbol matching exists. Multi-payload checking/lowering and the old
+failure-tag conversion remain pending.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -1247,6 +1249,65 @@ examples preserve sanitized stdout/stderr/status. N1 remains in progress:
 multi-payload checking/lowering, typed/refutable patterns, members/receivers,
 fieldless traits, remaining keywords/casing, failure-tag conversion and native
 audits. N2 is not implemented by this slice.
+
+### N1 increment: typed symbol payload binding syntax only
+
+`:tag[name: Type]` and `:!tag[name: Type]` now parse typed binding positions.
+`PAT_TYPED_BIND` retains the written interned name, exact name-token span and
+annotation tree; dumps use `(typed-bind name Type)`. Existing type parsing handles
+unions, generic applications, qualified type paths and unit annotations without
+expression guessing. Grouping retains the typed role and original name span;
+nested payloads, several positions, trailing commas and LF/CRLF layouts parse.
+The shared parser depth limit also bounds annotation nesting, while 512-wide
+lists remain iterative.
+
+Only unqualified binding names may carry these annotations in symbol payload
+patterns. Whole-value typed arms, qualified binding names, wildcards without a
+binding name and typed expressions/type entries reject (a value or type entry
+gets the same pattern-only message at its colon) rather than adding an
+undocumented general pattern/cast form. Lowercase binder casing is checked with
+exact safe name-only fixes; keyword-producing fixes are suppressed, recovery
+keeps written names, and malformed/missing annotation syntax stays primary.
+Existing old-payload and old-type-argument delimiter fixes compose with the new
+binder fixes without moving line breaks or mutating token arrays.
+
+Native matching is deliberately not added. Resolution reports `Typed symbol
+payload patterns are not implemented yet.` once per affected arm, without
+resolving unavailable annotation types or synthesizing bound variables. It marks
+the arm invalid and skips the unavailable arm body, avoiding unknown-name,
+input-shape, nested-refutability and coverage cascades. Several payload positions
+still hit the existing multi-payload scope boundary first. Existing untyped
+binding/wildcard/set roles, tag kinds, outcome rules, permissions, IR, RC and
+runtime formatting are unchanged. Type-directed merged-symbol matching remains
+out of scope until merged symbols exist, as specified in the parser design.
+
+`pass/41-typed-payload-patterns.brf` adds complete syntax coverage. Three new
+parser rejection files cover non-payload context, missing annotation type and
+missing binding name. Two native rejection fixtures lock the scope barrier and
+casing/keyword safeguards. Parser/semantic/CLI tests cover exact trees/spans,
+unknown annotations and arm references without cascades, grouped/nested forms,
+immutable reparsing, LF/CRLF fixes, width/depth limits and no C after the scope
+error. Inventory: 131 programs, 34 parse-pass and 103 parse-fail files (137 parser
+files). No existing source/expectation is rewritten.
+
+Document coverage remains 146 parser checks and 93 fenced listings, plus two
+unfenced listings. The documented typed-binder example is still part of symbols
+fence 10's signature/ellipsis/module-qualified fragment. No lines are extracted
+or helper bodies synthesized to promote it. Parser support is not merged-symbol,
+API or runtime acceptance; no replacement native chapter audit is complete.
+
+Validation: fresh `-Werror` GCC/Clang Debug ASan/UBSan and GCC Release pass 25/25;
+GCC Debug without sanitizers passes 24/24. The project's pinned clang-format
+23.1.3, installed under ignored `build/format-env/`, and `git diff --check` pass.
+An initial Clang test-array string-concatenation warning was fixed by explicitly
+parenthesizing its concatenated element; no final check is failing. All 299 fresh
+baseline sources preserve statuses, AST/C bytes and complete diagnostics, including
+91 byte-identical prior C successes. All six examples preserve sanitized
+stdout/stderr/status. Reports and snapshots are under ignored
+`build/validation/typed-patterns.20261105T193720Z/`. N1 remains in progress:
+multi-payload checking/lowering, remaining pattern work, members/receivers,
+fieldless traits, keywords/casing, failure-tag conversion and native audits.
+Neither typed matching nor N2 behavior is implemented by this syntax slice.
 
 ## Risks
 

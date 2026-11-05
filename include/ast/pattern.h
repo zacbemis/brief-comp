@@ -4,10 +4,11 @@
 typedef struct Pattern Pattern;
 
 typedef enum {
-  PAT_BIND, // Unqualified lowercase name.
+  PAT_BIND,       // Unqualified lowercase name.
+  PAT_TYPED_BIND, // name: Type, only in a symbol payload.
   PAT_WILDCARD,
   PAT_LITERAL,
-  PAT_SYMBOL,  // :ok(user)
+  PAT_SYMBOL,  // :ok[user]
   PAT_SET,     // Error or Json.Error: named symbol set, never a binding
   PAT_RANGE,   // 18..100
   PAT_COMPARE, // < 18

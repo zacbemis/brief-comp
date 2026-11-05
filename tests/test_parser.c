@@ -1999,6 +1999,162 @@ int main(void) {
     strcpy(text + n, " }");
     invalid(&arena, text, "Syntax nesting limit exceeded.");
   }
+  TEST("typed payload binders retain names, annotations and grouping spans") {
+    expression_dump(&arena, "value |> { :!notFound[path: str] => path }",
+                    "(|> (name value) (match (arm (tag !notFound (typed-bind "
+                    "path str)) (name path))))");
+    expression_dump(
+        &arena,
+        "value |> { :pair[left: :a | :b, right: Vec[models.User]] => left }",
+        "(|> (name value) (match (arm (tag pair (typed-bind left (union (:a) "
+        "(:b))) "
+        "(typed-bind right (apply Vec models.User))) (name left))))");
+    const char *code =
+        "main() { value |> {\n:item[(payload:\nVec[models.User])] => "
+        "payload\n} }\nafter() {}\n";
+    for (unsigned crlf = 0; crlf < 2; crlf++) {
+      char text[512];
+      size_t n = 0;
+      for (size_t i = 0; code[i]; i++) {
+        if (crlf && code[i] == '\n')
+          text[n++] = '\r';
+        text[n++] = code[i];
+      }
+      text[n] = 0;
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(0, v->diagnostics.count);
+      ASSERT_EQ_INT(2, v->program->count);
+      Expr *pipe =
+          v->program->items[0]->as.function.body->as.block.items[0].as.expr;
+      Pattern *typed =
+          pipe->as.pipe.stage->as.match.arms[0].pattern->as.symbol.payloads[0];
+      ASSERT_EQ_INT(PAT_TYPED_BIND, typed->kind);
+      ASSERT_EQ_INT(0, strcmp("payload", typed->as.typed_binding.name));
+      ASSERT_TRUE(typed->as.typed_binding.name == intern(&v->names, "payload"));
+      Span name_span = typed->as.typed_binding.name_span;
+      ASSERT_TRUE(name_span.file == v->source);
+      ASSERT_EQ_INT((size_t)(strstr(text, "payload:") - text), name_span.start);
+      ASSERT_EQ_INT(7, name_span.end - name_span.start);
+      ASSERT_EQ_INT('(', text[typed->span.start]);
+      ASSERT_EQ_INT(')', text[typed->span.end - 1]);
+      ASSERT_EQ_INT(TYPE_APPLY, typed->as.typed_binding.annotation->kind);
+      ASSERT_EQ_INT(
+          0,
+          strcmp(
+              "models.User",
+              typed->as.typed_binding.annotation->as.apply.args[0]->as.name));
+      TokenArray filtered = newline_filter(&arena, v->raw);
+      size_t bytes = filtered.count * sizeof(Token);
+      Token *saved = arena_alloc(&arena, bytes);
+      memcpy(saved, filtered.items, bytes);
+      Diagnostics again;
+      diagnostics_init(&again, &arena);
+      Program *next = parse_program(&arena, &v->names, filtered, &again);
+      ASSERT_EQ_INT(0, again.count);
+      ASSERT_EQ_INT(0, strcmp(dump(&arena, v->program), dump(&arena, next)));
+      ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+    }
+    const char *bad[] = {"main() { value |> { whole: int => whole } }",
+                         "main() { value |> { :item[_: int] => () } }",
+                         "main() { value |> { :item[pkg.name: int] => () } }",
+                         "main() { value |> { :item[Value:] => () } }",
+                         "main() { value |> { :item[Value: int junk] => () } }",
+                         "main() { value |> { :item[Value: int",
+                         "main() { :item[value: int] }",
+                         "E = :item[value: int]\n"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
+      Parsed *v = parse(&arena, bad[i]);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      for (size_t j = 0; j < v->diagnostics.count; j++)
+        ASSERT_TRUE(v->diagnostics.items[j]->fixes == NULL);
+    }
+    // In a value or a type entry, the colon gets the pattern-only message.
+    const char *elsewhere[] = {"main() { :item[value: int] }",
+                               "E = :item[value: int]\n"};
+    for (size_t i = 0; i < sizeof(elsewhere) / sizeof(*elsewhere); i++) {
+      Parsed *v = parse(&arena, elsewhere[i]);
+      ASSERT_EQ_INT(1, v->diagnostics.count);
+      if (v->diagnostics.count) {
+        const Diagnostic *d = v->diagnostics.items[0];
+        ASSERT_EQ_INT(
+            0, strcmp("Typed bindings are only allowed in symbol payload "
+                      "patterns.",
+                      d->message));
+        ASSERT_EQ_INT(':', elsewhere[i][d->span.start]);
+      }
+    }
+  }
+  TEST("typed binder casing and legacy delimiter/type fixes compose safely") {
+    struct {
+      const char *name, *fixed;
+    } cases[] = {{"Value", "value"}, {"HTTP_CODE", "httpCode"}, {"Not", NULL}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      char text[256];
+      snprintf(text, sizeof(text),
+               "main() { value |> { :item[%s: int] => () } }", cases[i].name);
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(1, v->diagnostics.count);
+      if (v->diagnostics.count == 1) {
+        Diagnostic *d = v->diagnostics.items[0];
+        ASSERT_EQ_INT(
+            0,
+            strcmp("Payload binding names must start with a lowercase letter.",
+                   d->message));
+        ASSERT_EQ_INT((size_t)(strstr(text, cases[i].name) - text),
+                      d->span.start);
+        ASSERT_EQ_INT(strlen(cases[i].name), d->span.end - d->span.start);
+        if (cases[i].fixed) {
+          ASSERT_TRUE(d->fixes && !d->fixes->next);
+          if (d->fixes)
+            ASSERT_EQ_INT(0, strcmp(cases[i].fixed, d->fixes->replacement));
+          Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
+          ASSERT_EQ_INT(0, fixed->diagnostics.count);
+        } else
+          ASSERT_TRUE(d->fixes == NULL);
+      }
+    }
+    const char *code =
+        "main() { value |> {\n:item(Value: Vec<str>) => ()\n} }\nafter() {}\n";
+    for (unsigned crlf = 0; crlf < 2; crlf++) {
+      char text[512];
+      size_t n = 0;
+      for (size_t i = 0; code[i]; i++) {
+        if (crlf && code[i] == '\n')
+          text[n++] = '\r';
+        text[n++] = code[i];
+      }
+      text[n] = 0;
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(3, v->diagnostics.count);
+      Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
+      ASSERT_EQ_INT(0, fixed->diagnostics.count);
+      ASSERT_EQ_INT(2, fixed->program->count);
+      ASSERT_TRUE(strstr(fixed->source->text, ":item[value: Vec[str]]") !=
+                  NULL);
+      ASSERT_EQ_INT(v->source->line_count, fixed->source->line_count);
+    }
+  }
+  TEST("typed payload width is iterative and annotation depth stays limited") {
+    char *text = arena_alloc(&arena, 20000);
+    size_t n = (size_t)sprintf(text, "main() { value |> { :wide[");
+    for (size_t i = 0; i < 512; i++)
+      n += (size_t)sprintf(text + n, "%sx%zu: int", i ? "," : "", i);
+    strcpy(text + n, "] => () } }");
+    Parsed *v = parse(&arena, text);
+    ASSERT_EQ_INT(0, v->diagnostics.count);
+    Expr *pipe =
+        v->program->items[0]->as.function.body->as.block.items[0].as.expr;
+    ASSERT_EQ_INT(
+        512, pipe->as.pipe.stage->as.match.arms[0].pattern->as.symbol.count);
+    n = (size_t)sprintf(text, "main() { value |> { :item[x: ");
+    for (size_t i = 0; i < 140; i++)
+      n += (size_t)sprintf(text + n, "Vec[");
+    n += (size_t)sprintf(text + n, "int");
+    for (size_t i = 0; i < 140; i++)
+      text[n++] = ']';
+    strcpy(text + n, "] => () } }");
+    invalid(&arena, text, "Syntax nesting limit exceeded.");
+  }
   TEST("error tag kinds are retained in type, value and pattern syntax") {
     program_dump(&arena,
                  "E = :!bad[int] | :ok[int]\nmain() { :!bad[1] |> { "

@@ -33,7 +33,9 @@ exits 0 until N2 changes and reviews that expectation. Bracketed payload lists
 now parse; zero/one payload preserves native behavior, while multiple payloads
 still block compilation. Union types and ordinary `Sym` names also preserve
 first-version outcome rules. Type-context and whole-fence parser checks do not
-complete a native audit.
+complete a native audit. Typed symbol payload binders now retain annotations
+for parser checks, but compilation still reports that typed matching is not
+implemented. No native/API acceptance follows from that syntax support.
 
 ## N1 spelling bridges
 

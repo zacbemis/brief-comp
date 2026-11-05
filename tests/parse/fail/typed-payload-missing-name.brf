@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: This annotation introduces a named binding, not a typed wildcard.
+main() {
+  value |> { :item[_: int] => () }
+}
