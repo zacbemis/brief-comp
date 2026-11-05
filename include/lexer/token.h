@@ -43,10 +43,8 @@ typedef enum {
   // Keywords Definitions
   TOK_MOD,    // mod
   TOK_IMPORT, // import
-  TOK_TRAIT,  // trait
   TOK_IMPL,   // impl
   TOK_PUB,    // pub
-  TOK_OVR,    // ovr
 
   // Recovery only: never accepted as a type/converter without a diagnostic.
   TOK_OLD_DUB, // dub (write dbl)

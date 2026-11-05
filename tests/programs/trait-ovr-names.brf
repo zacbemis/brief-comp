@@ -1,0 +1,19 @@
+Record { trait: str
+ovr: int }
+trait(ovr: str) -> str { ovr + "!" }
+ovr(trait: int) -> int { trait + 1 }
+Names = Sym<:trait, :ovr>
+main() {
+  let record = Record { trait = "heap" + " name", ovr = 7 }
+  print(trait(record.trait)) // expect: heap name!
+  print(str(ovr(record.ovr))) // expect: 8
+  let trait = record.trait
+  var ovr = record.ovr
+  for trait in 0..2 { ovr += trait }
+  print(trait) // expect: heap name
+  print(str(ovr)) // expect: 8
+  let name: Names = :trait
+  name |> { :trait => print("trait") // expect: trait
+    :ovr => print("wrong") }
+  print("trait ovr Trait Ovr") // expect: trait ovr Trait Ovr
+}

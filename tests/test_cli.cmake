@@ -239,6 +239,18 @@ foreach(command IN ITEMS dump-ast emit-c)
     endif()
 endforeach()
 
+# Retiring the keyword does not turn an old trait declaration into a struct.
+set(old_trait "${TEST_DIR}/old-trait.brf")
+file(WRITE "${old_trait}" "trait HasUser {}\r\nmain() {}\r\n")
+set(expected "error: Traits are declared without 'trait'; trait declarations are not implemented yet.\n  --> ${old_trait}:1:1\n  |\n1 | trait HasUser {}\n  | ^~~~~\nhelp: write `HasUser {}`\n")
+foreach(command IN ITEMS dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${old_trait}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+        message(FATAL_ERROR "incorrect ${command} old trait rejection (${status}):\n${errors}")
+    endif()
+endforeach()
+
 set(invalid "${TEST_DIR}/invalid.brf")
 file(WRITE "${invalid}" "main() {\n  \"\\q\"\n  @\n  /* unfinished\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${invalid}"

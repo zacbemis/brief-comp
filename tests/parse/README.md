@@ -14,7 +14,8 @@ aliases, `=` literal fields, `.()` indexing and `Name[Type]` arguments. Array
 annotations use `Arr[Type]`; indexing/generics/collections are syntax-only,
 not supported runtime operations. Structs require uppercase names; functions,
 fields, parameters, bindings and loops require lowercase names. Symbol tags must
-start lowercase in type entries, values and patterns; `_` is not a tag name.
+start lowercase in type entries, values and patterns; `_` is not a tag name. `trait`
+and `ovr` are ordinary names; old declaration/modifier spellings still reject.
 Symbol/type/member grammar and pattern-binding/module casing remain pending.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
@@ -57,7 +58,10 @@ tree. Each file starts with a header:
 - Files named `recovery-*` list every expected diagnostic in order. The parser
   must report exactly those lines, which checks that one error does not hide
   later ones or cause a cascade.
-- Files named `later-*` use syntax from later versions (lambdas, traits,
+- `old-trait-keyword.brf` and `old-override-modifier.brf` (formerly `later-*`)
+  test removed prefixes, not syntax that should eventually become valid. Their
+  error lines are preserved; modern fieldless-trait detection is still pending.
+- Other files named `later-*` use syntax from later versions (lambdas, traits,
   tuples, imports). Move them to `pass/` as each feature is added.
 - Files named `limit-*` exceed the parser's 128-level nesting limit
   (`docs/plans/first-version.txt`, "Implementation limits").

@@ -206,6 +206,22 @@ int main(void) {
     valid(&a, "A = Sym<:value_HTTP(int)>\nmain() { :value_HTTP(1) |> { "
               ":value_HTTP(_) => () } }");
   }
+  TEST(
+      "trait-only word retirement does not enable trait or override lowering") {
+    const char *sources[] = {
+        "trait HasUser {}\nmain() {}",
+        "P { x: int }\nimpl P { ovr pub read(p: Self) { p.x } }\nmain() {}"};
+    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
+      Result r = check(&a, sources[i]);
+      ASSERT_TRUE(r.errors.count > 0);
+      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+      if (r.errors.count)
+        ASSERT_TRUE(r.errors.items[0]->fixes != NULL);
+    }
+    valid(&a, "trait(ovr: int) -> int { ovr }\novr(trait: int) -> int { trait "
+              "}\nmain() { ovr(trait(1)) }");
+  }
   TEST("old literal field colons cannot reach lowering") {
     Result r = check(&a, "P { x: int }\nmain() { let p = P { x: 1 } }");
     ASSERT_EQ_INT(1, r.errors.count);

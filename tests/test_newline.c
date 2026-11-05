@@ -90,6 +90,14 @@ int main(void) {
     check(&arena, "User { flag = a < b and c >\n d }\n",
           "User { flag = a < b and c > d }\n");
   }
+  TEST("retired trait-only words have ordinary name boundaries") {
+    check(&arena, "trait\novr\ntrait!\novr?\n", "trait\novr\ntrait!\novr?\n");
+    check(&arena, "let trait =\r\n1\r\nlet ovr =\r\n2\r\n",
+          "let trait = 1\r\nlet ovr = 2\r\n");
+    check(&arena, "pub\ntrait(\novr: int\n) ->\nint { ovr }\n",
+          "pub trait(ovr: int) -> int { ovr }\n");
+    check(&arena, "trait\n.ovr()\nnext()\n", "trait.ovr()\nnext()\n");
+  }
   TEST("documented continuation keywords do not end statements") {
     const char *keywords[] = {"let",  "var", "const", "impl",  "pub", "if",
                               "else", "for", "in",    "while", "not"};

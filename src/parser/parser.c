@@ -909,6 +909,36 @@ static Decl *declaration(Parser *p, int in_impl) {
       d->span = through(start.span, d->span);
     return d;
   }
+  // Retired trait-only words are ordinary names. Only unmistakable removed
+  // prefix forms are diagnosed, with a fix deleting the word, which is the new
+  // spelling; calls/declarations named trait/ovr are not captured.
+  Token prefix = peek(p);
+  TokenType next = p->position + 1 < p->tokens.count
+                       ? p->tokens.items[p->position + 1].type
+                       : TOK_EOF;
+  if (prefix.type == TOK_LOWER_NAME && prefix.length == 5 &&
+      !memcmp(prefix.start, "trait", 5) && next == TOK_UPPER_NAME) {
+    remove_modifier(
+        p,
+        error_at(
+            p, prefix.span,
+            "Traits are declared without 'trait'; trait declarations are not "
+            "implemented yet."),
+        prefix);
+    return NULL;
+  }
+  if (prefix.type == TOK_LOWER_NAME && prefix.length == 3 &&
+      !memcmp(prefix.start, "ovr", 3) &&
+      (next == TOK_PUB || token_is_name(next))) {
+    remove_modifier(
+        p,
+        error_at(
+            p, prefix.span,
+            "The 'ovr' modifier is no longer used; trait conformance is not "
+            "implemented yet."),
+        prefix);
+    return NULL;
+  }
   int old_type = !in_impl && old_type_declaration(p);
   int alias = !in_impl && at(p, TOK_UPPER_NAME) &&
               p->tokens.items[p->position + 1].type == TOK_EQUAL;

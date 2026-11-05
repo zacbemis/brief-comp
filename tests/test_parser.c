@@ -1311,6 +1311,87 @@ int main(void) {
                     "(call (name check) (< (name a) (index (name b) (int 0))) "
                     "(> (name c) (name d)))");
   }
+  TEST("trait and ovr are names, not declaration or override modifiers") {
+    const char *text =
+        "trait(ovr: int) -> int { ovr }\novr(trait: int) -> int { trait }\n"
+        "P { trait: int\novr: int }\nimpl P { trait(p: Self) { p.trait "
+        "}\novr(p: Self) { p.ovr } }\n"
+        "main() { let trait = P { trait = 1, ovr = 2 }\nvar ovr = "
+        "trait.trait()\n"
+        "for trait in 0..2 { ovr += trait }\n:trait |> { :trait => :ovr } }";
+    Parsed *v = parse(&arena, text);
+    if (v->diagnostics.count)
+      diagnostics_print(&v->diagnostics, stderr);
+    ASSERT_EQ_INT(0, v->diagnostics.count);
+    ASSERT_EQ_INT(5, v->program->count);
+    if (v->program->count == 5) {
+      ASSERT_EQ_INT(0, strcmp("trait", v->program->items[0]->name));
+      ASSERT_EQ_INT(0, strcmp("ovr", v->program->items[1]->name));
+      ASSERT_EQ_INT(2, v->program->items[2]->as.structure.count);
+      ASSERT_EQ_INT(2, v->program->items[3]->as.impl.count);
+    }
+    const char *fixed[] = {"Trait() {}", "Ovr() {}", "main() { :Trait }",
+                           "main() { :Ovr }"};
+    for (size_t i = 0; i < sizeof(fixed) / sizeof(*fixed); i++) {
+      v = parse(&arena, fixed[i]);
+      ASSERT_EQ_INT(1, v->diagnostics.count);
+      if (v->diagnostics.count)
+        ASSERT_TRUE(v->diagnostics.items[0]->fixes != NULL);
+      Parsed *again = parse(&arena, apply_fixes(&arena, v));
+      ASSERT_EQ_INT(0, again->diagnostics.count);
+    }
+  }
+  TEST("removed trait/override prefixes reject without losing later "
+       "declarations") {
+    const char *cases[] = {"trait HasUser {}", "pub trait HasUser {}",
+                           "ovr read() {}",
+                           "impl P { ovr pub read(p: Self) {} }",
+                           "impl P { pub ovr read(p: Self) {} }"};
+    const char *trait_message = "Traits are declared without 'trait'; trait "
+                                "declarations are not implemented yet.";
+    const char *override_message = "The 'ovr' modifier is no longer used; "
+                                   "trait conformance is not implemented yet.";
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned crlf = 0; crlf < 2; crlf++) {
+        char text[512];
+        snprintf(text, sizeof(text), "%s%safter() {}%s", cases[i],
+                 crlf ? "\r\n" : "\n", crlf ? "\r\n" : "\n");
+        Parsed *v = parse(&arena, text);
+        ASSERT_EQ_INT(1, v->diagnostics.count);
+        ASSERT_EQ_INT(i >= 3 ? 2 : 1, v->program->count);
+        if (v->diagnostics.count) {
+          Diagnostic *d = v->diagnostics.items[0];
+          const char *word = i < 2 ? "trait" : "ovr";
+          size_t at = (size_t)(strstr(text, word) - text);
+          ASSERT_EQ_INT(
+              0, strcmp(i < 2 ? trait_message : override_message, d->message));
+          ASSERT_TRUE(d->span.file == v->source);
+          ASSERT_EQ_INT(at, d->span.start);
+          ASSERT_EQ_INT(at + strlen(word), d->span.end);
+          // The fix deletes the word and the space after it.
+          ASSERT_TRUE(d->fixes && !d->fixes->next);
+          if (d->fixes) {
+            ASSERT_EQ_INT(at, d->fixes->span.start);
+            ASSERT_EQ_INT(at + strlen(word) + 1, d->fixes->span.end);
+            ASSERT_EQ_INT(0, strcmp("", d->fixes->replacement));
+          }
+        }
+        TokenArray filtered = newline_filter(&arena, v->raw);
+        size_t bytes = filtered.count * sizeof(Token);
+        Token *saved = arena_alloc(&arena, bytes);
+        memcpy(saved, filtered.items, bytes);
+        Diagnostics again;
+        diagnostics_init(&again, &arena);
+        parse_program(&arena, &v->names, filtered, &again);
+        ASSERT_EQ_INT(1, again.count);
+        ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+        if (v->program->count)
+          ASSERT_EQ_INT(
+              0,
+              strcmp("after", v->program->items[v->program->count - 1]->name));
+      }
+    }
+  }
   TEST("declaration roles diagnose exact name spans and safe case fixes") {
     struct {
       const char *code, *bad, *fixed, *message;

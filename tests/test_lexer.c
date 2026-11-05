@@ -254,6 +254,32 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
+  TEST("trait and ovr are ordinary names, including case and prefix "
+       "boundaries") {
+    const char *text = "trait ovr Trait Ovr traits ovride trait_2 ovr2";
+    const TokenType types[] = {TOK_LOWER_NAME, TOK_LOWER_NAME, TOK_UPPER_NAME,
+                               TOK_UPPER_NAME, TOK_LOWER_NAME, TOK_LOWER_NAME,
+                               TOK_LOWER_NAME, TOK_LOWER_NAME};
+    SourceFile *source =
+        source_create(&test_arena, "names.brf", text, strlen(text));
+    Diagnostics d;
+    diagnostics_init(&d, &test_arena);
+    TokenArray tokens = lexer_tokenize(&test_arena, source, &d);
+    ASSERT_EQ_INT(0, d.count);
+    ASSERT_EQ_INT(9, tokens.count);
+    Lexer stream;
+    lexer_init(&stream, source, NULL);
+    for (size_t i = 0; i < tokens.count; i++) {
+      Token t = lexer_next_token(&stream);
+      ASSERT_EQ_INT(tokens.items[i].type, t.type);
+      ASSERT_EQ_INT(tokens.items[i].span.start, t.span.start);
+      ASSERT_EQ_INT(tokens.items[i].span.end, t.span.end);
+      if (i < sizeof(types) / sizeof(*types)) {
+        ASSERT_EQ_INT(types[i], t.type);
+        ASSERT_TRUE(token_is_name(t.type));
+      }
+    }
+  }
   TEST("type and definition keywords are distinguished from identifiers") {
     Lexer lx;
     init_lexer(&lx, "bool int uint shrt ushrt lng ulng flt dbl chr str "
@@ -276,10 +302,10 @@ int main(void) {
     expect(&lx, TOK_LOWER_NAME, "type");
     expect(&lx, TOK_MOD, "mod");
     expect(&lx, TOK_IMPORT, "import");
-    expect(&lx, TOK_TRAIT, "trait");
+    expect(&lx, TOK_LOWER_NAME, "trait");
     expect(&lx, TOK_IMPL, "impl");
     expect(&lx, TOK_PUB, "pub");
-    expect(&lx, TOK_OVR, "ovr");
+    expect(&lx, TOK_LOWER_NAME, "ovr");
     expect(&lx, TOK_LOWER_NAME, "types");
     expect(&lx, TOK_LOWER_NAME, "enum");
     expect(&lx, TOK_LOWER_NAME, "intx");
@@ -981,11 +1007,11 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
-  TEST("trait declaration from docs") {
+  TEST("removed trait declaration spelling lexes trait as a name") {
     Lexer lx;
     init_lexer(&lx, "pub trait HasUser { getUser(value: Self) -> User }");
     expect(&lx, TOK_PUB, "pub");
-    expect(&lx, TOK_TRAIT, "trait");
+    expect(&lx, TOK_LOWER_NAME, "trait");
     expect(&lx, TOK_UPPER_NAME, "HasUser");
     expect(&lx, TOK_LBRACE, "{");
     expect(&lx, TOK_LOWER_NAME, "getUser");
@@ -1000,7 +1026,7 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
-  TEST("impl with override from docs") {
+  TEST("removed override spelling lexes ovr as a name") {
     Lexer lx;
     init_lexer(&lx, "impl Admin: HasUser { ovr pub getName(admin: Admin) -> "
                     "str }");
@@ -1009,7 +1035,7 @@ int main(void) {
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_UPPER_NAME, "HasUser");
     expect(&lx, TOK_LBRACE, "{");
-    expect(&lx, TOK_OVR, "ovr");
+    expect(&lx, TOK_LOWER_NAME, "ovr");
     expect(&lx, TOK_PUB, "pub");
     expect(&lx, TOK_LOWER_NAME, "getName");
     expect(&lx, TOK_LPAREN, "(");

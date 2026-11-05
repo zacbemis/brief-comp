@@ -83,7 +83,9 @@ collections remain unimplemented. Symbol payloads/unions, other declaration/type
 structure and receivers await the full switch. Struct names start uppercase;
 functions, fields, parameters, bindings and loops require lowercase names, with
 safe casing fixes. Symbol tags also require lowercase names in types, values
-and patterns. Pattern-binding/module casing still awaits its grammar slices.
+and patterns. `trait` and `ovr` are ordinary names, not declaration/modifier
+keywords; trait declarations and conformance remain unsupported. Pattern-binding/
+module casing still awaits its grammar slices.
 
 Diagnostics can carry machine-applicable fixes as byte spans and replacement
 text. These print as `help:` previews below the error and its notes. Previews
@@ -291,7 +293,7 @@ Wide and combining characters do not yet have special display-width handling.
 - [Next-version compiler plan](docs/plans/next-version.txt) (N0 complete;
   N1 identifier tokens, `not`, `dbl`, `->` returns, keyword-free aliases and
   `=` literal fields, single-file visibility, `.()` indexing and `Name[Type]`
-  arguments, declaration-role casing and symbol-tag casing implemented;
+  arguments, declaration/tag casing and ordinary `trait`/`ovr` names implemented;
   full syntax/native audits pending)
 - [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
 

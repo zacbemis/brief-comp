@@ -158,8 +158,6 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_LNG;
   if (len == 3 && memcmp(lexer->start, "mod", 3) == 0)
     return TOK_MOD;
-  if (len == 3 && memcmp(lexer->start, "ovr", 3) == 0)
-    return TOK_OVR;
   if (len == 3 && memcmp(lexer->start, "pub", 3) == 0)
     return TOK_PUB;
   if (len == 3 && memcmp(lexer->start, "ret", 3) == 0)
@@ -190,8 +188,6 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_CONST;
   if (len == 5 && memcmp(lexer->start, "false", 5) == 0)
     return TOK_BOOL_LIT;
-  if (len == 5 && memcmp(lexer->start, "trait", 5) == 0)
-    return TOK_TRAIT;
   if (len == 5 && memcmp(lexer->start, "ushrt", 5) == 0)
     return TOK_USHRT;
   if (len == 5 && memcmp(lexer->start, "while", 5) == 0)

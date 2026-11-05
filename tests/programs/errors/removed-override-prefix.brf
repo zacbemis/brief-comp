@@ -1,0 +1,5 @@
+P { value: int }
+impl P {
+  ovr pub read(p: Self) { p.value } // error: The 'ovr' modifier is no longer used; trait conformance is not implemented yet. // fix: pub read(p: Self) { p.value }
+}
+main() {}

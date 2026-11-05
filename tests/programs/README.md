@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **109 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **112 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -350,8 +350,16 @@ patterns. `tag-names.brf` observes unchanged heap payloads, wildcard payload
 patterns, valid mixed-case suffixes and tag-looking strings. Two error fixtures
 check four exact fixes and keyword/wildcard non-fixes. This does not case-fold tag
 identities, change payload syntax or change `:ok`-based outcome rules. The inventory
-is now 109 files. Unions/payloads, members/receivers, pattern-binding/module casing
-and native chapter audits remain pending.
+was then 109 files.
+
+N1's trait-only keyword retirement makes `trait`/`ovr` ordinary names. The new
+`trait-ovr-names.brf` observes functions, fields, parameters, local/loop shadowing,
+heap strings, tags and unchanged keyword-looking literals. Two removed-prefix
+fixtures still reject, with fixes that delete the old word: the new language
+writes traits without `trait` and replaced defaults without `ovr`. This adds no
+trait, override or fieldless-declaration capability. The inventory
+is now 112 files. Unions/payloads, members/receivers, `Sym`/`Self`/`impl` retirement,
+`self`, pattern-binding/module casing and native chapter audits remain pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: trait is an ordinary name, not a declaration prefix (fix: delete it);
+//   traits remain unimplemented. This spelling must never pass.
+pub trait HasUser {
+}
