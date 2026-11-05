@@ -226,6 +226,22 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
     message(FATAL_ERROR "collection escaped its scope boundary (${status}):\n${errors}")
 endif()
 
+set(native_alias "${TEST_DIR}/native-type-alias.brf")
+file(WRITE "${native_alias}" "Num = int\r\nRef = Box\r\nBox { n: Num }\r\nimpl Ref { new(n: Num) -> Ref { Ref { n = n } } }\r\nmain() { print(str(Ref.new(Num(42)).n)) }\r\n")
+execute_process(COMMAND "${BRIEF}" emit-c "${native_alias}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
+   NOT output MATCHES "brs_Box" OR output MATCHES "brs_Ref")
+    message(FATAL_ERROR "native alias lost canonical layout (${status}):\n${errors}")
+endif()
+file(WRITE "${native_alias}" "A = B\r\nB = A\r\nmain() {}\r\n")
+execute_process(COMMAND "${BRIEF}" emit-c "${native_alias}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
+   NOT errors MATCHES "^error: Recursive named types require a struct indirection")
+    message(FATAL_ERROR "cyclic alias escaped checking (${status}):\n${errors}")
+endif()
+
 set(self_type "${TEST_DIR}/self-type.brf")
 file(WRITE "${self_type}" "Box { n: int }\r\nimpl Box { read(b: Self) -> int { b.n } }\r\nmain() {}\r\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${self_type}"

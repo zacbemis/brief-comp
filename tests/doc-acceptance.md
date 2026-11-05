@@ -38,6 +38,10 @@ for parser checks, but compilation still reports that typed matching is not
 implemented. No native/API acceptance follows from that syntax support.
 Ordinary `Self` names and concrete owner-type spelling also do not complete the
 remaining member/receiver grammar or any replacement chapter audit.
+Native aliases now reuse existing primitive/unit/struct/symbol types, with
+direct native fixtures and a canonical-spelling C-emission comparison. This
+closes the old symbol-only alias limitation, not the pending document/API
+acceptance audits.
 
 ## N1 spelling bridges
 

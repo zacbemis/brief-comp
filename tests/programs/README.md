@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **134 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **138 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -431,12 +431,24 @@ behavior and native chapter audits remain pending.
 converted to the explicit struct name without moving source/expectation lines.
 `self-name.brf` observes actual struct/constructor/receiver behavior, including
 references to a real `Self` from another owner. `self-alias.brf` exercises a
-symbol alias named `Self`; primitive aliases remain outside the native subset.
-`errors/old-self-types.brf` requires exact owner-name fixes for the retired
-parameter/literal/call shorthand, with no emitted C. Real declarations take
-precedence; an unknown name outside an owner gets no guessed replacement. The
-inventory is now 134 files. Member/receiver grammar and the other pending work
-above remain incomplete.
+symbol alias named `Self`; primitive aliases were still outside the native
+subset at that increment. `errors/old-self-types.brf` requires exact owner-name
+fixes for the retired parameter/literal/call shorthand, with no emitted C. Real
+declarations take precedence; an unknown name outside an owner gets no guessed
+replacement. The inventory was then 134 files. Member/receiver grammar and the
+other pending work above remain incomplete.
+
+Native aliases now reuse every existing type's canonical identity, including
+primitives, unit and structs. `type-aliases.brf` executes forward/mixed alias
+chains, struct literals and associated/receiver calls, shared mutation, numeric
+and string converter aliases, unit results, symbol payloads and recursion
+through structs. `panics/alias-overflow.brf` pins the unchanged underlying
+overflow panic. `errors/type-aliases.brf` rejects cycles, unknown/unsupported
+types, scalar union inclusions, partial aliases and non-symbol named patterns;
+these are not general typed patterns. `errors/type-alias-checks.brf` keeps type
+mismatches, literal ranges, explicit unit returns and read-only access rejected
+through aliases. The inventory is now 138 files. No prior native source or
+expectation is rewritten, and no IR, ownership or runtime type is added.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

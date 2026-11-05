@@ -70,6 +70,11 @@ static SemaStruct *old_self(Resolver *r, const char *name, Span span) {
 }
 static SemaStruct *named_structure(Resolver *r, const Expr *name) {
   SemaStruct *s = structure(r->program, name->as.name);
+  if (!s) {
+    SemaAlias *a = alias(r->program, name->as.name);
+    if (a && a->type && a->type->kind == SEMA_STRUCT)
+      s = a->type->structure;
+  }
   Span span = name->name_span.file ? name->name_span : name->span;
   return s ? s : old_self(r, name->as.name, span);
 }
@@ -219,11 +224,6 @@ static void resolve_aliases(Resolver *r) {
         SemaAlias *a = frame->alias;
         if (!a->type)
           a->type = type(r, a->syntax->as.alias);
-        if (a->type->kind != SEMA_SYM && a->type->kind != SEMA_ERROR) {
-          diagnostics_error(r->errors, a->syntax->span,
-                            "Named types currently require a symbol set.");
-          a->type = &p->types[SEMA_ERROR];
-        }
         state[a - p->aliases] = 2;
         top--;
       }
@@ -279,7 +279,18 @@ static SemaSymbol *lookup(SemaProgram *p, const char *name) {
   for (size_t i = 0; i < sizeof(p->converters) / sizeof(*p->converters); i++)
     if (!strcmp(name, p->converters[i].name))
       return &p->converters[i];
-  return name_map_get(&p->function_names, NULL, name);
+  SemaSymbol *function = name_map_get(&p->function_names, NULL, name);
+  if (function)
+    return function;
+  // Aliases reuse a primitive's existing converter, not a new function or ABI.
+  SemaAlias *a = alias(p, name);
+  if (a && a->type) {
+    if (sema_number(a->type))
+      return &p->converters[a->type->kind - SEMA_SHRT];
+    if (a->type->kind == SEMA_STR)
+      return &p->stringify;
+  }
+  return NULL;
 }
 static SemaVar *local(Resolver *r, const char *name) {
   Local *l = name_map_get(&r->local_names, NULL, name);
@@ -613,6 +624,12 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
             p->kind == PAT_SET ? alias(r->program, p->as.name) : NULL;
         if (named) {
           a->set = named->type;
+          if (a->set && a->set->kind != SEMA_SYM &&
+              a->set->kind != SEMA_ERROR) {
+            a->invalid = 1;
+            a->body = unsupported(
+                r, p->span, "A named symbol pattern requires a symbol set.");
+          }
         } else if (p->kind == PAT_BIND)
           a->binding = variable(r, p->as.name, p->span,
                                 &r->program->types[SEMA_UNKNOWN], 0);
@@ -810,6 +827,11 @@ static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
                       "Only functions are supported inside impl.");
     return;
   }
+  if (!owner && alias(p, d->name)) {
+    diagnostics_error(r->errors, d->span,
+                      "A function and a named type cannot share a name.");
+    return;
+  }
   SemaSymbol *previous =
       owner ? sema_method(p, &owner->type, d->name) : lookup(p, d->name);
   if (previous) {
@@ -824,11 +846,6 @@ static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
             : "Duplicate function name.");
     if (!previous->builtin)
       diagnostic_note(r->errors, error, previous->span, "First declared here.");
-    return;
-  }
-  if (!owner && alias(p, d->name)) {
-    diagnostics_error(r->errors, d->span,
-                      "A function and a named type cannot share a name.");
     return;
   }
   if (!owner && structure(p, d->name)) {

@@ -1,0 +1,16 @@
+Number = int
+Wide = lng
+Ref = User
+Unit = ()
+User { n: Number }
+readonly(u: Ref) {
+  u.n++ // error: Cannot mutate through an ordinary parameter; use &.
+}
+wrong(n: Wide) {
+  let small: Number = n // error: Binding value does not match its annotation.
+}
+result() -> Number { false } // error: Function body does not match the written return type.
+unit() -> Unit { ret 1 } // error: Return value does not match the written return type.
+main() {
+  Number(2147483648) // error: Number literal is outside the range of its type.
+}

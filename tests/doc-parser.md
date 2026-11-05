@@ -83,6 +83,12 @@ current-document fence blocker. The 146 checks and 93 listings stay unchanged.
 The remaining member/receiver syntax is still pending, and no native chapter
 audit is completed by the ordinary-name fixtures.
 
+Native type aliases now support the existing primitive/unit/struct types as well
+as symbol sets. Their syntax already parsed, so no fence is promoted and counts
+remain unchanged. Native fixtures and a canonical-spelling code-generation
+comparison test this capability; they do not constitute a replacement chapter
+audit.
+
 ## Native acceptance gap
 
 N1 retired all 13 v0 native chapter scripts, their normal/sanitized CTest

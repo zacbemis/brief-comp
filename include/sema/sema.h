@@ -60,7 +60,7 @@ struct SemaSymSet {
 };
 typedef struct {
   const Decl *syntax;
-  const SemaType *type;
+  const SemaType *type; // Canonical target: aliases add no runtime identity.
 } SemaAlias;
 typedef struct {
   const char *name;

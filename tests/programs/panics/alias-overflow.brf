@@ -1,0 +1,6 @@
+// panic: integer overflow
+Small = ushrt
+main() {
+  var value: Small = 65535
+  value++
+}

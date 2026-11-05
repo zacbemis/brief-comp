@@ -234,6 +234,44 @@ int main(void) {
             "numeric binding");
     valid(&a, "A { x: () }\nmain() { let a = A { x = () }\na.x = ()\na.x }");
   }
+  TEST("struct aliases share nominal identity, constructors and method "
+       "namespace") {
+    Result r = check(
+        &a, "Alias = Forward\nForward = Item\nSelf = Alias\n"
+            "NodeAlias = Node\nNode { next: :next[NodeAlias] | :none }\n"
+            "Item { n: int }\nimpl Alias { make(n: int) -> Self { Self { n = n "
+            "} }\n"
+            "read(item: Forward) -> int { item.n } }\n"
+            "main() { let n: Alias = Item { n = 1 }\n"
+            "let same: bool = n == Forward.make(1)\nSelf.make(2).read() }");
+    if (r.errors.count)
+      diagnostics_print(&r.errors, stderr);
+    ASSERT_EQ_INT(0, r.errors.count);
+    ASSERT_TRUE(r.program->checked);
+    ASSERT_EQ_INT(2, r.program->struct_count);
+    const SemaType *item = &r.program->structs[1].type;
+    for (size_t i = 0; i < 3; i++)
+      ASSERT_TRUE(r.program->aliases[i].type == item);
+    ASSERT_TRUE(r.program->aliases[3].type == &r.program->structs[0].type);
+    ASSERT_TRUE(r.program->functions[0].symbol.owner == item->structure);
+    ASSERT_TRUE(r.program->functions[1].symbol.params[0]->type == item);
+    valid(&a, "Ref = Item\nItem { n: int }\n"
+              "f(v: &Ref) { v.n++ }\nmain() { f(Ref { n = 1 }) }");
+    invalid(&a, "Ref = Item\nItem { n: int }\nf(v: Ref) { v.n++ }\nmain() {}",
+            "Cannot mutate through");
+    invalid(&a,
+            "Ref = Item\nItem { n: int }\nHolder { v: Ref }\n"
+            "f(v: Ref, h: &Holder) { h.v = v }\nmain() {}",
+            "cannot be stored");
+    invalid(&a,
+            "Ref = Item\nItem { n: int }\nOther { n: int }\n"
+            "main() { let n: Ref = Other { n = 1 } }",
+            "annotation");
+    invalid(&a,
+            "Ref = Item\nItem { n: int }\n"
+            "impl Ref { f() {} }\nimpl Item { f() {} }\nmain() {}",
+            "Duplicate function name");
+  }
   TEST("ordinary Self types do not mean the current owner") {
     valid(&a, "Self { n: int }\nOther { value: Self }\n"
               "impl Self { make() -> Self { Self { n = 1 } } }\n"

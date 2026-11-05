@@ -1,0 +1,35 @@
+Count = Number
+Number = lng
+Text = str
+Unit = ()
+Ref = Forward
+Forward = User
+NodeRef = Node
+Self = Ref
+
+User { text: Text
+  n: Count
+  unit: Unit }
+Node { next: :next[NodeRef] | :none
+  n: Count }
+impl Ref {
+  new(text: Text, n: Count) -> Self { Forward { text = text, n = n, unit = () } }
+  read(u: Self) -> Count { u.n }
+  add(u: &Ref, n: Count) { u.n += n }
+}
+ignore(n: Count) -> Unit { n }
+main() {
+  let u: Ref = Self.new("heap" + " text", 41)
+  u.add(1)
+  print(u.text) // expect: heap text
+  print(Text(u.read())) // expect: 42
+  print(Text(Ref { text = "same", n = 1, unit = () } == User { text = "same", n = 1, unit = () })) // expect: true
+  let wide: Count = Number(4294967296)
+  print(Text(wide)) // expect: 4294967296
+  let parsed = "42" |> Number()?
+  print(Text(parsed)) // expect: 42
+  let ignored: Unit = ignore(wide)
+  let leaf: NodeRef = NodeRef { next = :none, n = 7 }
+  let root = Node { next = :next[leaf], n = 8 }
+  print(Text(root.n)) // expect: 8
+}

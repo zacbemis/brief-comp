@@ -1,0 +1,13 @@
+Scalar = int
+Direct = Direct // error: Recursive named types require a struct indirection.
+A = B
+B = A // error: Recursive named types require a struct indirection.
+Unknown = Missing // error: This type is unknown or not implemented yet.
+NotSet = Scalar | :wrong // error: A symbol-set inclusion requires a symbol set.
+Partial = _ // error: Partial symbol sets are only allowed as function return types.
+Generic = Vec[Missing] // error: This type is unknown or not implemented yet.
+Multiple = :pair[Missing, Other] // error: Multiple symbol payloads are not implemented yet.
+pattern() {
+  :value |> { Scalar => missing() } // error: A named symbol pattern requires a symbol set.
+}
+main() {}

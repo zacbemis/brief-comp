@@ -178,6 +178,50 @@ int main(void) {
     }
     invalid(&a, "main() { ret\nmissing() }", "Unknown function");
   }
+  TEST("alias types and canonical spellings produce byte-identical owned C") {
+    const char *prefix = "Num = lng\nText = str\nEmpty = ()\nRef = User\n"
+                         "User { n: Num\ntext: Text\nunit: Empty }\n";
+    const char *bodies[] = {
+        ("impl Ref { new(n: Num) -> Ref { Ref { n = n, text = Text(n), unit = "
+         "() } }\n"
+         "read(r: Ref) -> Num { r.n } }\n"
+         "main() { let n = Num(42)\nprint(Text(Ref.new(n).read())) }\n"),
+        ("impl User { new(n: lng) -> User { User { n = n, text = str(n), unit "
+         "= () } }\n"
+         "read(r: User) -> lng { r.n } }\n"
+         "main() { let n = lng(42)\nprint(str(User.new(n).read())) }\n")};
+    char *emitted[2] = {NULL, NULL};
+    for (size_t i = 0; i < 2; i++) {
+      char text[2048];
+      snprintf(text, sizeof(text), "%s%s", prefix, bodies[i]);
+      Checked c = resolve(&a, text, "alias-equivalence.brf");
+      sema_check(c.program, &c.errors);
+      if (c.errors.count)
+        diagnostics_print(&c.errors, stderr);
+      ASSERT_EQ_INT(0, c.errors.count);
+      IrProgram *p = ir_lower(&a, c.program);
+      ASSERT_TRUE(p != NULL);
+      if (!p)
+        continue;
+      ir_insert_rc(&a, p);
+      FILE *out = tmpfile();
+      ASSERT_TRUE(out != NULL);
+      if (!out)
+        continue;
+      ASSERT_TRUE(emit_c(out, p));
+      ASSERT_EQ_INT(0, fflush(out));
+      long size = ftell(out);
+      ASSERT_TRUE(size > 0);
+      if (size > 0) {
+        emitted[i] = arena_calloc(&a, (size_t)size + 1, 1);
+        rewind(out);
+        ASSERT_EQ_INT((size_t)size, fread(emitted[i], 1, (size_t)size, out));
+      }
+      fclose(out);
+    }
+    if (emitted[0] && emitted[1])
+      ASSERT_EQ_INT(0, strcmp(emitted[0], emitted[1]));
+  }
   TEST("emitted C is self-contained, mangled, and source-mapped") {
     Checked c = resolve(&a, "main() { auto() }\nauto() { print(\"Hi\") }",
                         "quote\"and\\slash.brf");

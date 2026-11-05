@@ -88,8 +88,11 @@ implemented. Types now use `:a | NamedUnion | :!bad[Type]`, including nested
 payload unions and partial return markers. `Sym` is an ordinary name; `Sym<...>`
 rejects with safe unwrap/separator fixes. `Self` is also an ordinary uppercase
 name, not an implicit receiver type. Known-owner uses of the old shorthand get
-concrete-type fixes; real structs and symbol aliases named `Self` keep ordinary
-lookup. Other declaration/type structure and receivers await the full switch.
+concrete-type fixes; real structs and aliases named `Self` keep ordinary lookup.
+Aliases transparently reuse any existing native type, including primitives, unit
+and structs. Numeric/string aliases use the existing converters, and struct
+aliases share literals and associated functions with their target type. Other
+declaration/type structure and receivers await the full switch.
 Struct names start uppercase; functions, fields, parameters, bindings and loops
 require lowercase names, with safe casing fixes. Symbol tags also require
 lowercase names in types, values and patterns. `:!name` records an error tag; a
@@ -189,6 +192,8 @@ Compilation supports:
   `?` and `!`; see `docs/v0/lang-types.txt` for the exact rules.
 - Immutable heap strings, `+`/`+=`, bytewise comparisons, and `str(number)` /
   `str(bool)` conversions. See `docs/v0/lang-types.txt` for formatting choices.
+- Transparent aliases of native types, with canonical identity, forward chains
+  and recursion only through structs. Aliases add no runtime representation.
 - Nominal structs, complete named field initialization, field reads/writes and
   numeric field updates, `impl`, associated/receiver calls, and explicit owner
   type names.

@@ -638,7 +638,10 @@ int main(void) {
             "conflicting payload");
     invalid(&a, "A = :value | :value[()]\nmain() {}", "conflicting payload");
     invalid(&a, "A = int | :included\nmain() {}", "inclusion requires");
-    invalid(&a, "A = int\nmain() {}", "require a symbol set");
+    Result scalar = valid(&a, "A = int\nmain() {}");
+    ASSERT_TRUE(scalar.program->aliases[0].type ==
+                &scalar.program->types[SEMA_INT]);
+    invalid(&a, "A = int\nB = A | :included\nmain() {}", "inclusion requires");
   }
   TEST("symbol patterns, named groups, residual binders and lexical scope") {
     Result r = valid(&a, "Pair = :a | :b[str]\n"
@@ -835,6 +838,55 @@ int main(void) {
     Result r = valid(&a, text);
     ASSERT_EQ_INT(2051, r.program->alias_count);
     ASSERT_TRUE(r.program->aliases[0].type == r.program->aliases[2050].type);
+  }
+  TEST("native aliases preserve scalar, unit and symbol payload identities") {
+    struct {
+      const char *spelling;
+      SemaTypeKind kind;
+    } cases[] = {
+        {"bool", SEMA_BOOL},   {"chr", SEMA_CHR},   {"shrt", SEMA_SHRT},
+        {"ushrt", SEMA_USHRT}, {"int", SEMA_INT},   {"uint", SEMA_UINT},
+        {"lng", SEMA_LNG},     {"ulng", SEMA_ULNG}, {"flt", SEMA_FLT},
+        {"dbl", SEMA_DUB},     {"str", SEMA_STR},   {"()", SEMA_UNIT}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      char text[512];
+      snprintf(text, sizeof(text),
+               "Alias = Forward\nForward = %s\nA = :item[Alias]\nB = "
+               ":item[%s]\nf(n: Alias) -> Forward { n }\nmain() {}",
+               cases[i].spelling, cases[i].spelling);
+      Result r = valid(&a, text);
+      ASSERT_EQ_INT(4, r.program->alias_count);
+      ASSERT_TRUE(r.program->aliases[0].type ==
+                  &r.program->types[cases[i].kind]);
+      ASSERT_TRUE(r.program->aliases[0].type == r.program->aliases[1].type);
+      ASSERT_TRUE(r.program->aliases[2].type == r.program->aliases[3].type);
+      ASSERT_TRUE(r.program->functions[0].symbol.params[0]->type ==
+                  r.program->aliases[0].type);
+    }
+    valid(&a, "Num = lng\nText = str\nf(s: str) { Num(s)? }\nmain() { "
+              "Text(Num(4294967296)) }");
+    invalid(&a, "Small = shrt\nmain() { Small(32768) }", "outside the range");
+    invalid(&a, "Flag = bool\nmain() { Flag(1) }", "Unknown function");
+    invalid(&a, "Text = str\nmain() { Text(\"already text\") }",
+            "str expects a number or bool");
+    invalid(&a, "Unit = ()\nf(n: &Unit) {}\nmain() {}", "Mutable borrowing");
+    invalid(&a, "Unit = ()\nf() -> Unit { ret 1 }\nmain() {}",
+            "written return type");
+    invalid(&a, "A = :next[B]\nB = A\nmain() {}", "Recursive named types");
+    Result pattern = invalid(&a, "A = int\nmain() { :a |> { A => missing() } }",
+                             "A named symbol pattern requires a symbol set.");
+    ASSERT_EQ_INT(1, pattern.errors.count);
+    size_t capacity = 160000;
+    char *text = arena_alloc(&a, capacity);
+    size_t length = 0;
+    for (size_t i = 0; i < 2050; i++)
+      length += (size_t)snprintf(text + length, capacity - length,
+                                 "A%zu = A%zu\n", i, i + 1);
+    snprintf(text + length, capacity - length, "A2050 = lng\nmain() {}\n");
+    Result r = valid(&a, text);
+    ASSERT_EQ_INT(2051, r.program->alias_count);
+    for (size_t i = 0; i < r.program->alias_count; i++)
+      ASSERT_TRUE(r.program->aliases[i].type == &r.program->types[SEMA_LNG]);
   }
   TEST("symbol coverage agrees with an independent five-tag bitset oracle") {
     Result r = valid(&a, "All = :a | :b | :c | :d | :e\nmain() {}\n");
