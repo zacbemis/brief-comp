@@ -1,0 +1,5 @@
+// Module-selection paths parse, but compilation remains unimplemented.
+// Promoted from fail/later-import.brf without replacing the original import.
+// Folder qualifiers are names; the selected module starts uppercase.
+import std.Json
+main() {}

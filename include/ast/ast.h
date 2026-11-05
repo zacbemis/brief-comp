@@ -187,6 +187,7 @@ struct Decl {
   DeclKind kind;
   Span span;
   Visibility visibility;
+  // DECL_IMPORT: the interned module-selection path, not a binding.
   const char *name;
   union {
     struct {

@@ -353,6 +353,9 @@ static void decl(FILE *out, const Decl *d) {
     type(out, d->as.alias);
     fputc(')', out);
     break;
+  case DECL_IMPORT:
+    fprintf(out, "(import %s)", d->name);
+    break;
   case DECL_IMPL:
     fputs("(impl ", out);
     type(out, d->as.impl.target);

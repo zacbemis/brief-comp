@@ -90,6 +90,14 @@ int main(void) {
     check(&arena, "User { flag = a < b and c >\n d }\n",
           "User { flag = a < b and c > d }\n");
   }
+  TEST("import paths continue after import or dot, but end after the module") {
+    check(&arena, "import\nmodels.\nUser\nmain() {}\n",
+          "import models.User\nmain() {}\n");
+    check(&arena, "import\r\nstd.\r\nJson\r\nmain() {}\r\n",
+          "import std.Json\r\nmain() {}\r\n");
+    check(&arena, "import models\n.User\nimport other.User\n",
+          "import models.User\nimport other.User\n");
+  }
   TEST("retired trait-only words have ordinary name boundaries") {
     check(&arena, "trait\novr\ntrait!\novr?\n", "trait\novr\ntrait!\novr?\n");
     check(&arena, "let trait =\r\n1\r\nlet ovr =\r\n2\r\n",

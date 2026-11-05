@@ -17,7 +17,9 @@ fields, parameters, bindings and loops require lowercase names. Symbol tags must
 start lowercase in type entries, values and patterns; `_` is not a tag name. `trait`
 and `ovr` are ordinary names; old declaration/modifier spellings still reject.
 Unqualified lowercase pattern names bind; uppercase names reference symbol sets.
-Symbol/type/member grammar and module casing remain pending.
+Imports select module paths at top level, with uppercase final module names;
+compilation still reports them as unimplemented. Symbol/type/member grammar and
+broader module casing remain pending.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
@@ -30,10 +32,13 @@ Symbol/type/member grammar and module casing remain pending.
   limit) or wide (hundreds of arguments, fields, arms, and functions).
 - `35`: postfix indexing, multiline delimiters, literal/match index expressions,
   control headers, chains and indexed assignment/update syntax.
+- `36`: the import fixture promoted from `fail/later-import.brf`; syntax support
+  does not implement module loading.
 
 ## `fail/`
 
-There are 93 rejection fixtures, including `tag-casing.brf`, `tag-wildcard.brf`,
+There are 94 rejection fixtures, including `import-missing-name.brf`,
+`import-in-body.brf`, `tag-casing.brf`, `tag-wildcard.brf`,
 `declaration-casing.brf`, `declaration-wildcard.brf`, `old-type-arguments.brf`,
 `old-array-type.brf`, `old-index.brf`,
 `index-missing-close.brf`, `pub-struct.brf`, `old-return-colon.brf`,
@@ -63,6 +68,6 @@ tree. Each file starts with a header:
   test removed prefixes, not syntax that should eventually become valid. Their
   error lines are preserved; modern fieldless-trait detection is still pending.
 - Other files named `later-*` use syntax from later versions (lambdas, traits,
-  tuples, imports). Move them to `pass/` as each feature is added.
+  tuples). Move them to `pass/` as each feature's syntax is added.
 - Files named `limit-*` exceed the parser's 128-level nesting limit
   (`docs/plans/first-version.txt`, "Implementation limits").

@@ -222,6 +222,27 @@ int main(void) {
     valid(&a, "trait(ovr: int) -> int { ovr }\novr(trait: int) -> int { trait "
               "}\nmain() { ovr(trait(1)) }");
   }
+  TEST("imports are a scope barrier, not a module loader or name binding") {
+    const char *sources[] = {"import doesNotExist.User\nmain() {}",
+                             ("import models.User\nf(x: User) -> User { "
+                              "User.new() }\nmain() { missing() }"),
+                             "import std.Json\n"};
+    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
+      Result r = check(&a, sources[i]);
+      ASSERT_EQ_INT(1, r.errors.count);
+      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+      ASSERT_EQ_INT(0, r.program->count);
+      if (r.errors.count)
+        ASSERT_EQ_INT(0, strcmp("Imports are not implemented yet.",
+                                r.errors.items[0]->message));
+    }
+    Result r = check(&a, "import models.User\nimport std.Json\nmain() {}\n");
+    ASSERT_EQ_INT(2, r.errors.count);
+    for (size_t i = 0; i < r.errors.count; i++)
+      ASSERT_EQ_INT(0, strcmp("Imports are not implemented yet.",
+                              r.errors.items[i]->message));
+  }
   TEST("old literal field colons cannot reach lowering") {
     Result r = check(&a, "P { x: int }\nmain() { let p = P { x: 1 } }");
     ASSERT_EQ_INT(1, r.errors.count);

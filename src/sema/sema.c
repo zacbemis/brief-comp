@@ -849,6 +849,19 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
     s->params[0] = arena_calloc(a, 1, sizeof(**s->params));
     s->params[0]->type = &p->types[SEMA_UNKNOWN];
   }
+  // Without module loading, imported signatures/names cannot be resolved
+  // soundly. Report each import once and stop before collecting dependent
+  // declarations, rather than cascading into missing-name/type/main errors.
+  int has_imports = 0;
+  for (size_t i = 0; i < syntax->count; i++) {
+    const Decl *d = syntax->items[i];
+    if (d->kind == DECL_IMPORT) {
+      diagnostics_error(errors, d->span, "Imports are not implemented yet.");
+      has_imports = 1;
+    }
+  }
+  if (has_imports)
+    return p;
   p->structs = arena_calloc(a, syntax->count, sizeof(SemaStruct));
   size_t capacity = syntax->count;
   Resolver r = {.arena = a, .program = p, .errors = errors};

@@ -196,6 +196,21 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
     message(FATAL_ERROR "unknown set became a binding (${status}):\n${errors}")
 endif()
 
+set(imports "${TEST_DIR}/imports.brf")
+file(WRITE "${imports}" "import models.User\r\nmain() { User.new() }\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${imports}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
+   NOT output STREQUAL "(program (import models.User) (fn main (params) _ (block (call (field (name User) new)))))\n")
+    message(FATAL_ERROR "incorrect import AST (${status}):\n${errors}\n${output}")
+endif()
+set(expected "error: Imports are not implemented yet.\n  --> ${imports}:1:1\n  |\n1 | import models.User\n  | ^~~~~~~~~~~~~~~~~~\n")
+execute_process(COMMAND "${BRIEF}" emit-c "${imports}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
+    message(FATAL_ERROR "incorrect import scope rejection (${status}):\n${errors}")
+endif()
+
 set(generic "${TEST_DIR}/generic-invalid.brf")
 file(WRITE "${generic}" "check(value: int) {}\r\nmain() { let a = 1\r\n  let d = 2\r\n  check(a[b, c](d))\r\n}\r\n")
 set(expected "error: Generic calls are not implemented yet.\n  --> ${generic}:4:9\n  |\n4 |   check(a[b, c](d))\n  |         ^~~~~~~~~~\n")

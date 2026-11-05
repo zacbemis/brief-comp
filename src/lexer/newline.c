@@ -94,6 +94,7 @@ static int continues(TokenType t, int type_close, int prefix_bang) {
   case TOK_CONST:
   case TOK_IMPL:
   case TOK_PUB:
+  case TOK_IMPORT:
   case TOK_IF:
   case TOK_ELSE:
   case TOK_FOR:

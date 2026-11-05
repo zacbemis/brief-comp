@@ -774,6 +774,10 @@ static int parameter(Parser *p, Parameter *param, int field) {
   *param = (Parameter){.span = peek(p).span};
   if (field && match(p, TOK_PUB))
     param->visibility = VISIBILITY_PUB;
+  if (field && at(p, TOK_IMPORT)) {
+    error(p, "Imports are only allowed at the top level.");
+    return 0;
+  }
   if (!expect_identifier(p, field ? "Expected a field name."
                                   : "Expected a parameter name."))
     return 0;
@@ -916,6 +920,46 @@ static int old_type_declaration(Parser *p) {
 static Decl *declaration(Parser *p, int in_impl) {
   Token start = peek(p);
   Visibility visibility = match(p, TOK_PUB) ? VISIBILITY_PUB : VISIBILITY_PRIV;
+  if (match(p, TOK_IMPORT)) {
+    Token keyword = p->previous;
+    if (in_impl) {
+      error_at(p, keyword.span, "Imports are only allowed at the top level.");
+      return NULL;
+    }
+    if (!token_is_name(peek(p).type)) {
+      error(p, "Expected a module path after 'import'.");
+      return NULL;
+    }
+    Token leaf = take(p);
+    const char *selected = name(p, leaf);
+    while (match(p, TOK_PERIOD)) {
+      if (!token_is_name(peek(p).type)) {
+        error(p, "Expected a name after '.' in an import path.");
+        return NULL;
+      }
+      leaf = take(p);
+      const char *part = name(p, leaf);
+      size_t a = strlen(selected), b = strlen(part);
+      char *joined = arena_alloc(p->arena, a + b + 2);
+      memcpy(joined, selected, a);
+      joined[a] = '.';
+      memcpy(joined + a + 1, part, b + 1);
+      selected = intern(p->names, joined);
+    }
+    Decl *d = new_decl(p, DECL_IMPORT, through(start.span, leaf.span),
+                       VISIBILITY_PRIV);
+    d->name = selected;
+    // Let the declaration separator own malformed continuations before offering
+    // visibility/casing edits for an otherwise complete import.
+    if (!at(p, TOK_NEWLINE) && !at(p, TOK_EOF))
+      return d;
+    if (visibility == VISIBILITY_PUB)
+      remove_modifier(
+          p, error_at(p, start.span, "Imports cannot be marked 'pub'."), start);
+    check_name_case(p, leaf, p->diagnostics->count, TOK_UPPER_NAME,
+                    "Module names must start with an uppercase letter.");
+    return d;
+  }
   if (at(p, TOK_CONST)) {
     Decl *d = binding(p, visibility);
     if (d)
@@ -1202,6 +1246,10 @@ static Expr *conditional(Parser *p) {
 
 static Expr *primary(Parser *p, int allow_struct) {
   Token token = peek(p);
+  if (token.type == TOK_IMPORT) {
+    error(p, "Imports are only allowed at the top level.");
+    return NULL;
+  }
   if (token.type == TOK_PLUS_PLUS || token.type == TOK_MINUS_MINUS) {
     error(p, "Increment and decrement must be postfix standalone statements "
              "(x++ or x--).");

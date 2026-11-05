@@ -1,0 +1,5 @@
+import doesNotExist.User // error: Imports are not implemented yet.
+import std.Json // error: Imports are not implemented yet.
+// Dependent names are not guessed or resolved while imports are unsupported.
+f(user: User) -> User { User.new() }
+main() { missing() }

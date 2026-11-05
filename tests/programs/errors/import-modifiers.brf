@@ -1,0 +1,3 @@
+pub import models.User // error: Imports cannot be marked 'pub'. // fix: import models.User
+import models.user // error: Module names must start with an uppercase letter. // fix: import models.User
+main() {}

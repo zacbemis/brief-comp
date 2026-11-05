@@ -1318,6 +1318,123 @@ int main(void) {
                     "(call (name check) (< (name a) (index (name b) (int 0))) "
                     "(> (name c) (name d)))");
   }
+  TEST("imports retain complete interned paths and precise declaration spans") {
+    const char *text = "import\nmodels.\nUser\nimport std.Json\nimport "
+                       "models.User\nmain() {}\n";
+    Parsed *v = parse(&arena, text);
+    ASSERT_EQ_INT(0, v->diagnostics.count);
+    ASSERT_EQ_INT(4, v->program->count);
+    if (v->program->count == 4) {
+      for (size_t i = 0; i < 3; i++) {
+        Decl *d = v->program->items[i];
+        ASSERT_EQ_INT(DECL_IMPORT, d->kind);
+        ASSERT_EQ_INT(VISIBILITY_PRIV, d->visibility);
+        ASSERT_TRUE(d->span.file == v->source);
+      }
+      ASSERT_EQ_INT(0, v->program->items[0]->span.start);
+      ASSERT_EQ_INT((size_t)(strstr(text, "User") - text) + 4,
+                    v->program->items[0]->span.end);
+      ASSERT_TRUE(v->program->items[0]->name == v->program->items[2]->name);
+      ASSERT_EQ_INT(0, strcmp("models.User", v->program->items[0]->name));
+    }
+    program_dump(&arena, "import models.User\nimport std.Json\nmain() {}",
+                 "(program (import models.User) (import std.Json) (fn main "
+                 "(params) _ (block)))\n");
+    TokenArray filtered = newline_filter(&arena, v->raw);
+    size_t bytes = filtered.count * sizeof(Token);
+    Token *saved = arena_alloc(&arena, bytes);
+    memcpy(saved, filtered.items, bytes);
+    Diagnostics again;
+    diagnostics_init(&again, &arena);
+    parse_program(&arena, &v->names, filtered, &again);
+    ASSERT_EQ_INT(0, again.count);
+    ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+  }
+  TEST("imports diagnose visibility and module-name casing without changing "
+       "paths") {
+    const char *cases[] = {"import models.user\n", "pub import models.User\n",
+                           "pub/* keep */import models.user\n",
+                           "pub\nimport models.User\n"};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned crlf = 0; crlf < 2; crlf++) {
+        char text[256];
+        size_t n = 0;
+        for (size_t j = 0; cases[i][j]; j++) {
+          if (crlf && cases[i][j] == '\n')
+            text[n++] = '\r';
+          text[n++] = cases[i][j];
+        }
+        strcpy(text + n, "after() {}\n");
+        Parsed *v = parse(&arena, text);
+        ASSERT_EQ_INT(i == 2 ? 2 : 1, v->diagnostics.count);
+        ASSERT_EQ_INT(2, v->program->count);
+        for (size_t j = 0; j < v->diagnostics.count; j++) {
+          Diagnostic *d = v->diagnostics.items[j];
+          ASSERT_TRUE(d->span.file == v->source && d->fixes != NULL);
+          int pub = strncmp(text + d->span.start, "pub", 3) == 0;
+          ASSERT_EQ_INT(pub ? 3 : 4, d->span.end - d->span.start);
+          ASSERT_EQ_INT(
+              0,
+              strcmp(pub ? "Imports cannot be marked 'pub'."
+                         : "Module names must start with an uppercase letter.",
+                     d->message));
+        }
+        Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
+        ASSERT_EQ_INT(0, fixed->diagnostics.count);
+        if (i == 2)
+          ASSERT_TRUE(strstr(fixed->source->text, "/* keep */") != NULL);
+        if (i == 3)
+          ASSERT_TRUE(strncmp(fixed->source->text, "import", 6) == 0);
+        if (v->program->count)
+          ASSERT_EQ_INT(0, strcmp(i % 2 ? "models.User" : "models.user",
+                                  v->program->items[0]->name));
+      }
+    }
+    Parsed *v = parse(&arena, "import models.self\n");
+    ASSERT_EQ_INT(1, v->diagnostics.count);
+    if (v->diagnostics.count)
+      ASSERT_TRUE(v->diagnostics.items[0]->fixes == NULL);
+  }
+  TEST("malformed and nested imports retain primary errors and recover") {
+    const char *eof[] = {"import", "import models.", "import models.*"};
+    for (size_t i = 0; i < sizeof(eof) / sizeof(*eof); i++) {
+      Parsed *v = parse(&arena, eof[i]);
+      ASSERT_EQ_INT(1, v->diagnostics.count);
+      if (v->diagnostics.count)
+        ASSERT_TRUE(v->diagnostics.items[0]->fixes == NULL);
+    }
+    struct {
+      const char *code, *message;
+    } cases[] = {
+        {"import _", "Expected a module path after 'import'."},
+        {"import \"models.User\"", "Expected a module path after 'import'."},
+        {"import models._", "Expected a name after '.' in an import path."},
+        {"import models.@", "Unexpected character."},
+        {"import models.User as Other", "Expected a newline between items."},
+        {"main() { import models.User }",
+         "Imports are only allowed at the top level."},
+        {"impl P { import models.User }",
+         "Imports are only allowed at the top level."},
+        {"P { import models.User }",
+         "Imports are only allowed at the top level."},
+        {"P { pub import models.User }",
+         "Imports are only allowed at the top level."}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      char text[256];
+      snprintf(text, sizeof(text), "%s\nafter() {}\n", cases[i].code);
+      Parsed *v = parse(&arena, text);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      if (v->diagnostics.count) {
+        ASSERT_EQ_INT(
+            0, strcmp(cases[i].message, v->diagnostics.items[0]->message));
+        ASSERT_TRUE(v->diagnostics.items[0]->fixes == NULL);
+      }
+      ASSERT_TRUE(v->program->count > 0);
+      if (v->program->count)
+        ASSERT_EQ_INT(
+            0, strcmp("after", v->program->items[v->program->count - 1]->name));
+    }
+  }
   TEST("trait and ovr are names, not declaration or override modifiers") {
     const char *text =
         "trait(ovr: int) -> int { ovr }\novr(trait: int) -> int { trait }\n"
@@ -2090,8 +2207,7 @@ int main(void) {
     invalid(&arena, "first<T>(x: T) -> T { x }",
             "Expected '(' after function name");
     invalid(&arena, "User { name: }", "Expected a type.");
-    invalid(&arena, "import User",
-            "Expected a declaration (function, struct, named type, or impl).");
+    program_dump(&arena, "import User", "(program (import User))\n");
     invalid(&arena, "int() {}",
             "Expected a declaration (function, struct, named type, or impl).");
     invalid(&arena, "str(x: int) {}",

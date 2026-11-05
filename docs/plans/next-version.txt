@@ -177,14 +177,14 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (114 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
-| `tests/parse/pass/` (27) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
-| `tests/parse/fail/` (93) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
+| `tests/programs/` (116 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names and import syntax; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/parse/pass/` (28) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
+| `tests/parse/fail/` (94) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
 | CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
 | Document acceptance (13 v0 audits, now retired) | Scripts, bridges and registrations deleted in N1; records retained as historical evidence | Each new document's audit is written in the milestone that implements its rules (see "Milestones"), so document coverage returns chapter by chapter instead of all at the end. |
-| `test_doc_parser` | Reads 13 current chapters: 239 fences, 105 parser checks, 134 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
+| `test_doc_parser` | Reads 13 current chapters: 239 fences, 107 parser checks, 132 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
 | `examples/*.brf` | Not run in CI | Converted in N1, and added to the program runner with their output as expectations, so the examples cannot rot again. |
 
 ### New test forms
@@ -225,6 +225,8 @@ visibility. The v0 scripts/bridges are retired and the current-document parser
 inventory is active. Other declaration/type structure, remaining keywords,
 receivers, module casing, source conversion and replacement native chapter
 audits remain pending. Pattern binding/set roles now follow the name classes.
+Module-selection imports parse, with an explicit not-implemented compilation
+barrier and no file loading.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -352,6 +354,8 @@ first-version syntax audit's two logical-operator cases carry markers.
   declaration/modifier prefixes retain explicit unsupported-scope diagnostics.
 - [x] Lowercase binding versus uppercase named-set pattern roles determined by
   the parser, with no resolver alias-lookup fallback for bindings.
+- [x] Parse module-selection imports and reject compilation at an explicit scope
+  barrier, without loading files or cascading dependent-name diagnostics.
 - [ ] Remaining keyword/declaration/type/expression grammar changes, module
   casing, struct methods and receiver inference.
 - [ ] Remaining source conversion, old-syntax rejection tests and N1 native
@@ -969,6 +973,54 @@ All six examples preserve sanitized stdout/stderr/status. N1 is still incomplete
 unions/payloads/error tags, remaining declarations/keywords, receivers, fieldless
 traits, module casing and native chapter audits remain pending. No IR, emission,
 runtime, v0 adapter or migration-tool changes are introduced.
+
+### N1 (in progress): module-selection import syntax, without module loading
+
+Top-level `import models.User` now builds `DECL_IMPORT`; its name is the complete
+interned path, not a local binding. The stable printer writes `(import models.User)`.
+Folder components are names; the final module requires an uppercase name and gets
+a safe casing fix when possible. `pub import` is rejected with a trivia-preserving
+modifier-removal fix. Imports in function/impl bodies reject at the keyword.
+Missing path components, wildcards, strings, star imports and `as` aliases are not
+additional accepted grammars. `import` now has the continuation behavior required
+by the plan: paths continue after the keyword/dots, including LF/CRLF, and end at
+the completed module name. Generic malformed continuations keep primary errors.
+
+Resolution reports `Imports are not implemented yet.` once per import and returns
+before collecting dependent declarations. This avoids bogus missing-module/type/
+function/main cascades when imported signatures cannot be known. Program module
+identity and primitive metadata are initialized, but no file is searched or loaded,
+no name is introduced and no checking/lowering/C emission succeeds. This is a
+whole-program unsupported-scope barrier, not partial cross-file resolution. Existing
+programs without imports take the unchanged resolution path.
+
+Parser tests inspect paths, interning, spans, LF/CRLF, fixes, keyword guards,
+missing syntax, local imports and immutable repeated parses. Semantic/native/CLI
+checks cover nonexistent paths, dependent names/signatures, one error per import,
+no invented lookup/main errors and the AST-versus-emission boundary. The original
+`fail/later-import.brf` is promoted to `pass/36-imports.brf`, preserving its import
+on line 4. Two rejection files cover incomplete/local imports, and two native error
+files cover scope, visibility and final-module casing. There are 116 program files,
+28 parse-pass and 94 parse-fail files.
+
+The module chapter's two import fences now get syntax checks through `import-body`:
+a guarded context wrapper leaves the import block at file scope and encloses every
+remaining usage line in `main`, preserving the full fence without stubs, helpers,
+extraction or rewriting. Independent manifest tests verify the wrapper and reject
+missing boundaries/non-import prefixes (15 failure guards total). Coverage becomes
+103 parses plus four rejections, 132 listed fences (54 pending syntax, 64 later
+features, 14 fragments) and two unfenced listings. No native chapter audit is newly
+complete, and the fences make no module/API/visibility claims.
+
+Validation: fresh `-Werror` GCC/Clang Debug ASan/UBSan and GCC Release pass 25/25;
+GCC Debug without sanitizers passes 24/24. clang-format 23.1.3 and
+`git diff --check` pass. Of 266 baseline sources, 265 retain identical statuses,
+AST/C bytes and complete diagnostics. The promoted import fixture intentionally
+changes from syntax rejection to parse success; emission still rejects on line 4
+with the new explicit scope message. All 86 previous C successes are byte-identical,
+and all six examples preserve sanitized stdout/stderr/status. N1 remains incomplete:
+unions/payloads/error tags, remaining declarations/keywords, members/receivers,
+fieldless traits, broader module casing and replacement native chapter audits.
 
 ## Risks
 

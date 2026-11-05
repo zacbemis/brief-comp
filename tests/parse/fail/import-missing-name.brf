@@ -1,0 +1,3 @@
+// parse-error: line 4
+// Why: An import path cannot end in a period.
+import models.

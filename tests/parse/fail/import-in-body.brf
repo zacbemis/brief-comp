@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: Imports select modules at top level, not inside a function.
+main() {
+  import models.User
+}
