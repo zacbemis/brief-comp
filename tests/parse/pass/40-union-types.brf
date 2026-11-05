@@ -1,0 +1,14 @@
+Small = :first | :second[str]
+All = Small | :!failed[int] |
+  :nested[:inside[int] | :none] | :unit[()]
+Sym = :ordinary
+Box {
+  value: Small | :none
+  array: Arr[:first | :second[str]]
+}
+choose(value: All, borrowed: &Small) -> :ok[Small] | _ {
+  let typed: :first | :second[str] = :first
+  let bits = 1 | 2
+  let generic = f[:first | :second[str]]()
+  value
+}

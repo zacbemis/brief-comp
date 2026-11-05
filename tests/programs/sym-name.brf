@@ -1,0 +1,3 @@
+// Sym is an ordinary type name, not a keyword or a special runtime type.
+Sym { value: int }
+main() { print(str(Sym { value = 9 }.value)) } // expect: 9

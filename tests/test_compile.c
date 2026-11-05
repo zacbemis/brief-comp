@@ -63,7 +63,7 @@ int main(void) {
     invalid(&a, "main(x: str) {}", "cannot have parameters");
     invalid(&a, "main() {}\nf(x: &int) {}", "Mutable borrow");
     invalid(&a, "main() -> Thing { () }", "type is unknown");
-    invalid(&a, "Error = Sym<:ok, _>\nmain() {}", "Partial symbol sets");
+    invalid(&a, "Error = :ok | _\nmain() {}", "Partial symbol sets");
     invalid(&a, "main() { main<int>() }", "Generic calls");
     invalid(&a, "main() { Module.f() }", "Unknown binding");
     invalid(&a, "main() { print(\"x\") |> f() }", "Unknown function");

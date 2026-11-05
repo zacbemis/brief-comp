@@ -227,7 +227,7 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
 endif()
 
 set(kind_conflict "${TEST_DIR}/kind-conflict.brf")
-file(WRITE "${kind_conflict}" "A = Sym<:bad>\r\nB = Sym<:!bad>\r\nmain() {}\r\n")
+file(WRITE "${kind_conflict}" "A = :bad\r\nB = :!bad\r\nmain() {}\r\n")
 execute_process(COMMAND "${BRIEF}" dump-ast "${kind_conflict}"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT output MATCHES "\\(:!bad\\)")
@@ -242,7 +242,7 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
 endif()
 
 set(payloads "${TEST_DIR}/payload-lists.brf")
-file(WRITE "${payloads}" "E = Sym<:many[Missing, Other]>\r\nmain() { :many[unknown, absent()]\r\n  1 |> { :many[a, b] => missing(a, b) }\r\n}\r\n")
+file(WRITE "${payloads}" "E = :many[Missing, Other]\r\nmain() { :many[unknown, absent()]\r\n  1 |> { :many[a, b] => missing(a, b) }\r\n}\r\n")
 execute_process(COMMAND "${BRIEF}" dump-ast "${payloads}"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
@@ -258,19 +258,36 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT payload_errors EQUAL 3 OR
    errors MATCHES "Unknown|require a symbol input|help:")
     message(FATAL_ERROR "multiple payloads escaped scope or cascaded (${status}):\n${errors}")
 endif()
-file(WRITE "${payloads}" "E = Sym<:typed(int)>\r\nmain() { :value(1)\r\n  1 |> { :some(x) => x }\r\n}\r\n")
+file(WRITE "${payloads}" "E = :typed(int)\r\nmain() { :value(1)\r\n  1 |> { :some(x) => x }\r\n}\r\n")
 foreach(command dump-ast emit-c)
     execute_process(COMMAND "${BRIEF}" "${command}" "${payloads}"
         RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
     string(REGEX MATCHALL "(^|\n)error:" payload_errors "${errors}")
     list(LENGTH payload_errors payload_errors)
-    string(FIND "${errors}" "help: write `E = Sym<:typed[int]>`" type_fix)
+    string(FIND "${errors}" "help: write `E = :typed[int]`" type_fix)
     string(FIND "${errors}" ":some[x] => x" pattern_fix)
     if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT payload_errors EQUAL 3 OR
        type_fix LESS 0 OR pattern_fix LESS 0)
         message(FATAL_ERROR "old payloads accepted or lost fixes (${command}, ${status}):\n${errors}")
     endif()
 endforeach()
+
+set(old_union "${TEST_DIR}/old-union.brf")
+file(WRITE "${old_union}" "E = Sym<:a,:b>\r\nmain() {}\r\n")
+foreach(command dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" "${command}" "${old_union}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    string(FIND "${errors}" "help: write `E = :a | :b`" fix_at)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR fix_at LESS 0 OR
+       NOT errors MATCHES "^error: Symbol unions use")
+        message(FATAL_ERROR "old Sym syntax accepted or lost fixes (${command}, ${status}):\n${errors}")
+    endif()
+endforeach()
+execute_process(COMMAND "${BRIEF}" dump-tokens "${old_union}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT output MATCHES "TOK_UPPER_NAME.*Sym" OR output MATCHES "TOK_SYM")
+    message(FATAL_ERROR "Sym is still reserved (${status}):\n${errors}\n${output}")
+endif()
 
 set(generic "${TEST_DIR}/generic-invalid.brf")
 file(WRITE "${generic}" "check(value: int) {}\r\nmain() { let a = 1\r\n  let d = 2\r\n  check(a[b, c](d))\r\n}\r\n")

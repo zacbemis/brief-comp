@@ -18,7 +18,16 @@ typedef struct {
   unsigned old_angles;
   Span *angle_fixes;
   size_t angle_fix_count, angle_fix_capacity;
+  // Old Sym<...> wrappers being recovered, and the fixes of the nested ones:
+  // the outermost wrapper reports them all in one diagnostic.
+  unsigned old_symbols;
+  struct PendingFix *symbol_fixes;
+  size_t symbol_fix_count, symbol_fix_capacity;
 } Parser;
+typedef struct PendingFix {
+  Span span;
+  const char *replacement;
+} PendingFix;
 
 typedef struct {
   void *data;
@@ -73,10 +82,9 @@ static int blank(char c) {
   return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 }
 // Preserve existing trivia, adding only missing separation around punctuation.
-static void separator_fix(Parser *p, Diagnostic *d, Token token,
-                          const char *replacement) {
-  if (!d || !token.span.file)
-    return;
+// A separator replacement, padded so it does not touch its neighbours.
+static const char *separator_text(Parser *p, Token token,
+                                  const char *replacement) {
   const SourceFile *file = token.span.file;
   size_t start = token.span.start, end = token.span.end;
   int before = start && !blank(file->text[start - 1]);
@@ -90,7 +98,14 @@ static void separator_fix(Parser *p, Diagnostic *d, Token token,
   if (after)
     text[at++] = ' ';
   text[at] = 0;
-  diagnostic_fix(p->diagnostics, d, token.span, text);
+  return text;
+}
+static void separator_fix(Parser *p, Diagnostic *d, Token token,
+                          const char *replacement) {
+  if (!d || !token.span.file)
+    return;
+  diagnostic_fix(p->diagnostics, d, token.span,
+                 separator_text(p, token, replacement));
 }
 static Diagnostic *error_at(Parser *p, Span span, const char *message) {
   return diagnostics_error(p->diagnostics, span, message);
@@ -358,9 +373,9 @@ static Type *checked_type(Parser *p, Type *t) {
     for (size_t i = 0; i < t->as.apply.count; i++)
       CHILD(t->as.apply.args[i]);
     break;
-  case TYPE_SYM:
-    for (size_t i = 0; i < t->as.sym.count; i++) {
-      SymEntry entry = t->as.sym.items[i];
+  case TYPE_UNION:
+    for (size_t i = 0; i < t->as.union_type.count; i++) {
+      UnionEntry entry = t->as.union_type.items[i];
       CHILD(entry.type);
       for (size_t j = 0; j < entry.count; j++)
         CHILD(entry.payloads[j]);
@@ -414,7 +429,7 @@ static const char *path(Parser *p) {
   return result;
 }
 
-// Only legacy Sym syntax and diagnostic recovery still need angle closers.
+// Only diagnostic recovery needs angle closers.
 // Split >> virtually, retaining immutable tokens and one-byte source spans.
 static int close_angle(Parser *p) {
   if (at(p, TOK_RSHIFT)) {
@@ -504,7 +519,7 @@ static int old_type_list_token(const Token *items, size_t i) {
     return before == TOK_LOWER_NAME || before == TOK_LESS_THAN ||
            before == TOK_COMMA;
   case TOK_WILDCARD:
-  case TOK_SYM:
+  case TOK_BIT_OR:
   case TOK_COMMA:
   case TOK_PERIOD:
   case TOK_COLON:
@@ -553,7 +568,7 @@ static int old_index(Parser *p, Expr *left) {
       next == TOK_MINUS || next == TOK_NOT || next == TOK_BANG ||
       next == TOK_TILDE)
     return 1;
-  if (next == TOK_RBRACKET || next == TOK_SYM || next == TOK_SELF ||
+  if (next == TOK_RBRACKET || next == TOK_COLON || next == TOK_SELF ||
       next == TOK_OLD_DUB || (next >= TOK_BOOL && next <= TOK_STR))
     return 0;
   size_t depth = 0;
@@ -592,7 +607,116 @@ static int payload_close(Parser *p, Token open, const char *message) {
   }
   return 1;
 }
-static Type *type_inner(Parser *p) {
+// Accepted unions are flat lists; nested payload types stay separate.
+static void union_entries(Parser *p, List *entries, Type *t) {
+  if (t->kind == TYPE_UNION) {
+    for (size_t i = 0; i < t->as.union_type.count; i++) {
+      UnionEntry entry = t->as.union_type.items[i];
+      PUSH(p, *entries, entry);
+    }
+  } else {
+    UnionEntry entry = {.span = t->span, .type = t};
+    PUSH(p, *entries, entry);
+  }
+}
+static void pending_symbol_fix(Parser *p, Span span, const char *replacement) {
+  if (p->symbol_fix_count == p->symbol_fix_capacity) {
+    size_t capacity = p->symbol_fix_capacity ? p->symbol_fix_capacity * 2 : 8;
+    PendingFix *fixes = arena_calloc(p->arena, capacity, sizeof(*fixes));
+    if (p->symbol_fix_count)
+      memcpy(fixes, p->symbol_fixes, p->symbol_fix_count * sizeof(*fixes));
+    p->symbol_fixes = fixes;
+    p->symbol_fix_capacity = capacity;
+  }
+  p->symbol_fixes[p->symbol_fix_count++] = (PendingFix){span, replacement};
+}
+// Removing a wrapper delimiter also removes the spaces/tabs beside it, so
+// `Sym <:a>` does not leave a doubled space. Line breaks are kept.
+static Span blanks_after(Span span) {
+  while (span.end < span.file->length && (span.file->text[span.end] == ' ' ||
+                                          span.file->text[span.end] == '\t'))
+    span.end++;
+  return span;
+}
+static Span blanks_before(Span span) {
+  while (span.start > 0 && (span.file->text[span.start - 1] == ' ' ||
+                            span.file->text[span.start - 1] == '\t'))
+    span.start--;
+  return span;
+}
+static Type *old_symbol_type(Parser *p) {
+  size_t mark = p->diagnostics->count, first_fix = p->symbol_fix_count;
+  p->old_symbols++;
+  Token keyword = take(p), open = take(p);
+  List entries = {0}, commas = {0};
+  int trailing = 0, parsed = 1;
+  do {
+    Type *part = type(p);
+    if (!part) {
+      parsed = 0;
+      break;
+    }
+    union_entries(p, &entries, part);
+    if (!match(p, TOK_COMMA))
+      break;
+    Token comma = p->previous;
+    PUSH(p, commas, comma);
+    if (angle_end(p)) {
+      trailing = 1;
+      break;
+    }
+  } while (!at(p, TOK_EOF));
+  p->old_symbols--;
+  if (!parsed || !close_angle(p)) {
+    p->symbol_fix_count = first_fix;
+    return NULL;
+  }
+  Token close = p->previous;
+  UnionEntry *items = entries.data;
+  // A lone name might be a struct/plain type, not a named union. Unwrapping
+  // it could turn an invalid inclusion into a different, valid type. Explain
+  // without guessing; the source conversion decides such cases by meaning.
+  int fixable = entries.count > 1 || (entries.count == 1 && items[0].tag);
+  if (fixable) {
+    pending_symbol_fix(p, blanks_after(keyword.span), "");
+    pending_symbol_fix(p, blanks_after(open.span), "");
+    Token *separators = commas.data;
+    for (size_t i = 0; i < commas.count; i++)
+      pending_symbol_fix(p, separators[i].span,
+                         trailing && i + 1 == commas.count
+                             ? ""
+                             : separator_text(p, separators[i], "|"));
+    pending_symbol_fix(p, blanks_before(close.span), "");
+  }
+  // A fixable nested wrapper leaves its report to the outermost one, so the
+  // preview shows the whole correction at once.
+  if (!(fixable && p->old_symbols)) {
+    Diagnostic *d =
+        error_at(p, keyword.span, "Symbol unions use '|', without 'Sym<...>'.");
+    if (!p->old_symbols) {
+      // Add in source order, so previews of a multi-line wrapper are too.
+      PendingFix *fixes = p->symbol_fixes + first_fix;
+      size_t count = p->symbol_fix_count - first_fix;
+      for (size_t i = 1; i < count; i++)
+        for (size_t j = i; j && fixes[j].span.start < fixes[j - 1].span.start;
+             j--) {
+          PendingFix swap = fixes[j];
+          fixes[j] = fixes[j - 1];
+          fixes[j - 1] = swap;
+        }
+      for (size_t i = 0; i < count; i++)
+        diagnostic_fix(p->diagnostics, d, fixes[i].span, fixes[i].replacement);
+      p->symbol_fix_count = first_fix;
+    }
+    // Contents are parsed first; report the wrapper at its own position.
+    diagnostics_move_last(p->diagnostics, mark);
+  }
+  Type *t = new_type(p, TYPE_UNION, through(keyword.span, close.span));
+  t->as.union_type.items = entries.data;
+  t->as.union_type.count = entries.count;
+  return t;
+}
+static Type *type_atom(Parser *p) {
   Token start = peek(p);
   Type *t;
   if (match(p, TOK_LPAREN)) {
@@ -601,71 +725,53 @@ static Type *type_inner(Parser *p) {
                 "first version."))
       return NULL;
     t = new_type(p, TYPE_UNIT, through(start.span, p->previous.span));
-  } else if (match(p, TOK_SYM)) {
-    t = new_type(p, TYPE_SYM, start.span);
-    if (!expect(p, TOK_LESS_THAN, "Expected '<' after Sym."))
+  } else if (start.type == TOK_UPPER_NAME && start.length == 3 &&
+             !memcmp(start.start, "Sym", 3) &&
+             p->tokens.items[p->position + 1].type == TOK_LESS_THAN) {
+    t = old_symbol_type(p);
+    if (!t)
       return NULL;
-    List entries = {0};
-    do {
-      SymEntry entry = {.span = peek(p).span};
-      if (match(p, TOK_COLON)) {
-        if (!symbol_name(p, p->previous, &entry.kind, &entry.tag_span,
-                         "Expected a symbol tag after ':'."))
-          return NULL;
-        Token tag = p->previous;
-        size_t mark = p->diagnostics->count;
-        entry.tag = name(p, tag);
-        Token open;
-        if (payload_open(p, &open)) {
-          List payloads = {0};
-          // Legacy () had no empty-payload spelling: keep its missing-type
-          // error.
-          if (open.type == TOK_LPAREN || !at(p, TOK_RBRACKET))
-            do {
-              Type *payload = type(p);
-              if (!payload)
-                return NULL;
-              PUSH(p, payloads, payload);
-              if (!match(p, TOK_COMMA) || at(p, payload_end(open)))
-                break;
-            } while (!at(p, TOK_EOF));
-          if (!payload_close(p, open,
-                             open.type == TOK_LPAREN
-                                 ? "Expected ')' after symbol payload type."
-                                 : "Expected ']' after symbol payload types."))
+  } else if (match(p, TOK_COLON)) {
+    UnionEntry entry = {.span = start.span};
+    if (!symbol_name(p, start, &entry.kind, &entry.tag_span,
+                     "Expected a symbol tag after ':'."))
+      return NULL;
+    Token tag = p->previous;
+    size_t mark = p->diagnostics->count;
+    entry.tag = name(p, tag);
+    Token open;
+    if (payload_open(p, &open)) {
+      List payloads = {0};
+      if (open.type == TOK_LPAREN || !at(p, TOK_RBRACKET))
+        do {
+          Type *payload = type(p);
+          if (!payload)
             return NULL;
-          entry.payloads = payloads.data;
-          entry.count = payloads.count;
-        }
-        check_name_case(p, tag, mark, TOK_LOWER_NAME,
-                        "Symbol tags must start with a lowercase letter.");
-      } else if (at(p, TOK_WILDCARD)) {
-        entry.type = new_type(p, TYPE_INFER, take(p).span);
-      } else {
-        entry.type = type(p);
-        if (!entry.type)
-          return NULL;
-      }
-      entry.span = through(entry.span, p->previous.span);
-      PUSH(p, entries, entry);
-      if (!match(p, TOK_COMMA))
-        break;
-      if (angle_end(p))
-        break;
-    } while (!at(p, TOK_EOF));
-    if (!close_angle(p))
-      return NULL;
-    t->as.sym.items = entries.data;
-    t->as.sym.count = entries.count;
-    t->span = through(start.span, p->previous.span);
+          PUSH(p, payloads, payload);
+          if (!match(p, TOK_COMMA) || at(p, payload_end(open)))
+            break;
+        } while (!at(p, TOK_EOF));
+      if (!payload_close(p, open,
+                         open.type == TOK_LPAREN
+                             ? "Expected ')' after symbol payload type."
+                             : "Expected ']' after symbol payload types."))
+        return NULL;
+      entry.payloads = payloads.data;
+      entry.count = payloads.count;
+    }
+    check_name_case(p, tag, mark, TOK_LOWER_NAME,
+                    "Symbol tags must start with a lowercase letter.");
+    entry.span = through(start.span, p->previous.span);
+    t = new_type(p, TYPE_UNION, entry.span);
+    t->as.union_type.items = arena_alloc(p->arena, sizeof(entry));
+    t->as.union_type.items[0] = entry;
+    t->as.union_type.count = 1;
+  } else if (match(p, TOK_WILDCARD)) {
+    t = new_type(p, TYPE_INFER, start.span);
   } else if (type_name_token(start.type)) {
     const char *text = path(p);
     if (!text)
       return NULL;
-    if (strcmp(text, "_") == 0) {
-      error_at(p, start.span, "'_' is only allowed as an entry in Sym<...>.");
-      return NULL;
-    }
     t = new_type(p, start.type == TOK_SELF ? TYPE_SELF : TYPE_NAME,
                  through(start.span, p->previous.span));
     t->as.name = text;
@@ -712,6 +818,23 @@ static Type *type_inner(Parser *p) {
       return NULL;
   }
   return t;
+}
+static Type *type_inner(Parser *p) {
+  Type *left = type_atom(p);
+  if (!left || !match(p, TOK_BIT_OR))
+    return left;
+  List entries = {0};
+  union_entries(p, &entries, left);
+  do {
+    Type *right = type_atom(p);
+    if (!right)
+      return NULL;
+    union_entries(p, &entries, right);
+  } while (match(p, TOK_BIT_OR));
+  Type *t = new_type(p, TYPE_UNION, through(left->span, p->previous.span));
+  t->as.union_type.items = entries.data;
+  t->as.union_type.count = entries.count;
+  return checked_type(p, t);
 }
 static Type *type(Parser *p) {
   if (!enter(p))

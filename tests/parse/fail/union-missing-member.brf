@@ -1,0 +1,7 @@
+// parse-error: line 7
+// Why: A trailing union bar continues the type, and requires another member.
+// The old angle-closer/newline rejection was retired with Sym syntax.
+// Keep its original error line while checking the new type continuation rule.
+Error =
+  :a |
+  :b |

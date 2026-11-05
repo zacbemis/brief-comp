@@ -1,4 +1,4 @@
-E = Sym<: /* keep */ !typed> // error: The ':!' error-symbol prefix must be adjacent. // fix: E = Sym<:! /* keep */ typed>
+E = : /* keep */ !typed // error: The ':!' error-symbol prefix must be adjacent. // fix: E = :! /* keep */ typed
 main() {
   : !value // error: The ':!' error-symbol prefix must be adjacent. // fix: :!value
   x |> { :/* keep */!pattern[_] => () } // error: The ':!' error-symbol prefix must be adjacent. // fix: x |> { :!/* keep */pattern[_] => () }

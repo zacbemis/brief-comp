@@ -268,6 +268,15 @@ int main(void) {
     expect(&lx, TOK_LOWER_NAME, "bad");
     expect(&lx, TOK_EOF, NULL);
   }
+  TEST("Sym is an ordinary name, with case and prefix boundaries") {
+    Lexer lx;
+    init_lexer(&lx, "Sym sym Symmetry Sym_2");
+    expect(&lx, TOK_UPPER_NAME, "Sym");
+    expect(&lx, TOK_LOWER_NAME, "sym");
+    expect(&lx, TOK_UPPER_NAME, "Symmetry");
+    expect(&lx, TOK_UPPER_NAME, "Sym_2");
+    expect(&lx, TOK_EOF, NULL);
+  }
   TEST("trait and ovr are ordinary names, including case and prefix "
        "boundaries") {
     const char *text = "trait ovr Trait Ovr traits ovride trait_2 ovr2";
@@ -311,7 +320,7 @@ int main(void) {
     expect(&lx, TOK_DBL, "dbl");
     expect(&lx, TOK_CHR, "chr");
     expect(&lx, TOK_STR, "str");
-    expect(&lx, TOK_SYM, "Sym");
+    expect(&lx, TOK_UPPER_NAME, "Sym");
     expect(&lx, TOK_SELF, "Self");
     expect(&lx, TOK_LOWER_NAME, "type");
     expect(&lx, TOK_MOD, "mod");
@@ -467,26 +476,23 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
-  TEST("transitional Sym type uses angle sets and bracketed payloads") {
+  TEST("union types use bars and bracketed payloads") {
     Lexer lx;
-    init_lexer(&lx, "Sym<:ok[User], :err[str], :missing>");
-    expect(&lx, TOK_SYM, "Sym");
-    expect(&lx, TOK_LESS_THAN, "<");
+    init_lexer(&lx, ":ok[User] | :err[str] | :missing");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_LOWER_NAME, "ok");
     expect(&lx, TOK_LBRACKET, "[");
     expect(&lx, TOK_UPPER_NAME, "User");
     expect(&lx, TOK_RBRACKET, "]");
-    expect(&lx, TOK_COMMA, ",");
+    expect(&lx, TOK_BIT_OR, "|");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_LOWER_NAME, "err");
     expect(&lx, TOK_LBRACKET, "[");
     expect(&lx, TOK_STR, "str");
     expect(&lx, TOK_RBRACKET, "]");
-    expect(&lx, TOK_COMMA, ",");
+    expect(&lx, TOK_BIT_OR, "|");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_LOWER_NAME, "missing");
-    expect(&lx, TOK_GREATER_THAN, ">");
     expect(&lx, TOK_EOF, NULL);
   }
 

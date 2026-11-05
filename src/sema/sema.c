@@ -78,11 +78,17 @@ static const SemaType *type(Resolver *r, const Type *syntax) {
     if (a)
       return a->type ? a->type : &r->program->types[SEMA_ERROR];
   }
-  if (syntax->kind == TYPE_SYM) {
+  if (syntax->kind == TYPE_INFER) {
+    diagnostics_error(
+        r->errors, syntax->span,
+        "Partial symbol sets are only allowed as function return types.");
+    return &r->program->types[SEMA_ERROR];
+  }
+  if (syntax->kind == TYPE_UNION) {
     const SemaType *result = NULL;
     int valid = 1;
-    for (size_t i = 0; i < syntax->as.sym.count; i++) {
-      SymEntry entry = syntax->as.sym.items[i];
+    for (size_t i = 0; i < syntax->as.union_type.count; i++) {
+      UnionEntry entry = syntax->as.union_type.items[i];
       const SemaType *part;
       if (entry.tag) {
         if (entry.count > 1) {
@@ -147,9 +153,9 @@ static void alias_dependencies(Resolver *r, const Type *syntax,
       *edge = (AliasEdge){a, syntax->span, *head};
       *head = edge;
     }
-  } else if (syntax->kind == TYPE_SYM) {
-    for (size_t i = 0; i < syntax->as.sym.count; i++) {
-      SymEntry entry = syntax->as.sym.items[i];
+  } else if (syntax->kind == TYPE_UNION) {
+    for (size_t i = 0; i < syntax->as.union_type.count; i++) {
+      UnionEntry entry = syntax->as.union_type.items[i];
       if (entry.type)
         alias_dependencies(r, entry.type, head);
       if (entry.count == 1)
@@ -206,21 +212,32 @@ static void resolve_aliases(Resolver *r) {
 }
 static const SemaType *return_type(Resolver *r, const Type *syntax,
                                    SemaFunction *f) {
-  if (!syntax || syntax->kind != TYPE_SYM)
+  if (syntax && syntax->kind == TYPE_INFER) {
+    f->partial = 1;
+    diagnostics_error(r->errors, syntax->span,
+                      "A partial return type must declare :ok.");
+    return &r->program->types[SEMA_ERROR];
+  }
+  if (!syntax || syntax->kind != TYPE_UNION)
     return type(r, syntax);
   Type copy = *syntax;
-  copy.as.sym.items =
-      arena_calloc(r->arena, syntax->as.sym.count, sizeof(SymEntry));
-  copy.as.sym.count = 0;
-  for (size_t i = 0; i < syntax->as.sym.count; i++) {
-    SymEntry e = syntax->as.sym.items[i];
+  copy.as.union_type.items =
+      arena_calloc(r->arena, syntax->as.union_type.count, sizeof(UnionEntry));
+  copy.as.union_type.count = 0;
+  for (size_t i = 0; i < syntax->as.union_type.count; i++) {
+    UnionEntry e = syntax->as.union_type.items[i];
     if (!e.tag && e.type->kind == TYPE_INFER) {
       if (f->partial)
         diagnostics_error(r->errors, e.span,
                           "Duplicate partial return marker.");
       f->partial = 1;
     } else
-      copy.as.sym.items[copy.as.sym.count++] = e;
+      copy.as.union_type.items[copy.as.union_type.count++] = e;
+  }
+  if (f->partial && !copy.as.union_type.count) {
+    diagnostics_error(r->errors, syntax->span,
+                      "A partial return type must declare :ok.");
+    return &r->program->types[SEMA_ERROR];
   }
   const SemaType *result = type(r, &copy);
   if (f->partial && result->kind != SEMA_ERROR && !sema_ok(result))

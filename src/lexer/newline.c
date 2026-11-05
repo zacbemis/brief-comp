@@ -6,9 +6,9 @@ static int name_token(TokenType t) {
 }
 
 // Distinguish a type argument's closing > from a comparison/shift. Without
-// this, `field: Sym<:ok(int)>\nnext: int` would lose its field separator.
-// This lexical context remains for Sym and diagnostic recovery of old angle
-// types. Accepted generic calls/types use bracket enclosure, not speculation.
+// this, rejected `field: Sym<:ok[int]>\nnext: int` would lose its separator.
+// This context is diagnostic recovery only. Accepted unions use | and accepted
+// generic calls/types use bracket enclosure, not angle speculation.
 static size_t previous_token(TokenArray raw, size_t before) {
   while (before && raw.items[before - 1].type == TOK_NEWLINE)
     before--;
@@ -20,7 +20,7 @@ static int type_angle(TokenArray raw, size_t i, int top_level) {
   if (!before)
     return 0;
   TokenType base = raw.items[before - 1].type;
-  if (base == TOK_SYM || base == TOK_FN)
+  if (base == TOK_FN)
     return 1;
   if (!name_token(base))
     return 0;

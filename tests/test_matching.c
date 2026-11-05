@@ -57,7 +57,7 @@ int main(void) {
   arena_init(&a);
   TEST("pattern roles survive resolution without guessing aliases for "
        "bindings") {
-    Result r = valid(&a, "Only = Sym<:a>\nmain() { :a |> { Only => () } }");
+    Result r = valid(&a, "Only = :a\nmain() { :a |> { Only => () } }");
     SemaExpr *pipe = r.program->functions[0].body->as.block.items[0];
     ASSERT_EQ_INT(SEMA_EXPR_BLOCK, pipe->kind);
     SemaExpr *match = pipe->as.block.items[1];
@@ -65,9 +65,8 @@ int main(void) {
     ASSERT_EQ_INT(PAT_SET, match->as.match.arms[0].kind);
     ASSERT_TRUE(match->as.match.arms[0].binding == NULL);
     ASSERT_TRUE(match->as.match.arms[0].set == r.program->aliases[0].type);
-    r = valid(
-        &a,
-        "Only = Sym<:a>\nmain() { :a |> { only => only |> { Only => () } } }");
+    r = valid(&a,
+              "Only = :a\nmain() { :a |> { only => only |> { Only => () } } }");
     pipe = r.program->functions[0].body->as.block.items[0];
     match = pipe->as.block.items[1];
     ASSERT_EQ_INT(PAT_BIND, match->as.match.arms[0].kind);

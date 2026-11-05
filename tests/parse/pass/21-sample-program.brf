@@ -1,8 +1,8 @@
 // A realistic first-version program in the style of docs/lang-ex-base.txt,
 // without the later-version features (lambdas, traits, tuples, modules).
 
-Tier = Sym<:tier1, :tier2, :tier3>
-Error = Sym<:invalidAge[int], :emptyName>
+Tier = :tier1 | :tier2 | :tier3
+Error = :invalidAge[int] | :emptyName
 
 const minAge = 0
 const maxAge: int = 150
@@ -19,7 +19,7 @@ Admin {
 }
 
 impl User {
-  pub new(name: str, age: int) -> Sym<:ok[User], Error> {
+  pub new(name: str, age: int) -> :ok[User] | Error {
     if name == "" {
       ret :emptyName
     }
@@ -33,7 +33,7 @@ impl User {
     user.name
   }
 
-  pub getAgeRange(user: User) -> Sym<:minor, :adult, :senior> {
+  pub getAgeRange(user: User) -> :minor | :adult | :senior {
     user.age |> {
       < 18 => :minor
       18..65 => :adult
@@ -59,7 +59,7 @@ impl User {
 }
 
 impl Admin {
-  pub new(name: str, age: int) -> Sym<:ok[Admin], Error> {
+  pub new(name: str, age: int) -> :ok[Admin] | Error {
     Admin { user = User.new(name, age)?, level = 1 }
   }
 }

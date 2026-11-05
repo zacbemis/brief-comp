@@ -1,4 +1,4 @@
-Failure = Sym<:!failed[str]>
+Failure = :!failed[str]
 make() -> Failure { :!failed["heap" + " error"] }
 main() -> () {
   make() |> { :!failed[text] => print(text) } // expect: heap error

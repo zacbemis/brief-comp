@@ -1,0 +1,4 @@
+// The former parser rejection is now a semantic return-type restriction.
+// Syntax accepts a bare marker, but compilation requires a written :ok tag.
+f() -> _ {
+}

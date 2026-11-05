@@ -23,7 +23,10 @@ still reports them as unimplemented. Symbol/type/member grammar and broader
 module casing remain pending. Error tags use adjacent `:!name` in the existing
 type/value/pattern contexts. Payload lists use brackets, including empty lists,
 trailing commas and several positional values/patterns. Native compilation still
-supports at most one payload; union type syntax remains pending.
+supports at most one payload. Union types use `|` in type positions, including
+payloads and type arguments, without changing bitwise or in expressions. `Sym`
+is ordinary; old `Sym<...>` wrappers reject. A bare `_` parses as a type marker,
+but checking restricts it to partial return unions with a written `:ok`.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
@@ -44,12 +47,17 @@ supports at most one payload; union type syntax remains pending.
   expressions.
 - `39`: bracketed payload lists in types, values and patterns, including
   nesting, empty/unit payloads, multiple positions, layout and trailing commas.
+- `40`: union types in aliases/fields/parameters/returns/type arguments, nested
+  payload unions, bitwise-or separation and ordinary `Sym` names.
+- `underscore-type-syntax`: promoted from the old parser rejection; semantic
+  checking still rejects its bare partial return marker.
 
 ## `fail/`
 
-There are 100 rejection fixtures, including `old-payload-parentheses.brf`,
-`payload-missing-close.brf`, `payload-missing-comma.brf`,
-`error-tag-spacing.brf`, `collection-header.brf`,
+There are 100 rejection fixtures, including `old-symbol-union.brf`,
+`union-missing-member.brf`, `union-missing-separator.brf`,
+`old-payload-parentheses.brf`, `payload-missing-close.brf`,
+`payload-missing-comma.brf`, `error-tag-spacing.brf`, `collection-header.brf`,
 `collection-missing-comma.brf`, `bare-collection-literal.brf`,
 `import-missing-name.brf`, `import-in-body.brf`, `tag-casing.brf`,
 `tag-wildcard.brf`, `declaration-casing.brf`, `declaration-wildcard.brf`,
@@ -57,8 +65,10 @@ There are 100 rejection fixtures, including `old-payload-parentheses.brf`,
 `index-missing-close.brf`, `pub-struct.brf`, `old-return-colon.brf`,
 `old-alias-keyword.brf`, `pub-alias.brf` and `struct-literal-old-colon.brf`.
 `struct-literal-missing-equals.brf` retains the old missing-delimiter rule under
-its new spelling/name. The converted
-function headers retain each existing fixture's original error rule and line.
+its new spelling/name. The converted function headers retain each existing
+fixture's original error rule and line. The two old `sym-*` delimiter files now
+check missing union members/separators on their original error lines: the old
+angle-closing/newline rule no longer exists.
 
 Every file must be rejected: `brief dump-ast` exits with status 1 and prints no
 tree. Each file starts with a header:

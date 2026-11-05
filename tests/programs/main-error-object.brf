@@ -7,9 +7,9 @@ Report {
   ready: bool
   real: dbl
   empty: ()
-  detail: Sym<:note[str]>
+  detail: :note[str]
 }
-main() -> Sym<:ok, :invalid[Report]> {
+main() -> :ok | :invalid[Report] {
   :invalid[Report {
     code = -9223372036854775808
     count = 18446744073709551615

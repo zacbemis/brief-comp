@@ -64,40 +64,41 @@ kind, and escaped source spelling. Lexical errors are collected and printed
 on standard error with their source line and an underline; invalid input exits
 with status 1. Invalid command arguments exit with status 2.
 
-N1's lexer work distinguishes `TOK_UPPER_NAME` and `TOK_LOWER_NAME`, with `_`
-as `TOK_WILDCARD`. Underscore-prefixed names such as `_value` are rejected.
-Logical negation now uses `not`; old prefix `!` is rejected with a fix, while
-postfix `!` and `!=` are unchanged. Double precision uses `dbl` for both types
-and conversion calls; old `dub` uses are rejected with fixes. Function return
-types follow `->`, with a fix for old `:` annotations. Aliases use `Name = type`,
+N1's lexer work distinguishes `TOK_UPPER_NAME` and `TOK_LOWER_NAME`, with `_` as
+`TOK_WILDCARD`. Underscore-prefixed names such as `_value` are rejected. Logical
+negation now uses `not`; old prefix `!` is rejected with a fix, while postfix
+`!` and `!=` are unchanged. Double precision uses `dbl` for both types and
+conversion calls; old `dub` uses are rejected with fixes. Function return types
+follow `->`, with a fix for old `:` annotations. Aliases use `Name = type`,
 without `type` or `pub` modifiers; both get removal fixes. `type` is an ordinary
 name. Struct literals use `field = value`, with fixes for old `field: value`;
 field declarations and type annotations keep their colons. Struct types also
-reject `pub`; field/function visibility is retained in the checked tree, with
-no cross-module access enforcement yet. Postfix indexing uses the adjacent
-`.(` token, as in `items.(i)`; old `items[i]` gets delimiter fixes. Index
-operations still report not implemented. Type arguments use `Name[Type]` in types
-and calls, without speculative parsing; old angle arguments have delimiter fixes.
+reject `pub`; field/function visibility is retained in the checked tree, with no
+cross-module access enforcement yet. Postfix indexing uses the adjacent `.(`
+token, as in `items.(i)`; old `items[i]` gets delimiter fixes. Index operations
+still report not implemented. Type arguments use `Name[Type]` in types and
+calls, without speculative parsing; old angle arguments have delimiter fixes.
 Array annotations use `Arr[Type]`, not sized postfix `Type[size]`. Generics and
-collections remain unimplemented. Typed `Arr[Type] { ... }` and
-`Vec[Type] { ... }` literals parse, but emission reports that collection
-literals are not implemented. Symbol payloads use `[...]` in types, values and
-patterns, with paired fixes for old parentheses. Lists parse with zero or more
-positions; native compilation supports zero or one, and rejects multiple
-payloads as not implemented. Union types, other declaration/type structure and
-receivers await the full switch. Struct names start uppercase;
-functions, fields, parameters, bindings and loops require lowercase names, with
-safe casing fixes. Symbol tags also require lowercase names in types, values
-and patterns. `:!name` records an error tag; a name cannot have both neutral and
-error kinds in one module. `:!` must be adjacent. This is N1 metadata only:
-outcomes, entry status and runtime formatting retain first-version rules until
-N2. `trait` and `ovr` are ordinary names, not declaration/modifier
-keywords; trait declarations and conformance remain unsupported. In patterns,
-lowercase names bind and uppercase names denote symbol sets, without
-lookup-based reclassification. Module-selection declarations such as
-`import models.User` parse, but compilation stops with `Imports are not
-implemented yet.` No module loading or cross-file lookup is added; broader
-module casing remains pending.
+collections remain unimplemented. Typed `Arr[Type] { ... }` and `Vec[Type] { ...
+}` literals parse, but emission reports that collection literals are not
+implemented. Symbol payloads use `[...]` in types, values and patterns, with
+paired fixes for old parentheses. Lists parse with zero or more positions;
+native compilation supports zero or one, and rejects multiple payloads as not
+implemented. Types now use `:a | NamedUnion | :!bad[Type]`, including nested
+payload unions and partial return markers. `Sym` is an ordinary name; `Sym<...>`
+rejects with safe unwrap/separator fixes. Other declaration/type structure and
+receivers await the full switch. Struct names start uppercase; functions,
+fields, parameters, bindings and loops require lowercase names, with safe casing
+fixes. Symbol tags also require lowercase names in types, values and patterns.
+`:!name` records an error tag; a name cannot have both neutral and error kinds
+in one module. `:!` must be adjacent. This is N1 metadata only: outcomes, entry
+status and runtime formatting retain first-version rules until N2. `trait` and
+`ovr` are ordinary names, not declaration/modifier keywords; trait declarations
+and conformance remain unsupported. In patterns, lowercase names bind and
+uppercase names denote symbol sets, without lookup-based reclassification.
+Module-selection declarations such as `import models.User` parse, but
+compilation stops with `Imports are not implemented yet.` No module loading or
+cross-file lookup is added; broader module casing remains pending.
 
 Diagnostics can carry machine-applicable fixes as byte spans and replacement
 text. These print as `help:` previews below the error and its notes. Previews
@@ -148,7 +149,7 @@ Compilation supports:
   string matches require a wildcard or binding catch-all. Duplicate literals and
   arms after a catch-all are rejected.
   Match results can be values, and arms support `ret`, `break`, and `continue`.
-- Data symbols such as `:missing` and `:found[user]`, canonical `Sym<...>` types,
+- Data symbols such as `:missing` and `:found[user]`, canonical `|` union types,
   forward named-set aliases and composition, and subset assignment/arguments/returns.
   Symbol matches support tags, payload bindings/wildcards and named groups;
   catch-all bindings receive only the remaining variants. Data-symbol return sets
@@ -156,7 +157,7 @@ Compilation supports:
   equality; payload-free symbol ordering is not implemented yet.
 - Implicit `:ok` success returns, explicit outcomes, `?` propagation and `!` panics.
   Error sets accumulate through recursive calls; partial return annotations such as
-  `Sym<:ok[User], _>` fix the success type and infer additional errors. Success-only
+  `:ok[User] | _` fix the success type and infer additional errors. Success-only
   functions retain plain-value C ABIs. Calls with both success and error variants
   must be handled directly with `?`, `!`, or a match, even when discarded or returned.
 - Typed parameters, forward calls, recursion, written or inferred
@@ -208,14 +209,14 @@ explicit non-unit `ret`. `print` remains a reserved top-level builtin taking exa
 `str`; it writes bytes plus a newline, including embedded zero bytes. `str` is
 also reserved as a top-level builtin and accepts exactly one number or `bool`.
 
-Partial `Sym<..., _>` annotations are return-only and must declare `:ok`; they are
-not general open symbol-set types. Symbol payload patterns currently must be a
-binding or `_`; refutable/nested patterns and symbol ordering remain deferred
+Partial `:ok[T] | _` annotations are return-only and must declare `:ok`; they
+are not general open symbol-set types. Symbol payload patterns currently must be
+a binding or `_`; refutable/nested patterns and symbol ordering remain deferred
 features outside M5's acceptance scope. `const`,
-character/object/string-to-string conversions, indexing,
-function values, cloning, identity comparison, and other later features also
-remain unsupported. Recursive struct/symbol shapes do not have equality.
-`dump-ast` remains syntax-only.
+character/object/string-to-string conversions, indexing, function values,
+cloning, identity comparison, and other later features also remain unsupported.
+Recursive struct/symbol shapes do not have equality. `dump-ast` remains
+syntax-only.
 
 `CC` names a **single executable** (default `cc`), not a shell command with
 flags. Paths containing spaces work; use an executable wrapper for extra flags
@@ -274,12 +275,12 @@ Panics terminate the process without unwinding owners.
 - `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
   native driver tests; program tests in normal and sanitizer configurations;
   and the [current-document parser inventory](tests/doc-parser.md): 239 fences
-  across 13 chapters, with 125 parser checks and 114 explicit fence listings,
+  across 13 chapters, with 146 parser checks and 93 explicit fence listings,
   plus two unfenced-chapter listings. Listed examples are not passing coverage.
   N1 retired all v0 native chapter scripts and bridges; replacement native audits
   return milestone by milestone. Run the inventory and its structural guards with
   `ctest --test-dir build -L doc-parser --output-on-failure`.
-- `tests/parse/`: 131 parser example files that must parse or be rejected
+- `tests/parse/`: 133 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
 

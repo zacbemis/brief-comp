@@ -3,14 +3,14 @@
 // expect: changed
 Node { text: str }
 Holder { text: str }
-parse(h: Holder) -> Sym<:ok[int], _> { int(h.text)? }
+parse(h: Holder) -> :ok[int] | _ { int(h.text)? }
 wrap(h: Holder) {
   let scratch = Node { text = "scratch" + " space" }
   let count = parse(h)?
   Node { text = str(count) }
 }
 replace(h: &Holder) { h.text = "changed" }
-first(value: Sym<:ok[int], :invalid[str]>, ignored: ()) { value |> {
+first(value: :ok[int] | :invalid[str], ignored: ()) { value |> {
   :ok[n] => str(n)
   :invalid[original] => original
 } }

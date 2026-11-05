@@ -23,7 +23,7 @@ throughPipe(user: User, stop: bool) {
 }
 pipeStep(user: User, stop: bool) { throughPipe(user, true) |> sameUser() }
 Link { name: str
-  next: Sym<:end, :more[Link]> }
+  next: :end | :more[Link] }
 throughField(link: Link, stop: bool) {
   if stop { ret link }
   fieldStep(link, stop)

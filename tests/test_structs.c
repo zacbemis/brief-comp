@@ -282,8 +282,7 @@ int main(void) {
         {"save(value: P, n: int) {}", "f(p: P) { p.save(false) }",
          "p.save(false)", many},
         {"save(value: int) {}", "f(p: int) { p.save() }", "p.save()", one},
-        {"save(value: Sym<:a, :b>) {}", "f(p: Sym<:a>) { p.save() }",
-         "p.save()", one},
+        {"save(value: :a | :b) {}", "f(p: :a) { p.save() }", "p.save()", one},
         {"save(value: P) {}", "f(p: P) { if true { let save = 0 }\np.save() }",
          "p.save()", one},
         {"save(value: P) {}", "f(p: P) { p.save()\nlet save = 0 }", "p.save()",
@@ -385,9 +384,9 @@ int main(void) {
          "Field access requires a struct."},
         {"str", "f(p, b).missing()", "f(p, b).missing()",
          "Unknown method for this type."},
-        {"Sym<:a, :b>", "f(p, b).missing", "f(p, b).missing",
+        {":a | :b", "f(p, b).missing", "f(p, b).missing",
          "Field access requires a struct."},
-        {"Sym<:a, :b>", "f(p, b).missing()", "f(p, b).missing()",
+        {":a | :b", "f(p, b).missing()", "f(p, b).missing()",
          "Unknown method for this type."},
         {"P", "let alias = f(p, b)\nalias.missing", "alias.missing",
          "Unknown struct field."}};
@@ -458,7 +457,7 @@ int main(void) {
     valid(&a, "P {}\nsame(p: P) { p }\n"
               "f(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
               "g(p: P, b: bool) { f(p, true) |> same() }\nmain() {}");
-    valid(&a, "Link { next: Sym<:end, :more[Link]> }\n"
+    valid(&a, "Link { next: :end | :more[Link] }\n"
               "f(p: Link, b: bool) { if b { ret p }\ng(p, b) }\n"
               "g(p: Link, b: bool) { f(p, true).next |> { :end => "
               "p\n:more[next] => next } }\n"

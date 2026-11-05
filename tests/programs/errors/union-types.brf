@@ -1,0 +1,7 @@
+Bad = int | :included // error: A symbol-set inclusion requires a symbol set.
+Object { value: int }
+NotData = Object | :other // error: A symbol-set inclusion requires a symbol set.
+Partial = :data | _ // error: Partial symbol sets are only allowed as function return types.
+parameter(value: _) {} // error: Partial symbol sets are only allowed as function return types.
+bare() -> _ {} // error: A partial return type must declare :ok.
+main() {}

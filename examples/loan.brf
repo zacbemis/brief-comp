@@ -3,7 +3,7 @@
 // payment is the smallest whole-cent amount that repays the loan in its term,
 // found by binary search over a month-by-month simulation.
 
-LoanError = Sym<:badPrincipal[lng], :badRate[int], :badTerm[int]>
+LoanError = :badPrincipal[lng] | :badRate[int] | :badTerm[int]
 
 Loan {
   principal: lng
@@ -74,7 +74,7 @@ column(cents: lng, width: int) -> str {
 }
 
 impl Loan {
-  new(principal: lng, rateBps: int, years: int) -> Sym<:ok[Self], LoanError> {
+  new(principal: lng, rateBps: int, years: int) -> :ok[Self] | LoanError {
     if principal <= 0 { ret :badPrincipal[principal] }
     if rateBps < 0 or rateBps > 5000 { ret :badRate[rateBps] }
     if years < 1 or years > 50 { ret :badTerm[years] }
@@ -84,7 +84,7 @@ impl Loan {
   // Simulates paying `payment` (plus `extra`) every month. Returns the months
   // taken and total interest, or the balance left if the term runs out.
   simulate(loan: Self, payment: lng, extra: lng) ->
-    Sym<:ok[Summary], :unpaid[lng]> {
+    :ok[Summary] | :unpaid[lng] {
     var balance = loan.principal
     var paid: lng = 0
     for month in 1..loan.months + 1 {
@@ -171,7 +171,7 @@ attempt(principal: lng, rateBps: int, years: int) {
   }
 }
 
-main() -> Sym<:ok, LoanError> {
+main() -> :ok | LoanError {
   let mortgage = Loan.new(35000000, 650, 30)?
   describe("30-year mortgage", mortgage)
   let shorter = Loan.new(35000000, 600, 15)?

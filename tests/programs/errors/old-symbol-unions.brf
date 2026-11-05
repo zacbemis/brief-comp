@@ -1,0 +1,3 @@
+E = Sym<:a,:b> // error: Symbol unions use '|', without 'Sym<...>'. // fix: E = :a | :b
+main() -> Sym<:ok[int]> { 1 } // error: Symbol unions use '|', without 'Sym<...>'. // fix: main() -> :ok[int] { 1 }
+Copy = Sym<E> // error: Symbol unions use '|', without 'Sym<...>'.

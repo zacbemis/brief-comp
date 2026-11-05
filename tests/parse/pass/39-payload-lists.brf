@@ -1,5 +1,5 @@
 // Syntax coverage only: multiple payloads cannot yet compile natively.
-Data = Sym<:!pair[int, str,], :empty[], :unit[()], :nested[Sym<:inside[int]>]>
+Data = :!pair[int, str,] | :empty[] | :unit[()] | :nested[:inside[int]]
 main() {
   :!pair[1, "two",]
   :empty[]

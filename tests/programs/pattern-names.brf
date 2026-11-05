@@ -1,5 +1,5 @@
-Group = Sym<:first, :second[str]>
-choose(first: bool) -> Sym<Group, :third> {
+Group = :first | :second[str]
+choose(first: bool) -> Group | :third {
   if first { :second["heap" + " payload"] } else { :third }
 }
 main() {

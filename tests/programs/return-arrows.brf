@@ -11,7 +11,7 @@ effect(value: int) -> () {
   print(str(value))
   99
 }
-choose(fail: bool) -> Sym<:ok[int], _> {
+choose(fail: bool) -> :ok[int] | _ {
   if fail { ret :bad }
   7
 }

@@ -1,4 +1,4 @@
-Value = Sym<:value_HTTP[str]>
+Value = :value_HTTP[str]
 make() -> Value { :value_HTTP["heap" + " payload"] }
 main() {
   make() |> { :value_HTTP[text] => print(text) } // expect: heap payload

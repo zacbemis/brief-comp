@@ -34,6 +34,11 @@ static void check(Arena *arena, const char *raw_text,
 int main(void) {
   Arena arena;
   arena_init(&arena);
+  TEST("ordinary Sym names do not manufacture type-angle context") {
+    check(&arena, "main() { let x = Sym < a >\n b\n}\n",
+          "main() { let x = Sym < a > b\n}\n");
+    check(&arena, "A = Sym<:a>\nB = :b\n", "A = Sym<:a>\nB = :b\n");
+  }
   TEST("ordinary newlines and blank lines remain") {
     check(&arena, "\nlet x = 1\n\nlet y = 2\n", "\nlet x = 1\n\nlet y = 2\n");
   }
@@ -61,8 +66,8 @@ int main(void) {
           ":many[1,:inner[2],]\nnext()\n");
     check(&arena, ":many[x |> {\n:a => 1\n:b => 2\n},\n3]\n",
           ":many[x |> {\n:a => 1\n:b => 2\n},3]\n");
-    check(&arena, "E = Sym<:many[\r\nint,\r\nstr,\r\n]>\r\nmain() {}\r\n",
-          "E = Sym<:many[int,str,]>\r\nmain() {}\r\n");
+    check(&arena, "E = :many[\r\nint,\r\nstr,\r\n]\r\nmain() {}\r\n",
+          "E = :many[int,str,]\r\nmain() {}\r\n");
   }
   TEST("innermost braces restore arm and field separators") {
     check(&arena, "f(\nx |> {\n:ok[x] => x\n:none => 0\n}\n)\n",
@@ -133,12 +138,11 @@ int main(void) {
     check(&arena, "ret\nx\nbreak\ncontinue\n", "ret\nx\nbreak\ncontinue\n");
   }
   TEST("type closers preserve separators, including nested >> and aliases") {
-    const char *text =
-        "Error = Sym<:bad>\nmain() {}\nUser {\n"
-        "x: Vec[Sym<:ok[int], :none>]\ny: int\nz: Mod.Box[int]\n}\n";
+    const char *text = "Error = :bad\nmain() {}\nUser {\n"
+                       "x: Vec[:ok[int] | :none]\ny: int\nz: Mod.Box[int]\n}\n";
     check(&arena, text, text);
-    check(&arena, "f() -> Sym<\n:ok[int],\n:none> { 1 }\n",
-          "f() -> Sym<:ok[int], :none> { 1 }\n");
+    check(&arena, "f() ->\n:ok[int] |\n:none { 1 }\n",
+          "f() -> :ok[int] | :none { 1 }\n");
     check(&arena, "Users =\nVec[int]\nmain() {}\n",
           "Users = Vec[int]\nmain() {}\n");
     check(&arena, "type\nUsers =\nVec[int]\n", "type\nUsers = Vec[int]\n");
@@ -171,8 +175,8 @@ int main(void) {
           "!Upper\nlower!\n_\n!lower\n");
     check(&arena, "value |> {\n_ =>\n Upper\n}\nNext\n",
           "value |> {\n_ => Upper\n}\nNext\n");
-    check(&arena, "Choice = Sym<:ok[int], _>\nmain() {}\n",
-          "Choice = Sym<:ok[int], _>\nmain() {}\n");
+    check(&arena, "Choice = :ok[int] | _\nmain() {}\n",
+          "Choice = :ok[int] | _\nmain() {}\n");
     check(&arena, "lower {\nUpper: Vec[Item]\nnext: int\n}\n",
           "lower {\nUpper: Vec[Item]\nnext: int\n}\n");
   }

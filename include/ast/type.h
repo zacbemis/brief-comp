@@ -6,12 +6,12 @@ typedef struct Type Type;
 typedef enum {
   TYPE_NAME,
   TYPE_APPLY, // Vec[User]
-  TYPE_SYM,   // Sym<:ok(User), :err(str)>
+  TYPE_UNION, // :ok[User] | :!err[str]
   TYPE_FN,    // Fn<(User): bool>
   TYPE_TUPLE, // (name: str, age: int)
   TYPE_SELF,  // Self
   TYPE_UNIT,  // ()
-  TYPE_INFER, // _ in a partial Sym return type
+  TYPE_INFER, // _ in a partial union return type
 } TypeKind;
 
 #endif

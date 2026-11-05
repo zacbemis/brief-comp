@@ -1,5 +1,5 @@
-// Kind syntax only. N1 still uses Sym and :ok outcomes.
-Failure = Sym<:!bad[int], :!missing>
+// Kind syntax only. N1 still uses :ok-based outcomes.
+Failure = :!bad[int] | :!missing
 main() {
   :!bad[1]
   :!missing

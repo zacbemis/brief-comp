@@ -3,7 +3,7 @@ touch(counter: &Counter) -> bool {
   counter.hits++
   true
 }
-fallible(flag: bool) -> Sym<:ok[bool], :bad> {
+fallible(flag: bool) -> :ok[bool] | :bad {
   if not flag { ret :bad }
   flag
 }

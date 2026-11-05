@@ -14,11 +14,11 @@
 // expect: unit
 // expect: widened
 // expect: true
-Tier = Sym<:bronze, :silver, :gold>
-Extended = Sym<Tier, :platinum, Tier>
+Tier = :bronze | :silver | :gold
+Extended = Tier | :platinum | Tier
 Account { tier: Tier }
 Payload { value: int }
-Container { value: Sym<:text[str], :object[Payload], :empty> }
+Container { value: :text[str] | :object[Payload] | :empty }
 
 describe(t: Tier) {
   t |> {
@@ -31,11 +31,11 @@ choose(n: int) {
   if n == 0 { ret :bronze }
   if n == 1 { :silver } else { :gold }
 }
-wide(n: Sym<:value[lng]>) { n }
-small(n: Sym<:value[flt]>) { n }
+wide(n: :value[lng]) { n }
+small(n: :value[flt]) { n }
 effect() { print("effect") }
-Inner = Sym<:text[str], :empty>
-nested(b: bool) -> Sym<:outer[Inner]> {
+Inner = :text[str] | :empty
+nested(b: bool) -> :outer[Inner] {
   if b { :outer[:text["wide" + "ned"]] } else { :outer[:empty] }
 }
 main() -> () {
@@ -66,6 +66,6 @@ main() -> () {
     :text[text] => print(text)
     :empty => ()
   } }
-  let widened: Sym<:outer[Inner]> = :outer[:text["widened"]]
+  let widened: :outer[Inner] = :outer[:text["widened"]]
   print(str(widened == nested(true)))
 }

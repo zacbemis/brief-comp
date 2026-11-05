@@ -2,7 +2,7 @@
 // days, Easter Sunday and a printed month grid. Dates use the proleptic
 // Gregorian calendar, counting days from 0001-01-01 (a Monday).
 
-DateError = Sym<:badYear[int], :badMonth[int], :badDay[int]>
+DateError = :badYear[int] | :badMonth[int] | :badDay[int]
 
 Date {
   year: int
@@ -69,7 +69,7 @@ dayName(weekday: int) -> str {
 }
 
 impl Date {
-  new(year: int, month: int, day: int) -> Sym<:ok[Self], DateError> {
+  new(year: int, month: int, day: int) -> :ok[Self] | DateError {
     if year < 1 or year > 9999 { ret :badYear[year] }
     if month < 1 or month > 12 { ret :badMonth[month] }
     if day < 1 or day > daysIn(year, month) { ret :badDay[day] }
@@ -158,7 +158,7 @@ check(year: int, month: int, day: int) {
   }
 }
 
-printMonth(year: int, month: int) -> Sym<:ok, DateError> {
+printMonth(year: int, month: int) -> :ok | DateError {
   let first = Date.new(year, month, 1)?
   print("")
   print("   " + monthName(month) + " " + str(year))
@@ -179,7 +179,7 @@ printMonth(year: int, month: int) -> Sym<:ok, DateError> {
   if column > 0 { print(line) }
 }
 
-main() -> Sym<:ok, DateError> {
+main() -> :ok | DateError {
   print("== Checking dates")
   check(1969, 7, 20)
   check(2000, 1, 1)

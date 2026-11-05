@@ -8,7 +8,7 @@
 // expect: nested
 // expect: 9
 // expect: copied text
-Choice = Sym<:text[str], :node[Node], :empty>
+Choice = :text[str] | :node[Node] | :empty
 Node { name: str }
 Holder { value: Choice }
 wrap(n: &Node) -> Choice { :node[n] }
@@ -77,10 +77,10 @@ main() -> () {
   }
 }
 Counter { count: int }
-bump(s: &Sym<:counter[Counter]>) {
+bump(s: &:counter[Counter]) {
   s |> { :counter[c] => c.count = 9 }
 }
-Atom = Sym<:text[str], :number[int]>
+Atom = :text[str] | :number[int]
 AtomHolder { value: Atom }
 mutImmutable(value: &Atom) {}
 copyImmutable(holder: &AtomHolder, source: Atom) {

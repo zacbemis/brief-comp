@@ -36,7 +36,6 @@ typedef enum {
   TOK_DBL,   // dbl
   TOK_CHR,   // chr
   TOK_STR,   // str
-  TOK_SYM,   // Sym
   TOK_FN,    // Fn (function type, as in Fn<(int): bool>)
   TOK_SELF,  // Self
 

@@ -2,7 +2,7 @@ Record { trait: str
 ovr: int }
 trait(ovr: str) -> str { ovr + "!" }
 ovr(trait: int) -> int { trait + 1 }
-Names = Sym<:trait, :ovr>
+Names = :trait | :ovr
 main() {
   let record = Record { trait = "heap" + " name", ovr = 7 }
   print(trait(record.trait)) // expect: heap name!

@@ -121,8 +121,8 @@ endif()
 
 # The retired type word is an ordinary name; only its old declaration form errors.
 set(alias "${TEST_DIR}/alias.brf")
-file(WRITE "${alias}" "type A = Sym<:a>\r\nmain() {}\r\n")
-set(expected "error: Declare an alias as 'Name = type', without 'type'.\n  --> ${alias}:1:1\n  |\n1 | type A = Sym<:a>\n  | ^~~~\nhelp: write `A = Sym<:a>`\n")
+file(WRITE "${alias}" "type A = :a\r\nmain() {}\r\n")
+set(expected "error: Declare an alias as 'Name = type', without 'type'.\n  --> ${alias}:1:1\n  |\n1 | type A = :a\n  | ^~~~\nhelp: write `A = :a`\n")
 foreach(command IN ITEMS dump-ast emit-c)
     execute_process(COMMAND "${BRIEF}" "${command}" "${alias}"
         RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
@@ -130,7 +130,7 @@ foreach(command IN ITEMS dump-ast emit-c)
         message(FATAL_ERROR "incorrect ${command} alias fix (${status}):\n${errors}")
     endif()
 endforeach()
-file(WRITE "${alias}" "A = Sym<:a>\r\nmain() {}\r\n")
+file(WRITE "${alias}" "A = :a\r\nmain() {}\r\n")
 execute_process(COMMAND "${BRIEF}" emit-c "${alias}"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR output STREQUAL "")

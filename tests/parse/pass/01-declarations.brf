@@ -4,8 +4,8 @@
 const limit = 100
 pub const version: flt = 0.5
 
-Tier = Sym<:bronze, :silver, :gold>
-Error = Sym<:notFound[str], :denied[str]>
+Tier = :bronze | :silver | :gold
+Error = :notFound[str] | :denied[str]
 
 User {
   name: str
@@ -20,7 +20,7 @@ Point { x: dbl
   y: dbl }
 
 impl User {
-  pub new(name: str, age: int) -> Sym<:ok[User], :invalidAge[int]> {
+  pub new(name: str, age: int) -> :ok[User] | :invalidAge[int] {
     if age < 0 {
       ret :invalidAge[age]
     }
@@ -37,7 +37,7 @@ impl User {
   }
 
   // A partial return type.
-  pub load(text: str) -> Sym<:ok[User], _> {
+  pub load(text: str) -> :ok[User] | _ {
     User.new(text, 20)?
   }
 
@@ -65,11 +65,11 @@ borrowed(a: &User, b: User, c: &Point) {
   a.age = b.age
 }
 
-namedSetsInReturn(path: str) -> Sym<:ok[str], Error, :tooLong[int]> {
+namedSetsInReturn(path: str) -> :ok[str] | Error | :tooLong[int] {
   :ok[path]
 }
 
-payloadlessOk() -> Sym<:ok, :failed> {
+payloadlessOk() -> :ok | :failed {
   :ok
 }
 

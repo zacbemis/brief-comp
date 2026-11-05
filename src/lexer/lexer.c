@@ -134,8 +134,6 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_IN;
   if (len == 2 && memcmp(lexer->start, "or", 2) == 0)
     return TOK_OR;
-  if (len == 3 && memcmp(lexer->start, "Sym", 3) == 0)
-    return TOK_SYM;
   if (len == 3 && memcmp(lexer->start, "and", 3) == 0)
     return TOK_AND;
   if (len == 3 && memcmp(lexer->start, "not", 3) == 0)

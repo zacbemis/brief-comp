@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **125 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **129 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -402,9 +402,21 @@ spelling. `errors/old-payload-parentheses.brf` rejects all three old contexts
 with paired fixes. `errors/multiple-payloads.brf` locks the explicit scope error
 for lists with several positions, without unknown-type/name or arm-body
 cascades. Such lists parse but have no native representation yet. The inventory
-is now 125 files. Union types, multiple-payload checking/lowering,
-typed/refutable payload patterns, members/receivers, remaining keywords, broader
-module casing, N2 outcome behavior and native chapter audits remain pending.
+was then 125 files.
+
+N1 now writes unions with `|`, retaining native set composition and old outcome
+rules. `union-types.brf` observes named groups, nested payloads, partial returns
+and the separate bitwise operator; `sym-name.brf` uses ordinary `Sym` as a
+struct. `errors/old-symbol-unions.brf` requires rejection/fixes for the retired
+wrapper, with no guessed unwrap of a lone named inclusion.
+`errors/union-types.brf` keeps plain-type union inclusions and misplaced/bare
+partial markers rejected. The older inclusion fixture now uses `int |
+:included`, preserving the invalid inclusion rule rather than accidentally
+converting it into a plain type alias. All previous source/expectation lines are
+retained except syntax spelling. The inventory is now 129 files.
+Multiple-payload checking/lowering, typed/refutable payload patterns,
+members/receivers, remaining keywords, broader module casing, N2 outcome
+behavior and native chapter audits remain pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

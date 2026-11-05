@@ -4,9 +4,9 @@
 // has no written return type, so its error set is inferred from the
 // functions it calls, and callers must handle every case.
 
-Kind = Sym<:checking, :savings>
-BankError = Sym<:noAccount[int], :badAmount[lng], :frozen[int],
-  :insufficient[Shortfall], :sameAccount>
+Kind = :checking | :savings
+BankError = :noAccount[int] | :badAmount[lng] | :frozen[int] |
+  :insufficient[Shortfall] | :sameAccount
 
 Shortfall {
   id: int
@@ -17,7 +17,7 @@ Entry {
   label: str
   amount: lng
   balance: lng
-  older: Sym<:none, :more[Entry]>
+  older: :none | :more[Entry]
 }
 
 Account {
@@ -26,17 +26,17 @@ Account {
   kind: Kind
   balance: lng
   frozen: bool
-  history: Sym<:none, :more[Entry]>
+  history: :none | :more[Entry]
 }
 
 Node {
   account: Account
-  next: Sym<:none, :more[Node]>
+  next: :none | :more[Node]
 }
 
 Bank {
   name: str
-  accounts: Sym<:none, :more[Node]>
+  accounts: :none | :more[Node]
   nextId: int
 }
 
@@ -67,7 +67,7 @@ impl Account {
   }
 
   deposit(account: &Self, amount: lng, label: str) ->
-    Sym<:ok, :badAmount[lng], :frozen[int]> {
+    :ok | :badAmount[lng] | :frozen[int] {
     if amount <= 0 { ret :badAmount[amount] }
     if account.frozen { ret :frozen[account.id] }
     account.record(label, amount)
@@ -103,7 +103,7 @@ impl Bank {
   }
 
   // Taking the bank as & makes the account it returns writable.
-  find(bank: &Self, id: int) -> Sym<:ok[Account], :noAccount[int]> {
+  find(bank: &Self, id: int) -> :ok[Account] | :noAccount[int] {
     var cursor = bank.accounts
     while true {
       let node = cursor |> {
@@ -172,7 +172,7 @@ impl Bank {
 }
 
 // Prints oldest entries first by recursing to the end of the history.
-printHistory(history: Sym<:none, :more[Entry]>) {
+printHistory(history: :none | :more[Entry]) {
   history |> {
     :none => ()
     :more[entry] => {
@@ -207,7 +207,7 @@ attempt(bank: &Bank, from: int, to: int, amount: lng) {
   }
 }
 
-main() -> Sym<:ok, :badAmount[lng], :frozen[int]> {
+main() -> :ok | :badAmount[lng] | :frozen[int] {
   let bank = Bank.new("Brief Savings & Loan")
   let ada = bank.open("Ada", :checking)
   let ada2 = bank.open("Ada", :savings)

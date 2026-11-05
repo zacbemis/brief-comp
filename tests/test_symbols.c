@@ -111,9 +111,9 @@ int main(void) {
   arena_init(&a);
   TEST("aliases flatten, deduplicate and intern independently of listing "
        "order") {
-    Result r = valid(&a, "All = Sym<Other, :b[int], :a>\n"
-                         "Other = Sym<:a, :b[int], :a>\n"
-                         "Again = Sym<:b[int], :a>\nmain() {}\n");
+    Result r = valid(&a, "All = Other | :b[int] | :a\n"
+                         "Other = :a | :b[int] | :a\n"
+                         "Again = :b[int] | :a\nmain() {}\n");
     const SemaType *type = r.program->aliases[0].type;
     ASSERT_TRUE(type == r.program->aliases[1].type);
     ASSERT_TRUE(type == r.program->aliases[2].type);
@@ -243,12 +243,12 @@ int main(void) {
   TEST("payload lists preserve zero versus unit; several positions stay "
        "scoped") {
     valid(&a,
-          "Empty = Sym<:empty[]>\nItem = Sym<:item[int,]>\n"
+          "Empty = :empty[]\nItem = :item[int,]\n"
           "main() { let e: Empty = :empty[]\ne |> { :empty[] => () }\n"
           ":unit[()] |> { :unit[_] => () }\n:item[1,] |> { :item[x,] => x } }");
-    invalid(&a, "main() { let value: Sym<:empty[]> = :empty[()] }",
+    invalid(&a, "main() { let value: :empty[] = :empty[()] }",
             "does not match");
-    const char *cases[] = {"E = Sym<:many[Missing, Other]>\nmain() {}",
+    const char *cases[] = {"E = :many[Missing, Other]\nmain() {}",
                            "main() { :many[unknown, missing()] }",
                            "main() { 1 |> { :many[a, b] => unknown(a, b) } }"};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
@@ -261,11 +261,21 @@ int main(void) {
                       r.errors.items[0]->message));
     }
   }
+  TEST("union syntax and ordinary Sym names preserve checked set identity") {
+    Result r = valid(&a, "A = :a | :b[str]\nB = A | :c\nSym = B\n"
+                         "main() { let value: Sym = :b[\"heap\"]\nvalue |> { "
+                         ":a => ()\n:b[s] => print(s)\n:c => () } }");
+    ASSERT_EQ_INT(3, r.program->aliases[1].type->symbols->count);
+    ASSERT_TRUE(r.program->aliases[1].type == r.program->aliases[2].type);
+    valid(&a, "Sym { value: int }\nmain() { Sym { value = 1 } }");
+    invalid(&a, "f() -> _ {}\nmain() {}", "must declare :ok");
+    invalid(&a, "A = _\nmain() {}", "only allowed as function return types");
+    invalid(&a, "A = int | :a\nmain() {}", "inclusion requires");
+  }
   TEST("error-kind syntax does not switch first-version outcomes") {
     Result r = valid(
-        &a,
-        "E = Sym<:!failed[str]>\nf() -> E { :!failed[\"heap\" + \" payload\"] "
-        "}\nmain() { f() |> { :!failed[text] => print(text) } }");
+        &a, "E = :!failed[str]\nf() -> E { :!failed[\"heap\" + \" payload\"] "
+            "}\nmain() { f() |> { :!failed[text] => print(text) } }");
     SemaTag *failed = sema_tag(r.program, r.program->module, "failed");
     ASSERT_EQ_INT(SEMA_TAG_ERROR, failed->kind);
     ASSERT_TRUE(failed->kind_declared &&
@@ -278,10 +288,8 @@ int main(void) {
     ASSERT_EQ_INT(id, failed->id);
     ASSERT_EQ_INT(SEMA_TAG_ERROR, failed->kind);
     valid(&a, "main() { :!failure }"); // N2 will change entry status, not N1.
-    invalid(&a, "A = Sym<:bad>\nB = Sym<:!bad>\nmain() {}",
-            "both neutral and error");
-    invalid(&a, "A = Sym<:!bad>\nB = Sym<:bad>\nmain() {}",
-            "both neutral and error");
+    invalid(&a, "A = :bad\nB = :!bad\nmain() {}", "both neutral and error");
+    invalid(&a, "A = :!bad\nB = :bad\nmain() {}", "both neutral and error");
     invalid(&a, "main() { :!bad |> { :bad => () } }", "both neutral and error");
     invalid(&a, "main() { :!ok }", "neutral symbols and cannot");
     invalid(&a, "main() { :!none }", "neutral symbols and cannot");
@@ -314,9 +322,9 @@ int main(void) {
   TEST("resolved and converter-created tags have neutral source-module "
        "metadata") {
     Result r =
-        valid(&a, "Maybe = Sym<:ok[int], :none>\n"
-                  "parse(s: str) -> Sym<:ok[int], :invalid[str]> { int(s)? }\n"
-                  "small(n: lng) -> Sym<:ok[int], :overflow> { int(n)? }\n"
+        valid(&a, "Maybe = :ok[int] | :none\n"
+                  "parse(s: str) -> :ok[int] | :invalid[str] { int(s)? }\n"
+                  "small(n: lng) -> :ok[int] | :overflow { int(n)? }\n"
                   "main() { :none }");
     SemaProgram *p = r.program;
     SemaTag *invalid_tag = sema_tag(p, p->module, "invalid");
@@ -397,36 +405,35 @@ int main(void) {
     ASSERT_TRUE(p->tags == last && last->next == p->ok);
   }
   TEST("all payload types, forward structs, nested symbols and unit payloads") {
-    valid(&a, "Choice = Sym<:object[Node], :nested[Sym<:yes, :no>], "
-              ":unit[()], :empty>\n"
+    valid(&a, "Choice = :object[Node] | :nested[:yes | :no] | "
+              ":unit[()] | :empty\n"
               "Node { choice: Choice }\n"
               "main() { let n = Node { choice = :empty }\n"
               "let c: Choice = :object[n]\nc |> { :object[x] => x.choice\n"
               "other => other }\n() }");
-    valid(&a, "main() { let a: Sym<:value[lng]> = :value[4294967296]\n"
-              "let b: Sym<:value[flt]> = :value[0.1]\n"
-              "let c: Sym<:value[()]> = :value[()]\n"
+    valid(&a, "main() { let a: :value[lng] = :value[4294967296]\n"
+              "let b: :value[flt] = :value[0.1]\n"
+              "let c: :value[()] = :value[()]\n"
               "c |> { :value[x] => x } }");
     valid(&a, "main() { :outer[:inner[\"a\" + \"b\"]] |> { :outer[x] => "
               "x |> { :inner[s] => print(s) } } }");
     valid(
         &a,
-        "Inner = Sym<:a[str], :b>\n"
-        "f(b: bool) -> Sym<:outer[Inner]> { if b { :outer[:a[\"x\"]] } "
+        "Inner = :a[str] | :b\n"
+        "f(b: bool) -> :outer[Inner] { if b { :outer[:a[\"x\"]] } "
         "else { :outer[:b] } }\n"
-        "main() { let x: Sym<:outer[Inner]> = :outer[:a[\"x\"]]\n"
-        "let y = :b\nlet z: Sym<:outer[Inner]> = :outer[y]\n"
+        "main() { let x: :outer[Inner] = :outer[:a[\"x\"]]\n"
+        "let y = :b\nlet z: :outer[Inner] = :outer[y]\n"
         "f(true) |> { :outer[inner] => inner |> { :a[_] => ()\n:b => () } } }");
-    invalid(&a, "main() { let a: Sym<:a> = :a[()] }", "does not match");
-    invalid(&a, "main() { let a: Sym<:a[()]> = :a }", "does not match");
-    invalid(&a, "main() { let a: Sym<:a[lng]> = :a[true] }", "does not match");
+    invalid(&a, "main() { let a: :a = :a[()] }", "does not match");
+    invalid(&a, "main() { let a: :a[()] = :a }", "does not match");
+    invalid(&a, "main() { let a: :a[lng] = :a[true] }", "does not match");
   }
   TEST("packing, widening and payload reads independently acquire owners") {
     Result r = valid(
-        &a,
-        "make() -> Sym<:a[str], :b> { :a[\"x\" + \"y\"] }\n"
-        "read(s: Sym<:a[str], :b>) { s |> { :a[text] => text\n:b => \"\" } }\n"
-        "main() { read(make()) }");
+        &a, "make() -> :a[str] | :b { :a[\"x\" + \"y\"] }\n"
+            "read(s: :a[str] | :b) { s |> { :a[text] => text\n:b => \"\" } }\n"
+            "main() { read(make()) }");
     IrProgram *ir = ir_lower(&a, r.program);
     ir_insert_rc(&a, ir);
     unsigned seen = 0;
@@ -452,7 +459,7 @@ int main(void) {
   }
   TEST("subset assignment, fields, parameters, returns and branch joins") {
     Result r = valid(
-        &a, "Tier = Sym<:bronze, :silver, :gold>\n"
+        &a, "Tier = :bronze | :silver | :gold\n"
             "Box { tier: Tier }\n"
             "choose(b: bool) { if b { :bronze } else { :gold } }\n"
             "forward(b: bool) -> Tier { if b { ret :silver }\nchoose(b) }\n"
@@ -462,13 +469,12 @@ int main(void) {
             "forward(true) |> same() |> { Tier => () } }");
     ASSERT_EQ_INT(2,
                   r.program->functions[0].symbol.return_type->symbols->count);
-    invalid(&a, "f(x: Sym<:a>) {}\nmain() { f(:b) }",
-            "argument has the wrong type");
-    invalid(&a, "f(b: bool) -> Sym<:a> { if b { ret :b }\n:a }\nmain() {}",
+    invalid(&a, "f(x: :a) {}\nmain() { f(:b) }", "argument has the wrong type");
+    invalid(&a, "f(b: bool) -> :a { if b { ret :b }\n:a }\nmain() {}",
             "Return value");
-    invalid(&a, "f() -> Sym<:a> { :b }\nmain() {}", "body does not match");
+    invalid(&a, "f() -> :a { :b }\nmain() {}", "body does not match");
     invalid(&a, "main() { var x = :a\nx = :b }", "Assignment value");
-    invalid(&a, "B { x: Sym<:a> }\nmain() { B { x = :b } }",
+    invalid(&a, "B { x: :a }\nmain() { B { x = :b } }",
             "initializer has the wrong type");
   }
   TEST("sets grow across recursive SCCs without locking out later tags") {
@@ -557,9 +563,9 @@ int main(void) {
     char text[16384];
     size_t used = 0;
     for (int i = 0; i < 40; i++)
-      used += (size_t)snprintf(
-          text + used, sizeof(text) - used,
-          "g%d(x: int) -> Sym<:ok[int], :e%d[int]> { x }\n", i, i);
+      used +=
+          (size_t)snprintf(text + used, sizeof(text) - used,
+                           "g%d(x: int) -> :ok[int] | :e%d[int] { x }\n", i, i);
     used += (size_t)snprintf(text + used, sizeof(text) - used, "h(x: int) {\n");
     for (int i = 0; i < 40; i++)
       used += (size_t)snprintf(text + used, sizeof(text) - used,
@@ -591,39 +597,37 @@ int main(void) {
         }
     }
     // Nested payload sets are declared even when only their container is used.
-    valid(&a, "f() -> Sym<:a[Sym<:b[Sym<:c[str]>]>]> { :a[:b[:c[\"x\"]]] }\n"
+    valid(&a, "f() -> :a[:b[:c[str]]] { :a[:b[:c[\"x\"]]] }\n"
               "main() { f() |> { :a[inner] => inner |> {\n"
               ":b[deep] => deep |> { :c[s] => print(s) } } } }");
   }
   TEST("global tags may have distinct payload types until their sets meet") {
-    Result r =
-        valid(&a, "A = Sym<:value[int]>\nB = Sym<:value[str]>\nmain() {}\n");
+    Result r = valid(&a, "A = :value[int]\nB = :value[str]\nmain() {}\n");
     ASSERT_TRUE(r.program->aliases[0].type != r.program->aliases[1].type);
     ASSERT_TRUE(r.program->aliases[0].type->symbols->variants[0].tag ==
                 r.program->aliases[1].type->symbols->variants[0].tag);
-    invalid(&a, "A = Sym<:value[int]>\nB = Sym<A, :value[str]>\nmain() {}",
+    invalid(&a, "A = :value[int]\nB = A | :value[str]\nmain() {}",
             "conflicting payload");
-    invalid(&a, "A = Sym<:value, :value[()]>\nmain() {}",
-            "conflicting payload");
-    invalid(&a, "A = Sym<int>\nmain() {}", "inclusion requires");
+    invalid(&a, "A = :value | :value[()]\nmain() {}", "conflicting payload");
+    invalid(&a, "A = int | :included\nmain() {}", "inclusion requires");
     invalid(&a, "A = int\nmain() {}", "require a symbol set");
   }
   TEST("symbol patterns, named groups, residual binders and lexical scope") {
-    Result r = valid(&a, "Pair = Sym<:a, :b[str]>\n"
-                         "f(x: Sym<Pair, :c>) { x |> { :a => ret :handled\n"
+    Result r = valid(&a, "Pair = :a | :b[str]\n"
+                         "f(x: Pair | :c) { x |> { :a => ret :handled\n"
                          "other => other } }\n"
-                         "main() { let x: Sym<Pair, :c> = :b[\"B\"]\n"
+                         "main() { let x: Pair | :c = :b[\"B\"]\n"
                          "x |> { :a => ()\nPair => ()\n:c => () } }");
     const SemaType *ft = r.program->functions[0].symbol.return_type;
     ASSERT_TRUE(!sema_variant(ft, sema_tag(r.program, r.program->module, "a")));
     ASSERT_EQ_INT(3, ft->symbols->count);
     invalid(&a, "main() { :a[1] |> { :a[x] => x++ } }", "immutable binding");
     invalid(&a, "main() { :a[1] |> { :a[x] => x }\nx }", "Unknown binding");
-    invalid(&a, "main() { let x: Sym<:a, :b> = :a\nx |> { :a => () } }",
+    invalid(&a, "main() { let x: :a | :b = :a\nx |> { :a => () } }",
             "not exhaustive");
     invalid(&a, "main() { :a |> { :a => ()\n_ => () } }",
             "Unreachable match arm");
-    invalid(&a, "A = Sym<:a>\nmain() { :b |> { A => ()\n_ => () } }",
+    invalid(&a, "A = :a\nmain() { :b |> { A => ()\n_ => () } }",
             "Unreachable match arm");
     invalid(&a, "main() { :a |> { :b => ()\n_ => () } }", "tag is not in");
     invalid(&a, "main() { :a[1] |> { :a => () } }", "wrong payload shape");
@@ -631,31 +635,31 @@ int main(void) {
     invalid(&a, "main() { :a |> { 1 => ()\n_ => () } }", "require symbol or");
     invalid(&a, "main() { 1 |> { :a => ()\n_ => () } }",
             "require a symbol input");
-    invalid(&a, "A = Sym<:a[str]>\nmain() { :a[1] |> { A => () } }",
+    invalid(&a, "A = :a[str]\nmain() { :a[1] |> { A => () } }",
             "conflicting payload");
     invalid(&a, "main() { :a[1] |> { :a[1] => () } }",
             "Refutable symbol payload");
-    invalid(&a, "A = Sym<:a>\nmain() { :outer[:a] |> { :outer[A] => () } }",
+    invalid(&a, "A = :a\nmain() { :outer[:a] |> { :outer[A] => () } }",
             "Refutable symbol payload");
   }
   TEST("equality extends through finite symbols, never recursive shapes") {
-    valid(&a, "B { value: Sym<:text[str], :unit[()]> }\n"
+    valid(&a, "B { value: :text[str] | :unit[()] }\n"
               "main() { let a = B { value = :text[\"a\"] }\n"
               "let b = B { value = :unit[()] }\nprint(str(a == b))\n"
               "print(str(:a == :b))\nprint(str(:n[1] == :n[2])) }");
-    Result r = valid(&a, "Link = Sym<:none, :next[Node]>\nNode { link: "
+    Result r = valid(&a, "Link = :none | :next[Node]\nNode { link: "
                          "Link }\nmain() {}\n");
     ASSERT_TRUE(!r.program->structs[0].equatable);
     ASSERT_TRUE(!r.program->aliases[0].type->symbols->equatable);
     invalid(&a,
-            "Link = Sym<:none, :next[Node]>\nNode { link: Link }\n"
+            "Link = :none | :next[Node]\nNode { link: Link }\n"
             "f(x: Link, y: Link) { x == y }\nmain() {}",
             "can contain a reference cycle have no == or !=");
     invalid(&a, "main() { :a < :b }", "Comparison of this type");
     invalid(&a, "main() { :a[1] == :a[false] }", "conflicting payload");
   }
   TEST("permissions traverse payloads, calls, narrowing, aliases and stores") {
-    const char *prefix = "P { x: int }\nChoice = Sym<:some[P], :none>\n";
+    const char *prefix = "P { x: int }\nChoice = :some[P] | :none\n";
     char text[4096];
 #define CASE(body)                                                             \
   (snprintf(text, sizeof(text), "%s%s\nmain() {}", prefix, body), text)
@@ -694,9 +698,9 @@ int main(void) {
       "permission messages distinguish read-only values from mutable targets") {
     const char *prefix =
         "P { n: int }\n"
-        "Choice = Sym<:some[P], :none>\n"
-        "Nested = Sym<:outer[Choice], :empty>\n"
-        "Scalar = Sym<:text[str], :number[int]>\n"
+        "Choice = :some[P] | :none\n"
+        "Nested = :outer[Choice] | :empty\n"
+        "Scalar = :text[str] | :number[int]\n"
         "Wrapper { part: P\nmarker: int }\n"
         "Holder { item: P\nchoice: Choice\nnested: Nested\nwrapper: Wrapper\n"
         "text: str\ncount: int\nscalar: Scalar }\n"
@@ -787,25 +791,25 @@ int main(void) {
   TEST("alias dependencies are iterative, cycles diagnosed, struct indirection "
        "allowed") {
     invalid(&a, "A = B\nB = A\nmain() {}", "Recursive named types");
-    invalid(&a, "A = Sym<:next[A]>\nmain() {}", "Recursive named types");
-    invalid(&a, "A = Sym<:a>\nA() {}\nmain() {}", "cannot share a name");
-    invalid(&a, "A {}\nA = Sym<:a>\nmain() {}", "reserved named type");
-    invalid(&a, "type int = Sym<:a>\nmain() {}", "Expected a named type");
+    invalid(&a, "A = :next[A]\nmain() {}", "Recursive named types");
+    invalid(&a, "A = :a\nA() {}\nmain() {}", "cannot share a name");
+    invalid(&a, "A {}\nA = :a\nmain() {}", "reserved named type");
+    invalid(&a, "type int = :a\nmain() {}", "Expected a named type");
     // Lowercase builtin names cannot form an uppercase alias declaration.
-    invalid(&a, "print = Sym<:a>\nmain() {}", "Statements are only allowed");
+    invalid(&a, "print = :a\nmain() {}", "Statements are only allowed");
     size_t capacity = 160000;
     char *text = arena_alloc(&a, capacity);
     size_t length = 0;
     for (size_t i = 0; i < 2050; i++)
       length += (size_t)snprintf(text + length, capacity - length,
                                  "A%zu = A%zu\n", i, i + 1);
-    snprintf(text + length, capacity - length, "A2050 = Sym<:a>\nmain() {}\n");
+    snprintf(text + length, capacity - length, "A2050 = :a\nmain() {}\n");
     Result r = valid(&a, text);
     ASSERT_EQ_INT(2051, r.program->alias_count);
     ASSERT_TRUE(r.program->aliases[0].type == r.program->aliases[2050].type);
   }
   TEST("symbol coverage agrees with an independent five-tag bitset oracle") {
-    Result r = valid(&a, "All = Sym<:a, :b, :c, :d, :e>\nmain() {}\n");
+    Result r = valid(&a, "All = :a | :b | :c | :d | :e\nmain() {}\n");
     const SemaType *type = r.program->aliases[0].type;
     uint32_t random = UINT32_C(1234567);
     for (size_t trial = 0; trial < 500; trial++) {
@@ -867,8 +871,8 @@ int main(void) {
   }
   TEST("outcome handling extends data symbols without changing their rules") {
     valid(&a, "main() { :ok[1] }");
-    valid(&a, "f() -> Sym<:ok, :bad> { :bad }\nmain() {}");
-    invalid(&a, "f() -> Sym<:a, _> { :a }\nmain() {}", "must declare :ok");
+    valid(&a, "f() -> :ok | :bad { :bad }\nmain() {}");
+    invalid(&a, "f() -> :a | _ { :a }\nmain() {}", "must declare :ok");
     valid(&a, "main() { :a }");
   }
   arena_destroy(&a);

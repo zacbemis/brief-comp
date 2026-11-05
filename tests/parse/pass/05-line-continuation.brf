@@ -108,7 +108,7 @@ pub
 
 
   Alias =
-  Sym<:a>
+  :a
 
 impl
   User {

@@ -1,5 +1,5 @@
-A = Sym<:Bad> // error: Symbol tags must start with a lowercase letter. // fix: A = Sym<:bad>
-B = Sym<:BAD_VALUE[int]> // error: Symbol tags must start with a lowercase letter. // fix: B = Sym<:badValue[int]>
+A = :Bad // error: Symbol tags must start with a lowercase letter. // fix: A = :bad
+B = :BAD_VALUE[int] // error: Symbol tags must start with a lowercase letter. // fix: B = :badValue[int]
 main() {
   :Wrong[1] // error: Symbol tags must start with a lowercase letter. // fix: :wrong[1]
   value |> {

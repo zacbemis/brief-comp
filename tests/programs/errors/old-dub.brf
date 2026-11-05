@@ -1,5 +1,5 @@
 Box { value: dub } // error: Double precision is written 'dbl', not 'dub'. // fix: Box { value: dbl }
-Answer = Sym<:ok[dub], :none> // error: Double precision is written 'dbl', not 'dub'. // fix: Answer = Sym<:ok[dbl], :none>
+Answer = :ok[dub] | :none // error: Double precision is written 'dbl', not 'dub'. // fix: Answer = :ok[dbl] | :none
 f(value: dub) {} // error: Double precision is written 'dbl', not 'dub'. // fix: f(value: dbl) {}
 result() -> dub { 1 } // error: Double precision is written 'dbl', not 'dub'. // fix: result() -> dbl { 1 }
 main() {

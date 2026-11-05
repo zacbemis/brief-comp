@@ -5,7 +5,7 @@
 History {
   board: ulng
   generation: int
-  older: Sym<:none, :more[History]>
+  older: :none | :more[History]
 }
 
 bit(row: int, col: int) -> ulng {
@@ -52,7 +52,7 @@ population(board: ulng) -> int {
 
 // Sets the listed columns of one row. Without string indexing, a row is
 // written as a list of column numbers rather than as text.
-place(board: ulng, row: int, cols: Sym<:none, :col[Cell]>) -> ulng {
+place(board: ulng, row: int, cols: :none | :col[Cell]) -> ulng {
   cols |> {
     :none => board
     :col[cell] => place(board | bit(row, cell.col), row, cell.rest)
@@ -61,10 +61,10 @@ place(board: ulng, row: int, cols: Sym<:none, :col[Cell]>) -> ulng {
 
 Cell {
   col: int
-  rest: Sym<:none, :col[Cell]>
+  rest: :none | :col[Cell]
 }
 
-cells(a: int, b: int, c: int) -> Sym<:none, :col[Cell]> {
+cells(a: int, b: int, c: int) -> :none | :col[Cell] {
   :col[Cell { col = a, rest = :col[Cell { col = b, rest = :col[Cell { col = c, rest = :none }] }] }]
 }
 
@@ -77,7 +77,7 @@ show(board: ulng) {
 }
 
 // Returns the generation at which `board` appeared before, if it did.
-seen(history: History, board: ulng) -> Sym<:ok[int], :none> {
+seen(history: History, board: ulng) -> :ok[int] | :none {
   if history.board == board { ret history.generation }
   history.older |> {
     :none => :none
@@ -85,7 +85,7 @@ seen(history: History, board: ulng) -> Sym<:ok[int], :none> {
   }
 }
 
-describe(outcome: Sym<:dead[int], :still[int], :cycle[Period], :running[int]>) {
+describe(outcome: :dead[int] | :still[int] | :cycle[Period] | :running[int]) {
   outcome |> {
     :dead[g] => print("  died out at generation " + str(g))
     :still[g] => print("  froze into a still life at generation " + str(g))

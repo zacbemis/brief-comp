@@ -177,14 +177,14 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (125 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds and bracketed payload lists (zero/one native); other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
-| `tests/parse/pass/` (31) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
+| `tests/programs/` (129 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types and ordinary `Sym` names; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/parse/pass/` (33) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
 | `tests/parse/fail/` (100) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
 | CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
 | Document acceptance (13 v0 audits, now retired) | Scripts, bridges and registrations deleted in N1; records retained as historical evidence | Each new document's audit is written in the milestone that implements its rules (see "Milestones"), so document coverage returns chapter by chapter instead of all at the end. |
-| `test_doc_parser` | Reads 13 current chapters: 239 fences, 125 parser checks, 114 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
+| `test_doc_parser` | Reads 13 current chapters: 239 fences, 146 parser checks, 93 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
 | `examples/*.brf` | Not run in CI | Converted in N1, and added to the program runner with their output as expectations, so the examples cannot rot again. |
 
 ### New test forms
@@ -218,7 +218,7 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 N0 is complete. N1's identifier tokens, `not`, `dbl`, `->` returns, keyword-free
 aliases, `=` struct literal fields, `.()` indices and bracketed type arguments
 are implemented, together with casing on recognized declarations and symbol
-tags. `trait` and `ovr` are ordinary names. Sized array annotations recover as
+tags. `Sym`, `trait` and `ovr` are ordinary names. Sized array annotations recover as
 `Arr[Type]` with diagnostics.
 Structs/aliases reject `pub`; checked fields/functions retain written
 visibility. The v0 scripts/bridges are retired and the current-document parser
@@ -231,8 +231,8 @@ unimplemented at native compilation. Error tags use adjacent `:!name`; kinds and
 conflict source locations are retained, without switching outcomes or formatting.
 Bracketed payload lists parse in types, values and patterns; zero/one payload
 preserves native behavior, while several positions report not implemented.
-Union types, multi-payload checking/lowering and the old failure-tag conversion
-remain pending.
+Union types now use `|` in every type context; old `Sym<...>` wrappers reject.
+Multi-payload checking/lowering and the old failure-tag conversion remain pending.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -1181,6 +1181,72 @@ All six examples preserve sanitized stdout/stderr/status. N1 remains in progress
 union types, multi-payload checking/lowering, typed/refutable patterns, remaining
 members/declarations/keywords, receivers, fieldless traits, failure-tag conversion,
 broader module casing and replacement native audits. N2 has not begun.
+
+### N1 increment: union type grammar and ordinary `Sym`
+
+Type positions now read `:a | NamedUnion | :!bad[Type]` directly. Single tags,
+nested payload unions, named-set inclusions, type arguments and `_` return markers
+use one type parser, without expression guessing. `|` in expressions is unchanged
+bitwise or. `TYPE_UNION`/`UnionEntry` replace `TYPE_SYM`/`SymEntry`, and dumps use
+`(union ...)`. Union entries are flat; payload unions remain nested. Wide lists
+are built iteratively and existing syntax depth limits remain active.
+
+`Sym` lexes as an ordinary uppercase name, with native alias/struct coverage.
+`TOK_SYM` is removed. Newline filtering does not give ordinary `Sym` expressions
+a special angle context. Accepted grammar uses no angle syntax; virtual `>>`
+splitting/angle closers remain solely for old-wrapper/type-argument diagnostics.
+`Sym<...>` recovers with `Symbol unions use '|', without 'Sym<...>'.` and safe
+prefix/closer/separator fixes. They preserve comments and LF/CRLF and compose
+with nested wrapper, old-angle, payload and casing fixes. Nested wrappers report
+once, at the outermost, with every wrapper fix in source order; that report comes
+before other errors inside it. Removing a delimiter also removes the spaces/tabs
+beside it, never a line break. A lone named inclusion gets no guessed unwrap: it
+could name a struct/plain type rather than a union, so removing the wrapper could
+change invalid input into a different valid type. Incomplete forms keep their
+primary errors without fabricated replacements.
+
+Resolution still uses canonical first-version symbol sets. Union inclusions must
+be symbol sets, recursion requires struct indirection, and partial returns need
+a written `:ok` with markers allowed only on returns. A bare `_` now parses but
+fails this semantic restriction explicitly. Existing kind checks, zero/one native
+payloads, multi-payload scope barriers, outcomes, RC, ABI and runtime formatting
+remain unchanged. No IR, emission or runtime implementation is added.
+
+All existing fixtures/examples/Brief strings in C tests use the new type syntax.
+The old primitive-inclusion rejection becomes `int | :included`, retaining its
+rule instead of silently becoming a plain alias. The two `sym-*` parser delimiter
+fixtures become union missing-member/separator checks on their original lines;
+the old angle-closing/newline rule is retired. `underscore-type.brf` moves to
+`pass/underscore-type-syntax.brf` as parser-only coverage; its native emission
+still fails, now in semantics. `40-union-types.brf` and an old-wrapper rejection
+bring the parser inventory to 33 passes and 100 failures (133 files).
+`union-types.brf`, `sym-name.brf` and two native rejection files bring programs to
+129. Parser/lexer/newline/semantic/CLI tests check contextual trees/spans, ordinary
+names, safe/no-fix recovery, immutable tokens/virtual closers, 512-wide unions,
+marker restrictions and no AST/C output after old-syntax diagnostics.
+
+The document manifest gains a type-context wrapper that preserves entire type
+fragments without treating them as expressions, with preservation/empty-input
+guards. It now tests 146 fences: 141 successful parses plus five intentional
+syntax rejections. Twenty-one whole fences move to checks; remaining listings are
+reclassified by their actual dependencies, not marked as implemented: 13 pending
+N1/N4/N5 syntax, 62 later features and 18 fragments (93 fenced listings), plus two
+unfenced listings. There are 16 manifest failure guards. No helper library,
+stubbed body, source extraction or v0 bridge is introduced. Parser coverage is
+not module/API/collection/outcome acceptance; no native chapter audit is complete.
+
+Validation: fresh `-Werror` GCC/Clang Debug ASan/UBSan and GCC Release pass 25/25;
+GCC Debug without sanitizers passes 24/24. clang-format 23.1.4 and
+`git diff --check` pass. All 292 retained baseline sources preserve emission
+statuses and C bytes; all 89 prior C successes are byte-identical. ASTs change
+only from `(Sym ...)` to `(union ...)`, the reviewed primitive-inclusion fixture,
+and the promoted underscore fixture. Primary/note texts change only for the
+three reclassified parser fixtures; other line/message observations persist,
+with source/fix previews and columns reflecting the new spelling. All six
+examples preserve sanitized stdout/stderr/status. N1 remains in progress:
+multi-payload checking/lowering, typed/refutable patterns, members/receivers,
+fieldless traits, remaining keywords/casing, failure-tag conversion and native
+audits. N2 is not implemented by this slice.
 
 ## Risks
 

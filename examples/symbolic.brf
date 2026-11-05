@@ -3,8 +3,8 @@
 // evaluation that reports division by zero, and Newton's method built on the
 // derivative.
 
-Expr = Sym<:num[dbl], :x, :add[Pair], :sub[Pair], :mul[Pair],
-  :div[Pair], :pow[Power], :neg[Unary]>
+Expr = :num[dbl] | :x | :add[Pair] | :sub[Pair] | :mul[Pair] |
+  :div[Pair] | :pow[Power] | :neg[Unary]
 
 // Recursive symbol types reach themselves through a struct.
 Pair {
@@ -61,7 +61,7 @@ show(e: Expr) -> str {
 
 // ---- Simplification -----------------------------------------------------
 
-constant(e: Expr) -> Sym<:ok[dbl], :none> {
+constant(e: Expr) -> :ok[dbl] | :none {
   e |> {
     :num[v] => v
     _ => :none
@@ -198,7 +198,7 @@ derive(e: Expr) -> Expr {
   }
 }
 
-eval(e: Expr, at: dbl) -> Sym<:ok[dbl], :divideByZero> {
+eval(e: Expr, at: dbl) -> :ok[dbl] | :divideByZero {
   e |> {
     :num[v] => v
     :x => at
@@ -222,7 +222,7 @@ eval(e: Expr, at: dbl) -> Sym<:ok[dbl], :divideByZero> {
 absolute(v: dbl) -> dbl { if v < 0 { -v } else { v } }
 
 newton(f: Expr, guess: dbl) ->
-  Sym<:ok[dbl], :divideByZero, :flatSlope[dbl], :noConvergence> {
+  :ok[dbl] | :divideByZero | :flatSlope[dbl] | :noConvergence {
   let slope = simplify(derive(f))
   var at = guess
   for i in 0..60 {

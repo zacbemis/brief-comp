@@ -1,5 +1,5 @@
 P { x: int }
-Choice = Sym<:some[P], :none>
+Choice = :some[P] | :none
 Holder { value: Choice }
 get(s: Choice) { s |> { :some[p] => p
   :none => P { x = 0 } } }

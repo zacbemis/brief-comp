@@ -1,31 +1,31 @@
-// Type syntax in every position: annotations, parameters, fields, return
-// types, aliases, and `Sym` entries. Fields whose type ends in `>` or `>>`
-// test that the newline filter keeps the newline after a closing type `>`.
+// Type syntax in every position: annotations, parameters, fields, returns,
+// aliases and union entries. Union bars continue lines; final members and
+// bracketed payloads/arguments preserve the next field/declaration separator.
 
-Simple = Sym<:a>
-WithPayload = Sym<:ok[int], :err[str]>
-Nested = Sym<:ok[Sym<:inner[int], :none>], :outer>
-Merged = Sym<Simple, WithPayload, :extra>
-Qualified = Sym<Json.Error, File.Error>
+Simple = :a
+WithPayload = :ok[int] | :err[str]
+Nested = :ok[:inner[int] | :none] | :outer
+Merged = Simple | WithPayload | :extra
+Qualified = Json.Error | File.Error
 Applied = Vec[int]
 Deep = Map[str, Vec[Vec[int]]]
 Array = Arr[int]
 Grid = Arr[Arr[int]]
 Unit = ()
-TrailingComma = Sym<:a, :b,>
-Multiline = Sym<
-  :notFound[str],
-  :denied[str],
-  :tooLarge[lng]>
-LastAfterMultiline = Sym<:z>
+TrailingComma = :a | :b
+Multiline =
+  :notFound[str] |
+  :denied[str] |
+  :tooLarge[lng]
+LastAfterMultiline = :z
 
 Holder {
   plain: int
   generic: Vec[User]
   nested: Vec[Vec[int]]
   tripleClose: Vec[Vec[Vec[int]]]
-  symbol: Sym<:ok[Node], :none>
-  symbolNested: Vec[Sym<:ok[int], :none>]
+  symbol: :ok[Node] | :none
+  symbolNested: Vec[:ok[int] | :none]
   qualified: models.Box[int]
   array: Arr[int]
   unit: ()
@@ -51,7 +51,7 @@ impl Holder {
     holder
   }
 
-  pub get(holder: &Self, index: int) -> Sym<:ok[int], :outOfRange[int]> {
+  pub get(holder: &Self, index: int) -> :ok[int] | :outOfRange[int] {
     :ok[holder.plain]
   }
 }
@@ -64,11 +64,11 @@ returnsNestedGeneric() -> Map[str, Vec[int]] {
   Map[str, Vec[int]]()
 }
 
-returnsSym() -> Sym<:ok[Vec[int]], :none> {
+returnsSym() -> :ok[Vec[int]] | :none {
   :none
 }
 
-returnsPartial() -> Sym<:ok[int], _> {
+returnsPartial() -> :ok[int] | _ {
   :ok[1]
 }
 
@@ -79,7 +79,7 @@ returnsArray() -> Arr[int] {
   make()
 }
 
-params(a: Vec[int], b: &Vec[int], c: Sym<:x, :y>, d: Arr[int], e: models.User) {
+params(a: Vec[int], b: &Vec[int], c: :x | :y, d: Arr[int], e: models.User) {
 }
 
 multilineParams(
@@ -94,7 +94,7 @@ multilineParams(
 main() {
   let a: int = 1
   let b: Vec[User] = Vec[User]()
-  let c: Sym<:ok[int], :none> = :none
+  let c: :ok[int] | :none = :none
   var d: Map[str, Vec[int]] = Map[str, Vec[int]]()
   let e: Arr[int] = make()
   let f: () = ()

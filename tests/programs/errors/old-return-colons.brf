@@ -1,6 +1,6 @@
 value():int { 1 } // error: Return types follow '->', not ':'. // fix: value() -> int { 1 }
 effect() : () {} // error: Return types follow '->', not ':'. // fix: effect() -> () {}
-partial(): Sym<:ok[int], _> { 1 } // error: Return types follow '->', not ':'. // fix: partial() -> Sym<:ok[int], _> { 1 }
+partial(): :ok[int] | _ { 1 } // error: Return types follow '->', not ':'. // fix: partial() -> :ok[int] | _ { 1 }
 pub exposed(): int { 1 } // error: Return types follow '->', not ':'. // fix: pub exposed() -> int { 1 }
 commented()/* before */:/* after */int { 1 } // error: Return types follow '->', not ':'. // fix: commented()/* before */ -> /* after */int { 1 }
 continued(): // error: Return types follow '->', not ':'. // fix: continued() ->

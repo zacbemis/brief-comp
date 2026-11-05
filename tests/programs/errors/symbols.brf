@@ -1,10 +1,10 @@
-Conflict = Sym<:bad[int], :bad[str]> // error: Symbol tag has conflicting payload types.
-Included = Sym<int> // error: A symbol-set inclusion requires a symbol set.
-Partial = Sym<:data, _> // error: Partial symbol sets are only allowed as function return types.
-Outcome = Sym<:ok, :bad>
-Text = Sym<:value[str]>
+Conflict = :bad[int] | :bad[str] // error: Symbol tag has conflicting payload types.
+Included = int | :included // error: A symbol-set inclusion requires a symbol set.
+Partial = :data | _ // error: Partial symbol sets are only allowed as function return types.
+Outcome = :ok | :bad
+Text = :value[str]
 
-missing(x: Sym<:a, :b>) {
+missing(x: :a | :b) {
   x |> { :a => () } // error: Match is not exhaustive.
 }
 unreachable() {
@@ -25,10 +25,10 @@ refutable() {
 conflict() {
   :value[1] |> { Text => () } // error: Symbol tag has conflicting payload types.
 }
-smaller() -> Sym<:a> { // error: Function body does not match the written return type.
+smaller() -> :a { // error: Function body does not match the written return type.
   :b
 }
 main() {
-  let x: Sym<:a> = :b // error: Binding value does not match its annotation.
+  let x: :a = :b // error: Binding value does not match its annotation.
   :a < :b // error: Comparison of this type is not implemented yet.
 }

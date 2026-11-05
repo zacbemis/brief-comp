@@ -51,10 +51,10 @@ static void type(FILE *out, const Type *t) {
     }
     fputc(')', out);
     break;
-  case TYPE_SYM:
-    fputs("(Sym", out);
-    for (size_t i = 0; i < t->as.sym.count; i++) {
-      SymEntry entry = t->as.sym.items[i];
+  case TYPE_UNION:
+    fputs("(union", out);
+    for (size_t i = 0; i < t->as.union_type.count; i++) {
+      UnionEntry entry = t->as.union_type.items[i];
       fputc(' ', out);
       if (entry.tag) {
         fprintf(out, "(:%s%s", entry.kind == SYMBOL_ERROR ? "!" : "",

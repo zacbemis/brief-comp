@@ -80,7 +80,7 @@ Fraction {
 
 impl Fraction {
   // Always stored in lowest terms with a positive denominator.
-  new(top: lng, bottom: lng) -> Sym<:ok[Self], :zeroDenominator> {
+  new(top: lng, bottom: lng) -> :ok[Self] | :zeroDenominator {
     if bottom == 0 { ret :zeroDenominator }
     let sign: lng = if bottom < 0 { -1 } else { 1 }
     let g = gcd(top, bottom)
@@ -94,7 +94,7 @@ impl Fraction {
 
   times(a: Self, b: Self) -> Self { Self.new(a.top * b.top, a.bottom * b.bottom)! }
 
-  over(a: Self, b: Self) -> Sym<:ok[Self], :zeroDenominator> {
+  over(a: Self, b: Self) -> :ok[Self] | :zeroDenominator {
     Self.new(a.top * b.bottom, a.bottom * b.top)?
   }
 
@@ -105,7 +105,7 @@ impl Fraction {
   // Greedy expansion into distinct unit fractions, e.g. 4/13 = 1/4 + 1/18 + 1/468.
   // Denominators can grow very fast; arithmetic overflow would panic, so the
   // expansion stops with what it has found before a step would overflow.
-  egyptian(f: Self) -> Sym<:ok[str], :tooLarge[str]> {
+  egyptian(f: Self) -> :ok[str] | :tooLarge[str] {
     var top = f.top
     var bottom = f.bottom
     var text = ""
@@ -129,7 +129,7 @@ impl Fraction {
 
 // n! without overflow: stops with :overflow before the multiplication that
 // would exceed lng, instead of panicking.
-factorial(n: lng) -> Sym<:ok[lng], :overflow[lng]> {
+factorial(n: lng) -> :ok[lng] | :overflow[lng] {
   var result: lng = 1
   for k in 2..n + 1 {
     if result > 9223372036854775807 / k { ret :overflow[k] }
@@ -138,7 +138,7 @@ factorial(n: lng) -> Sym<:ok[lng], :overflow[lng]> {
   result
 }
 
-roman(n: int) -> Sym<:ok[str], :outOfRange[int]> {
+roman(n: int) -> :ok[str] | :outOfRange[int] {
   if n < 1 or n > 3999 { ret :outOfRange[n] }
   var rest = n
   var text = ""
@@ -193,7 +193,7 @@ digit(d: ulng) -> str {
   }
 }
 
-inBase(n: ulng, base: ulng) -> Sym<:ok[str], :badBase[ulng]> {
+inBase(n: ulng, base: ulng) -> :ok[str] | :badBase[ulng] {
   if base < 2 or base > 16 { ret :badBase[base] }
   if n == 0 { ret "0" }
   var rest = n

@@ -21,7 +21,7 @@ typedef struct {
   Type *type;    // Named-set inclusion or inference; NULL for a tag.
   Type **payloads;
   size_t count;
-} SymEntry;
+} UnionEntry;
 
 struct Type {
   TypeKind kind;
@@ -35,9 +35,9 @@ struct Type {
       size_t count;
     } apply;
     struct {
-      SymEntry *items;
+      UnionEntry *items;
       size_t count;
-    } sym;
+    } union_type;
   } as;
 };
 

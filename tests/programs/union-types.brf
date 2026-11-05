@@ -1,0 +1,23 @@
+First = :one | :text[str]
+Sym = First | :last
+Holder { value: Sym }
+show(value: Sym) -> str {
+  value |> {
+    :one => "one"
+    :text[text] => text
+    :last => "last"
+  }
+}
+read(fail: bool) -> :ok[int] | _ {
+  if fail { ret :bad }
+  7
+}
+main() -> () {
+  let holder = Holder { value = :text["he" + "ap"] }
+  print(show(holder.value)) // expect: heap
+  print(show(:last)) // expect: last
+  print(str(1 | 2)) // expect: 3
+  read(false) |> { :ok[n] => print(str(n))
+    :bad => print("wrong") } // expect: 7
+  :outer[:left] |> { :outer[inner] => inner |> { :left => print("nested") } } // expect: nested
+}

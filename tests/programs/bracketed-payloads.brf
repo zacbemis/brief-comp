@@ -1,5 +1,5 @@
-Item = Sym<:item[str,]>
-Empty = Sym<:empty[]>
+Item = :item[str,]
+Empty = :empty[]
 make() -> Item { :item["heap" + " value",] }
 main() -> () {
   let value: Empty = :empty[]
