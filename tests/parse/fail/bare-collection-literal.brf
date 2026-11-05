@@ -1,0 +1,6 @@
+// parse-error: line 5
+// Why: Collection literals need an explicit Arr[Type] or Vec[Type] head.
+//   Bare brackets are not an alternative literal grammar.
+main() {
+  let a = [1, 2, 3]
+}

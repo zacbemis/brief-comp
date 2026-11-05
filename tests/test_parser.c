@@ -1318,6 +1318,102 @@ int main(void) {
                     "(call (name check) (< (name a) (index (name b) (int 0))) "
                     "(> (name c) (name d)))");
   }
+  TEST("typed collection literals retain constructors, types, items and "
+       "chains") {
+    expression_dump(
+        &arena, "Arr[int] { 1, 2 + 3, }",
+        "(collection (name Arr) (types int) (int 1) (+ (int 2) (int 3)))");
+    expression_dump(&arena, "Vec[str] {}",
+                    "(collection (name Vec) (types str))");
+    expression_dump(&arena, "Vec[Arr[int]] { Arr[int] { 1 } }",
+                    "(collection (name Vec) (types (apply Arr int)) "
+                    "(collection (name Arr) (types int) (int 1)))");
+    expression_dump(
+        &arena, "Vec[User] { User { name = \"A\" } }.(0).name",
+        "(field (index (collection (name Vec) (types User) (struct-value (name "
+        "User) (name (str \"A\")))) (int 0)) name)");
+    expression_dump(&arena, "for n in (Arr[int] {1, 2}) { n }",
+                    "(for n (collection (name Arr) (types int) (int 1) (int "
+                    "2)) (block (name n)))");
+    const char *lf =
+        "main() {\nlet values = Arr[int] {\n1,\n2,\n}\n}\nafter() {}\n";
+    for (unsigned crlf = 0; crlf < 2; crlf++) {
+      char text[256];
+      size_t n = 0;
+      for (size_t i = 0; lf[i]; i++) {
+        if (crlf && lf[i] == '\n')
+          text[n++] = '\r';
+        text[n++] = lf[i];
+      }
+      text[n] = 0;
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(0, v->diagnostics.count);
+      ASSERT_EQ_INT(2, v->program->count);
+      if (v->program->count == 2) {
+        Expr *e = v->program->items[0]
+                      ->as.function.body->as.block.items[0]
+                      .as.decl->as.binding.value;
+        ASSERT_EQ_INT(EXPR_COLLECTION, e->kind);
+        ASSERT_EQ_INT(2, e->as.collection.count);
+        ASSERT_EQ_INT(1, e->as.collection.type_count);
+        ASSERT_TRUE(e->span.file == v->source);
+        ASSERT_EQ_INT((size_t)(strstr(text, "Arr") - text), e->span.start);
+        ASSERT_EQ_INT('}', text[e->span.end - 1]);
+        ASSERT_EQ_INT(2, e->depth);
+      }
+      TokenArray filtered = newline_filter(&arena, v->raw);
+      size_t bytes = filtered.count * sizeof(Token);
+      Token *saved = arena_alloc(&arena, bytes);
+      memcpy(saved, filtered.items, bytes);
+      Diagnostics again;
+      diagnostics_init(&again, &arena);
+      parse_program(&arena, &v->names, filtered, &again);
+      ASSERT_EQ_INT(0, again.count);
+      ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+    }
+  }
+  TEST("collection literal errors recover and old angle fixes reparse") {
+    const char *bad[] = {"Arr[int] { 1 2 }", "Vec[str] {,}",
+                         "Arr[int] { 1,,2 }", "Map[str, int] { 1, 2 }",
+                         "[1, 2]"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
+      char text[256];
+      snprintf(text, sizeof(text), "main() { %s }\nafter() {}\n", bad[i]);
+      Parsed *v = parse(&arena, text);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      ASSERT_EQ_INT(2, v->program->count);
+      for (size_t j = 0; j < v->diagnostics.count; j++)
+        ASSERT_TRUE(v->diagnostics.items[j]->fixes == NULL);
+    }
+    const char *headers[] = {"if", "while", "for n in"};
+    for (size_t i = 0; i < 3; i++) {
+      char text[256];
+      snprintf(text, sizeof(text),
+               "main() { %s Arr[int] { 1, 2 } {} }\nafter() {}\n", headers[i]);
+      Parsed *v = parse(&arena, text);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      ASSERT_EQ_INT(2, v->program->count);
+      if (v->diagnostics.count)
+        ASSERT_EQ_INT(0, strcmp("Wrap collection literals in conditions or "
+                                "iterables in parentheses.",
+                                v->diagnostics.items[0]->message));
+    }
+    Parsed *missing = parse(&arena, "main() { Arr[int] { 1");
+    ASSERT_TRUE(missing->diagnostics.count > 0);
+    if (missing->diagnostics.count) {
+      ASSERT_EQ_INT(0, strcmp("Expected '}' after collection items.",
+                              missing->diagnostics.items[0]->message));
+      ASSERT_TRUE(missing->diagnostics.items[0]->fixes == NULL);
+    }
+    Parsed *v = parse(&arena, "main() { Vec<Vec<int>> { Vec[int] {} } }\n");
+    ASSERT_EQ_INT(1, v->diagnostics.count);
+    Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
+    ASSERT_EQ_INT(0, fixed->diagnostics.count);
+    char *a = dump(&arena, v->program), *b = dump(&arena, fixed->program);
+    ASSERT_TRUE(a && b);
+    if (a && b)
+      ASSERT_EQ_INT(0, strcmp(a, b));
+  }
   TEST("imports retain complete interned paths and precise declaration spans") {
     const char *text = "import\nmodels.\nUser\nimport std.Json\nimport "
                        "models.User\nmain() {}\n";
@@ -2337,6 +2433,26 @@ int main(void) {
     n = (size_t)sprintf(text, "main() { value");
     for (size_t i = 0; i < 1000; i++)
       n += (size_t)sprintf(text + n, ".(0)");
+    strcpy(text + n, " }\nafter() {}\n");
+    invalid(&arena, text, "nesting limit");
+    n = (size_t)sprintf(text, "main() { Vec[int] {");
+    for (size_t i = 0; i < 300; i++)
+      n += (size_t)sprintf(text + n, "%zu,", i);
+    strcpy(text + n, "} }\n");
+    v = parse(&arena, text);
+    ASSERT_EQ_INT(0, v->diagnostics.count);
+    if (v->program->count) {
+      Expr *e =
+          v->program->items[0]->as.function.body->as.block.items[0].as.expr;
+      ASSERT_EQ_INT(EXPR_COLLECTION, e->kind);
+      ASSERT_EQ_INT(300, e->as.collection.count);
+    }
+    n = (size_t)sprintf(text, "main() { ");
+    for (size_t i = 0; i < 1000; i++)
+      n += (size_t)sprintf(text + n, "Vec[int] {");
+    text[n++] = '0';
+    memset(text + n, '}', 1000);
+    n += 1000;
     strcpy(text + n, " }\nafter() {}\n");
     invalid(&arena, text, "nesting limit");
     n = (size_t)sprintf(text, "Big = ");

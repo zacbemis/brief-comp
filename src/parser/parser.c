@@ -247,6 +247,11 @@ static Expr *checked_expr(Parser *p, Expr *e) {
     CHILD(e->as.index.object);
     CHILD(e->as.index.index);
     break;
+  case EXPR_COLLECTION:
+    CHILD(e->as.collection.constructor);
+    for (size_t i = 0; i < e->as.collection.count; i++)
+      CHILD(e->as.collection.items[i]);
+    break;
   case EXPR_STRUCT_LIT:
     CHILD(e->as.structure.type);
     for (size_t i = 0; i < e->as.structure.count; i++)
@@ -471,7 +476,7 @@ static int old_type_list_token(const Token *items, size_t i) {
     return t != TOK_LOWER_NAME && type_name_token(t);
   }
 }
-static int old_call_angles(Parser *p) {
+static int old_call_angles(Parser *p, int collection) {
   size_t depth = 0;
   for (size_t i = p->position; i < p->tokens.count; i++) {
     TokenType t = p->tokens.items[i].type;
@@ -483,15 +488,19 @@ static int old_call_angles(Parser *p) {
         return 0;
       depth -= n;
       if (!depth)
-        return p->tokens.items[i + 1].type == TOK_LPAREN;
+        return p->tokens.items[i + 1].type == TOK_LPAREN ||
+               (collection && p->tokens.items[i + 1].type == TOK_LBRACE);
     } else if (t == TOK_EOF || !old_type_list_token(p->tokens.items, i))
       return 0;
   }
   return 0;
 }
-// After a name or field, [...] is a type argument list only when a call's (
-// follows its closing ]. Anything else is an error either way; there, the
-// removed index spelling gets its fix. This choice never changes what parses.
+static int collection_head(const Expr *e) {
+  return e->kind == EXPR_NAME &&
+         (!strcmp(e->as.name, "Arr") || !strcmp(e->as.name, "Vec"));
+}
+// After a name, brackets give types for a call or a recognized collection
+// literal. Other invalid forms retain useful recovery for removed indexing.
 static int old_index(Parser *p, Expr *left) {
   if (!at(p, TOK_LBRACKET))
     return 0;
@@ -514,8 +523,11 @@ static int old_index(Parser *p, Expr *left) {
       return 0;
     if (t == TOK_LBRACKET)
       depth++;
-    else if (t == TOK_RBRACKET && !--depth)
-      return p->tokens.items[i + 1].type != TOK_LPAREN;
+    else if (t == TOK_RBRACKET && !--depth) {
+      TokenType following = p->tokens.items[i + 1].type;
+      return following != TOK_LPAREN &&
+             !(following == TOK_LBRACE && collection_head(left));
+    }
   }
   return 0;
 }
@@ -1171,6 +1183,33 @@ static Expr *call(Parser *p, Expr *callee, List types) {
   e->as.call.type_count = types.count;
   return e;
 }
+static Expr *collection_literal(Parser *p, Expr *head, List types) {
+  if (!expect(p, TOK_LBRACE, "Expected '{' before collection items."))
+    return NULL;
+  List items = {0};
+  newlines(p);
+  while (!at(p, TOK_RBRACE) && !at(p, TOK_EOF)) {
+    Expr *item = expression(p, 0, 1);
+    if (!item)
+      return NULL;
+    PUSH(p, items, item);
+    newlines(p);
+    if (at(p, TOK_RBRACE) || at(p, TOK_EOF))
+      break;
+    if (!expect(p, TOK_COMMA, "Expected ',' between collection items."))
+      return NULL;
+    newlines(p);
+  }
+  if (!expect(p, TOK_RBRACE, "Expected '}' after collection items."))
+    return NULL;
+  Expr *e = new_expr(p, EXPR_COLLECTION, through(head->span, p->previous.span));
+  e->as.collection.constructor = head;
+  e->as.collection.types = types.data;
+  e->as.collection.type_count = types.count;
+  e->as.collection.items = items.data;
+  e->as.collection.count = items.count;
+  return checked_expr(p, e);
+}
 static Expr *struct_literal(Parser *p, Expr *head) {
   take(p); // {
   List fields = {0};
@@ -1246,6 +1285,12 @@ static Expr *conditional(Parser *p) {
 
 static Expr *primary(Parser *p, int allow_struct) {
   Token token = peek(p);
+  if (token.type == TOK_LBRACKET) {
+    error(
+        p,
+        "Collection literals use 'Arr[Type] { ... }' or 'Vec[Type] { ... }'.");
+    return NULL;
+  }
   if (token.type == TOK_IMPORT) {
     error(p, "Imports are only allowed at the top level.");
     return NULL;
@@ -1693,11 +1738,21 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
       }
       if ((left->kind == EXPR_NAME || left->kind == EXPR_FIELD) &&
           ((token.type == TOK_LBRACKET && !old_index(p, left)) ||
-           (token.type == TOK_LESS_THAN && old_call_angles(p)))) {
+           (token.type == TOK_LESS_THAN &&
+            old_call_angles(p, collection_head(left))))) {
         List types = {0};
         if (!type_arguments(p, &types))
           return NULL;
-        left = call(p, left, types);
+        if (at(p, TOK_LBRACE) && collection_head(left)) {
+          if (!allow_struct) {
+            error(p, "Wrap collection literals in conditions or iterables in "
+                     "parentheses.");
+            return NULL;
+          }
+          left = collection_literal(p, left, types);
+        } else {
+          left = call(p, left, types);
+        }
         if (!left)
           return NULL;
         continue;

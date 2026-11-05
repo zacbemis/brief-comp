@@ -177,14 +177,14 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (116 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names and import syntax; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
-| `tests/parse/pass/` (28) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
-| `tests/parse/fail/` (94) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
+| `tests/programs/` (117 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports and typed collection literals; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/parse/pass/` (29) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
+| `tests/parse/fail/` (96) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
 | CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
 | Document acceptance (13 v0 audits, now retired) | Scripts, bridges and registrations deleted in N1; records retained as historical evidence | Each new document's audit is written in the milestone that implements its rules (see "Milestones"), so document coverage returns chapter by chapter instead of all at the end. |
-| `test_doc_parser` | Reads 13 current chapters: 239 fences, 107 parser checks, 132 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
+| `test_doc_parser` | Reads 13 current chapters: 239 fences, 109 parser checks, 130 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
 | `examples/*.brf` | Not run in CI | Converted in N1, and added to the program runner with their output as expectations, so the examples cannot rot again. |
 
 ### New test forms
@@ -226,7 +226,8 @@ inventory is active. Other declaration/type structure, remaining keywords,
 receivers, module casing, source conversion and replacement native chapter
 audits remain pending. Pattern binding/set roles now follow the name classes.
 Module-selection imports parse, with an explicit not-implemented compilation
-barrier and no file loading.
+barrier and no file loading. Typed `Arr`/`Vec` literals parse but remain
+unimplemented at native compilation.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -356,6 +357,8 @@ first-version syntax audit's two logical-operator cases carry markers.
   the parser, with no resolver alias-lookup fallback for bindings.
 - [x] Parse module-selection imports and reject compilation at an explicit scope
   barrier, without loading files or cascading dependent-name diagnostics.
+- [x] Typed `Arr`/`Vec` literal syntax and collection-scope rejection, without a
+  collection runtime; explicit rejection of untyped bare-bracket literals.
 - [ ] Remaining keyword/declaration/type/expression grammar changes, module
   casing, struct methods and receiver inference.
 - [ ] Remaining source conversion, old-syntax rejection tests and N1 native
@@ -1021,6 +1024,54 @@ with the new explicit scope message. All 86 previous C successes are byte-identi
 and all six examples preserve sanitized stdout/stderr/status. N1 remains incomplete:
 unions/payloads/error tags, remaining declarations/keywords, members/receivers,
 fieldless traits, broader module casing and replacement native chapter audits.
+
+### N1 (in progress): typed collection literal syntax only
+
+Unqualified `Arr[Type] { items }` and `Vec[Type] { items }` now parse into
+`EXPR_COLLECTION`, replacing the unused `EXPR_ARRAY` placeholder. The node stores
+the constructor, type arguments, item list and complete source span; the stable
+printer emits `(collection ... (types ...) ...)`. Type arguments still parse
+without speculative type parsing. Diagnostic-only old angle recognition extends
+to these literal heads and keeps grouped delimiter fixes; old angles never compile
+successfully. Map literals and arbitrary generic-struct literals are not added.
+
+Comma-separated items support empty/trailing-comma forms, LF/CRLF, nesting,
+ordinary expressions, struct literals, conditionals and match expressions.
+Postfix chains work on the parsed node. Tree-depth checks visit the constructor
+and items; 300-item and 1,000-level cases exercise width and depth. In control
+headers, collection literals require grouping or a call-argument context, with
+explicit parentheses advice. Bare `[items]` syntax is rejected with an explanatory
+choice of typed forms, not an invented type/container fix. Missing items, commas
+and braces retain primary syntax errors without speculative edits.
+
+Resolution reports `Collection literals are not implemented yet.` at the complete
+literal without resolving unavailable constructor/type/item internals. No allocation,
+fill, iteration, indexing, generic execution, collection ownership, lowering or C
+emission is implemented. Existing collection constructors/indexing keep their
+previous scope behavior. Parser tests cover exact trees/spans, supported heads
+versus invalid Map syntax, layout, header escapes, recovery, old-angle fixes, immutable
+reparsing and stress limits; native/CLI/semantic tests lock the scope boundary.
+
+`pass/37-collection-literals.brf` adds parser coverage. The old bare-array rejection
+is renamed `bare-collection-literal.brf`, preserving line 5 and explicitly denying
+that old spelling will later become valid. Two additional rejection fixtures cover
+commas and header grouping. Inventory: 117 programs, 29 parse-pass and 96 parse-fail
+files. The current types creation fence moves to a syntax-only check, and the
+syntax header-escape fence to an intentional rejection check. Each rejection fence
+must now report exactly one error, on a line the document marks `Compiler error`,
+so the rest of the fence is shown to parse. Coverage is now 104
+parses plus five rejections, 130 listed fences (54 pending syntax, 62 later features,
+14 fragments) and two unfenced listings. Collection APIs/runtime and all replacement
+native chapter audits remain incomplete; no v0 conversion adapter is restored.
+
+Validation: fresh `-Werror` GCC/Clang Debug ASan/UBSan and GCC Release pass 25/25;
+GCC Debug without sanitizers passes 24/24. clang-format 23.1.3 and
+`git diff --check` pass. All 271 baseline sources preserve statuses and AST/C bytes;
+all 86 prior C successes are byte-identical. Only the renamed bare-literal fixture
+changes its syntax diagnostic, on its original error line; other diagnostics are
+identical. All six examples preserve sanitized stdout/stderr/status. N1 remains
+in progress: unions/payloads/error tags, remaining declarations/keywords,
+members/receivers, fieldless traits, broader module casing and native chapter audits.
 
 ## Risks
 

@@ -187,6 +187,21 @@ static void expr(FILE *out, const Expr *e) {
     fputc(')', out);
     break;
   }
+  case EXPR_COLLECTION:
+    fputs("(collection ", out);
+    expr(out, e->as.collection.constructor);
+    fputs(" (types", out);
+    for (size_t i = 0; i < e->as.collection.type_count; i++) {
+      fputc(' ', out);
+      type(out, e->as.collection.types[i]);
+    }
+    fputc(')', out);
+    for (size_t i = 0; i < e->as.collection.count; i++) {
+      fputc(' ', out);
+      expr(out, e->as.collection.items[i]);
+    }
+    fputc(')', out);
+    break;
   case EXPR_SYMBOL:
     fprintf(out, "(symbol %s", e->as.symbol.tag);
     if (e->as.symbol.payload) {

@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: A collection literal used as an iterable must be parenthesized.
+main() {
+  for n in Arr[int] { 1, 2 } {}
+}

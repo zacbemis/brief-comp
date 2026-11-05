@@ -1,0 +1,6 @@
+main() {
+  Arr[int] { 1, 2 } // error: Collection literals are not implemented yet.
+  Vec[str] {} // error: Collection literals are not implemented yet.
+  // No bogus name/type/call diagnostics for unavailable collection internals.
+  Vec[Unknown] { missing() } // error: Collection literals are not implemented yet.
+}

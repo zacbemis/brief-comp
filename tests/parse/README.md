@@ -11,15 +11,16 @@ one run.
 Every file must parse with no diagnostics: `brief dump-ast` exits with status 0
 and prints a tree. Files use N1's `not`, `dbl`, `->` returns, keyword-free
 aliases, `=` literal fields, `.()` indexing and `Name[Type]` arguments. Array
-annotations use `Arr[Type]`; indexing/generics/collections are syntax-only,
-not supported runtime operations. Structs require uppercase names; functions,
-fields, parameters, bindings and loops require lowercase names. Symbol tags must
-start lowercase in type entries, values and patterns; `_` is not a tag name. `trait`
-and `ovr` are ordinary names; old declaration/modifier spellings still reject.
-Unqualified lowercase pattern names bind; uppercase names reference symbol sets.
-Imports select module paths at top level, with uppercase final module names;
-compilation still reports them as unimplemented. Symbol/type/member grammar and
-broader module casing remain pending.
+annotations use `Arr[Type]`; typed `Arr[Type] { items }`/`Vec[Type] { items }`
+literals, indexing and generics are syntax-only, not supported runtime
+operations. Structs require uppercase names; functions, fields, parameters,
+bindings and loops require lowercase names. Symbol tags must start lowercase in
+type entries, values and patterns; `_` is not a tag name. `trait` and `ovr` are
+ordinary names; old declaration/modifier spellings still reject. Unqualified
+lowercase pattern names bind; uppercase names reference symbol sets. Imports
+select module paths at top level, with uppercase final module names; compilation
+still reports them as unimplemented. Symbol/type/member grammar and broader
+module casing remain pending.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
@@ -34,13 +35,16 @@ broader module casing remain pending.
   control headers, chains and indexed assignment/update syntax.
 - `36`: the import fixture promoted from `fail/later-import.brf`; syntax support
   does not implement module loading.
+- `37`: typed array/vector literals, nesting, layout, chains and header escapes;
+  these remain unimplemented at native compilation.
 
 ## `fail/`
 
-There are 94 rejection fixtures, including `import-missing-name.brf`,
-`import-in-body.brf`, `tag-casing.brf`, `tag-wildcard.brf`,
-`declaration-casing.brf`, `declaration-wildcard.brf`, `old-type-arguments.brf`,
-`old-array-type.brf`, `old-index.brf`,
+There are 96 rejection fixtures, including `collection-header.brf`,
+`collection-missing-comma.brf`, `bare-collection-literal.brf`,
+`import-missing-name.brf`, `import-in-body.brf`, `tag-casing.brf`,
+`tag-wildcard.brf`, `declaration-casing.brf`, `declaration-wildcard.brf`,
+`old-type-arguments.brf`, `old-array-type.brf`, `old-index.brf`,
 `index-missing-close.brf`, `pub-struct.brf`, `old-return-colon.brf`,
 `old-alias-keyword.brf`, `pub-alias.brf` and `struct-literal-old-colon.brf`.
 `struct-literal-missing-equals.brf` retains the old missing-delimiter rule under

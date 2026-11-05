@@ -243,6 +243,21 @@ int main(void) {
       ASSERT_EQ_INT(0, strcmp("Imports are not implemented yet.",
                               r.errors.items[i]->message));
   }
+  TEST("collection literal syntax does not enable collection lowering") {
+    const char *sources[] = {
+        "main() { Arr[int] { 1, 2 } }", "main() { Vec[str] {} }",
+        "main() { Vec[Unknown] { missing() } }",
+        "main() { Vec[Arr[int]] { Arr[int] { missing() } } }"};
+    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
+      Result r = check(&a, sources[i]);
+      ASSERT_EQ_INT(1, r.errors.count);
+      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+      if (r.errors.count)
+        ASSERT_EQ_INT(0, strcmp("Collection literals are not implemented yet.",
+                                r.errors.items[0]->message));
+    }
+  }
   TEST("old literal field colons cannot reach lowering") {
     Result r = check(&a, "P { x: int }\nmain() { let p = P { x: 1 } }");
     ASSERT_EQ_INT(1, r.errors.count);

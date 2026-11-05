@@ -79,7 +79,9 @@ no cross-module access enforcement yet. Postfix indexing uses the adjacent
 operations still report not implemented. Type arguments use `Name[Type]` in types
 and calls, without speculative parsing; old angle arguments have delimiter fixes.
 Array annotations use `Arr[Type]`, not sized postfix `Type[size]`. Generics and
-collections remain unimplemented. Symbol payloads/unions, other declaration/type
+collections remain unimplemented. Typed `Arr[Type] { ... }` and
+`Vec[Type] { ... }` literals parse, but emission reports that collection
+literals are not implemented. Symbol payloads/unions, other declaration/type
 structure and receivers await the full switch. Struct names start uppercase;
 functions, fields, parameters, bindings and loops require lowercase names, with
 safe casing fixes. Symbol tags also require lowercase names in types, values
@@ -266,12 +268,12 @@ Panics terminate the process without unwinding owners.
 - `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
   native driver tests; program tests in normal and sanitizer configurations;
   and the [current-document parser inventory](tests/doc-parser.md): 239 fences
-  across 13 chapters, with 107 parser checks and 132 explicit fence listings,
+  across 13 chapters, with 109 parser checks and 130 explicit fence listings,
   plus two unfenced-chapter listings. Listed examples are not passing coverage.
   N1 retired all v0 native chapter scripts and bridges; replacement native audits
   return milestone by milestone. Run the inventory and its structural guards with
   `ctest --test-dir build -L doc-parser --output-on-failure`.
-- `tests/parse/`: 122 parser example files that must parse or be rejected
+- `tests/parse/`: 125 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
 
@@ -298,7 +300,7 @@ Wide and combining characters do not yet have special display-width handling.
   N1 identifier tokens, `not`, `dbl`, `->` returns, keyword-free aliases and
   `=` literal fields, single-file visibility, `.()` indexing and `Name[Type]`
   arguments, declaration/tag/pattern roles, ordinary `trait`/`ovr` names and
-  import syntax implemented; full syntax/native audits pending)
+  import/typed-collection syntax implemented; full syntax/native audits pending)
 - [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
 
 The overview links the remaining topic documents. Milestone 5 is complete for

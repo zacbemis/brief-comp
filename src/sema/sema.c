@@ -614,6 +614,9 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     e->as.field.object = resolve_expr(r, s->as.field.object);
     e->as.field.name = s->as.field.name;
     return e;
+  case EXPR_COLLECTION:
+    return unsupported(r, s->span,
+                       "Collection literals are not implemented yet.");
   case EXPR_STRUCT_LIT: {
     SemaStruct *owner = s->as.structure.type->kind == EXPR_NAME
                             ? named_structure(r, s->as.structure.type->as.name)

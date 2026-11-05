@@ -211,6 +211,21 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected)
     message(FATAL_ERROR "incorrect import scope rejection (${status}):\n${errors}")
 endif()
 
+set(collection "${TEST_DIR}/collection.brf")
+file(WRITE "${collection}" "main() { Vec[str] {} }\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${collection}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
+   NOT output STREQUAL "(program (fn main (params) _ (block (collection (name Vec) (types str)))))\n")
+    message(FATAL_ERROR "incorrect collection AST (${status}):\n${errors}\n${output}")
+endif()
+execute_process(COMMAND "${BRIEF}" emit-c "${collection}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
+   NOT errors MATCHES "^error: Collection literals are not implemented yet\\.")
+    message(FATAL_ERROR "collection escaped its scope boundary (${status}):\n${errors}")
+endif()
+
 set(generic "${TEST_DIR}/generic-invalid.brf")
 file(WRITE "${generic}" "check(value: int) {}\r\nmain() { let a = 1\r\n  let d = 2\r\n  check(a[b, c](d))\r\n}\r\n")
 set(expected "error: Generic calls are not implemented yet.\n  --> ${generic}:4:9\n  |\n4 |   check(a[b, c](d))\n  |         ^~~~~~~~~~\n")

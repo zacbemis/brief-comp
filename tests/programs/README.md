@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **116 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **117 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -374,9 +374,16 @@ N1 now parses top-level module-selection imports, without loading anything.
 `errors/imports.brf` requires one scope error per import, even for nonexistent
 paths and dependent names/signatures: resolution stops rather than guessing them.
 `errors/import-modifiers.brf` checks public-import removal and final-module casing
-fixes. A corrected import still cannot reach native compilation. There are now
-116 fixtures. Unions/payloads, members/receivers, remaining keywords, broader
-module casing and native chapter audits remain pending.
+fixes. A corrected import still cannot reach native compilation. There were then
+116 fixtures.
+
+N1 parses typed array/vector literals, but `errors/collection-literals.brf`
+keeps native compilation explicitly unimplemented. Empty/nonempty literals and
+unknown internal names/types each get one collection-scope error, not guessed
+element or API behavior. No allocation, fill, iteration, indexing or collection
+ownership is implemented. The inventory is now 117 files. Unions/payloads,
+members/receivers, remaining keywords, broader module casing and native chapter
+audits remain pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

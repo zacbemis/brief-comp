@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: Item expressions in a collection literal require comma separators.
+main() {
+  Arr[int] { 1 2 }
+}

@@ -85,9 +85,12 @@ struct Expr {
       Expr *payload;
     } symbol;
     struct {
+      Expr *constructor;
+      Type **types;
+      size_t type_count;
       Expr **items;
       size_t count;
-    } array;
+    } collection;
     struct {
       Expr *type;
       FieldValue *fields;

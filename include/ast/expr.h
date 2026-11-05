@@ -11,9 +11,9 @@ typedef enum {
   EXPR_BOOL,
   EXPR_STRING,
   EXPR_CHAR,
-  EXPR_SYMBOL, // :ok(user)
-  EXPR_ARRAY,
-  EXPR_STRUCT_LIT, // User { name: name }
+  EXPR_SYMBOL,     // :ok(user)
+  EXPR_COLLECTION, // Arr[T] { values } or Vec[T] { values }; syntax only.
+  EXPR_STRUCT_LIT, // User { name = name }
   EXPR_UNARY,
   EXPR_BINARY,
   EXPR_CALL,

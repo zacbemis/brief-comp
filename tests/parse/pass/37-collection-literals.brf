@@ -1,0 +1,19 @@
+// Typed collection literals are syntax-only until collections are implemented.
+main() {
+  let empty = Vec[str] {}
+  let numbers = Arr[int] {
+    1,
+    2 + 3,
+    4,
+  }
+  let records = Vec[User] { User { name = "A" }, User { name = "B" } }
+  let nested = Vec[Arr[int]] { Arr[int] { 1 }, Arr[int] { 2, 3 } }
+  let selected = Arr[int] { if ready { 1 } else { 2 } }
+  let matched = Vec[int] { item |> {
+    :a => 1
+    _ => 2
+  } }
+  records.(0).name
+  if test(Arr[int] { 1, 2 }) {}
+  for n in (Arr[int] { 1, 2 }) { n }
+}

@@ -3,9 +3,9 @@
 `test_doc_parser` reads the 13 language chapters in `docs/lang-*.txt`, not
 `docs/v0/`. The rationale file `lang-post-0-notes.txt` is not a language chapter.
 The manifest in `test_doc_parser.cmake` classifies all **239 code fences** and
-the two unfenced chapters. It runs **103 successful parses and four intentional
-syntax rejections**. The other **132 fences** are explicit listings, not passing
-parser tests: 54 await N1/N4/N5 syntax, 64 need later features, and 14 are
+the two unfenced chapters. It runs **104 successful parses and five intentional
+syntax rejections**. The other **130 fences** are explicit listings, not passing
+parser tests: 54 await N1/N4/N5 syntax, 62 need later features, and 14 are
 incomplete signatures/operator/context fragments. The overview and raw base
 sample have separate zero-fence listings.
 
@@ -21,12 +21,16 @@ wrapper keeps the initial import block at top level and encloses all remaining
 usage, preserving the entire fence text; missing boundaries or non-import
 prefixes are rejected. No syntax is rewritten, no helper library is synthesized
 and no function body is extracted. Intentional syntax errors must reject with no
-AST. Semantic-error examples can parse: this is **not** proof of typing,
-complete casing rules, outcomes, ownership, modules or library APIs. In
-particular, some unimplemented payload/interpolation syntax could otherwise be
-mistaken for an old index or a plain string; those fences remain listed.
-The `.()` index and bracketed-constructor fences check syntax only; collection
-operations remain unsupported. The interleaved syntax example with an ellipsis
+AST and exactly one error, on a line the document marks `Compiler error`, so the
+rest of the fence is shown to parse. Semantic-error examples can parse: this is
+**not** proof of typing, complete casing rules, outcomes, ownership, modules or
+library APIs. In particular, some unimplemented payload/interpolation syntax
+could otherwise be mistaken for an old index or a plain string; those fences
+remain listed.
+The `.()` index, bracketed constructors and typed collection literals check
+syntax only; collection operations remain unsupported. In the header-escape
+fence, only the unwrapped struct header rejects; its grouped, call-argument and
+wrapped array forms parse. The interleaved syntax example with an ellipsis
 function body is a fragment, not a future passing test or an extracted stub.
 The casing fence also mixes local bindings with a top-level struct: declaration
 casing is implemented, but the whole fence remains a context fragment rather
@@ -44,9 +48,9 @@ than being extracted or accepted for the wrong error.
 | pipelines | 11 | 6 |
 | standard library | 0 | 1 |
 | symbols | 2 | 13 |
-| syntax | 29 | 6 |
+| syntax | 30 | 5 |
 | traits | 1 | 9 |
-| types | 16 | 12 |
+| types | 17 | 11 |
 
 Chapter hashes force classification review after document edits; counts, index
 bounds, duplicate/missing classifications, nonempty reasons and the complete
