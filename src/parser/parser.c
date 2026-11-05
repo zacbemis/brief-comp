@@ -882,9 +882,22 @@ static void remove_modifier(Parser *p, Diagnostic *d, Token token) {
   Span span = token.span;
   if (!d || !span.file)
     return;
-  while (span.end < span.file->length && (span.file->text[span.end] == ' ' ||
-                                          span.file->text[span.end] == '\t'))
+  const char *text = span.file->text;
+  while (span.end < span.file->length &&
+         (text[span.end] == ' ' || text[span.end] == '\t'))
     span.end++;
+  // A modifier alone on its line takes the line break too, so the fix (and its
+  // preview) joins the declaration instead of leaving an empty line.
+  size_t before = span.start;
+  while (before > 0 && (text[before - 1] == ' ' || text[before - 1] == '\t'))
+    before--;
+  if (before == 0 || text[before - 1] == '\n') {
+    if (span.end + 1 < span.file->length && text[span.end] == '\r' &&
+        text[span.end + 1] == '\n')
+      span.end += 2;
+    else if (span.end < span.file->length && text[span.end] == '\n')
+      span.end++;
+  }
   diagnostic_fix(p->diagnostics, d, span, "");
 }
 static int old_type_declaration(Parser *p) {

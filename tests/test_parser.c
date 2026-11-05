@@ -397,6 +397,13 @@ int main(void) {
           size_t end = start + 3;
           while (text[end] == ' ' || text[end] == '\t')
             end++;
+          // A modifier alone on its line also removes the line break.
+          size_t first = start;
+          while (first > 0 &&
+                 (text[first - 1] == ' ' || text[first - 1] == '\t'))
+            first--;
+          if (first == 0 || text[first - 1] == '\n')
+            end += text[end] == '\r' ? 2 : text[end] == '\n';
           ASSERT_TRUE(fix->span.file == v->source && !fix->next);
           ASSERT_EQ_INT(start, fix->span.start);
           ASSERT_EQ_INT(end, fix->span.end);
