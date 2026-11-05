@@ -74,16 +74,16 @@ column(cents: lng, width: int) -> str {
 }
 
 impl Loan {
-  new(principal: lng, rateBps: int, years: int) -> :ok[Self] | LoanError {
+  new(principal: lng, rateBps: int, years: int) -> :ok[Loan] | LoanError {
     if principal <= 0 { ret :badPrincipal[principal] }
     if rateBps < 0 or rateBps > 5000 { ret :badRate[rateBps] }
     if years < 1 or years > 50 { ret :badTerm[years] }
-    Self { principal = principal, rateBps = rateBps, months = years * 12 }
+    Loan { principal = principal, rateBps = rateBps, months = years * 12 }
   }
 
   // Simulates paying `payment` (plus `extra`) every month. Returns the months
   // taken and total interest, or the balance left if the term runs out.
-  simulate(loan: Self, payment: lng, extra: lng) ->
+  simulate(loan: Loan, payment: lng, extra: lng) ->
     :ok[Summary] | :unpaid[lng] {
     var balance = loan.principal
     var paid: lng = 0
@@ -99,7 +99,7 @@ impl Loan {
     :unpaid[balance]
   }
 
-  payment(loan: Self) -> lng {
+  payment(loan: Loan) -> lng {
     var low: lng = 0
     var high = loan.principal + interest(loan.principal, loan.rateBps)
     while low < high {
@@ -112,7 +112,7 @@ impl Loan {
     low
   }
 
-  summary(loan: Self, extra: lng) -> Summary {
+  summary(loan: Loan, extra: lng) -> Summary {
     let payment = loan.payment()
     loan.simulate(payment, extra) |> {
       :ok[result] => result
@@ -120,7 +120,7 @@ impl Loan {
     }
   }
 
-  schedule(loan: Self) {
+  schedule(loan: Loan) {
     let payment = loan.payment()
     print("month      payment     interest    principal        balance")
     var balance = loan.principal

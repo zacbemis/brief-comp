@@ -232,7 +232,7 @@ static int symbol_name(Parser *p, Token colon, SymbolKind *kind, Span *span,
 }
 static int type_name_token(TokenType t) {
   return token_is_identifier(t) || (t >= TOK_BOOL && t <= TOK_STR) ||
-         t == TOK_SELF || t == TOK_OLD_DUB;
+         t == TOK_OLD_DUB;
 }
 static Expr *new_expr(Parser *p, ExprKind kind, Span span) {
   Expr *e = arena_calloc(p->arena, 1, sizeof(*e));
@@ -568,8 +568,8 @@ static int old_index(Parser *p, Expr *left) {
       next == TOK_MINUS || next == TOK_NOT || next == TOK_BANG ||
       next == TOK_TILDE)
     return 1;
-  if (next == TOK_RBRACKET || next == TOK_COLON || next == TOK_SELF ||
-      next == TOK_OLD_DUB || (next >= TOK_BOOL && next <= TOK_STR))
+  if (next == TOK_RBRACKET || next == TOK_COLON || next == TOK_OLD_DUB ||
+      (next >= TOK_BOOL && next <= TOK_STR))
     return 0;
   size_t depth = 0;
   for (size_t i = p->position; i < p->tokens.count; i++) {
@@ -782,8 +782,7 @@ static Type *type_atom(Parser *p) {
     const char *text = path(p);
     if (!text)
       return NULL;
-    t = new_type(p, start.type == TOK_SELF ? TYPE_SELF : TYPE_NAME,
-                 through(start.span, p->previous.span));
+    t = new_type(p, TYPE_NAME, through(start.span, p->previous.span));
     t->as.name = text;
     if (at(p, TOK_LESS_THAN) ||
         (at(p, TOK_LBRACKET) &&
@@ -1513,6 +1512,7 @@ static Expr *primary(Parser *p, int allow_struct) {
   if (type_name_token(token.type)) {
     take(p);
     Expr *e = new_expr(p, EXPR_NAME, token.span);
+    e->name_span = token.span;
     e->as.name = name(p, token);
     return e;
   }

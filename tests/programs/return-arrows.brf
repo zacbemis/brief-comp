@@ -1,7 +1,7 @@
 Box { value: int }
 impl Box {
-  new(value: int) -> Self { Self { value = value } }
-  read(box: Self)->int { box.value }
+  new(value: int) -> Box { Box { value = value } }
+  read(box: Box)->int { box.value }
 }
 double(value: int) ->
   // The arrow continues onto the return-type line.

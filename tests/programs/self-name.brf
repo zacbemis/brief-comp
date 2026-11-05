@@ -1,0 +1,15 @@
+Self { value: int }
+Holder { value: Self }
+impl Self {
+  new(n: int) -> Self { Self { value = n } }
+  read(s: Self) -> int { s.value }
+}
+impl Holder {
+  wrap(s: Self) -> Holder { Holder { value = s } }
+  read(h: Holder) -> Self { h.value }
+}
+main() {
+  let s: Self = Self.new(42)
+  print(str(s.read())) // expect: 42
+  print(str(Holder.wrap(s).read().read())) // expect: 42
+}

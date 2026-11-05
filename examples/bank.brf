@@ -56,7 +56,7 @@ kindName(kind: Kind) -> str {
 }
 
 impl Account {
-  record(account: &Self, label: str, amount: lng) {
+  record(account: &Account, label: str, amount: lng) {
     account.balance += amount
     account.history = :more[Entry {
       label = label
@@ -66,7 +66,7 @@ impl Account {
     }]
   }
 
-  deposit(account: &Self, amount: lng, label: str) ->
+  deposit(account: &Account, amount: lng, label: str) ->
     :ok | :badAmount[lng] | :frozen[int] {
     if amount <= 0 { ret :badAmount[amount] }
     if account.frozen { ret :frozen[account.id] }
@@ -75,7 +75,7 @@ impl Account {
 
   // The withdrawal's error set is inferred: :badAmount, :frozen and
   // :insufficient, from the returns below.
-  withdraw(account: &Self, amount: lng, label: str) {
+  withdraw(account: &Account, amount: lng, label: str) {
     if amount <= 0 { ret :badAmount[amount] }
     if account.frozen { ret :frozen[account.id] }
     if amount > account.balance {
@@ -86,9 +86,9 @@ impl Account {
 }
 
 impl Bank {
-  new(name: str) -> Self { Self { name = name, accounts = :none, nextId = 100 } }
+  new(name: str) -> Bank { Bank { name = name, accounts = :none, nextId = 100 } }
 
-  open(bank: &Self, owner: str, kind: Kind) -> Account {
+  open(bank: &Bank, owner: str, kind: Kind) -> Account {
     let account = Account {
       id = bank.nextId
       owner = owner
@@ -103,7 +103,7 @@ impl Bank {
   }
 
   // Taking the bank as & makes the account it returns writable.
-  find(bank: &Self, id: int) -> :ok[Account] | :noAccount[int] {
+  find(bank: &Bank, id: int) -> :ok[Account] | :noAccount[int] {
     var cursor = bank.accounts
     while true {
       let node = cursor |> {
@@ -117,7 +117,7 @@ impl Bank {
 
   // Checks everything before moving money, so a failed transfer changes
   // nothing. The return type is inferred from every ? and ret.
-  transfer(bank: &Self, from: int, to: int, amount: lng) {
+  transfer(bank: &Bank, from: int, to: int, amount: lng) {
     if from == to { ret :sameAccount }
     let source = bank.find(from)?
     let target = bank.find(to)?
@@ -127,7 +127,7 @@ impl Bank {
   }
 
   // Adds a month of interest to every savings account.
-  interest(bank: &Self, yearlyBps: int) {
+  interest(bank: &Bank, yearlyBps: int) {
     var cursor = bank.accounts
     while true {
       let node = cursor |> {
@@ -146,7 +146,7 @@ impl Bank {
     }
   }
 
-  report(bank: Self) {
+  report(bank: Bank) {
     print("== " + bank.name)
     var checking: lng = 0
     var savings: lng = 0

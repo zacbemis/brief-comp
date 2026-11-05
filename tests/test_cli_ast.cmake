@@ -226,6 +226,31 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
     message(FATAL_ERROR "collection escaped its scope boundary (${status}):\n${errors}")
 endif()
 
+set(self_type "${TEST_DIR}/self-type.brf")
+file(WRITE "${self_type}" "Box { n: int }\r\nimpl Box { read(b: Self) -> int { b.n } }\r\nmain() {}\r\n")
+execute_process(COMMAND "${BRIEF}" dump-tokens "${self_type}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
+   NOT output MATCHES "TOK_UPPER_NAME \"Self\"" OR output MATCHES "TOK_SELF")
+    message(FATAL_ERROR "Self is still a keyword (${status}):\n${errors}\n${output}")
+endif()
+execute_process(COMMAND "${BRIEF}" dump-ast "${self_type}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "")
+    message(FATAL_ERROR "ordinary Self name rejected by parser (${status}):\n${errors}")
+endif()
+execute_process(COMMAND "${BRIEF}" emit-c "${self_type}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+string(REGEX MATCHALL "(^|\n)error:" self_errors "${errors}")
+list(LENGTH self_errors self_errors)
+string(FIND "${errors}" "help: write `impl Box { read(b: Box)" self_fix)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT self_errors EQUAL 1 OR
+   NOT errors MATCHES "^error: There is no implicit 'Self' type" OR
+   self_fix LESS 0 OR
+   errors MATCHES "Unknown|not exhaustive")
+    message(FATAL_ERROR "old Self escaped its diagnostic (${status}):\n${errors}")
+endif()
+
 set(typed_pattern "${TEST_DIR}/typed-payload-pattern.brf")
 file(WRITE "${typed_pattern}" "main() { :data[1] |> { :data[value: Missing] => unknown(value) } }\r\n")
 execute_process(COMMAND "${BRIEF}" dump-ast "${typed_pattern}"

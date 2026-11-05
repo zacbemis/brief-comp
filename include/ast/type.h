@@ -9,7 +9,6 @@ typedef enum {
   TYPE_UNION, // :ok[User] | :!err[str]
   TYPE_FN,    // Fn<(User): bool>
   TYPE_TUPLE, // (name: str, age: int)
-  TYPE_SELF,  // Self
   TYPE_UNIT,  // ()
   TYPE_INFER, // _ in a partial union return type
 } TypeKind;

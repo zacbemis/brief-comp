@@ -1,0 +1,13 @@
+Self = :some[int] | :none
+Box { value: Self }
+impl Box {
+  new(n: Self) -> Box { Box { value = n } }
+  read(b: Box) -> Self { b.value }
+}
+main() {
+  let n: Self = :some[42]
+  Box.new(n).read() |> {
+    :some[value] => print(str(value)) // expect: 42
+    :none => ()
+  }
+}

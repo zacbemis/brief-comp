@@ -78,6 +78,11 @@ checks and 93 fenced listings. Dedicated parser fixtures test the new syntax;
 native rejection fixtures keep its type-directed matching explicitly
 unsupported.
 
+`Self` is now an ordinary name; this retires a compiler keyword, not another
+current-document fence blocker. The 146 checks and 93 listings stay unchanged.
+The remaining member/receiver syntax is still pending, and no native chapter
+audit is completed by the ordinary-name fixtures.
+
 ## Native acceptance gap
 
 N1 retired all 13 v0 native chapter scripts, their normal/sanitized CTest

@@ -151,13 +151,14 @@ int main(void) {
   TEST("checked fields and functions retain written visibility without access "
        "changes") {
     Result r = check(
-        &a, "Vault { pub visible: int\nhidden: int }\n"
-            "pub exported(v: Vault) -> int { v.hidden }\n"
-            "local(v: &Vault) { v.hidden = v.visible }\n"
-            "impl Vault { pub new(n: int) -> Self { Self { visible = n, hidden "
-            "= 0 } }\n"
-            "read(v: Self) -> int { v.hidden } }\n"
-            "main() { let v = Vault.new(7)\nlocal(v)\nv.read()\nexported(v) }");
+        &a,
+        "Vault { pub visible: int\nhidden: int }\n"
+        "pub exported(v: Vault) -> int { v.hidden }\n"
+        "local(v: &Vault) { v.hidden = v.visible }\n"
+        "impl Vault { pub new(n: int) -> Vault { Vault { visible = n, hidden "
+        "= 0 } }\n"
+        "read(v: Vault) -> int { v.hidden } }\n"
+        "main() { let v = Vault.new(7)\nlocal(v)\nv.read()\nexported(v) }");
     if (r.errors.count)
       diagnostics_print(&r.errors, stderr);
     ASSERT_EQ_INT(0, r.errors.count);
@@ -233,15 +234,89 @@ int main(void) {
             "numeric binding");
     valid(&a, "A { x: () }\nmain() { let a = A { x = () }\na.x = ()\na.x }");
   }
-  TEST("impl membership, Self, associated calls and receiver calls") {
-    valid(&a, "A { x: int }\nimpl A { new() -> Self { Self { x = 1 } }\nget(a: "
-              "Self) { a.x } }\nmain() { A.new().get() }");
-    valid(&a, "A {}\nB {}\nimpl A { get(a: Self) { 1 } }\nimpl B { get(b: "
-              "Self) { true } }\nget() {}\nmain() { let n: int = A "
+  TEST("ordinary Self types do not mean the current owner") {
+    valid(&a, "Self { n: int }\nOther { value: Self }\n"
+              "impl Self { make() -> Self { Self { n = 1 } } }\n"
+              "impl Other { pass(s: Self) -> Self { Self.make() } }\n"
+              "main() { let s: Self = Other.pass(Self.make()) }");
+    valid(&a, "Self = Value\nValue = :value[int] | :none\nOther { n: Self }\n"
+              "impl Other { pass(n: Self) -> Self { n } }\n"
+              "main() { let n: Self = Other.pass(:value[1]) }");
+    valid(&a, "Self = :value[int] | :none\n"
+              "Other { n: Self }\nimpl Other { pass(n: Self) -> Self { n } }\n"
+              "main() { Other.pass(:value[1]) }");
+    Result unknown = check(&a, "f(n: Self) {}\nmain() {}");
+    ASSERT_EQ_INT(1, unknown.errors.count);
+    if (unknown.errors.count)
+      ASSERT_TRUE(unknown.errors.items[0]->fixes == NULL);
+  }
+  TEST("retired Self shorthand has exact owner-aware fixes with no cascades") {
+    const char *cases[] = {"f(b: &/* keep */ Self) -> int { b.n }",
+                           "f() -> Self { Box { n = 1 } }",
+                           "f() -> :value[Self] { :value[Box { n = 1 }] }",
+                           "f() { let b: Self = Box { n = 1 }\nb }",
+                           "f() -> Box { Self { n = 1 } }",
+                           "f() -> Box { Self.make() }",
+                           "f() -> Box { (/* keep */ Self).make() }",
+                           "f() -> Box { (/* keep */\nSelf\n) { n = 1 } }"};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned crlf = 0; crlf < 2; crlf++) {
+        char lf[512], text[1024];
+        snprintf(lf, sizeof(lf),
+                 "Box { n: int }\nimpl Box {\nmake() -> Box { Box { n = 1 } "
+                 "}\n%s\n}\nmain() {}\n",
+                 cases[i]);
+        size_t n = 0;
+        for (size_t j = 0; lf[j]; j++) {
+          if (crlf && lf[j] == '\n')
+            text[n++] = '\r';
+          text[n++] = lf[j];
+        }
+        text[n] = 0;
+        Result r = check(&a, text);
+        ASSERT_EQ_INT(1, r.errors.count);
+        ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+        if (r.errors.count != 1) {
+          diagnostics_print(&r.errors, stderr);
+          continue;
+        }
+        Diagnostic *d = r.errors.items[0];
+        ASSERT_EQ_INT(
+            0,
+            strcmp("There is no implicit 'Self' type; name the enclosing type.",
+                   d->message));
+        ASSERT_TRUE(d->span.file == r.program->module);
+        ASSERT_EQ_INT((size_t)(strstr(text, "Self") - text), d->span.start);
+        ASSERT_EQ_INT(4, d->span.end - d->span.start);
+        ASSERT_TRUE(d->fixes && !d->fixes->next && !d->notes);
+        if (d->fixes) {
+          ASSERT_EQ_INT(d->span.start, d->fixes->span.start);
+          ASSERT_EQ_INT(d->span.end, d->fixes->span.end);
+          ASSERT_EQ_INT(0, strcmp("Box", d->fixes->replacement));
+          char fixed[1024];
+          snprintf(fixed, sizeof(fixed), "%.*s%s%s", (int)d->span.start, text,
+                   d->fixes->replacement, text + d->span.end);
+          valid(&a, fixed);
+          ASSERT_EQ_INT(0, strcmp(text, d->span.file->text));
+        }
+      }
+    }
+    Result fields = check(&a, "A { a: Self }\nB { b: Self }\nmain() {}");
+    ASSERT_EQ_INT(2, fields.errors.count);
+    if (fields.errors.count == 2) {
+      ASSERT_EQ_INT(0, strcmp("A", fields.errors.items[0]->fixes->replacement));
+      ASSERT_EQ_INT(0, strcmp("B", fields.errors.items[1]->fixes->replacement));
+    }
+  }
+  TEST("impl membership, concrete owner types, associated and receiver calls") {
+    valid(&a, "A { x: int }\nimpl A { new() -> A { A { x = 1 } }\nget(a: "
+              "A) { a.x } }\nmain() { A.new().get() }");
+    valid(&a, "A {}\nB {}\nimpl A { get(a: A) { 1 } }\nimpl B { get(b: "
+              "B) { true } }\nget() {}\nmain() { let n: int = A "
               "{}.get()\nlet b: bool = B {}.get()\nget() }");
     valid(&a, "A {}\nimpl A { main() {} }\nmain() {}");
-    valid(&a, "A {}\nimpl A { make() -> Self { if true { ret Self {} "
-              "}\nSelf.make() } }\nmain() { A.make() }");
+    valid(&a, "A {}\nimpl A { make() -> A { if true { ret A {} "
+              "}\nA.make() } }\nmain() { A.make() }");
     invalid(&a, "A {}\nimpl A { f() {}\nf() {} }\nmain() {}",
             "Duplicate function");
     invalid(&a, "A {}\nimpl A { f() {} }\nimpl A { f() {} }\nmain() {}",
@@ -254,9 +329,9 @@ int main(void) {
             "first parameter");
     invalid(&a, "A {}\nimpl A { f(a: int) {} }\nmain() { A {}.f() }",
             "first parameter");
-    invalid(&a, "A {}\nimpl A { f(a: Self) {} }\nmain() { A {}.f(1) }",
+    invalid(&a, "A {}\nimpl A { f(a: A) {} }\nmain() { A {}.f(1) }",
             "Wrong number");
-    invalid(&a, "A {}\nimpl A { f(a: Self) {} }", "must define main");
+    invalid(&a, "A {}\nimpl A { f(a: A) {} }", "must define main");
     invalid(&a, "main() { \"x\".f() }", "Unknown method");
   }
   TEST("unknown methods suggest only visible compatible top-level functions") {
@@ -289,8 +364,7 @@ int main(void) {
          one},
         {"save(value: P) {}", "f(p: Q) { p.save() }", "p.save()", NULL},
         {"", "f(p: P) { p.save() }", "p.save()", NULL},
-        {"impl Q { save(p: Self) {} }", "f(p: P) { p.save() }", "p.save()",
-         NULL},
+        {"impl Q { save(p: Q) {} }", "f(p: P) { p.save() }", "p.save()", NULL},
         {"save() {}", "f(p: P) { p.save() }", "p.save()", NULL},
         {"save(value: P, n: int) {}", "f(p: P) { p.save() }", "p.save()", NULL},
         {"save(value: P) {}", "f(p: P) { p.save(1) }", "p.save(1)", NULL},
@@ -336,10 +410,10 @@ int main(void) {
               "}\nmain() {}");
     valid(&a, "P {}\nsave(value: P, n: int) {}\n"
               "f(p: P) { save(p, 1)\np |> save(1) }\nmain() {}");
-    valid(&a, "P {}\nimpl P { save(p: Self) -> int { 1 } }\n"
+    valid(&a, "P {}\nimpl P { save(p: P) -> int { 1 } }\n"
               "save(p: P) -> bool { true }\nf(p: P) { let save = 0\n"
               "let a: int = p.save()\nlet b: int = p |> save() }\nmain() {}");
-    r = check(&a, "P {}\nimpl P { save(p: Self) -> int { 1 } }\n"
+    r = check(&a, "P {}\nimpl P { save(p: P) -> int { 1 } }\n"
                   "save(p: P) -> bool { true }\nf(p: P) {\n"
                   "let a: int = p.save()\nlet b: int = p |> save()\n"
                   "let c: bool = save(p) }\nmain() {}");
@@ -451,7 +525,7 @@ int main(void) {
     if (r.errors.count)
       ASSERT_EQ_STRN("Unknown binding.", r.errors.items[0]->message,
                      strlen(r.errors.items[0]->message));
-    valid(&a, "P {}\nimpl P { same(p: Self) -> Self { p } }\n"
+    valid(&a, "P {}\nimpl P { same(p: P) -> P { p } }\n"
               "f(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
               "g(p: P, b: bool) { f(p, true).same() }\nmain() {}");
     valid(&a, "P {}\nsame(p: P) { p }\n"
@@ -478,10 +552,10 @@ int main(void) {
             "read-only value cannot be passed");
     invalid(&a, "A {}\nf(a: &A) { a = A {} }\nmain() {}", "immutable binding");
     invalid(&a, "main() {}\nf(a: &str) {}", "requires a struct or symbol type");
-    valid(&a, "A { n: int }\nimpl A { bump(a: &Self) { a.n++ } }\ng(a: &A) { "
+    valid(&a, "A { n: int }\nimpl A { bump(a: &A) { a.n++ } }\ng(a: &A) { "
               "a.bump() }\nmain() { g(A { n = 1 }) }");
     invalid(&a,
-            "A { n: int }\nimpl A { bump(a: &Self) { a.n++ } }\ng(a: A) { "
+            "A { n: int }\nimpl A { bump(a: &A) { a.n++ } }\ng(a: A) { "
             "a.bump() }\nmain() {}",
             "read-only value cannot be passed");
     invalid(&a, "A { n: int }\nf(a: A) { let alias = a\nalias.n++ }\nmain() {}",
@@ -538,8 +612,8 @@ int main(void) {
         "U { p: A\nu: () }\nidentity(a: A) -> A { a }\n"
         "pick(a: A, b: A) -> A { a }\nafter(a: A, u: ()) -> A { a }\n"
         "number(a: A) -> int { a.n }\nmut(a: &A) {}\n"
-        "impl A { same(a: Self) -> Self { a }\n"
-        "new(a: Self) -> Self { Self { n = 0 } } }\nmain() {}\n";
+        "impl A { same(a: A) -> A { a }\n"
+        "new(a: A) -> A { A { n = 0 } } }\nmain() {}\n";
     const char *bad[] = {
         "f(q: Q) { let inner = identity(q.p)\ninner.n++ }",
         "f(q: Q) { identity(identity(q.p)).n++ }", "f(q: Q) { q.p.same().n++ }",

@@ -1,0 +1,7 @@
+Box { value: int }
+impl Box {
+  read(b: Self) -> int { b.value } // error: There is no implicit 'Self' type; name the enclosing type. // fix: read(b: Box) -> int { b.value }
+  new() -> Box { Self { value = 1 } } // error: There is no implicit 'Self' type; name the enclosing type. // fix: new() -> Box { Box { value = 1 } }
+  again() -> Box { Self.new() } // error: There is no implicit 'Self' type; name the enclosing type. // fix: again() -> Box { Box.new() }
+}
+main() {}

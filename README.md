@@ -86,22 +86,25 @@ paired fixes for old parentheses. Lists parse with zero or more positions;
 native compilation supports zero or one, and rejects multiple payloads as not
 implemented. Types now use `:a | NamedUnion | :!bad[Type]`, including nested
 payload unions and partial return markers. `Sym` is an ordinary name; `Sym<...>`
-rejects with safe unwrap/separator fixes. Other declaration/type structure and
-receivers await the full switch. Struct names start uppercase; functions,
-fields, parameters, bindings and loops require lowercase names, with safe casing
-fixes. Symbol tags also require lowercase names in types, values and patterns.
-`:!name` records an error tag; a name cannot have both neutral and error kinds
-in one module. `:!` must be adjacent. This is N1 metadata only: outcomes, entry
-status and runtime formatting retain first-version rules until N2. `trait` and
-`ovr` are ordinary names, not declaration/modifier keywords; trait declarations
-and conformance remain unsupported. In patterns, lowercase names bind and
-uppercase names denote symbol sets, without lookup-based reclassification.
-Typed symbol payload bindings such as `:!notFound[path: str]` retain their
-annotations in the AST, but native compilation explicitly rejects them until
-merged-symbol matching exists. Whole-value typed arms are not added.
-Module-selection declarations such as `import models.User` parse, but
-compilation stops with `Imports are not implemented yet.` No module loading or
-cross-file lookup is added; broader module casing remains pending.
+rejects with safe unwrap/separator fixes. `Self` is also an ordinary uppercase
+name, not an implicit receiver type. Known-owner uses of the old shorthand get
+concrete-type fixes; real structs and symbol aliases named `Self` keep ordinary
+lookup. Other declaration/type structure and receivers await the full switch.
+Struct names start uppercase; functions, fields, parameters, bindings and loops
+require lowercase names, with safe casing fixes. Symbol tags also require
+lowercase names in types, values and patterns. `:!name` records an error tag; a
+name cannot have both neutral and error kinds in one module. `:!` must be
+adjacent. This is N1 metadata only: outcomes, entry status and runtime
+formatting retain first-version rules until N2. `trait` and `ovr` are ordinary
+names, not declaration/modifier keywords; trait declarations and conformance
+remain unsupported. In patterns, lowercase names bind and uppercase names denote
+symbol sets, without lookup-based reclassification. Typed symbol payload
+bindings such as `:!notFound[path: str]` retain their annotations in the AST,
+but native compilation explicitly rejects them until merged-symbol matching
+exists. Whole-value typed arms are not added. Module-selection declarations such
+as `import models.User` parse, but compilation stops with `Imports are not
+implemented yet.` No module loading or cross-file lookup is added; broader
+module casing remains pending.
 
 Diagnostics can carry machine-applicable fixes as byte spans and replacement
 text. These print as `help:` previews below the error and its notes. Previews
@@ -187,7 +190,8 @@ Compilation supports:
 - Immutable heap strings, `+`/`+=`, bytewise comparisons, and `str(number)` /
   `str(bool)` conversions. See `docs/v0/lang-types.txt` for formatting choices.
 - Nominal structs, complete named field initialization, field reads/writes and
-  numeric field updates, `impl`, associated/receiver calls, and `Self`.
+  numeric field updates, `impl`, associated/receiver calls, and explicit owner
+  type names.
   Ordinary parameters and their direct local/field aliases are read-only; `&`
   struct or symbol parameters permit mutation of reachable objects. Permissions
   propagate through symbol payloads, rebinding and
@@ -284,7 +288,7 @@ Panics terminate the process without unwinding owners.
   N1 retired all v0 native chapter scripts and bridges; replacement native audits
   return milestone by milestone. Run the inventory and its structural guards with
   `ctest --test-dir build -L doc-parser --output-on-failure`.
-- `tests/parse/`: 137 parser example files that must parse or be rejected
+- `tests/parse/`: 138 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
 

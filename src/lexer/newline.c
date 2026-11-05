@@ -1,7 +1,7 @@
 #include "lexer/newline.h"
 
 static int name_token(TokenType t) {
-  return token_is_identifier(t) || (t >= TOK_BOOL && t <= TOK_SELF) ||
+  return token_is_identifier(t) || (t >= TOK_BOOL && t <= TOK_FN) ||
          t == TOK_OLD_DUB;
 }
 

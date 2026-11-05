@@ -80,32 +80,32 @@ Fraction {
 
 impl Fraction {
   // Always stored in lowest terms with a positive denominator.
-  new(top: lng, bottom: lng) -> :ok[Self] | :zeroDenominator {
+  new(top: lng, bottom: lng) -> :ok[Fraction] | :zeroDenominator {
     if bottom == 0 { ret :zeroDenominator }
     let sign: lng = if bottom < 0 { -1 } else { 1 }
     let g = gcd(top, bottom)
     let common = if g == 0 { 1 } else { g }
-    Self { top = sign * top / common, bottom = sign * bottom / common }
+    Fraction { top = sign * top / common, bottom = sign * bottom / common }
   }
 
-  plus(a: Self, b: Self) -> Self {
-    Self.new(a.top * b.bottom + b.top * a.bottom, a.bottom * b.bottom)!
+  plus(a: Fraction, b: Fraction) -> Fraction {
+    Fraction.new(a.top * b.bottom + b.top * a.bottom, a.bottom * b.bottom)!
   }
 
-  times(a: Self, b: Self) -> Self { Self.new(a.top * b.top, a.bottom * b.bottom)! }
+  times(a: Fraction, b: Fraction) -> Fraction { Fraction.new(a.top * b.top, a.bottom * b.bottom)! }
 
-  over(a: Self, b: Self) -> :ok[Self] | :zeroDenominator {
-    Self.new(a.top * b.bottom, a.bottom * b.top)?
+  over(a: Fraction, b: Fraction) -> :ok[Fraction] | :zeroDenominator {
+    Fraction.new(a.top * b.bottom, a.bottom * b.top)?
   }
 
-  label(f: Self) -> str {
+  label(f: Fraction) -> str {
     if f.bottom == 1 { str(f.top) } else { str(f.top) + "/" + str(f.bottom) }
   }
 
   // Greedy expansion into distinct unit fractions, e.g. 4/13 = 1/4 + 1/18 + 1/468.
   // Denominators can grow very fast; arithmetic overflow would panic, so the
   // expansion stops with what it has found before a step would overflow.
-  egyptian(f: Self) -> :ok[str] | :tooLarge[str] {
+  egyptian(f: Fraction) -> :ok[str] | :tooLarge[str] {
     var top = f.top
     var bottom = f.bottom
     var text = ""

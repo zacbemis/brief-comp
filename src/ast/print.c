@@ -33,7 +33,6 @@ static void type(FILE *out, const Type *t) {
   }
   switch (t->kind) {
   case TYPE_NAME:
-  case TYPE_SELF:
     fputs(t->as.name, out);
     break;
   case TYPE_UNIT:

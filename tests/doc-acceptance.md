@@ -36,6 +36,8 @@ first-version outcome rules. Type-context and whole-fence parser checks do not
 complete a native audit. Typed symbol payload binders now retain annotations
 for parser checks, but compilation still reports that typed matching is not
 implemented. No native/API acceptance follows from that syntax support.
+Ordinary `Self` names and concrete owner-type spelling also do not complete the
+remaining member/receiver grammar or any replacement chapter audit.
 
 ## N1 spelling bridges
 

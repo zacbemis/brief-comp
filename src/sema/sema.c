@@ -35,9 +35,6 @@ int sema_reference(const SemaType *t) {
 static SemaStruct *structure(SemaProgram *p, const char *name) {
   return name_map_get(&p->struct_names, NULL, name);
 }
-static SemaStruct *named_structure(Resolver *r, const char *name) {
-  return !strcmp(name, "Self") ? r->owner : structure(r->program, name);
-}
 SemaField *sema_field(const SemaType *t, const char *name) {
   if (!t || t->kind != SEMA_STRUCT || !t->structure)
     return NULL;
@@ -54,6 +51,28 @@ SemaSymbol *sema_method(SemaProgram *p, const SemaType *t, const char *name) {
 static SemaAlias *alias(SemaProgram *p, const char *name) {
   return name_map_get(&p->alias_names, NULL, name);
 }
+// Ordinary declarations named Self win. Only an otherwise unknown name in a
+// known owner can be the retired shorthand; recovery must still block emission.
+static SemaStruct *old_self(Resolver *r, const char *name, Span span) {
+  if (strcmp(name, "Self") || !r->owner || structure(r->program, name) ||
+      alias(r->program, name))
+    return NULL;
+  Diagnostic *d = diagnostics_error(
+      r->errors, span,
+      "There is no implicit 'Self' type; name the enclosing type.");
+  // Parser names retain token spans even when the expression is grouped.
+  // A caller-built AST without one still gets advice, never a trivia edit.
+  if (span.file && span.start <= span.end && span.end <= span.file->length &&
+      span.end - span.start == 4 &&
+      !memcmp(span.file->text + span.start, "Self", 4))
+    diagnostic_fix(r->errors, d, span, r->owner->type.name);
+  return r->owner;
+}
+static SemaStruct *named_structure(Resolver *r, const Expr *name) {
+  SemaStruct *s = structure(r->program, name->as.name);
+  Span span = name->name_span.file ? name->name_span : name->span;
+  return s ? s : old_self(r, name->as.name, span);
+}
 static SemaTag *tag(Resolver *r, const char *name, SymbolKind kind, Span span) {
   return sema_declare_tag(r->program, r->program->module, name,
                           kind == SYMBOL_ERROR ? SEMA_TAG_ERROR
@@ -65,8 +84,6 @@ static const SemaType *type(Resolver *r, const Type *syntax) {
     return &r->program->types[SEMA_UNKNOWN];
   if (syntax->kind == TYPE_UNIT)
     return &r->program->types[SEMA_UNIT];
-  if (syntax->kind == TYPE_SELF && r->owner)
-    return &r->owner->type;
   if (syntax->kind == TYPE_NAME) {
     for (size_t i = SEMA_BOOL; i < SEMA_STRUCT; i++)
       if (!strcmp(syntax->as.name, r->program->types[i].name))
@@ -77,6 +94,9 @@ static const SemaType *type(Resolver *r, const Type *syntax) {
     SemaAlias *a = alias(r->program, syntax->as.name);
     if (a)
       return a->type ? a->type : &r->program->types[SEMA_ERROR];
+    s = old_self(r, syntax->as.name, syntax->span);
+    if (s)
+      return &s->type;
   }
   if (syntax->kind == TYPE_INFER) {
     diagnostics_error(
@@ -454,11 +474,10 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     const Expr *callee = s->as.call.callee;
     SemaExpr *receiver = NULL;
     if (callee->kind == EXPR_FIELD) {
-      SemaStruct *owner =
-          callee->as.field.object->kind == EXPR_NAME &&
-                  !local(r, callee->as.field.object->as.name)
-              ? named_structure(r, callee->as.field.object->as.name)
-              : NULL;
+      SemaStruct *owner = callee->as.field.object->kind == EXPR_NAME &&
+                                  !local(r, callee->as.field.object->as.name)
+                              ? named_structure(r, callee->as.field.object)
+                              : NULL;
       if (owner) {
         if (!generic) {
           e->as.call.target =
@@ -681,7 +700,7 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
                        "Collection literals are not implemented yet.");
   case EXPR_STRUCT_LIT: {
     SemaStruct *owner = s->as.structure.type->kind == EXPR_NAME
-                            ? named_structure(r, s->as.structure.type->as.name)
+                            ? named_structure(r, s->as.structure.type)
                             : NULL;
     if (!owner)
       return unsupported(r, s->span, "Unknown struct type.");
@@ -954,8 +973,8 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
     const Decl *d = syntax->items[i];
     if (d->kind != DECL_TYPE)
       continue;
-    int reserved = structure(p, d->name) || lookup(p, d->name) ||
-                   alias(p, d->name) || !strcmp(d->name, "Self");
+    int reserved =
+        structure(p, d->name) || lookup(p, d->name) || alias(p, d->name);
     for (size_t j = SEMA_BOOL; j < SEMA_STRUCT; j++)
       reserved |= !strcmp(d->name, p->types[j].name);
     if (reserved) {

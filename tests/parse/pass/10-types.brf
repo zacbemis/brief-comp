@@ -47,11 +47,11 @@ AllPrimitives {
 }
 
 impl Holder {
-  pub same(holder: Self) -> Self {
+  pub same(holder: Holder) -> Holder {
     holder
   }
 
-  pub get(holder: &Self, index: int) -> :ok[int] | :outOfRange[int] {
+  pub get(holder: &Holder, index: int) -> :ok[int] | :outOfRange[int] {
     :ok[holder.plain]
   }
 }

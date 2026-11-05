@@ -156,7 +156,7 @@ int main(void) {
         "effect() -> :ok | :bad { :ok }\n"
         "take(value: int, flag: bool) {}\ntakeFloat(value: flt) {}\n"
         "takeData(value: Result) {}\n"
-        "impl P { read(value: Self) -> int { value.value } }\n";
+        "impl P { read(value: P) -> int { value.value } }\n";
     struct {
       const char *bad, *good;
     } cases[] = {

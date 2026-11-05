@@ -69,22 +69,22 @@ dayName(weekday: int) -> str {
 }
 
 impl Date {
-  new(year: int, month: int, day: int) -> :ok[Self] | DateError {
+  new(year: int, month: int, day: int) -> :ok[Date] | DateError {
     if year < 1 or year > 9999 { ret :badYear[year] }
     if month < 1 or month > 12 { ret :badMonth[month] }
     if day < 1 or day > daysIn(year, month) { ret :badDay[day] }
-    Self { year = year, month = month, day = day }
+    Date { year = year, month = month, day = day }
   }
 
   // Days since 0001-01-01.
-  ordinal(d: Self) -> int {
+  ordinal(d: Date) -> int {
     let y = d.year - 1
     var days = y * 365 + y / 4 - y / 100 + y / 400
     for m in 1..d.month { days += daysIn(d.year, m) }
     days + d.day - 1
   }
 
-  fromOrdinal(n: int) -> Self {
+  fromOrdinal(n: int) -> Date {
     // Every 400 years repeat exactly: 146097 days.
     var year = 1 + n / 146097 * 400
     var rest = n % 146097
@@ -97,20 +97,20 @@ impl Date {
       rest -= daysIn(year, month)
       month++
     }
-    Self { year = year, month = month, day = rest + 1 }
+    Date { year = year, month = month, day = rest + 1 }
   }
 
-  weekday(d: Self) -> int { d.ordinal() % 7 }
+  weekday(d: Date) -> int { d.ordinal() % 7 }
 
-  dayOfYear(d: Self) -> int {
+  dayOfYear(d: Date) -> int {
     var total = d.day
     for m in 1..d.month { total += daysIn(d.year, m) }
     total
   }
 
-  addDays(d: Self, n: int) -> Self { Self.fromOrdinal(d.ordinal() + n) }
+  addDays(d: Date, n: int) -> Date { Date.fromOrdinal(d.ordinal() + n) }
 
-  label(d: Self) -> str {
+  label(d: Date) -> str {
     pad(d.year, 4) + "-" + pad(d.month, 2) + "-" + pad(d.day, 2)
   }
 }

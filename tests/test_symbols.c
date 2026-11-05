@@ -736,7 +736,7 @@ int main(void) {
         "mutChoice(s: &Choice) {}\nmutNested(s: &Nested) {}\n"
         "mutScalar(s: &Scalar) {}\n"
         "sameChoice(s: Choice) -> Choice { s }\n"
-        "impl P { bump(p: &Self) { p.n++ } }\n";
+        "impl P { bump(p: &P) { p.n++ } }\n";
     const char *borrow =
         "A read-only value cannot be passed to an & parameter; "
         "take the parameter it comes from as &.";

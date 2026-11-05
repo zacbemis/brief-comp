@@ -82,6 +82,7 @@ struct Expr {
   ExprKind kind;
   Span span;
   unsigned depth; // Includes left-associated chains, not just parser recursion.
+  Span name_span; // EXPR_NAME's original token, unaffected by grouping.
   union {
     const char *name;
     Token literal;

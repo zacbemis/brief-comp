@@ -484,7 +484,7 @@ int main(void) {
           ASSERT_EQ_INT(0, strcmp(before, after));
       }
     }
-    const char *reserved[] = {"self", "fn"};
+    const char *reserved[] = {"fn"};
     for (size_t i = 0; i < sizeof(reserved) / sizeof(*reserved); i++) {
       char text[128];
       snprintf(text, sizeof(text), "type %s = :a\nmain() {}\n", reserved[i]);
@@ -628,7 +628,7 @@ int main(void) {
                  {"f():\n// continuation\nint { 1 }\n", " ->"},
                  {"pub f(x: Vec[Vec[int]]): Vec[Vec[int]] { x }\n", " ->"},
                  {"f(): :ok[int] | _ { 1 }\n", " ->"},
-                 {"P { x: int }\nimpl P { f(p: Self): int { p.x } }\n", " ->"}};
+                 {"P { x: int }\nimpl P { f(p: P): int { p.x } }\n", " ->"}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
       for (unsigned ending = 0; ending < 2; ending++) {
         char text[1024];
@@ -1486,7 +1486,7 @@ int main(void) {
                                   v->program->items[0]->name));
       }
     }
-    Parsed *v = parse(&arena, "import models.self\n");
+    Parsed *v = parse(&arena, "import models.fn\n");
     ASSERT_EQ_INT(1, v->diagnostics.count);
     if (v->diagnostics.count)
       ASSERT_TRUE(v->diagnostics.items[0]->fixes == NULL);
@@ -1534,8 +1534,8 @@ int main(void) {
   TEST("trait and ovr are names, not declaration or override modifiers") {
     const char *text =
         "trait(ovr: int) -> int { ovr }\novr(trait: int) -> int { trait }\n"
-        "P { trait: int\novr: int }\nimpl P { trait(p: Self) { p.trait "
-        "}\novr(p: Self) { p.ovr } }\n"
+        "P { trait: int\novr: int }\nimpl P { trait(p: P) { p.trait "
+        "}\novr(p: P) { p.ovr } }\n"
         "main() { let trait = P { trait = 1, ovr = 2 }\nvar ovr = "
         "trait.trait()\n"
         "for trait in 0..2 { ovr += trait }\n:trait |> { :trait => :ovr } }";
@@ -1564,9 +1564,8 @@ int main(void) {
   TEST("removed trait/override prefixes reject without losing later "
        "declarations") {
     const char *cases[] = {"trait HasUser {}", "pub trait HasUser {}",
-                           "ovr read() {}",
-                           "impl P { ovr pub read(p: Self) {} }",
-                           "impl P { pub ovr read(p: Self) {} }"};
+                           "ovr read() {}", "impl P { ovr pub read(p: P) {} }",
+                           "impl P { pub ovr read(p: P) {} }"};
     const char *trait_message = "Traits are declared without 'trait'; trait "
                                 "declarations are not implemented yet.";
     const char *override_message = "The 'ovr' modifier is no longer used; "
@@ -1675,13 +1674,37 @@ int main(void) {
       }
     }
   }
+  TEST("ordinary Self names also become safe uppercase casing fixes") {
+    const char *sources[] = {"self { value: int }\n", "type self = :a\n",
+                             "import models.self\n"};
+    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
+      Parsed *v = parse(&arena, sources[i]);
+      ASSERT_EQ_INT(i == 1 ? 2 : 1, v->diagnostics.count);
+      Diagnostic *d = v->diagnostics.items[v->diagnostics.count - 1];
+      ASSERT_TRUE(d->fixes && !d->fixes->next);
+      if (d->fixes)
+        ASSERT_EQ_INT(0, strcmp("Self", d->fixes->replacement));
+      Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
+      ASSERT_EQ_INT(0, fixed->diagnostics.count);
+    }
+    Parsed *v = parse(&arena, "Self = int\nf(n: Self) -> Self { n }\n");
+    ASSERT_EQ_INT(0, v->diagnostics.count);
+    ASSERT_EQ_INT(TYPE_NAME,
+                  v->program->items[1]->as.function.params[0].type->kind);
+    ASSERT_EQ_INT(TYPE_NAME,
+                  v->program->items[1]->as.function.return_type->kind);
+    ASSERT_TRUE(v->program->items[0]->name ==
+                v->program->items[1]->as.function.return_type->as.name);
+    expression_dump(&arena, "Self { value = 1 }",
+                    "(struct-value (name Self) (value (int 1)))");
+  }
   TEST("case fixes do not turn names into keywords or invent wildcard names") {
     const char *sources[] = {"main() { let Int = 0 }",
                              "Not() {}",
                              "P { Bool: int }",
                              "f(True: int) {}",
                              "main() { for For in 0..2 {} }",
-                             "self { value: int }",
+                             "fn { value: int }",
                              "main() { let _ = 0 }",
                              "_() {}",
                              "_ { value: int }",

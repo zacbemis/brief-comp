@@ -8,6 +8,6 @@ continued(): // error: Return types follow '->', not ':'. // fix: continued() ->
 Box { value: int }
 impl Box {
   new(): Box { Box { value = 1 } } // error: Return types follow '->', not ':'. // fix: new() -> Box { Box { value = 1 } }
-  read(box: Self): int { box.value } // error: Return types follow '->', not ':'. // fix: read(box: Self) -> int { box.value }
+  read(box: Box): int { box.value } // error: Return types follow '->', not ':'. // fix: read(box: Box) -> int { box.value }
 }
 main(): () { let value: int = 1 } // error: Return types follow '->', not ':'. // fix: main() -> () { let value: int = 1 }

@@ -39,6 +39,14 @@ int main(void) {
           "main() { let x = Sym < a > b\n}\n");
     check(&arena, "A = Sym<:a>\nB = :b\n", "A = Sym<:a>\nB = :b\n");
   }
+  TEST("ordinary Self names obey ordinary type and expression layout") {
+    check(&arena, "Self = int\nf(n: Self) ->\nSelf { n }\n",
+          "Self = int\nf(n: Self) -> Self { n }\n");
+    check(&arena, "main() { let n = Self < a >\n b\n}\n",
+          "main() { let n = Self < a > b\n}\n");
+    check(&arena, "Self { next: Self\nn: int }\r\nmain() {}\r\n",
+          "Self { next: Self\nn: int }\r\nmain() {}\r\n");
+  }
   TEST("ordinary newlines and blank lines remain") {
     check(&arena, "\nlet x = 1\n\nlet y = 2\n", "\nlet x = 1\n\nlet y = 2\n");
   }

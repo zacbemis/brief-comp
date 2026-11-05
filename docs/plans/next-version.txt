@@ -71,7 +71,7 @@ A single file is still one module. Tags are given module identity now (see "Symb
 ### Lexer (`src/lexer`)
 
 - **Two identifier tokens.** `TOK_IDENT` splits into `TOK_UPPER_NAME` and `TOK_LOWER_NAME` by the first byte, as OCaml's lexer splits `UIDENT` from `LIDENT` and Gleam's splits `UpName` from `Name`. The lexer only classifies. The parser decides which kind each position accepts and reports a wrongly cased name there with a fix, so a mistake gives one clear error instead of a cascade. `_` alone stays the wildcard. A name starting with `_` is reported as an error, because the documents do not allow it.
-- **Keywords.** `not` and `self` are added. `Sym`, `Self`, `type`, `impl`, `trait` and `ovr` stop being keywords: a remaining use is an ordinary name, and the parser reports it with the replacement (`Self` gets "there is no `Self`: name the type, as in `Date`"). `dub` is replaced by `dbl`, and an old `dub` is reported with a fix.
+- **Keywords.** `not` and `self` are added. `Sym`, `Self`, `type`, `impl`, `trait` and `ovr` stop being keywords: a remaining use is an ordinary name, with diagnostics for recognized removed shorthand. `Self` is diagnosed after ordinary type lookup, so a real declaration named `Self` is not mistaken for an implicit owner reference; known-owner shorthand gets a concrete type-name fix. `dub` is replaced by `dbl`, and an old `dub` is reported with a fix.
 - **Interpolation.** A string literal containing `{` is lexed in modes, as CPython does since PEP 701 with `FSTRING_START`, `FSTRING_MIDDLE` and `FSTRING_END` ([PEP 701 discussion](https://discuss.python.org/t/pep-701-syntactic-formalization-of-f-strings/22046/61)), and as Kotlin does with its template-entry tokens. The lexer emits `TOK_STR_START` (text before the first `{`), the ordinary tokens of the expression, `TOK_STR_PART` (text between `}` and the next `{`) and `TOK_STR_END`. A stack of brace depths, one entry per open string, tells the lexer which `}` ends an interpolation. A string without `{` stays one `TOK_STR_LIT`. `\{` is a new escape. A literal still has to close on its own line, so an interpolation cannot span lines.
 - **Other tokens.** `..=` and `.(` are new tokens. `:!` stays as two tokens, `:` and `!`, joined by the parser, which requires them to be adjacent.
 
@@ -177,8 +177,8 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (131 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym` names and scope-only typed payload binders; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
-| `tests/parse/pass/` (34) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
+| `tests/programs/` (134 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names and scope-only typed payload binders; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/parse/pass/` (35) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
 | `tests/parse/fail/` (103) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
@@ -218,7 +218,7 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 N0 is complete. N1's identifier tokens, `not`, `dbl`, `->` returns, keyword-free
 aliases, `=` struct literal fields, `.()` indices and bracketed type arguments
 are implemented, together with casing on recognized declarations and symbol
-tags. `Sym`, `trait` and `ovr` are ordinary names. Sized array annotations recover as
+tags. `Sym`, `Self`, `trait` and `ovr` are ordinary names. Sized array annotations recover as
 `Arr[Type]` with diagnostics.
 Structs/aliases reject `pub`; checked fields/functions retain written
 visibility. The v0 scripts/bridges are retired and the current-document parser
@@ -233,8 +233,10 @@ Bracketed payload lists parse in types, values and patterns; zero/one payload
 preserves native behavior, while several positions report not implemented.
 Union types now use `|` in every type context; old `Sym<...>` wrappers reject.
 Typed payload binders retain annotations, with explicit native rejection until
-merged-symbol matching exists. Multi-payload checking/lowering and the old
-failure-tag conversion remain pending.
+merged-symbol matching exists. Implicit owner-type `Self` has been replaced by
+concrete names, with ordinary declarations named `Self` taking precedence over
+legacy recovery. Multi-payload checking/lowering and the old failure-tag
+conversion remain pending.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -1308,6 +1310,59 @@ stdout/stderr/status. Reports and snapshots are under ignored
 multi-payload checking/lowering, remaining pattern work, members/receivers,
 fieldless traits, keywords/casing, failure-tag conversion and native audits.
 Neither typed matching nor N2 behavior is implemented by this syntax slice.
+
+### N1 increment: concrete owner references and ordinary `Self` names
+
+`Self` is no longer a keyword or a special AST type: `TOK_SELF` and `TYPE_SELF`
+are removed. It lexes as an uppercase name and parses as `TYPE_NAME`, with
+ordinary use in declarations, annotations, type arguments, expressions and
+named-set patterns. Type aliases no longer reserve the name. Native alias
+support is still symbol-only; this does not add primitive aliases or generics.
+
+Ordinary lookup comes first, including forward declarations and real `Self`
+references inside a different owner. When no such type exists and resolution
+knows the enclosing struct, the retired shorthand reports `There is no implicit
+'Self' type; name the enclosing type.` A name-only fix writes that concrete
+owner in types, struct literals and associated-call qualifiers. Recovery retains
+the owner's type solely to avoid dependent field/call/return errors; the
+resolution error prevents native emission. Outside an owner no type is guessed.
+Expression names now retain an original `name_span`, so even grouped literal/call
+heads fix only `Self`, preserving parentheses, comments and LF/CRLF. Caller-built
+ASTs without an exact name-token span receive no speculative trivia edit.
+
+All existing supported owner-type references in fixtures, examples and embedded
+Brief C strings now spell the concrete type. Function/struct order, receiver
+names, source/expectation lines and runtime policy are unchanged. Syntax-only
+uses outside an owner remain ordinary type-name coverage, not implicit references.
+The casing helper now safely offers `self` -> `Self` for type/module declarations;
+its former keyword guards use the still-reserved `Fn` and explicitly test this
+new safe correction. No global reference renaming or migration tool is added.
+
+`self-name.brf` executes a real struct named `Self`, including constructor and
+receiver calls and use inside another owner. `self-alias.brf` executes an ordinary
+symbol alias named `Self`. `errors/old-self-types.brf` locks exact diagnostics and
+fixes. Parser/lexer/newline/semantic/CLI tests cover lookup precedence, annotation
+and nested payload references, grouped heads and preserved trivia, recursive
+field-owner fixes, LF/CRLF, no guessed owner and no emitted C after recovery.
+`pass/42-self-names.brf` adds complete syntax coverage. Inventory: 134 programs,
+35 parse-pass and 103 parse-fail files (138 parser files).
+
+Validation: fresh `-Werror` GCC/Clang Debug ASan/UBSan and GCC Release pass 25/25;
+GCC Debug without sanitizers passes 24/24. Pinned clang-format 23.1.3 and
+`git diff --check` pass. All 306 retained sources preserve emission statuses,
+C bytes and primary/note texts, including all 91 byte-identical C successes.
+AST changes are exactly concrete-name conversions; only the two converted
+legacy-prefix/return-colon rejection fixtures change source/fix rendering.
+All six examples preserve sanitized stdout/stderr/status. Reports and snapshots
+are under ignored `build/validation/self-names.20261105T201201Z/`.
+
+Document counts remain 146 parser checks, 93 fenced listings and two unfenced
+listings: no complete current fence is unblocked merely by retiring `Self`.
+No replacement native chapter audit is complete. N1 remains in progress:
+member-function grammar, `impl` retirement, `self`/`&self` and receiver inference,
+wrong-way calls, fieldless traits, multi-payload checking/lowering, remaining
+keywords/casing, failure-tag conversion and native audits. N2 outcomes,
+entry policy and formatting are unchanged.
 
 ## Risks
 

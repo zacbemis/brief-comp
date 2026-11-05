@@ -2,11 +2,11 @@ String { auto: str }
 A_b { value: int }
 A { value: int }
 impl String {
-  new(auto: str) -> Self { Self { auto = auto } }
-  get(value: Self) { value.auto }
+  new(auto: str) -> String { String { auto = auto } }
+  get(value: String) { value.auto }
 }
-impl A_b { c(value: Self) { value.value } }
-impl A { b_c(value: Self) { value.value } }
+impl A_b { c(value: A_b) { value.value } }
+impl A { b_c(value: A) { value.value } }
 method_3_A_b_c() { "top" }
 main() {
   let value = String.new("heap" + " string")

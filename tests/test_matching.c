@@ -91,14 +91,14 @@ int main(void) {
     valid(&a, "main() { :a[1] |> { :a[value] => str(value) } }");
   }
   TEST("pipeline lookup prefers methods, then module functions") {
-    Result r = valid(&a, "A {}\nimpl A { get(a: Self) { true } }\n"
+    Result r = valid(&a, "A {}\nimpl A { get(a: A) { true } }\n"
                          "get(a: A) { 1 }\nmain() { A {} |> get() }");
     ASSERT_EQ_INT(SEMA_BOOL, r.program->entry->return_type->kind);
     r = valid(&a, "A {}\nget(a: A) { 1 }\nmain() { A {} |> get() }");
     ASSERT_EQ_INT(SEMA_INT, r.program->entry->return_type->kind);
-    valid(&a, "A {}\nimpl A { get(a: Self) { true } }\n"
+    valid(&a, "A {}\nimpl A { get(a: A) { true } }\n"
               "get(a: A) { 1 }\nmain() { let get = 2\nA {} |> get() }");
-    valid(&a, "A {}\nimpl A { get(a: Self) { true } }\n"
+    valid(&a, "A {}\nimpl A { get(a: A) { true } }\n"
               "main() { A {} |> A.get() }");
     invalid(&a, "main() { let f = 1\n2 |> f() }", "not callable");
     invalid(&a, "f(x: int) {}\nmain() { let f = 1\n2 |> f() }", "not callable");
@@ -106,7 +106,7 @@ int main(void) {
               "wide() }");
     valid(&a,
           "small(n: flt) -> flt { n }\nmain() { let n: flt = 0.1 |> small() }");
-    valid(&a, "A {}\nimpl A { small(a: Self, n: flt) -> flt { n } }\n"
+    valid(&a, "A {}\nimpl A { small(a: A, n: flt) -> flt { n } }\n"
               "main() { let a = A {}\nlet n: flt = 0.1 |> a.small() }");
     invalid(&a, "main() { 1 |> missing() }", "Unknown function");
     invalid(&a, "f() {}\nmain() { 1 |> f() }", "Wrong number");

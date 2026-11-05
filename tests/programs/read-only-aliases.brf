@@ -5,7 +5,7 @@ same(p: P) -> P { p }
 text(p: P) -> str { p.name }
 // A Report holds only a str, so it cannot contain the read-only P it reads.
 Report { name: str }
-impl Report { new(p: P) -> Self { Self { name = p.name } } }
+impl Report { new(p: P) -> Report { Report { name = p.name } } }
 read(q: Q, flag: bool) {
   let inner = q.p
   print(inner.name)

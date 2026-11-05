@@ -30,7 +30,9 @@ but checking restricts it to partial return unions with a written `:ok`. Typed
 payload bindings (`:tag[name: Type]`) preserve annotations and require
 lowercase, unqualified binding names. They parse only in payload patterns,
 including grouped/nested forms; native type-directed matching remains
-unsupported.
+unsupported. `Self` is an ordinary uppercase name in all these contexts.
+Implicit-owner shorthand is diagnosed by resolution, not by reserving the name
+or making the parser guess whether a real `Self` type exists.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
@@ -55,6 +57,8 @@ unsupported.
   payload unions, bitwise-or separation and ordinary `Sym` names.
 - `41`: typed payload binders, grouping, nested/union/generic annotations and
   multiple typed positions, without native matching claims.
+- `42`: ordinary `Self` names in declarations, annotations, type arguments,
+  literals, calls and named-set pattern roles.
 - `underscore-type-syntax`: promoted from the old parser rejection; semantic
   checking still rejects its bare partial return marker.
 

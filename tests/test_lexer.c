@@ -321,7 +321,7 @@ int main(void) {
     expect(&lx, TOK_CHR, "chr");
     expect(&lx, TOK_STR, "str");
     expect(&lx, TOK_UPPER_NAME, "Sym");
-    expect(&lx, TOK_SELF, "Self");
+    expect(&lx, TOK_UPPER_NAME, "Self");
     expect(&lx, TOK_LOWER_NAME, "type");
     expect(&lx, TOK_MOD, "mod");
     expect(&lx, TOK_IMPORT, "import");
@@ -1038,7 +1038,7 @@ int main(void) {
     expect(&lx, TOK_LPAREN, "(");
     expect(&lx, TOK_LOWER_NAME, "value");
     expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_SELF, "Self");
+    expect(&lx, TOK_UPPER_NAME, "Self");
     expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_ARROW, "->");
     expect(&lx, TOK_UPPER_NAME, "User");

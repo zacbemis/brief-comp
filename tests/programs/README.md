@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **131 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **134 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -58,19 +58,19 @@ inference diagnostics. The runtime's
 checked helpers also have exhaustive small-width and boundary/panic unit tests.
 
 M4 fixtures exercise heap strings and binary-safe comparisons; all numeric/bool
-string conversions; nominal structs, methods and `Self`; shared aliases and field
-replacement; target/initializer evaluation order; field arguments invalidated by
-later arguments or mutable callees; owned returns and discarded entry results;
-scope/loop/early-return cleanup; fieldwise equality including NaN; generated-name
-collisions; and a panic with live heap objects. Negative fixtures check fields,
-conversion boundaries, and mutation permissions. Read-only alias fixtures cover
-local/field copies, reassignment, branch joins, loop backedges/exits, and fresh
-rebinding without changing the caller's original object. Call results whose type
-can reach a read-only argument, and literals built from one, stay read-only;
-results that cannot hold it are writable. `stored-references.brf` and its error
-fixture check that a read-only struct is never stored in a field. Every
-executable fixture runs in
-normal and sanitizer configurations, and normal debug exit reports remaining owners.
+string conversions; nominal structs, methods and concrete owner types; shared
+aliases and field replacement; target/initializer evaluation order; field
+arguments invalidated by later arguments or mutable callees; owned returns and
+discarded entry results; scope/loop/early-return cleanup; fieldwise equality
+including NaN; generated-name collisions; and a panic with live heap objects.
+Negative fixtures check fields, conversion boundaries, and mutation permissions.
+Read-only alias fixtures cover local/field copies, reassignment, branch joins,
+loop backedges/exits, and fresh rebinding without changing the caller's original
+object. Call results whose type can reach a read-only argument, and literals
+built from one, stay read-only; results that cannot hold it are writable.
+`stored-references.brf` and its error fixture check that a read-only struct is
+never stored in a field. Every executable fixture runs in normal and sanitizer
+configurations, and normal debug exit reports remaining owners.
 
 The first M5 slice adds `pipelines.brf`, `scalar-matches.brf`,
 `integer-matches.brf`, `match-ownership.brf`, and two negative match fixtures.
@@ -422,10 +422,21 @@ and uses of the unavailable binder do not cascade into additional errors.
 Existing multiple-payload scope diagnostics still take precedence for several
 positions. `errors/payload-binding-names.brf` checks exact lowercase-name fixes
 and keyword safeguards. These are rejection tests, not merged-symbol or typed
-matching support. The inventory is now 131 files. Multiple-payload
+matching support. The inventory was then 131 files. Multiple-payload
 checking/lowering, typed matching, refutable payload patterns,
 members/receivers, remaining keywords, broader module casing, N2 outcome
 behavior and native chapter audits remain pending.
+
+`Self` is now an ordinary type name. Existing owner-type references were
+converted to the explicit struct name without moving source/expectation lines.
+`self-name.brf` observes actual struct/constructor/receiver behavior, including
+references to a real `Self` from another owner. `self-alias.brf` exercises a
+symbol alias named `Self`; primitive aliases remain outside the native subset.
+`errors/old-self-types.brf` requires exact owner-name fixes for the retired
+parameter/literal/call shorthand, with no emitted C. Real declarations take
+precedence; an unknown name outside an owner gets no guessed replacement. The
+inventory is now 134 files. Member/receiver grammar and the other pending work
+above remain incomplete.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

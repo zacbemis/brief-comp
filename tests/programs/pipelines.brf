@@ -1,9 +1,9 @@
 Box { n: int }
 impl Box {
-  value(box: Self) { box.n }
-  add(box: &Self, n: int) { box.n += n }
-  make(n: int) -> Self { Self { n = n } }
-  small(box: Self, n: flt) -> flt { n }
+  value(box: Box) { box.n }
+  add(box: &Box, n: int) { box.n += n }
+  make(n: int) -> Box { Box { n = n } }
+  small(box: Box, n: flt) -> flt { n }
 }
 value(box: Box) { -1 }
 double(n: int) { n * 2 }

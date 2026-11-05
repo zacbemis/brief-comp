@@ -3,10 +3,10 @@ Box {
   hidden: str
 }
 impl Box {
-  pub new(shown: int) -> Self {
-    Self { shown = shown, hidden = "heap" + " secret" }
+  pub new(shown: int) -> Box {
+    Box { shown = shown, hidden = "heap" + " secret" }
   }
-  read(box: Self) -> int { box.shown }
+  read(box: Box) -> int { box.shown }
 }
 pub label(box: Box) -> str { box.hidden }
 replace(box: &Box) { box.hidden = "new" + " secret" }

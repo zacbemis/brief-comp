@@ -1,7 +1,7 @@
 Child { name: str }
 Holder { child: Child }
 impl Child {
-  combine(c: &Self, other: Self) -> str { c.name + ":" + other.name }
+  combine(c: &Child, other: Child) -> str { c.name + ":" + other.name }
 }
 swap(h: &Holder) -> Child {
   let old = h.child
