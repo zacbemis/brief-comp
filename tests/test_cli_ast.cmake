@@ -560,6 +560,33 @@ foreach(command IN ITEMS emit-c build run)
     endif()
 endforeach()
 
+# An error-only call now requires handling, even with no :ok alternative.
+set(error_call "${TEST_DIR}/error-only-call.brf")
+file(WRITE "${error_call}" "Error = :!problem[str]\r\nfail() -> Error { :!problem[\"owned\"] }\r\nmain() {\r\n  fail()\r\n}\r\n")
+file(SHA256 "${error_call}" error_call_hash)
+execute_process(COMMAND "${BRIEF}" dump-ast "${error_call}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT output MATCHES "^\\(program")
+    message(FATAL_ERROR "error-only call syntax was lost (${status}):\n${errors}\n${output}")
+endif()
+set(error_call_output "${TEST_DIR}/error-only-output")
+file(REMOVE "${error_call_output}")
+set(expected "error: A call that can fail must be handled with ?, !, or a match.\n  --> ${error_call}:4:3\n  |\n4 |   fail()\n  |   ^~~~~~\n")
+foreach(command IN ITEMS emit-c build run)
+    set(arguments "${error_call}")
+    if(command STREQUAL "build")
+        list(APPEND arguments -o "${error_call_output}")
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env "CC=${TEST_DIR}/missing-cc"
+        "${BRIEF}" "${command}" ${arguments}
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    file(SHA256 "${error_call}" after_hash)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors STREQUAL expected OR
+       EXISTS "${error_call_output}" OR NOT after_hash STREQUAL error_call_hash)
+        message(FATAL_ERROR "error-only call escaped rejection (${command}, ${status}):\n${errors}\n${output}")
+    endif()
+endforeach()
+
 set(old_union "${TEST_DIR}/old-union.brf")
 file(WRITE "${old_union}" "E = Sym<:a,:b>\r\nmain() {}\r\n")
 foreach(command dump-ast emit-c)

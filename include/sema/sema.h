@@ -41,7 +41,7 @@ typedef struct SemaTag SemaTag;
 struct SemaTag {
   const char *name;
   const SourceFile *module; // Defining file identity; NULL for :ok and :none.
-  SemaTagKind kind;         // Metadata only until N2's outcome switch.
+  SemaTagKind kind;         // Neutral data or error; :ok/:none stay neutral.
   Span kind_span;           // First explicit spelling of this kind.
   int kind_declared, kind_conflict;
   size_t id; // Program-global; zero is reserved for empty ownership slots.
@@ -299,6 +299,8 @@ const SemaType *sema_conversion(SemaProgram *program, const SemaType *source,
 // Includes value-represented symbols: their active payload needs ARC handling.
 int sema_reference(const SemaType *type);
 const SemaVariant *sema_ok(const SemaType *type);
+// Shallow native result classification: no traversal into payloads or fields.
+int sema_has_errors(const SemaType *type);
 int sema_payloads_equal(const SemaVariant *a, const SemaVariant *b);
 // Zero/one access for success-result semantics and preserved scalar layouts.
 // Positional data uses arrays; never collapse several values to the first.

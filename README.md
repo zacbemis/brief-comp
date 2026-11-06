@@ -141,8 +141,10 @@ follows the actual top-level returned tag's kind: errors print/release and exit
 enclosing neutral value or struct. Entry/panic diagnostics now print error tags
 as `:!name` and nonempty payloads in `[...]`, including nested neutral/error
 tags. Escaping, limits, statuses and cleanup are unchanged by this spelling
-switch. Kind-based call handling, propagation, exact returns and optional
-endings remain pending.
+switch. Calls now require handling if their actual ABI result contains a
+top-level error tag, even without `:ok`; neutral-only optional/data calls are
+ordinary values. Error-only calls can be matched. Postfix extraction/rejection,
+propagation, exact returns and optional endings remain pending.
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and
@@ -160,8 +162,8 @@ Struct names start uppercase; functions, fields, parameters, bindings and loops
 require lowercase names, with safe casing fixes. Symbol tags also require
 lowercase names in types, values and patterns. `:!name` records an error tag; a
 name cannot have both neutral and error kinds in one module. `:!` must be
-adjacent. Kinds now control entry status and diagnostic spelling. Outcome
-handling still awaits its N2 switch.
+adjacent. Kinds now control entry status, diagnostic spelling and mandatory call
+handling. Postfix extraction and exact returns still await their N2 switches.
 
 Unambiguous failure tags in five examples and fourteen native program fixtures
 now use `:!` throughout their annotations, values and patterns. Optional

@@ -1,0 +1,24 @@
+Error = :!problem[str]
+fail() -> Error { :!problem["owned"] }
+wrapped() -> :ok[Error] { :ok[:!problem["owned"]] }
+take(value: Error) {}
+Box { value: Error }
+Source { n: int
+  fail() -> Error { :!problem[str(self.n)] }
+  create() -> Error { :!problem["owned"] }
+}
+main() {
+  let source = Source { n = 7 }
+  fail() // error: A call that can fail must be handled with ?, !, or a match.
+  let result = fail() // error: A call that can fail must be handled with ?, !, or a match.
+  take(fail()) // error: A call that can fail must be handled with ?, !, or a match.
+  Box { value = fail() } // error: A call that can fail must be handled with ?, !, or a match.
+  :box[fail()] // error: A call that can fail must be handled with ?, !, or a match.
+  if false { fail() } // error: A call that can fail must be handled with ?, !, or a match.
+  fail() |> take() // error: A call that can fail must be handled with ?, !, or a match.
+  source.fail() // error: A call that can fail must be handled with ?, !, or a match.
+  Source.create() // error: A call that can fail must be handled with ?, !, or a match.
+  source |> fail() // error: A call that can fail must be handled with ?, !, or a match.
+  wrapped() // error: A call that can fail must be handled with ?, !, or a match.
+  ret fail() // error: A call that can fail must be handled with ?, !, or a match.
+}

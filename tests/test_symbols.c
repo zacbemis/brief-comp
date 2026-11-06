@@ -933,7 +933,7 @@ int main(void) {
     invalid(&a, "A = _\nmain() {}", "only allowed as function return types");
     invalid(&a, "A = int | :a\nmain() {}", "inclusion requires");
   }
-  TEST("error-kind syntax does not switch first-version outcomes") {
+  TEST("error-kind identity survives checks and matched error-only calls") {
     Result r = valid(
         &a, "E = :!failed[str]\nf() -> E { :!failed[\"heap\" + \" payload\"] "
             "}\nmain() { f() |> { :!failed[text] => print(text) } }");
@@ -1798,15 +1798,183 @@ int main(void) {
       ASSERT_EQ_INT(expected_errors, errors.count);
     }
   }
+  TEST("error-kind classification is shallow and agrees with subset masks") {
+    ASSERT_TRUE(!sema_has_errors(NULL));
+    for (unsigned kinds = 0; kinds < 8; kinds++) {
+      SemaProgram *p = valid(&a, "main() {}").program;
+      for (size_t i = 0; i < SEMA_SYM; i++)
+        ASSERT_TRUE(!sema_has_errors(&p->types[i]));
+      Diagnostics errors;
+      diagnostics_init(&errors, &a);
+      SemaTag *leaf = sema_declare_tag(p, p->module, "leaf", SEMA_TAG_ERROR,
+                                       (Span){0}, &errors);
+      const SemaType *nested = sema_symbol_type(p, leaf, &p->types[SEMA_STR]);
+      ASSERT_TRUE(sema_has_errors(nested));
+      const char *names[] = {"healthy", "bad", "invalid"};
+      SemaTag *tags[5] = {p->ok, sema_tag(p, p->module, "none")};
+      for (size_t i = 0; i < 3; i++)
+        tags[i + 2] = sema_declare_tag(p, p->module, names[i],
+                                       kinds & (1u << i) ? SEMA_TAG_ERROR
+                                                         : SEMA_TAG_NEUTRAL,
+                                       (Span){0}, &errors);
+      ASSERT_EQ_INT(0, errors.count);
+      const SemaType *pair[] = {&p->types[SEMA_UNIT], &p->types[SEMA_INT]};
+      for (unsigned mask = 1; mask < 32; mask++) {
+        SemaVariant variants[5];
+        size_t count = 0;
+        for (size_t i = 0; i < 5; i++)
+          if (mask & (1u << i)) {
+            variants[count++] = (SemaVariant){tags[i],
+                                              i == 3   ? pair
+                                              : i == 4 ? &nested
+                                                       : NULL,
+                                              i == 3   ? 2
+                                              : i == 4 ? 1
+                                                       : 0};
+          }
+        const SemaType *type = sema_symbol_set(p, variants, count);
+        ASSERT_TRUE(type != NULL);
+        size_t sets = p->symbol_set_count, tag_count = p->tag_count;
+        for (unsigned repeat = 0; repeat < 3; repeat++) {
+          ASSERT_EQ_INT((mask & (kinds << 2)) != 0, sema_has_errors(type));
+          ASSERT_EQ_INT(sets, p->symbol_set_count);
+          ASSERT_EQ_INT(tag_count, p->tag_count);
+        }
+      }
+    }
+    Result r = valid(&a, "Error = :!problem[str]\n"
+                         "Data = :box[Error]\nBox { value: Error }\nmain() {}");
+    ASSERT_TRUE(sema_has_errors(r.program->aliases[0].type));
+    ASSERT_TRUE(!sema_has_errors(r.program->aliases[1].type));
+    ASSERT_TRUE(!sema_has_errors(&r.program->structs[0].type));
+    ASSERT_TRUE(
+        !sema_has_errors(sema_success(r.program, r.program->aliases[0].type)));
+  }
+  TEST("error-only calls require handling in every call position and form") {
+    const char *prefix =
+        "Error = :!problem[str]\n"
+        "fail() -> Error { :!problem[\"owned\"] }\n"
+        "take(value: Error) {}\n"
+        "Box { value: Error }\n"
+        "Source { n: int\nfail() -> Error { :!problem[str(self.n)] }\n"
+        "create() -> Error { :!problem[\"owned\"] } }\n"
+        "main() { let source = Source { n = 7 }\n";
+    const char *bodies[] = {"fail()",
+                            "let result = fail()",
+                            "take(fail())",
+                            "Box { value = fail() }",
+                            ":box[fail()]",
+                            "ret fail()",
+                            "if false { fail() }",
+                            "fail() |> take()",
+                            "source.fail()",
+                            "Source.create()",
+                            "source |> fail()"};
+    const char *required =
+        "A call that can fail must be handled with ?, !, or a match.";
+    for (size_t i = 0; i < sizeof(bodies) / sizeof(*bodies); i++)
+      for (unsigned crlf = 0; crlf < 2; crlf++) {
+        char lf[2048], source[4096];
+        snprintf(lf, sizeof(lf), "%s%s\n}", prefix, bodies[i]);
+        size_t length = 0;
+        for (const char *s = lf; *s; s++) {
+          if (crlf && *s == '\n')
+            source[length++] = '\r';
+          source[length++] = *s;
+        }
+        source[length] = 0;
+        Result r = check(&a, source);
+        const char *site = strstr(strstr(source, "main() {"), bodies[i]);
+        ASSERT_TRUE(site != NULL);
+        for (unsigned repeat = 0; repeat < 3; repeat++) {
+          if (repeat) {
+            diagnostics_init(&r.errors, &a);
+            sema_check(r.program, &r.errors);
+          }
+          if (r.errors.count != 1)
+            diagnostics_print(&r.errors, stderr);
+          ASSERT_EQ_INT(1, r.errors.count);
+          ASSERT_TRUE(r.program->resolved && !r.program->checked);
+          ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+          ASSERT_TRUE(!memcmp(source, r.program->module->text, length));
+          if (r.errors.count) {
+            Diagnostic *d = r.errors.items[0];
+            ASSERT_EQ_INT(0, strcmp(required, d->message));
+            ASSERT_TRUE(d->span.start >= (size_t)(site - source));
+            ASSERT_TRUE(d->span.end <=
+                        (size_t)(site - source) + strlen(bodies[i]));
+            ASSERT_TRUE(!d->fixes && !d->notes);
+          }
+        }
+      }
+    valid(&a, "f() -> :!problem[str] { :!problem[\"owned\"] }\n"
+              "main() { f() |> { :!problem[text] => print(text) } }");
+    Result boundary =
+        invalid(&a, "f() -> :!problem { :!problem }\nmain() { f()? }",
+                "require a symbol outcome with an :ok");
+    ASSERT_EQ_INT(1, boundary.errors.count);
+    boundary =
+        invalid(&a, "f() -> :ok[:!problem] { :ok[:!problem] }\nmain() { f() }",
+                required);
+    ASSERT_EQ_INT(1, boundary.errors.count);
+  }
+  TEST("kind-based call diagnostics survive SCC inference and recovery") {
+    const char *source =
+        "f(n: int) { if n == 0 { ret :!problem[\"owned\"] }\n"
+        "g(n - 1) |> { other => other } }\n"
+        "g(n: int) { f(n) |> { other => other } }\nmain() { f(1) }";
+    Result r = check(&a, source);
+    for (unsigned repeat = 0; repeat < 3; repeat++) {
+      if (repeat) {
+        diagnostics_init(&r.errors, &a);
+        sema_check(r.program, &r.errors);
+      }
+      if (r.errors.count != 1)
+        diagnostics_print(&r.errors, stderr);
+      ASSERT_EQ_INT(1, r.errors.count);
+      ASSERT_TRUE(r.program->resolved && !r.program->checked);
+      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+      for (size_t i = 0; i < r.program->count; i++)
+        ASSERT_TRUE(!r.program->functions[i].inference_conflict);
+      if (r.errors.count)
+        ASSERT_EQ_INT(
+            0,
+            strcmp(
+                "A call that can fail must be handled with ?, !, or a match.",
+                r.errors.items[0]->message));
+    }
+    valid(&a, "Health = :ok | :degraded\n"
+              "f(b: bool) -> Health { if b { ret :ok }\ng(true) }\n"
+              "g(b: bool) -> Health { f(b) }\nmain() { f(false) }");
+    r = check(&a, "fail() -> :!problem { :!problem }\n"
+                  "main() { missing()\nfail() }");
+    ASSERT_EQ_INT(2, r.errors.count);
+    ASSERT_TRUE(!r.program->checked && ir_lower(&a, r.program) == NULL);
+  }
+  TEST("neutral-only results including ok and none are ordinary call values") {
+    valid(&a, "Health = :ok | :degraded[str] | :down\n"
+              "Maybe = :ok[str] | :none\nNested = :box[:!problem[str]]\n"
+              "Box { value: Nested }\n"
+              "health() -> Health { :degraded[\"owned\"] }\n"
+              "find() -> Maybe { :none }\n"
+              "nested() -> Nested { :box[:!problem[\"owned\"]] }\n"
+              "object() -> Box { Box { value = nested() } }\n"
+              "take(value: Health) {}\n"
+              "main() { health()\nlet h = health()\ntake(h)\ntake(health())\n"
+              "find()\nlet missing = find()\nnested()\nobject() }");
+  }
   TEST("outcome handling extends data symbols without changing their rules") {
     valid(&a, "main() { :ok[1] }");
-    // Keep one explicit neutral failure: N1 still uses :ok, not error kind.
+    // Retain neutral data: the legacy postfix helper still uses :ok.
     Result legacy = valid(&a, "f() -> :ok | :bad { :bad }\nmain() {}");
     ASSERT_EQ_INT(
         SEMA_TAG_NEUTRAL,
         sema_tag(legacy.program, legacy.program->module, "bad")->kind);
     ASSERT_TRUE(sema_failures(
         legacy.program, legacy.program->functions[0].symbol.outcome_type));
+    // The legacy postfix helper remains, but it no longer classifies calls.
+    ASSERT_TRUE(
+        !sema_has_errors(legacy.program->functions[0].symbol.return_type));
     invalid(&a, "f() -> :a | _ { :a }\nmain() {}", "must declare :ok");
     valid(&a, "main() { :a }");
   }

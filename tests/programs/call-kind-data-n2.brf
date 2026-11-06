@@ -1,0 +1,33 @@
+// expect: heap
+// expect: heap
+// expect: none
+// expect: owned
+Health = :ok | :degraded[str] | :down
+Maybe = :ok[str] | :none
+Error = :!problem[str]
+Nested = :box[Error]
+Box { value: Nested }
+Holder { value: Maybe }
+health() -> Health { :degraded["he" + "ap"] }
+find() -> Maybe { :none }
+nested() -> Nested { :box[:!problem["nested"]] }
+object() -> Box { Box { value = nested() } }
+problem() -> Error { :!problem["ow" + "ned"] }
+read(value: Health) -> str {
+  value |> { :ok => "ok"
+             :degraded[text] => text
+             :down => "down" }
+}
+main() {
+  health()
+  let value = health()
+  print(read(value))
+  print(read(health()))
+  find()
+  let holder = Holder { value = find() }
+  holder.value |> { :ok[text] => print(text)
+                   :none => print("none") }
+  nested()
+  object()
+  problem() |> { :!problem[text] => print(text) }
+}

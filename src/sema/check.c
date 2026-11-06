@@ -784,7 +784,9 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       result = sema_result(c->p, outcome);
     }
     const SemaVariant *ok = sema_ok(outcome);
-    if (ok && outcome->symbols->count > 1 && !e->as.call.handled) {
+    // Use the actual ABI result, including an already-erased only-:ok
+    // envelope. Payload/field errors do not make an enclosing data tag fail.
+    if (sema_has_errors(result) && !e->as.call.handled) {
       error(c, e->span,
             "A call that can fail must be handled with ?, !, or a match.");
       // A forbidden outcome cannot provide a usable value or return candidate.

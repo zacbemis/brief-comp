@@ -217,9 +217,9 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 
 N0 and N1 are complete for their milestone scope. The final N1 review is in
 `tests/next-version-n1-review.md`. N2 has begun with the reserved :none payload
-invariant, intrinsic conversion error kinds, kind-based entry status and symbol
-diagnostic spelling below. This does not complete the next-version language or
-claim native acceptance of listed APIs/fragments.
+invariant, intrinsic conversion error kinds, kind-based entry status, symbol
+diagnostic spelling and mandatory call handling below. This does not complete the
+next-version language or claim native acceptance of listed APIs/fragments.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -326,8 +326,8 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 
 - [x] :none has zero payload positions in source and canonical semantic sets.
 - [x] Intrinsic conversion error kinds and neutral-kind collision diagnostics.
-- [ ] Error-kind outcome classification, no-error postfix rejection and
-  error-only propagation/extraction.
+- [x] Mandatory call handling by top-level error kind in the actual ABI result.
+- [ ] No-error postfix rejection and error-kind propagation/extraction.
 - [ ] Exact returns and only-:ok normalization without implicit call wrapping.
 - [ ] :none endings and the payload-less :ok/:none ambiguity diagnostic.
 - [x] Entry status by the actual returned symbol's active error kind.
@@ -335,10 +335,10 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 - [ ] Scoped symbols/errors native audits for N2's available rules.
 
 The first N2 slices implement the reserved neutral :none shape, intrinsic
-conversion error kinds, entry status by active kind and symbol diagnostic
-spelling. Their native/unit regressions are not acceptance of later outcome or
-optional-ending rules. Detailed slices and changed-expectation inventories
-follow the N1 historical records below.
+conversion error kinds, entry status by active kind, symbol diagnostic spelling
+and mandatory call handling. Their native/unit regressions are not acceptance of
+postfix, exact-return or optional-ending rules. Detailed slices and
+changed-expectation inventories follow the N1 historical records below.
 
 ### Historical implementation checkpoints
 
@@ -3089,6 +3089,94 @@ completed with stand-ins or extracted into a passing program, and no v0 reader
 returns. The pre-progress design/table and single-line status remain unchanged.
 Semantic checker, IR/RC and runtime sources are untouched. N1 stays complete,
 N2 stays in progress; stop for review before switching the remaining consumers.
+
+### N2 increment: mandatory call handling follows error kind
+
+Reviewed base: `3548ecb`, the symbol diagnostic spelling slice, committed
+unchanged. This slice switches only the mandatory-handling check for calls. It
+does not finish N2's postfix, exact-return, normalization or optional-ending
+rules, nor introduce N3's delayed/linear outcome handling.
+
+`sema_has_errors` checks top-level symbol variants' SemaTag.kind without using
+names, :ok membership, IDs, payload shapes or nested fields. Unknown/error
+sentinel types and ordinary primitive/struct types are not symbol outcomes. The
+call checker applies that predicate to the actual ABI result. Neutral-only data
+and optional unions are ordinary call values even when they contain :ok;
+error-only results require handling even when they do not. The existing only-:ok
+ABI can already expose an error payload as the actual returned symbol; such calls
+require handling too. Errors merely nested inside a neutral tag or struct do not
+make that enclosing call fallible.
+
+Immediate match handling, dispatch, evaluation, permissions and inference edges
+are unchanged. The existing call diagnostic is retained exactly, with no fix or
+invented receiver. Matching is the exercised remedy for new error-only calls.
+Their ?/! extraction still stops at the legacy :ok boundary; no-error postfixes
+also retain their legacy behavior until the next consumer slice. The existing
+call outcome flag, adapt == 2, success wrapping, return adaptation and postfix
+failure/result helpers remain unchanged. Do not read the new predicate as
+canonical only-:ok normalization or completion of postfix rejection/propagation.
+
+Changed existing expectations: none. No prior fixture marker, Brief source input,
+diagnostic expectation, stdout/stderr/status observation or golden is changed.
+The existing neutral :ok/:bad characterization keeps its legacy postfix-helper
+expectation and gains a separate false error-kind query. Its source remains
+unchanged. Historical first-version test labels/comments are updated to describe
+this staged boundary, not to replace their assertions.
+
+New complete source expectations, kept separate from that unchanged inventory:
+
+| New input | Before | Now | Rule |
+| --- | --- | --- | --- |
+| call-kind-data-n2.brf | Five mandatory-handling errors | Compiles; stdout heap/heap/none/owned, empty stderr, exit 0 | Neutral-only :ok/data and :ok/none unions are ordinary call results. |
+| errors/call-kind-errors-n2.brf | Compiles | Twelve exact call-handling diagnostics, no executable | Top-level error results require handling without needing :ok, including actual ABI error exposure. |
+
+The positive fixture also passes data as arguments, stores an optional in a
+field, discards owned neutral/struct results containing nested errors and matches
+an owned error-only result. It preserves the independent RC pass and checks
+cleanup normally and with sanitizers. The negative fixture covers bindings,
+arguments, fields, payloads, unreachable calls, tails/ret, module, method,
+associated and pipeline forms. No guessed wrapper, deletion or alias is
+introduced to make a source pass.
+
+The semantic unit suite adds 248 kind/subset combinations, independently judged
+by bit masks across differently named tags and zero/one/multiple payload shapes.
+Nested payload errors do not affect that oracle. Repeated queries preserve
+interner/tag counts; NULL, primitive/sentinel, alias, struct and only-:ok
+envelope controls exercise shallow classification. Eleven call positions/forms
+run in LF and CRLF, each checked three times for one exact primary, source-local
+span, no notes/fixes, immutable bytes and refusal to lower. Additional checks
+cover matched error-only calls, the retained postfix boundary, actual ABI
+exposure, recursive inference, repeated SCC diagnostics and independent error
+recovery. A CRLF CLI guard pins the exact diagnostic and dump-ast success while
+emit-c, build and run reject before a deliberately missing CC, publish no
+executable and preserve source bytes.
+
+Validation: four fresh -Werror configurations pass: GCC Debug ASan/UBSan, Clang
+Debug ASan/UBSan and GCC Release each 37/37; unsanitized GCC Debug 31/31. All 449
+retained complete CLI inputs keep identical ASTs, compile statuses and
+diagnostics; all 158 prior C outputs are byte-identical. Independent sanitized
+baseline/current runs of 145 prior executable sources preserve exact statuses,
+stdout/stderr and cleanup, including all six examples and their goldens.
+
+Relinked old/current C tests capture actual source_create inputs from semantic,
+struct, symbol, error, match, conversion and compile suites: all 1,542 old input
+records remain; only 38 new symbol-test records are added. Their 1,404 unique old
+raw programs preserve complete emitted-C/status/diagnostic observations. These
+raw-source comparisons supplement, not replace, execution of the C suites' direct
+AST/API checks. Both new whole fixtures keep identical baseline/current ASTs; the
+five removed and twelve added primary diagnostics follow only the listed kind
+rule. An initial supplemental script counted echoed // error: markers as
+primaries; its corrected oracle anchors actual diagnostic lines. No compiler or
+expectation was changed for that script correction.
+
+Formatter 23.1.3, diff/prose/whole-paragraph/design/status and the 23-ending CRLF
+checks pass. Ignored evidence is under
+`build/validation/n2-call-kinds.20261106T222931Z/`. Current native inventory is
+168 fixtures; parser/document inventories and fence classifications are
+unchanged. No quoted source is extracted, completed with stand-ins or promoted to
+native acceptance. No frozen/current language document or v0 reader changes.
+IR/RC, code generation and runtime sources are untouched. N1 remains complete, N2
+remains in progress; stop uncommitted for review before the postfix slice.
 
 ## Risks
 

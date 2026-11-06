@@ -6,9 +6,10 @@ struct bodies. Methods infer readonly receivers from `self`, or write `&self`
 for mutation. Associated functions stay type-qualified; ordinary owner-typed
 parameters are not implicit receivers. Unambiguous failures use `:!name` in
 types, values and patterns. Shared `:ok` and optional `:none` stay neutral. N2
-now uses kinds for entry status and prints diagnostic symbols with `:!` and
-bracketed payloads. Call handling and propagation still follow the first
-version pending their N2 slices. Each program runs on its own:
+now uses kinds for entry status and mandatory call handling, and prints
+diagnostic symbols with `:!` and bracketed payloads. Postfix extraction and
+propagation still follow the first version pending their N2 slices. Each program
+runs on its own:
 
 ```sh
 ./build/brief run examples/calendar.brf
@@ -27,9 +28,9 @@ ctest --test-dir build -L native-examples --output-on-failure
 
 This independent example coverage does not accept the raw reference sheet in
 `docs/lang-ex-base.txt`. The [N1 review](../tests/next-version-n1-review.md) is
-complete. N2's payload, intrinsic conversion-kind, entry-kind and formatter
-slices change none of these sources or their observations. Call handling and
-propagation remain unchanged.
+complete. N2's payload, intrinsic conversion-kind, entry-kind, formatter and
+call-kind slices change none of these sources or their observations. Postfix
+extraction and propagation remain unchanged.
 
 | Program | What it does | Language features it shows |
 |---|---|---|

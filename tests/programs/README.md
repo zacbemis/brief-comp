@@ -1,8 +1,8 @@
 # Program tests
 
-Current inventory: **166 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **168 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
-[document status](../doc-acceptance.md) for the current parser inventory and gap.
+[document status](../doc-acceptance.md) for parser coverage and gaps.
 
 N2's first slice adds `none-payload-shape.brf` and `errors/none-payloads.brf`.
 The reserved neutral `:none` accepts no payload positions: `:none` and `:none[]`
@@ -17,10 +17,18 @@ alternative beside :ok. The historical `error-tag-main-n1.brf` now exits 1 with
 `error: :!failure` plus newline. Four main-*-n2 fixtures cover neutral/optional
 and owned/mixed error entries. Symbol diagnostics now use `:!` for errors and
 brackets around nonempty payloads; nine existing stderr/panic markers change,
-without changing statuses, locations or cleanup. `main-symbol-format-n2.brf`
-and `panics/symbol-format-n2.brf` add nested kinds, zero/unit payloads, quoting,
-UTF-8 bytes and literal punctuation. Call handling, propagation, exact returns
-and implicit endings remain pending.
+without changing statuses, locations or cleanup. `main-symbol-format-n2.brf` and
+`panics/symbol-format-n2.brf` add nested kinds, zero/unit payloads, quoting,
+UTF-8 bytes and literal punctuation.
+
+Calls now require handling if their actual ABI result has a top-level error,
+even without :ok. `call-kind-data-n2.brf` covers ordinary neutral-only optional
+and data calls plus matched error-only calls. `errors/call-kind-errors-n2.brf`
+rejects twelve previously missed calls, including an existing only-:ok ABI
+exposure of an error result. These are new expectations; all prior fixture
+markers remain unchanged. Errors nested in neutral payloads or structs do not
+require handling of the enclosing call. Postfix extraction/rejection,
+propagation, exact returns and implicit endings remain pending.
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

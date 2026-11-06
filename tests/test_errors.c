@@ -19,7 +19,7 @@ static Result check(Arena *a, const char *text) {
   r.program = sema_resolve(a, ast, &r.errors);
   sema_check(r.program, &r.errors);
   // Explicit failures and implicit converter tags have error kind. Shared
-  // :none remains neutral; extraction/handling still await their N2 switch.
+  // :none remains neutral; postfix extraction still awaits its N2 switch.
   for (const SemaSymSet *set = r.program->symbol_sets; set; set = set->next) {
     if (!sema_ok(&set->type))
       continue;
