@@ -139,8 +139,7 @@ static const SemaType *type(Resolver *r, const Type *syntax) {
           valid = 0;
           continue;
         }
-        SemaVariant variant = {name, payload};
-        part = sema_symbol_set(r->program, &variant, 1);
+        part = sema_symbol_type(r->program, name, payload);
       } else if (entry.type->kind == TYPE_INFER) {
         diagnostics_error(
             r->errors, entry.span,

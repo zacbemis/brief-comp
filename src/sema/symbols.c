@@ -1,4 +1,5 @@
 #include "sema/sema.h"
+#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -85,15 +86,37 @@ const SemaVariant *sema_ok(const SemaType *type) {
     return &type->symbols->variants[0];
   return NULL;
 }
+int sema_payloads_equal(const SemaVariant *a, const SemaVariant *b) {
+  if (a->payload_count != b->payload_count)
+    return 0;
+  for (size_t i = 0; i < a->payload_count; i++)
+    if (a->payloads[i] != b->payloads[i])
+      return 0;
+  return 1;
+}
+const SemaType *sema_single_payload(const SemaVariant *variant) {
+  assert(!variant || variant->payload_count <= 1);
+  return variant && variant->payload_count == 1 ? variant->payloads[0] : NULL;
+}
+const SemaType *sema_symbol_type(SemaProgram *p, SemaTag *tag,
+                                 const SemaType *payload) {
+  SemaVariant variant = {tag, payload ? &payload : NULL, payload ? 1 : 0};
+  return sema_symbol_set(p, &variant, 1);
+}
 const SemaType *sema_success(SemaProgram *p, const SemaType *payload) {
-  SemaVariant v = {p->ok, payload->kind == SEMA_UNIT ? NULL : payload};
-  return sema_symbol_set(p, &v, 1);
+  return sema_symbol_type(p, p->ok,
+                          payload->kind == SEMA_UNIT ? NULL : payload);
 }
 const SemaType *sema_result(SemaProgram *p, const SemaType *type) {
   const SemaVariant *ok = sema_ok(type);
-  return ok && type->symbols->count == 1
-             ? (ok->payload ? ok->payload : &p->types[SEMA_UNIT])
-             : type;
+  if (!ok || type->symbols->count != 1)
+    return type;
+  // There is no native tuple result representation yet. Do not silently
+  // collapse several positions into the first or a unit result.
+  if (ok->payload_count > 1)
+    return &p->types[SEMA_ERROR];
+  const SemaType *payload = sema_single_payload(ok);
+  return payload ? payload : &p->types[SEMA_UNIT];
 }
 const SemaType *sema_failures(SemaProgram *p, const SemaType *type) {
   const SemaVariant *ok = sema_ok(type);
@@ -112,7 +135,7 @@ int sema_assignable(const SemaType *actual, const SemaType *wanted) {
   for (size_t i = 0; i < actual->symbols->count; i++) {
     const SemaVariant *a = &actual->symbols->variants[i];
     const SemaVariant *b = sema_variant(wanted, a->tag);
-    if (!b || a->payload != b->payload)
+    if (!b || !sema_payloads_equal(a, b))
       return 0;
   }
   return 1;
@@ -128,8 +151,9 @@ int sema_equatable(const SemaType *type) {
 }
 static int set_equatable(const SemaSymSet *set) {
   for (size_t i = 0; i < set->count; i++)
-    if (set->variants[i].payload && !sema_equatable(set->variants[i].payload))
-      return 0;
+    for (size_t j = 0; j < set->variants[i].payload_count; j++)
+      if (!sema_equatable(set->variants[i].payloads[j]))
+        return 0;
   return 1;
 }
 void sema_update_equatable(SemaProgram *p) {
@@ -181,8 +205,10 @@ static size_t set_hash(const SemaVariant *variants, size_t count) {
   uint64_t hash = UINT64_C(14695981039346656037);
   for (size_t i = 0; i < count; i++) {
     hash = (hash ^ variants[i].tag->id) * UINT64_C(1099511628211);
-    hash = (hash ^ (uint64_t)(uintptr_t)variants[i].payload) *
-           UINT64_C(1099511628211);
+    hash = (hash ^ variants[i].payload_count) * UINT64_C(1099511628211);
+    for (size_t j = 0; j < variants[i].payload_count; j++)
+      hash = (hash ^ (uint64_t)(uintptr_t)variants[i].payloads[j]) *
+             UINT64_C(1099511628211);
   }
   return (size_t)(hash ^ (hash >> 32));
 }
@@ -192,7 +218,7 @@ static int same_variants(const SemaSymSet *s, const SemaVariant *variants,
     return 0;
   for (size_t i = 0; i < count; i++)
     if (s->variants[i].tag != variants[i].tag ||
-        s->variants[i].payload != variants[i].payload)
+        !sema_payloads_equal(&s->variants[i], &variants[i]))
       return 0;
   return 1;
 }
@@ -203,8 +229,8 @@ static void set_table_insert(SemaSymSet **table, size_t capacity,
     i = (i + 1) & (capacity - 1);
   table[i] = s;
 }
-// Interns sorted, duplicate-free variants. Only a new set copies them, so
-// callers may pass the reusable scratch buffer.
+// Interns sorted, duplicate-free variants. Only a new set copies variants
+// and payload arrays, so callers may pass scratch or stack-owned lists.
 static const SemaType *intern_set(SemaProgram *p, const SemaVariant *sorted,
                                   size_t n) {
   if (p->set_table_capacity) {
@@ -226,6 +252,15 @@ static const SemaType *intern_set(SemaProgram *p, const SemaVariant *sorted,
   s->type = (SemaType){.kind = SEMA_SYM, .name = "Sym", .symbols = s};
   s->variants = arena_calloc(p->arena, n, sizeof(*s->variants));
   memcpy(s->variants, sorted, n * sizeof(*s->variants));
+  for (size_t i = 0; i < n; i++) {
+    size_t count = sorted[i].payload_count;
+    const SemaType **payloads = NULL;
+    if (count) {
+      payloads = arena_calloc(p->arena, count, sizeof(*payloads));
+      memcpy(payloads, sorted[i].payloads, count * sizeof(*payloads));
+    }
+    s->variants[i].payloads = payloads;
+  }
   s->count = n;
   s->id = p->symbol_set_count++;
   s->equatable = set_equatable(s);
@@ -241,6 +276,13 @@ const SemaType *sema_symbol_set(SemaProgram *p, const SemaVariant *variants,
                                 size_t count) {
   if (!count)
     return NULL;
+  for (size_t i = 0; i < count; i++) {
+    if (variants[i].payload_count && !variants[i].payloads)
+      return NULL;
+    for (size_t j = 0; j < variants[i].payload_count; j++)
+      if (!variants[i].payloads[j])
+        return NULL;
+  }
   int ordered = 1;
   for (size_t i = 1; i < count; i++)
     if (variants[i - 1].tag->id >= variants[i].tag->id)
@@ -254,7 +296,7 @@ const SemaType *sema_symbol_set(SemaProgram *p, const SemaVariant *variants,
   size_t n = 0;
   for (size_t i = 0; i < count; i++) {
     if (n && copy[n - 1].tag == copy[i].tag) {
-      if (copy[n - 1].payload != copy[i].payload)
+      if (!sema_payloads_equal(&copy[n - 1], &copy[i]))
         return NULL;
     } else
       copy[n++] = copy[i];
@@ -285,7 +327,7 @@ const SemaType *sema_symbol_union(SemaProgram *p, const SemaType *a,
     else if (i == x->count || y->variants[j].tag->id < x->variants[i].tag->id)
       merged[n++] = y->variants[j++];
     else {
-      if (x->variants[i].payload != y->variants[j].payload)
+      if (!sema_payloads_equal(&x->variants[i], &y->variants[j]))
         return NULL;
       merged[n++] = x->variants[i++];
       j++;
@@ -322,13 +364,13 @@ void sema_symbol_coverage(SemaProgram *p, SemaExpr *e, Diagnostics *errors) {
         valid = 0;
         continue;
       }
-      if ((v->payload != NULL) != a->payload) {
+      if (v->payload_count > 1 || v->payload_count != (size_t)a->payload) {
         error(errors, a->span, "Symbol pattern has the wrong payload shape.");
         valid = 0;
         continue;
       }
       if (a->binding)
-        a->binding->type = v->payload;
+        a->binding->type = sema_single_payload(v);
     } else if (a->kind == PAT_SET) {
       if (!a->set || a->set->kind != SEMA_SYM) {
         valid = 0;
@@ -339,7 +381,7 @@ void sema_symbol_coverage(SemaProgram *p, SemaExpr *e, Diagnostics *errors) {
       for (size_t j = 0; j < a->set->symbols->count; j++) {
         const SemaVariant *v = &a->set->symbols->variants[j];
         const SemaVariant *in = sema_variant(type, v->tag);
-        if (in && in->payload != v->payload) {
+        if (in && !sema_payloads_equal(in, v)) {
           error(errors, a->span, "Symbol tag has conflicting payload types.");
           valid = 0;
           goto next_arm;

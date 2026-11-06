@@ -212,7 +212,7 @@ static const SemaType *join(Checker *c, const SemaType *a, const SemaType *b,
 }
 static const SemaType *full(Checker *c, const SemaType *type) {
   const SemaVariant *ok = sema_ok(c->expected);
-  if (type->kind == SEMA_UNIT && ok && ok->payload == type)
+  if (type->kind == SEMA_UNIT && ok && sema_single_payload(ok) == type)
     return sema_symbol_set(c->p, ok, 1);
   return special(type) || type->kind == SEMA_SYM ? type
                                                  : sema_success(c->p, type);
@@ -236,7 +236,7 @@ static int return_fits(Checker *c, const SemaType *actual) {
   if (!c->function->partial)
     return sema_assignable(actual, wanted);
   const SemaVariant *ok = sema_ok(actual), *wok = sema_ok(wanted);
-  return !ok || (wok && ok->payload == wok->payload);
+  return !ok || (wok && sema_payloads_equal(ok, wok));
 }
 static const SemaType *checked_return(Checker *c, const SemaType *actual,
                                       Span span, const char *message) {
@@ -263,7 +263,8 @@ static const SemaType *hint(SemaExpr *e) {
   case SEMA_EXPR_PANIC: {
     const SemaType *input = hint(e->as.value);
     const SemaVariant *ok = sema_ok(input);
-    return ok && ok->payload ? ok->payload : e->type;
+    const SemaType *payload = sema_single_payload(ok);
+    return payload ? payload : e->type;
   }
   case SEMA_EXPR_FIELD: {
     SemaField *f = sema_field(hint(e->as.field.object), e->as.field.name);
@@ -399,7 +400,7 @@ static const SemaType *literal(Checker *c, SemaExpr *e,
   int diagnosed = expected && expected->kind == SEMA_ERROR;
   const SemaVariant *ok = sema_ok(expected);
   if (ok)
-    expected = ok->payload;
+    expected = sema_single_payload(ok);
   const SemaType *kind = sema_number(expected) ? expected : NULL;
   if (e->kind == SEMA_EXPR_FLOAT && sema_integer(kind))
     kind = NULL;
@@ -464,7 +465,7 @@ static const SemaType *operand_type(Checker *c, SemaExpr *a, SemaExpr *b,
                                     const SemaType *expected) {
   const SemaVariant *ok = sema_ok(expected);
   if (ok)
-    expected = ok->payload;
+    expected = sema_single_payload(ok);
   if (sema_number(expected))
     return expected;
   const SemaType *h = hint(a);
@@ -581,7 +582,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       context_type = sema_success(c->p, expected);
     const SemaVariant *context = sema_variant(context_type, e->as.symbol.tag);
     const SemaType *pt =
-        payload ? check(c, payload, context ? context->payload : NULL,
+        payload ? check(c, payload, sema_single_payload(context),
                         payload->kind == SEMA_EXPR_SYMBOL ? OUTCOME : VALUE)
                 : NULL;
     if (payload)
@@ -593,11 +594,10 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     else {
       // A payload has the variant's contextual type when it fits. In
       // particular, nested symbol literals may widen before being packed.
-      if (pt && context && context->payload &&
-          sema_assignable(pt, context->payload))
-        pt = context->payload;
-      SemaVariant variant = {e->as.symbol.tag, pt};
-      result = sema_symbol_set(c->p, &variant, 1);
+      const SemaType *wanted = sema_single_payload(context);
+      if (pt && wanted && sema_assignable(pt, wanted))
+        pt = wanted;
+      result = sema_symbol_type(c->p, e->as.symbol.tag, pt);
     }
     break;
   }
@@ -765,7 +765,8 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
                : special(input)                    ? input
                                                    : t(c, SEMA_ERROR);
     } else {
-      result = ok->payload ? ok->payload : t(c, SEMA_UNIT);
+      const SemaType *payload = sema_single_payload(ok);
+      result = payload ? payload : t(c, SEMA_UNIT);
       e->failures = sema_failures(c->p, input);
       if (e->kind == SEMA_EXPR_TRY && e->failures) {
         flow = sequence(flow, SEMA_NEXT | SEMA_RETURN);
@@ -997,7 +998,8 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     const SemaVariant *ok = sema_ok(result);
     if (ok && result->symbols->count == 1 && use != OUTCOME && use != TAIL &&
         (!expected || expected->kind != SEMA_SYM)) {
-      result = ok->payload ? ok->payload : t(c, SEMA_UNIT);
+      const SemaType *payload = sema_single_payload(ok);
+      result = payload ? payload : t(c, SEMA_UNIT);
       e->adapt = 2;
     } else if (e->outcome && e->kind != SEMA_EXPR_CALL && !special(result) &&
                result->kind != SEMA_SYM && use == OUTCOME) {

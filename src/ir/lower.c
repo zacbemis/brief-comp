@@ -119,7 +119,7 @@ static size_t convert(Lower *l, size_t value, const SemaType *target,
   }
   const SemaVariant *success = sema_ok(source);
   if (success && source->symbols->count == 1 &&
-      (target->kind != SEMA_SYM || success->payload == target)) {
+      (target->kind != SEMA_SYM || sema_single_payload(success) == target)) {
     size_t result = temporary(l, target);
     if (result != IR_NO_VALUE)
       emit(l, (IrInstruction){.op = IR_SYMBOL_PAYLOAD,
@@ -194,7 +194,7 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
     if (l->returned)
       return IR_NO_VALUE;
     const SemaVariant *variant = sema_variant(e->type, e->as.symbol.tag);
-    payload = convert(l, payload, variant->payload, e->span);
+    payload = convert(l, payload, sema_single_payload(variant), e->span);
     size_t result = temporary(l, e->type);
     emit(l, (IrInstruction){.op = IR_SYMBOL,
                             .span = e->span,
@@ -686,7 +686,8 @@ static void used_symbol_sets(Arena *arena, const SemaProgram *program,
   while (count) {
     const SemaSymSet *s = pending[--count];
     for (size_t i = 0; i < s->count; i++)
-      use_type(s->variants[i].payload, used, pending, &count);
+      for (size_t j = 0; j < s->variants[i].payload_count; j++)
+        use_type(s->variants[i].payloads[j], used, pending, &count);
   }
   // Each set is pushed at most once, so the marked sets fit in `pending`.
   p->symbol_sets = pending;
@@ -697,6 +698,13 @@ static void used_symbol_sets(Arena *arena, const SemaProgram *program,
 IrProgram *ir_lower(Arena *arena, const SemaProgram *program) {
   if (!program->checked)
     return NULL;
+  // The type interner understands positional lists before the expression,
+  // pattern and native ABI do. Never lower an incomplete representation,
+  // including lists nested in payload types or added through the sema API.
+  for (const SemaSymSet *s = program->symbol_sets; s; s = s->next)
+    for (size_t i = 0; i < s->count; i++)
+      if (s->variants[i].payload_count > 1)
+        return NULL;
   IrProgram *p = arena_calloc(arena, 1, sizeof(*p));
   p->count = program->count;
   p->entry = program->entry->id;

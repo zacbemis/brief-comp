@@ -604,6 +604,8 @@ int main(void) {
       int method;
     } cases[] = {{"Date.label(d)", "d.label()", 1},
                  {"View.label(d)", "d.label()", 1},
+                 {"Date.combine(d,  \targ())", "d.combine(arg())", 1},
+                 {"Date.combine(d, \t\n arg())", "d.combine(\n arg())", 1},
                  {"Date.combine(make(), arg())", "(make()).combine(arg())", 1},
                  {"( /* T */ Date ).label( /* A */ (d), )",
                   "( /* T */ ( /* A */ (d)) ).label()", 1},

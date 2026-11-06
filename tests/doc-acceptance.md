@@ -84,6 +84,12 @@ actual self methods before visible module functions. This does not complete a
 replacement chapter audit or add trait/module resolution. Remaining N1 rules,
 source conversions for those rules and replacement audits keep N1 incomplete.
 
+Canonical positional payload types are now tested independently below the
+native boundary. Parser lists with multiple positions still do not compile:
+expression/pattern checking, lowering and ownership must support all positions
+before that boundary is removed. No document fence is promoted by this
+representation change, and no replacement native chapter audit is complete.
+
 ## N1 spelling bridges
 
 The early `not`, `dbl` and return-header spelling bridges are deleted. References

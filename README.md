@@ -84,11 +84,16 @@ collections remain unimplemented. Typed `Arr[Type] { ... }` and `Vec[Type] { ...
 implemented. Symbol payloads use `[...]` in types, values and patterns, with
 paired fixes for old parentheses. Lists parse with zero or more positions;
 native compilation supports zero or one, and rejects multiple payloads as not
-implemented. Types now use `:a | NamedUnion | :!bad[Type]`, including nested
-payload unions and partial return markers. `Sym` is an ordinary name; `Sym<...>`
-rejects with safe unwrap/separator fixes. `Self` is also an ordinary uppercase
-name, not an implicit receiver type. Known-owner uses of the old shorthand get
-concrete-type fixes; real structs and aliases named `Self` keep ordinary lookup.
+implemented. Canonical semantic variants now own ordered payload-type arrays;
+interning, subset checks and union conflicts compare every position. This is
+type-layer groundwork, not native multi-payload acceptance: expressions,
+patterns and the ABI still require zero or one position, with lowering/emission
+guards against incomplete positional representations. Types now use
+`:a | NamedUnion | :!bad[Type]`, including nested payload unions and partial
+return markers. `Sym` is an ordinary name; `Sym<...>` rejects with safe
+unwrap/separator fixes. `Self` is also an ordinary uppercase name, not an
+implicit receiver type. Known-owner uses of the old shorthand get concrete-type
+fixes; real structs and aliases named `Self` keep ordinary lookup.
 
 Aliases transparently reuse any existing native type, including primitives,
 unit and structs. Numeric/string aliases use the existing converters, and

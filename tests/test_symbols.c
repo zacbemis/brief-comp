@@ -121,10 +121,12 @@ int main(void) {
     ASSERT_EQ_INT(3, r.program->tag_count); // Includes the program's :ok tag.
     ASSERT_TRUE(type->symbols->variants[0].tag->id <
                 type->symbols->variants[1].tag->id);
-    ASSERT_TRUE(sema_variant(type, sema_tag(r.program, r.program->module, "a"))
-                    ->payload == NULL);
-    ASSERT_TRUE(sema_variant(type, sema_tag(r.program, r.program->module, "b"))
-                    ->payload == &r.program->types[SEMA_INT]);
+    ASSERT_EQ_INT(
+        0, sema_variant(type, sema_tag(r.program, r.program->module, "a"))
+               ->payload_count);
+    ASSERT_TRUE(sema_single_payload(sema_variant(
+                    type, sema_tag(r.program, r.program->module, "b"))) ==
+                &r.program->types[SEMA_INT]);
   }
   TEST(
       "tag identity includes its module while canonical sets keep global IDs") {
@@ -144,7 +146,7 @@ int main(void) {
     ASSERT_TRUE(sema_tag(p, other, arena_strdup(&a, "found")) == remote);
     ASSERT_EQ_INT(3, p->tag_count);
     const SemaType *number = &p->types[SEMA_INT], *text = &p->types[SEMA_STR];
-    SemaVariant x = {local, number}, y = {remote, text};
+    SemaVariant x = {local, &number, 1}, y = {remote, &text, 1};
     const SemaType *left = sema_symbol_set(p, &x, 1);
     const SemaType *right = sema_symbol_set(p, &y, 1);
     ASSERT_TRUE(left != right);
@@ -157,8 +159,8 @@ int main(void) {
       ASSERT_EQ_INT(2, both->symbols->count);
       ASSERT_TRUE(both->symbols->variants[0].tag == local);
       ASSERT_TRUE(both->symbols->variants[1].tag == remote);
-      ASSERT_TRUE(sema_variant(both, local)->payload == number);
-      ASSERT_TRUE(sema_variant(both, remote)->payload == text);
+      ASSERT_TRUE(sema_single_payload(sema_variant(both, local)) == number);
+      ASSERT_TRUE(sema_single_payload(sema_variant(both, remote)) == text);
       ASSERT_TRUE(sema_assignable(left, both));
       ASSERT_TRUE(sema_assignable(right, both));
       SemaVariant reversed[] = {y, x, y};
@@ -167,8 +169,251 @@ int main(void) {
       ASSERT_TRUE(sema_ok(both) == NULL);
       ASSERT_TRUE(sema_failures(p, both) == NULL);
     }
-    SemaVariant conflict[] = {x, {local, text}};
+    SemaVariant conflict[] = {x, {local, &text, 1}};
     ASSERT_TRUE(sema_symbol_set(p, conflict, 2) == NULL);
+  }
+  TEST("positional schemas own their arrays and retain zero versus unit") {
+    SemaProgram *p = valid(&a, "main() {}").program;
+    SemaTag *tag = sema_tag(p, p->module, "record");
+    const SemaType *items[] = {&p->types[SEMA_INT], &p->types[SEMA_STR],
+                               &p->types[SEMA_UNIT]};
+    SemaVariant v = {tag, items, 3};
+    const SemaType *type = sema_symbol_set(p, &v, 1);
+    ASSERT_TRUE(type != NULL);
+    const SemaVariant *stored = sema_variant(type, tag);
+    ASSERT_EQ_INT(3, stored->payload_count);
+    ASSERT_TRUE(stored->payloads != items);
+    size_t sets = p->symbol_set_count;
+    const SemaType *same[] = {items[0], items[1], items[2]};
+    SemaVariant duplicate[] = {{tag, same, 3}, v};
+    ASSERT_TRUE(sema_symbol_set(p, duplicate, 2) == type);
+    ASSERT_EQ_INT(sets, p->symbol_set_count);
+    ASSERT_TRUE(duplicate[0].payloads == same &&
+                duplicate[1].payloads == items);
+    items[1] = &p->types[SEMA_BOOL];
+    ASSERT_TRUE(stored->payloads[1] == &p->types[SEMA_STR]);
+    ASSERT_TRUE(sema_symbol_set(p, &v, 1) != type);
+    v.payload_count = 0;
+    const SemaType *empty = sema_symbol_set(p, &v, 1);
+    ASSERT_TRUE(sema_variant(empty, tag)->payloads == NULL);
+    ASSERT_EQ_INT(0, sema_variant(empty, tag)->payload_count);
+    ASSERT_TRUE(empty == sema_symbol_type(p, tag, NULL));
+    const SemaType *unit = sema_symbol_type(p, tag, &p->types[SEMA_UNIT]);
+    ASSERT_TRUE(empty != unit);
+    ASSERT_TRUE(!sema_assignable(empty, unit) && !sema_assignable(unit, empty));
+    ASSERT_TRUE(sema_equatable(empty) && sema_equatable(unit));
+    sets = p->symbol_set_count;
+    SemaVariant missing = {tag, NULL, 1};
+    ASSERT_TRUE(sema_symbol_set(p, &missing, 1) == NULL);
+    const SemaType *null_item[] = {&p->types[SEMA_STR], NULL};
+    missing.payloads = null_item;
+    missing.payload_count = 2;
+    ASSERT_TRUE(sema_symbol_set(p, &missing, 1) == NULL);
+    ASSERT_EQ_INT(sets, p->symbol_set_count);
+    const SemaType *number = &p->types[SEMA_INT];
+    SemaVariant ok = {p->ok, &number, 1};
+    ASSERT_TRUE(sema_result(p, sema_symbol_set(p, &ok, 1)) == number);
+    ok.payloads = same;
+    ok.payload_count = 3;
+    ASSERT_TRUE(sema_result(p, sema_symbol_set(p, &ok, 1)) ==
+                &p->types[SEMA_ERROR]);
+  }
+  TEST("all positional schemas agree with an independent base-three oracle") {
+    SemaProgram *p = valid(&a, "main() {}").program;
+    SemaTag *tag = sema_tag(p, p->module, "row");
+    const SemaType *choices[] = {&p->types[SEMA_INT], &p->types[SEMA_STR],
+                                 &p->types[SEMA_UNIT]};
+    enum {
+      COUNT = 121
+    }; // All lengths 0..4 over three distinct canonical types.
+    const SemaType *schemas[COUNT];
+    size_t lengths[COUNT], codes[COUNT], n = 0, limit = 1;
+    for (size_t length = 0; length <= 4; length++, limit *= 3) {
+      for (size_t code = 0; code < limit; code++) {
+        const SemaType *items[4];
+        size_t digits = code;
+        for (size_t j = 0; j < length; j++) {
+          items[j] = choices[digits % 3];
+          digits /= 3;
+        }
+        SemaVariant v = {tag, items, length};
+        const SemaType *type = sema_symbol_set(p, &v, 1);
+        ASSERT_TRUE(type != NULL);
+        lengths[n] = length;
+        codes[n] = code;
+        schemas[n++] = type;
+        SemaVariant dup[] = {v, v};
+        ASSERT_TRUE(sema_symbol_set(p, dup, 2) == type);
+      }
+    }
+    ASSERT_EQ_INT(COUNT, n);
+    ASSERT_TRUE(p->set_table_capacity >= 256);
+    for (size_t i = 0; i < n; i++) {
+      const SemaVariant *v = sema_variant(schemas[i], tag);
+      size_t digits = codes[i];
+      ASSERT_EQ_INT(lengths[i], v->payload_count);
+      for (size_t k = 0; k < lengths[i]; k++) {
+        ASSERT_TRUE(v->payloads[k] == choices[digits % 3]);
+        digits /= 3;
+      }
+      for (size_t j = 0; j < n; j++) {
+        int equal = lengths[i] == lengths[j] && codes[i] == codes[j];
+        ASSERT_EQ_INT(equal, schemas[i] == schemas[j]);
+        ASSERT_EQ_INT(equal, sema_assignable(schemas[i], schemas[j]));
+        ASSERT_TRUE(sema_symbol_union(p, schemas[i], schemas[j]) ==
+                    (equal ? schemas[i] : NULL));
+      }
+    }
+  }
+  TEST("wide positional schemas preserve the final item across scratch reuse") {
+    SemaProgram *p = valid(&a, "main() {}").program;
+    enum { WIDTH = 512 };
+    const SemaType **items = arena_calloc(&a, WIDTH, sizeof(*items));
+    for (size_t i = 0; i < WIDTH; i++)
+      items[i] = &p->types[SEMA_INT];
+    items[WIDTH - 1] = &p->types[SEMA_STR];
+    SemaTag *tag = sema_tag(p, p->module, "wide");
+    SemaVariant v = {tag, items, WIDTH};
+    const SemaType *original = sema_symbol_set(p, &v, 1);
+    items[WIDTH - 1] = &p->types[SEMA_BOOL];
+    const SemaType *different = sema_symbol_set(p, &v, 1);
+    ASSERT_TRUE(original != different);
+    ASSERT_TRUE(!sema_assignable(original, different));
+    ASSERT_TRUE(sema_symbol_union(p, original, different) == NULL);
+    items[WIDTH - 1] = &p->types[SEMA_STR];
+    SemaVariant copies[] = {v, v, v};
+    ASSERT_TRUE(sema_symbol_set(p, copies, 3) == original);
+    ASSERT_EQ_INT(WIDTH, sema_variant(original, tag)->payload_count);
+    ASSERT_TRUE(sema_variant(original, tag)->payloads[WIDTH - 1] ==
+                &p->types[SEMA_STR]);
+    ASSERT_TRUE(sema_equatable(original));
+  }
+  TEST("positional unions and named coverage compare every payload position") {
+    SemaProgram *p = valid(&a, "main() {}").program;
+    SemaTag *x = sema_tag(p, p->module, "pair"),
+            *y = sema_tag(p, p->module, "other"),
+            *z = sema_tag(p, p->module, "disjoint");
+    const SemaType *pair[] = {&p->types[SEMA_INT], &p->types[SEMA_STR]};
+    const SemaType *other[] = {&p->types[SEMA_UNIT], &p->types[SEMA_BOOL]};
+    const SemaType *bad[] = {&p->types[SEMA_INT], &p->types[SEMA_BOOL]};
+    SemaVariant input[] = {{x, pair, 2}, {y, other, 2}},
+                reversed[] = {input[1], input[0], input[1]};
+    const SemaType *all = sema_symbol_set(p, input, 2),
+                   *one = sema_symbol_set(p, input, 1);
+    const SemaType *two = sema_symbol_set(p, input + 1, 1);
+    ASSERT_TRUE(sema_symbol_set(p, reversed, 3) == all);
+    ASSERT_TRUE(sema_symbol_union(p, one, two) == all &&
+                sema_symbol_union(p, two, one) == all);
+    ASSERT_TRUE(sema_assignable(one, all) && !sema_assignable(all, one));
+    ASSERT_TRUE(reversed[0].tag == y && reversed[1].tag == x);
+    SemaVariant conflict[] = {{x, pair, 2}, {x, bad, 2}};
+    ASSERT_TRUE(sema_symbol_set(p, conflict, 2) == NULL);
+    const SemaType *wrong = sema_symbol_set(p, conflict + 1, 1);
+    ASSERT_TRUE(sema_symbol_union(p, all, wrong) == NULL);
+    SemaVariant group[] = {{x, pair, 2}, {z, bad, 2}};
+    SemaVar remaining = {0};
+    SemaArm arms[] = {{.kind = PAT_SET, .set = sema_symbol_set(p, group, 2)},
+                      {.kind = PAT_BIND, .binding = &remaining}};
+    SemaExpr value = {.type = all},
+             match = {.kind = SEMA_EXPR_MATCH,
+                      .as.match = {.input = &value, .arms = arms, .count = 2}};
+    Diagnostics errors;
+    diagnostics_init(&errors, &a);
+    sema_match_coverage(p, &match, &errors);
+    ASSERT_EQ_INT(0, errors.count);
+    ASSERT_TRUE(arms[0].cases == one && arms[1].cases == two &&
+                remaining.type == two);
+    group[0].payloads = bad;
+    arms[0].set = sema_symbol_set(p, group, 2);
+    diagnostics_init(&errors, &a);
+    sema_match_coverage(p, &match, &errors);
+    ASSERT_EQ_INT(1, errors.count);
+    ASSERT_EQ_INT(0, strcmp("Symbol tag has conflicting payload types.",
+                            errors.items[0]->message));
+    ASSERT_TRUE(arms[0].cases == NULL && remaining.type == all);
+    arms[0] = (SemaArm){.kind = PAT_SYMBOL, .tag = x, .payload = 1};
+    diagnostics_init(&errors, &a);
+    sema_match_coverage(p, &match, &errors);
+    ASSERT_EQ_INT(1, errors.count);
+    ASSERT_EQ_INT(0, strcmp("Symbol pattern has the wrong payload shape.",
+                            errors.items[0]->message));
+    // The old boolean field must not masquerade as a positional binder count.
+    arms[0].payload = 2;
+    diagnostics_init(&errors, &a);
+    sema_match_coverage(p, &match, &errors);
+    ASSERT_EQ_INT(1, errors.count);
+    ASSERT_EQ_INT(0, strcmp("Symbol pattern has the wrong payload shape.",
+                            errors.items[0]->message));
+  }
+  TEST("equatability follows late positions and struct-indirected cycles") {
+    SemaProgram *p =
+        valid(&a, "Node { next: :end | :more[Node] }\nmain() {}").program;
+    SemaTag *tag = sema_tag(p, p->module, "tuple");
+    const SemaType *items[] = {&p->types[SEMA_INT], &p->structs[0].type};
+    SemaVariant v = {tag, items, 2};
+    const SemaType *type = sema_symbol_set(p, &v, 1);
+    ASSERT_TRUE(!sema_equatable(type));
+    items[1] = type;
+    const SemaType *nested = sema_symbol_set(p, &v, 1);
+    ASSERT_TRUE(!sema_equatable(nested));
+    items[1] = &p->types[SEMA_UNKNOWN];
+    const SemaType *unknown = sema_symbol_set(p, &v, 1);
+    ASSERT_TRUE(!sema_equatable(unknown));
+    p->structs[0].fields[0].type = &p->types[SEMA_INT];
+    sema_update_equatable(p);
+    ASSERT_TRUE(sema_equatable(type) && sema_equatable(nested));
+    ASSERT_TRUE(!sema_equatable(unknown));
+  }
+  TEST("permissions follow owned objects in late and nested positions") {
+    Result r =
+        invalid(&a,
+                "P { n: int }\nread(value: :item[P]) -> P { P { n = 0 } "
+                "}\nuse(value: :item[P]) { read(value).n = 1 }\nmain() {}",
+                "Cannot mutate through an ordinary parameter");
+    SemaProgram *p = r.program;
+    SemaFunction *use = &p->functions[1];
+    SemaExpr *assignment = use->body->as.block.items[0];
+    ASSERT_EQ_INT(SEMA_EXPR_ASSIGN, assignment->kind);
+    SemaExpr *call = assignment->as.binding.target->as.field.object;
+    ASSERT_EQ_INT(SEMA_EXPR_CALL, call->kind);
+    const SemaType *items[] = {&p->types[SEMA_STR], &p->structs[0].type};
+    SemaVariant v = {sema_tag(p, p->module, "item"), items, 2};
+    for (unsigned nested = 0; nested < 2; nested++) {
+      const SemaType *type = sema_symbol_set(p, &v, 1);
+      for (size_t i = 0; i < 2; i++)
+        p->functions[i].symbol.params[0]->type =
+            p->functions[i].symbol.params[0]->annotation = type;
+      call->as.call.args[0]->type = call->as.call.args[0]->raw_type = type;
+      Diagnostics errors;
+      diagnostics_init(&errors, &a);
+      sema_check_permissions(p, &errors);
+      ASSERT_EQ_INT(1, errors.count);
+      ASSERT_EQ_INT(
+          0, strcmp("Cannot mutate through an ordinary parameter; use &.",
+                    errors.items[0]->message));
+      items[1] = type;
+    }
+  }
+  TEST("native lowering and emission refuse positional types before ABI "
+       "support") {
+    SemaProgram *p = valid(&a, "main() {}").program;
+    IrProgram *ir = ir_lower(&a, p);
+    ASSERT_TRUE(ir != NULL);
+    ir_insert_rc(&a, ir);
+    const SemaType *items[] = {&p->types[SEMA_STR], &p->types[SEMA_INT]};
+    SemaVariant v = {sema_tag(p, p->module, "pending"), items, 2};
+    const SemaType *type = sema_symbol_set(p, &v, 1);
+    ASSERT_TRUE(ir_lower(&a, p) == NULL);
+    const SemaSymSet *sets[] = {type->symbols};
+    ir->symbol_sets = sets;
+    ir->symbol_set_count = 1;
+    FILE *out = tmpfile();
+    ASSERT_TRUE(out != NULL);
+    if (out) {
+      ASSERT_TRUE(!emit_c(out, ir));
+      ASSERT_EQ_INT(0, ftell(out));
+      fclose(out);
+    }
   }
   TEST("explicit tag kinds preserve identity, modules, IDs and first-use "
        "spans") {
@@ -224,7 +469,7 @@ int main(void) {
     SemaProgram *p = valid(&a, "main() {}").program;
     SourceFile *module = source_create(&a, "implicit.brf", ":!implicit", 10);
     SemaTag *implicit = sema_tag(p, module, "implicit");
-    SemaVariant variant = {implicit, NULL};
+    SemaVariant variant = {implicit, NULL, 0};
     const SemaType *before = sema_symbol_set(p, &variant, 1);
     size_t id = implicit->id;
     ASSERT_TRUE(!implicit->kind_declared);
@@ -386,8 +631,8 @@ int main(void) {
     const SemaType *number = &p->types[SEMA_INT], *text = &p->types[SEMA_STR];
     const SemaType *parsed = sema_conversion(p, text, number);
     const SemaType *narrowed = sema_conversion(p, &p->types[SEMA_LNG], number);
-    ASSERT_TRUE(sema_variant(parsed, invalid_tag)->payload == text);
-    ASSERT_TRUE(sema_variant(narrowed, overflow)->payload == NULL);
+    ASSERT_TRUE(sema_single_payload(sema_variant(parsed, invalid_tag)) == text);
+    ASSERT_TRUE(sema_variant(narrowed, overflow)->payload_count == 0);
     ASSERT_TRUE(invalid_tag->module == p->module &&
                 overflow->module == p->module);
     ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, invalid_tag->kind);
@@ -412,13 +657,14 @@ int main(void) {
     enum { COUNT = 300 };
     SemaTag *tags[COUNT][2];
     SemaVariant variants[COUNT * 2];
+    const SemaType *number = &p->types[SEMA_INT], *text = &p->types[SEMA_STR];
     for (size_t i = 0; i < COUNT; i++) {
       char *name = arena_alloc(&a, 16);
       snprintf(name, 16, "tag%zu", i);
       tags[i][0] = sema_tag(p, p->module, name);
       tags[i][1] = sema_tag(p, other, name);
-      variants[i * 2] = (SemaVariant){tags[i][0], &p->types[SEMA_INT]};
-      variants[i * 2 + 1] = (SemaVariant){tags[i][1], &p->types[SEMA_STR]};
+      variants[i * 2] = (SemaVariant){tags[i][0], &number, 1};
+      variants[i * 2 + 1] = (SemaVariant){tags[i][1], &text, 1};
     }
     ASSERT_EQ_INT(COUNT * 2 + 1, p->tag_count);
     const SemaType *set = sema_symbol_set(p, variants, COUNT * 2);
@@ -429,9 +675,9 @@ int main(void) {
       ASSERT_TRUE(sema_tag(p, other, name) == tags[i][1]);
       ASSERT_EQ_INT(i * 2 + 2, tags[i][0]->id);
       ASSERT_EQ_INT(i * 2 + 3, tags[i][1]->id);
-      ASSERT_TRUE(sema_variant(set, tags[i][0])->payload ==
+      ASSERT_TRUE(sema_single_payload(sema_variant(set, tags[i][0])) ==
                   &p->types[SEMA_INT]);
-      ASSERT_TRUE(sema_variant(set, tags[i][1])->payload ==
+      ASSERT_TRUE(sema_single_payload(sema_variant(set, tags[i][1])) ==
                   &p->types[SEMA_STR]);
     }
     ASSERT_EQ_INT(COUNT * 2 + 1, p->tag_names.count);
@@ -582,7 +828,7 @@ int main(void) {
       char *name = arena_alloc(&a, 16);
       snprintf(name, 16, "t%zu", i);
       tags[i] = sema_tag(p, p->module, name);
-      SemaVariant v = {tags[i], NULL};
+      SemaVariant v = {tags[i], NULL, 0};
       single[i] = sema_symbol_set(p, &v, 1);
       ASSERT_TRUE(sema_symbol_set(p, &v, 1) == single[i]);
     }
@@ -595,18 +841,20 @@ int main(void) {
     ASSERT_EQ_INT(COUNT, forward->symbols->count);
     SemaVariant reversed[COUNT];
     for (size_t i = 0; i < COUNT; i++)
-      reversed[i] = (SemaVariant){tags[COUNT - 1 - i], NULL};
+      reversed[i] = (SemaVariant){tags[COUNT - 1 - i], NULL, 0};
     ASSERT_TRUE(sema_symbol_set(p, reversed, COUNT) == forward);
     const SemaType *number = &p->types[SEMA_INT];
-    SemaVariant conflict = {tags[7], number};
+    SemaVariant conflict = {tags[7], &number, 1};
     ASSERT_TRUE(sema_symbol_union(p, forward,
                                   sema_symbol_set(p, &conflict, 1)) == NULL);
     SemaVariant duplicate[] = {
-        {tags[3], NULL}, {tags[2], NULL}, {tags[3], number}};
+        {tags[3], NULL, 0}, {tags[2], NULL, 0}, {tags[3], &number, 1}};
     ASSERT_TRUE(sema_symbol_set(p, duplicate, 3) == NULL);
-    SemaVariant outcome[] = {{tags[4], NULL}, {p->ok, number}, {tags[5], NULL}};
+    SemaVariant outcome[] = {
+        {tags[4], NULL, 0}, {p->ok, &number, 1}, {tags[5], NULL, 0}};
     const SemaType *full = sema_symbol_set(p, outcome, 3);
-    ASSERT_TRUE(sema_ok(full) != NULL && sema_ok(full)->payload == number);
+    ASSERT_TRUE(sema_ok(full) != NULL &&
+                sema_single_payload(sema_ok(full)) == number);
     ASSERT_TRUE(sema_failures(p, full) ==
                 sema_symbol_union(p, single[4], single[5]));
     ASSERT_TRUE(sema_ok(sema_failures(p, full)) == NULL);
@@ -637,7 +885,7 @@ int main(void) {
       for (size_t i = 0; i < ir->symbol_set_count; i++) {
         const SemaSymSet *s = ir->symbol_sets[i];
         for (size_t j = 0; j < s->count; j++) {
-          const SemaType *payload = s->variants[j].payload;
+          const SemaType *payload = sema_single_payload(&s->variants[j]);
           if (payload && payload->kind == SEMA_SYM)
             ASSERT_TRUE(declared[payload->symbols->id]);
         }

@@ -58,7 +58,7 @@ int main(void) {
                        *to = &p->types[SEMA_SHRT + j];
         const SemaType *outcome = sema_conversion(p, from, to);
         ASSERT_EQ_INT(infallible[i][j] ? 1 : 2, outcome->symbols->count);
-        ASSERT_TRUE(sema_ok(outcome)->payload == to);
+        ASSERT_TRUE(sema_single_payload(sema_ok(outcome)) == to);
         ASSERT_TRUE(p->functions[0].symbol.return_type == to);
         IrProgram *ir = ir_lower(&a, p);
         ASSERT_TRUE(ir != NULL);
@@ -92,7 +92,7 @@ int main(void) {
       const SemaType *to = &p->types[SEMA_SHRT + j];
       const SemaType *outcome = sema_conversion(p, &p->types[SEMA_CHR], to);
       ASSERT_EQ_INT(1, outcome->symbols->count);
-      ASSERT_TRUE(sema_ok(outcome)->payload == to);
+      ASSERT_TRUE(sema_single_payload(sema_ok(outcome)) == to);
       ASSERT_TRUE(p->functions[0].symbol.return_type == to);
       IrProgram *ir = ir_lower(&a, p);
       ASSERT_TRUE(ir != NULL);
@@ -164,7 +164,7 @@ int main(void) {
         ASSERT_TRUE(ok != NULL);
         if (ok) {
           ASSERT_EQ_INT(2, s->outcome_type->symbols->count);
-          ASSERT_TRUE(ok->payload == &programs[i]->types[SEMA_INT]);
+          ASSERT_TRUE(sema_single_payload(ok) == &programs[i]->types[SEMA_INT]);
           ASSERT_TRUE(s->return_type == s->outcome_type);
         }
       }

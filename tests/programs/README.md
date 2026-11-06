@@ -521,5 +521,13 @@ and dotted calls to the same method; qualified-pipeline coverage retains a
 readonly self method even though its receiver is otherwise unused. N2 behavior
 and the native chapter-audit gap are unchanged.
 
+Positional payload types now have canonical owned arrays in the semantic
+interner. Independent C tests cover arity, order, late-position conflicts,
+array lifetime, coverage, equatability and read-only reachability. This does not
+enable native multiple payloads: existing type/value/pattern rejections and
+zero/one-payload observations stay unchanged, and lowering/emission reject
+incomplete positional representations. Fixture inventory remains 152 files;
+no native chapter audit or N2 rule is added.
+
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

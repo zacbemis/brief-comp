@@ -72,16 +72,22 @@ static const unsigned char *reachability(SemaProgram *program) {
       if (current->kind == SEMA_STRUCT)
         r[current->structure->id] = 1;
       for (size_t f = 0; f < count; f++) {
-        const SemaType *type = current->kind == SEMA_STRUCT
-                                   ? current->structure->fields[f].type
-                                   : current->symbols->variants[f].payload;
-        if (!type || (type->kind != SEMA_STRUCT && type->kind != SEMA_SYM))
-          continue;
-        size_t id = type->kind == SEMA_STRUCT ? type->structure->id
-                                              : n + type->symbols->id;
-        if (!seen[id]) {
-          seen[id] = 1;
-          work[top++] = id;
+        size_t positions = current->kind == SEMA_STRUCT
+                               ? 1
+                               : current->symbols->variants[f].payload_count;
+        for (size_t position = 0; position < positions; position++) {
+          const SemaType *type =
+              current->kind == SEMA_STRUCT
+                  ? current->structure->fields[f].type
+                  : current->symbols->variants[f].payloads[position];
+          if (!type || (type->kind != SEMA_STRUCT && type->kind != SEMA_SYM))
+            continue;
+          size_t id = type->kind == SEMA_STRUCT ? type->structure->id
+                                                : n + type->symbols->id;
+          if (!seen[id]) {
+            seen[id] = 1;
+            work[top++] = id;
+          }
         }
       }
     }

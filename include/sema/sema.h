@@ -49,7 +49,8 @@ struct SemaTag {
 };
 typedef struct {
   SemaTag *tag;
-  const SemaType *payload; // NULL means no payload; () is distinct.
+  const SemaType *const *payloads; // Ordered; canonical sets own this array.
+  size_t payload_count; // Zero positions differ from one () position.
 } SemaVariant;
 struct SemaSymSet {
   SemaType type;
@@ -294,6 +295,13 @@ const SemaType *sema_conversion(SemaProgram *program, const SemaType *source,
 // Includes value-represented symbols: their active payload needs ARC handling.
 int sema_reference(const SemaType *type);
 const SemaVariant *sema_ok(const SemaType *type);
+int sema_payloads_equal(const SemaVariant *a, const SemaVariant *b);
+// Transitional native zero/one access: multiple positions must stop before
+// checking/lowering until expression, pattern, IR and RC support is complete.
+const SemaType *sema_single_payload(const SemaVariant *variant);
+// Zero/one constructor; sema_symbol_set accepts and owns positional lists.
+const SemaType *sema_symbol_type(SemaProgram *program, SemaTag *tag,
+                                 const SemaType *payload);
 const SemaType *sema_success(SemaProgram *program, const SemaType *payload);
 const SemaType *sema_result(SemaProgram *program, const SemaType *type);
 const SemaType *sema_failures(SemaProgram *program, const SemaType *type);

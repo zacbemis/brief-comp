@@ -379,7 +379,7 @@ int main(void) {
         const SemaFunction *f = &r.program->functions[0];
         ASSERT_EQ_INT(SEMA_SYM, f->symbol.outcome_type->kind);
         const SemaVariant *ok = sema_ok(f->symbol.outcome_type);
-        ASSERT_TRUE(ok && ok->payload == sema_ok(f->written_type)->payload);
+        ASSERT_TRUE(ok && sema_payloads_equal(ok, sema_ok(f->written_type)));
       }
     }
     Result callers = check(&a, "f(b: bool) -> :ok[int] | :bad | _ {\n"
@@ -410,7 +410,7 @@ int main(void) {
     const SemaType *type = r.program->functions[0].symbol.outcome_type;
     ASSERT_TRUE(type == r.program->functions[1].symbol.outcome_type);
     ASSERT_EQ_INT(3, type->symbols->count);
-    ASSERT_EQ_INT(SEMA_DUB, sema_ok(type)->payload->kind);
+    ASSERT_EQ_INT(SEMA_DUB, sema_single_payload(sema_ok(type))->kind);
     valid(&a, "f(b: bool) { if b { ret :bad }\ng(b)? }\n"
               "g(b: bool) { if b { ret 1 }\nf(b)? }\nmain() {}\n");
     invalid(&a, "f() { g()? }\ng() { f()? }\nmain() {}",
@@ -463,7 +463,7 @@ int main(void) {
             actual |= 1u << j;
         }
         ASSERT_EQ_INT(reach[i], actual);
-        ASSERT_EQ_INT(SEMA_INT, sema_ok(type)->payload->kind);
+        ASSERT_EQ_INT(SEMA_INT, sema_single_payload(sema_ok(type))->kind);
       }
     }
   }

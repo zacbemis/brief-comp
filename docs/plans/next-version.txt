@@ -265,6 +265,12 @@ becomes `d.label()`; missing receivers/effects are not guessed or discarded.
 Affected native sources and examples are converted. Trait/import/conformance
 and outside-owner context boundaries remain; N1 is still in progress.
 
+Canonical semantic symbol variants now own ordered payload-type arrays.
+Interning, subset checks, union conflicts, equatability and reference
+reachability account for every position. This is the type-layer foundation for
+multi-payload support, not native acceptance: type/value/pattern scope barriers
+remain, and lowering/emission reject incomplete positional representations.
+
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
 - [x] N0 (3): neutral tag kinds and module identity.
@@ -1930,6 +1936,68 @@ N1 remains in progress: remaining casing/keywords, multi-payload native
 checking/lowering, failure-tag conversion and replacement native audits.
 Native traits/conformance and modules remain bootstrap work. N2 outcomes,
 entry policy, IR/RC and runtime formatting rules are unchanged.
+
+### N1 increment: canonical positional payload-type foundation
+
+The next native multi-payload step starts below the source acceptance boundary.
+`SemaVariant` now retains an ordered payload-type array and its count, replacing
+the single type slot. Canonical sets own copies of these arrays; caller stack
+lists, reused scratch storage and later input mutations cannot change interned
+schemas. Zero positions and one unit position remain distinct. A zero/one
+constructor keeps current producers simple without allocating on cache hits;
+the native single-position accessor makes the remaining ABI constraint explicit.
+No alternate grammar or source migration helper is added.
+
+Hashing, structural equality, duplicate-tag validation, subset assignment and
+union merging include arity and every ordered type. Equal arrays at different
+addresses intern together. Position order and late-position differences cannot
+alias or silently merge. As before, independent sets may carry different
+schemas for the same global tag until those sets meet. Tag identity, kinds,
+IDs, canonical type pointers and set creation order keep their existing rules.
+Invalid missing-array/element inputs are rejected without registering a set.
+
+Equatability and read-only reference reachability traverse all positions,
+including nested symbol sets and struct-indirected cycles. Named-set coverage
+checks whole schemas and retains positional types in narrowed residual sets.
+The old one-position pattern representation still rejects a positional shape
+rather than binding just its first item. Multiple `:ok` result positions cannot
+silently collapse to one item or unit through the first-version result helper.
+That is an internal API guard, not N2 outcome normalization or a tuple type.
+
+Source resolution retains the existing exact unsupported diagnostics for
+multiple payloads in types, expressions and patterns, before dependent errors.
+Expression construction, pattern bindings, IR/RC and native payload layout are
+not yet generalized. Lowering rejects a program containing incomplete
+positional representations, even when assembled through the sema API; emission
+also rejects positional IR symbol sets before writing any C. Existing zero/one
+payload layouts, extraction, ownership, formatting and first-version outcomes
+are unchanged. Native multi-payload support remains a subsequent N1 increment.
+
+Independent tests cover caller-array lifetime, zero/unit distinction, sorted
+and duplicate inputs, union/subset conflicts and named-set coverage. A
+base-three oracle enumerates all 121 schemas of lengths zero through four,
+checks every pair's identity, assignability and union result, and exercises
+interner growth. A 512-position list checks final-item conflicts and scratch
+reuse. Late/nested-position permission checks and an equatability
+cycle/fixed-point test cover the type graph. Native lowering/emission guards
+are tested separately from source unsupported cases. Call-form tests also pin
+the reviewed spaces/tabs trim after the first comma and verify it stops at LF
+or CRLF without consuming the following indentation.
+
+All four fresh `-Werror` configurations pass: GCC/Clang Debug ASan/UBSan and GCC
+Release, 25/25 each; GCC Debug without sanitizers, 24/24. All 354 retained
+sources preserve complete CLI statuses, stdout and stderr, including ASTs and
+fix previews. All 102 prior C successes remain byte-identical. All six examples
+preserve sanitized stdout/stderr/status. clang-format 23.1.3, diff/prose checks
+and the 23-ending CRLF fixture pass. The plan's design and inventory table are
+unchanged. Reports: `build/validation/payload-types.20261106T081422Z/` (ignored).
+
+Inventories remain 152 native fixtures, 155 parser files (41 pass, 114 fail),
+239 document fences and 162 checks. No document fence is promoted and no native
+chapter audit is completed. N1 remains in progress: native positional values,
+patterns and lowering/ownership, remaining casing/keywords, failure-tag source
+conversion and replacement audits remain. N2 outcomes, entry status and
+runtime formatting are unchanged; trait/module resolution remains unavailable.
 
 ## Risks
 
