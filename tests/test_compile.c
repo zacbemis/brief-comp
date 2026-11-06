@@ -180,13 +180,13 @@ int main(void) {
   }
   TEST("alias types and canonical spellings produce byte-identical owned C") {
     const char *prefix = "Num = lng\nText = str\nEmpty = ()\nRef = User\n"
-                         "User { n: Num\ntext: Text\nunit: Empty }\n";
+                         "User { n: Num\ntext: Text\nunit: Empty\n";
     const char *bodies[] = {
-        ("impl Ref { new(n: Num) -> Ref { Ref { n = n, text = Text(n), unit = "
+        ("new(n: Num) -> Ref { Ref { n = n, text = Text(n), unit = "
          "() } }\n"
          "read(r: Ref) -> Num { r.n } }\n"
          "main() { let n = Num(42)\nprint(Text(Ref.new(n).read())) }\n"),
-        ("impl User { new(n: lng) -> User { User { n = n, text = str(n), unit "
+        ("new(n: lng) -> User { User { n = n, text = str(n), unit "
          "= () } }\n"
          "read(r: User) -> lng { r.n } }\n"
          "main() { let n = lng(42)\nprint(str(User.new(n).read())) }\n")};

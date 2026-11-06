@@ -76,9 +76,8 @@ totient(n: lng) -> lng {
 Fraction {
   top: lng
   bottom: lng
-}
 
-impl Fraction {
+
   // Always stored in lowest terms with a positive denominator.
   new(top: lng, bottom: lng) -> :ok[Fraction] | :zeroDenominator {
     if bottom == 0 { ret :zeroDenominator }
@@ -126,6 +125,7 @@ impl Fraction {
     text
   }
 }
+
 
 // n! without overflow: stops with :overflow before the multiplication that
 // would exceed lng, instead of panicking.

@@ -1,0 +1,14 @@
+// Functions and fields share the type body; receivers remain explicit here.
+Counter {
+  pub new(n: int) -> Counter { Counter { value = n, unit = () } }
+  value: int
+  read(c: Counter) -> int { c.value }
+  unit: ()
+  bump(c: &Counter) { c.value++ }
+}
+Handler {
+  required(n: int) -> int
+  default(n: int) -> int { unknown(n) }
+}
+impl(impl: int) -> int { impl }
+main() { Counter.new(1).read() }

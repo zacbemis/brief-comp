@@ -1,12 +1,12 @@
-String { auto: str }
-A_b { value: int }
-A { value: int }
-impl String {
+String { auto: str
+
   new(auto: str) -> String { String { auto = auto } }
   get(value: String) { value.auto }
 }
-impl A_b { c(value: A_b) { value.value } }
-impl A { b_c(value: A) { value.value } }
+A_b { value: int
+  c(value: A_b) { value.value } }
+A { value: int
+  b_c(value: A) { value.value } }
 method_3_A_b_c() { "top" }
 main() {
   let value = String.new("heap" + " string")

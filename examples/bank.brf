@@ -27,35 +27,8 @@ Account {
   balance: lng
   frozen: bool
   history: :none | :more[Entry]
-}
 
-Node {
-  account: Account
-  next: :none | :more[Node]
-}
 
-Bank {
-  name: str
-  accounts: :none | :more[Node]
-  nextId: int
-}
-
-money(cents: lng) -> str {
-  let sign = if cents < 0 { "-" } else { "" }
-  let whole = (if cents < 0 { -cents } else { cents })
-  let fraction = whole % 100
-  sign + "$" + str(whole / 100) + "." + (if fraction < 10 { "0" } else { "" }) +
-    str(fraction)
-}
-
-kindName(kind: Kind) -> str {
-  kind |> {
-    :checking => "checking"
-    :savings => "savings"
-  }
-}
-
-impl Account {
   record(account: &Account, label: str, amount: lng) {
     account.balance += amount
     account.history = :more[Entry {
@@ -85,7 +58,17 @@ impl Account {
   }
 }
 
-impl Bank {
+Node {
+  account: Account
+  next: :none | :more[Node]
+}
+
+Bank {
+  name: str
+  accounts: :none | :more[Node]
+  nextId: int
+
+
   new(name: str) -> Bank { Bank { name = name, accounts = :none, nextId = 100 } }
 
   open(bank: &Bank, owner: str, kind: Kind) -> Account {
@@ -170,6 +153,23 @@ impl Bank {
       ", held " + money(checking + savings))
   }
 }
+
+money(cents: lng) -> str {
+  let sign = if cents < 0 { "-" } else { "" }
+  let whole = (if cents < 0 { -cents } else { cents })
+  let fraction = whole % 100
+  sign + "$" + str(whole / 100) + "." + (if fraction < 10 { "0" } else { "" }) +
+    str(fraction)
+}
+
+kindName(kind: Kind) -> str {
+  kind |> {
+    :checking => "checking"
+    :savings => "savings"
+  }
+}
+
+
 
 // Prints oldest entries first by recursing to the end of the history.
 printHistory(history: :none | :more[Entry]) {

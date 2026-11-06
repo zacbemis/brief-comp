@@ -30,6 +30,15 @@ Holder {
   array: Arr[int]
   unit: ()
   last: str
+
+
+  pub same(holder: Holder) -> Holder {
+    holder
+  }
+
+  pub get(holder: &Holder, index: int) -> :ok[int] | :outOfRange[int] {
+    :ok[holder.plain]
+  }
 }
 
 AllPrimitives {
@@ -46,15 +55,6 @@ AllPrimitives {
   k: str
 }
 
-impl Holder {
-  pub same(holder: Holder) -> Holder {
-    holder
-  }
-
-  pub get(holder: &Holder, index: int) -> :ok[int] | :outOfRange[int] {
-    :ok[holder.plain]
-  }
-}
 
 returnsGeneric() -> Vec[int] {
   Vec[int]()

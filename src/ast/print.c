@@ -375,15 +375,18 @@ static void decl(FILE *out, const Decl *d) {
     fputc(')', out);
     break;
   case DECL_STRUCT:
-    fprintf(out, "(struct %s%s", visibility, d->name);
+  case DECL_TRAIT:
+    fprintf(out, "(%s %s%s", d->kind == DECL_TRAIT ? "trait" : "struct",
+            visibility, d->name);
     for (size_t i = 0; i < d->as.structure.count; i++) {
       fputc(' ', out);
       parameter(out, &d->as.structure.fields[i], "field ");
     }
+    for (size_t i = 0; i < d->as.structure.function_count; i++) {
+      fputc(' ', out);
+      decl(out, d->as.structure.functions[i]);
+    }
     fputc(')', out);
-    break;
-  case DECL_TRAIT:
-    fprintf(out, "(trait %s)", d->name);
     break;
   case DECL_TYPE:
     fprintf(out, "(type %s%s ", visibility, d->name);
@@ -392,15 +395,6 @@ static void decl(FILE *out, const Decl *d) {
     break;
   case DECL_IMPORT:
     fprintf(out, "(import %s)", d->name);
-    break;
-  case DECL_IMPL:
-    fputs("(impl ", out);
-    type(out, d->as.impl.target);
-    for (size_t i = 0; i < d->as.impl.count; i++) {
-      fputc(' ', out);
-      decl(out, d->as.impl.methods[i]);
-    }
-    fputc(')', out);
     break;
   default:
     fputs("(unsupported-declaration)", out);

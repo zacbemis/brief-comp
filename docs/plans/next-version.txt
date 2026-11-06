@@ -177,14 +177,14 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (142 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases, empty-trait classification and qualified symbol syntax; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
-| `tests/parse/pass/` (37) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
-| `tests/parse/fail/` (106) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
+| `tests/programs/` (144 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases, empty-trait classification, qualified symbol syntax and struct-owned functions with ordinary `impl`; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/parse/pass/` (38) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
+| `tests/parse/fail/` (109) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
 | CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
 | Document acceptance (13 v0 audits, now retired) | Scripts, bridges and registrations deleted in N1; records retained as historical evidence | Each new document's audit is written in the milestone that implements its rules (see "Milestones"), so document coverage returns chapter by chapter instead of all at the end. |
-| `test_doc_parser` | Reads 13 current chapters: 239 fences, 150 parser checks, 89 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
+| `test_doc_parser` | Reads 13 current chapters: 239 fences, 152 parser checks, 87 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
 | `examples/*.brf` | Not run in CI | Converted in N1, and added to the program runner with their output as expectations, so the examples cannot rot again. |
 
 ### New test forms
@@ -218,30 +218,32 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 N0 is complete. N1's identifier tokens, `not`, `dbl`, `->` returns, keyword-free
 aliases, `=` struct literal fields, `.()` indices and bracketed type arguments
 are implemented, together with casing on recognized declarations and symbol
-tags. `Sym`, `Self`, `trait` and `ovr` are ordinary names. Sized array annotations recover as
-`Arr[Type]` with diagnostics.
-Structs/aliases reject `pub`; checked fields/functions retain written
-visibility. The v0 scripts/bridges are retired and the current-document parser
-inventory is active. Other declaration/type structure, remaining keywords,
-receivers, module casing, source conversion and replacement native chapter
-audits remain pending. Pattern binding/set roles now follow the name classes.
-Module-selection imports parse, with an explicit not-implemented compilation
-barrier and no file loading. Typed `Arr`/`Vec` literals parse but remain
-unimplemented at native compilation. Error tags use adjacent `:!name`; kinds and
-conflict source locations are retained, without switching outcomes or formatting.
-Bracketed payload lists parse in types, values and patterns; zero/one payload
-preserves native behavior, while several positions report not implemented.
-Union types now use `|` in every type context; old `Sym<...>` wrappers reject.
-Typed payload binders retain annotations, with explicit native rejection until
-merged-symbol matching exists. Implicit owner-type `Self` has been replaced by
-concrete names, with ordinary declarations named `Self` taking precedence over
-legacy recovery. Type aliases now transparently reuse all existing native types,
-including primitives, unit and structs, with shared converters and struct
-namespaces. Valid empty type bodies now classify as unsupported traits; native
-struct fixtures have explicit fields, including unit fields. Qualified symbols
-retain module paths but stop at an explicit native scope boundary. Trait/member
-body grammar, multi-payload checking/lowering and the old failure-tag conversion
-remain pending.
+tags. `Sym`, `Self`, `trait`, `ovr` and `impl` are ordinary names. Sized array
+annotations recover as `Arr[Type]` with diagnostics. Structs/aliases reject
+`pub`; checked fields/functions retain written visibility. The v0 scripts/bridges
+are retired and the current-document parser inventory is active. Other
+declaration/type structure, remaining keywords, receivers, module casing,
+source conversion and replacement native chapter audits remain pending. Pattern
+binding/set roles now follow the name classes. Module-selection imports parse,
+with an explicit not-implemented compilation barrier and no file loading. Typed
+`Arr`/`Vec` literals parse but remain unimplemented at native compilation. Error
+tags use adjacent `:!name`; kinds and conflict source locations are retained,
+without switching outcomes or formatting. Bracketed payload lists parse in
+types, values and patterns; zero/one payload preserves native behavior, while
+several positions report not implemented. Union types now use `|` in every type
+context; old `Sym<...>` wrappers reject. Typed payload binders keep annotations,
+with explicit native rejection until merged-symbol matching exists. Implicit
+owner-type `Self` has been replaced by concrete names, with ordinary declarations
+named `Self` taking precedence over legacy recovery. Type aliases transparently
+reuse all existing native types, including primitives, unit and structs, with
+shared converters and struct namespaces. Valid fieldless bodies classify as
+unsupported traits; native struct fixtures have explicit fields, including unit
+fields. Functions now live inside struct bodies, preserving explicit receivers;
+separate `impl` blocks reject. Typed trait signatures and default bodies parse
+but retain the native unsupported-trait barrier. Qualified symbols retain
+module paths but stop at an explicit native scope boundary. Remaining
+trait/receiver grammar, multi-payload checking/lowering and the old failure-tag
+conversion remain pending.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -1544,6 +1546,68 @@ receivers/wrong-way calls, multi-payload checking/lowering, remaining casing and
 keywords, failure-tag conversion and replacement native audits. Qualified-symbol
 resolution remains bootstrap work. Outcomes, entry policy, IR/RC and runtime
 formatting rules are unchanged.
+
+### N1 increment: struct-owned functions and retired `impl` blocks
+
+Functions now live inside their struct declaration, alongside fields. The lexer
+no longer reserves `impl`, the AST has no `DECL_IMPL`, and struct nodes retain
+member declarations separately from fields. Resolution collects those functions
+under the existing canonical owner; aliases share the same method namespace.
+Existing explicit receiver parameters, associated/value calls, visibility,
+permissions and outcome rules are preserved. Recognizable old blocks report
+`Declare functions inside the struct, without 'impl'.` No relocation fix is
+invented: finding and editing an owner can require nonlocal or ambiguous changes.
+
+Fields may precede or follow functions. Fieldless valid bodies retain typed
+required signatures and default bodies as traits, but still stop at the native
+unsupported-trait barrier before dependent annotations, bodies or main checks.
+Struct functions need bodies; required trait signatures need written return
+types. Broken members remain recovery structs, not guessed valid traits. This
+is not receiver inference, `self`/`&self`, conformance or native trait support.
+
+Affected examples, parser/program fixtures and embedded C sources now place
+functions on the concrete struct, including former alias-targeted blocks. Their
+runtime observations and native rejection lines are preserved. The declaration
+message no longer advertises `impl`; the renamed `later-conformance.brf` tests
+conformance without that obsolete prefix and intentionally changes its message.
+Three syntax-only pass fixtures change unsupported native diagnostics/locations
+as their former blocks become real member declarations; they are not native
+acceptance cases. No output, panic or entry-status expectation is weakened.
+
+`pass/45-struct-members.brf` and three parser rejections cover placement, trait
+signatures and old blocks. Focused tests cover interleaving, visibility/spans,
+borrowed parameters, LF/CRLF, immutable reparsing, 512 members, broken-member
+recovery, forward/mutually recursive headers and unsupported trait bodies.
+`struct-members.brf` executes constructors, receiver calls and mutation, with an
+ordinary function named `impl`; `errors/old-impl-blocks.brf` rejects old blocks.
+CLI checks prohibit AST/C output and guessed fixes for legacy blocks. Inventory:
+144 programs and 147 parser files (38 pass, 109 fail).
+
+Two whole module fences become checks: constructor fence 19 and namespace/tag
+usage fence 7. Counts are 152 checks: 147 successful parses and five intentional
+syntax rejections, plus 87 fenced and two unfenced listings. Fenced listings:
+17 await N1/N4/N5 syntax, 50 need later features and 20 are fragments.
+Conformance and trait receiver examples remain listed; the standard-library
+example still needs keyword-named qualified JSON members, not member placement.
+No helper bodies are synthesized, and no native/module/API chapter audit is
+complete.
+
+Validation: fresh `-Werror` GCC/Clang Debug ASan/UBSan and GCC Release builds
+pass 25/25 each; GCC Debug without sanitizers passes 24/24. Pinned clang-format
+23.1.3, `git diff --check` and edited-prose width checks pass. All 327 retained
+sources preserve emission statuses. Of 96 previous C successes, 88 are byte
+identical; five differences are source maps only, and three also change function
+order/generated symbol-set IDs. All user function bodies match after source-map
+and structural symbol-schema normalization, and all 96 retain emitted user
+function/method/struct names. All six examples and the four other changed native
+C cases preserve sanitized stdout/stderr/status. Reports:
+`build/validation/struct-members.20261106T040729Z/` (ignored).
+
+N1 remains in progress: receiver/trait/conformance grammar, inference and
+wrong-way calls, remaining casing/keywords, multi-payload checking/lowering,
+failure-tag conversion and replacement native audits. Qualified resolution is
+still bootstrap work. N2 outcomes, entry policy, IR/RC and runtime formatting
+rules are unchanged.
 
 ## Risks
 

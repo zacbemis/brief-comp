@@ -226,6 +226,24 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
     message(FATAL_ERROR "collection escaped its scope boundary (${status}):\n${errors}")
 endif()
 
+set(old_impl "${TEST_DIR}/old-impl.brf")
+file(WRITE "${old_impl}" "User { n: int }\r\nimpl User { read(u: User) { u.n } }\r\nmain() {}\r\n")
+execute_process(COMMAND "${BRIEF}" dump-tokens "${old_impl}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
+   NOT output MATCHES "TOK_LOWER_NAME \"impl\"" OR output MATCHES "TOK_IMPL")
+    message(FATAL_ERROR "impl remains a keyword (${status}):\n${errors}\n${output}")
+endif()
+foreach(mode IN ITEMS dump-ast emit-c)
+    execute_process(COMMAND "${BRIEF}" ${mode} "${old_impl}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
+       NOT errors MATCHES "^error: Declare functions inside the struct, without 'impl'" OR
+       errors MATCHES "help:")
+        message(FATAL_ERROR "old impl escaped rejection (${status}):\n${errors}")
+    endif()
+endforeach()
+
 set(qualified "${TEST_DIR}/qualified-symbol.brf")
 file(WRITE "${qualified}" "A = models.Db.:!bad[Missing]\r\nmain() {}\r\n")
 execute_process(COMMAND "${BRIEF}" dump-ast "${qualified}"
@@ -276,7 +294,7 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
 endif()
 
 set(native_alias "${TEST_DIR}/native-type-alias.brf")
-file(WRITE "${native_alias}" "Num = int\r\nRef = Box\r\nBox { n: Num }\r\nimpl Ref { new(n: Num) -> Ref { Ref { n = n } } }\r\nmain() { print(str(Ref.new(Num(42)).n)) }\r\n")
+file(WRITE "${native_alias}" "Num = int\r\nRef = Box\r\nBox { n: Num\r\nnew(n: Num) -> Ref { Ref { n = n } } }\r\nmain() { print(str(Ref.new(Num(42)).n)) }\r\n")
 execute_process(COMMAND "${BRIEF}" emit-c "${native_alias}"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
@@ -292,7 +310,7 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
 endif()
 
 set(self_type "${TEST_DIR}/self-type.brf")
-file(WRITE "${self_type}" "Box { n: int }\r\nimpl Box { read(b: Self) -> int { b.n } }\r\nmain() {}\r\n")
+file(WRITE "${self_type}" "Box { n: int\r\nread(b: Self) -> int { b.n } }\r\nmain() {}\r\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${self_type}"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
@@ -308,7 +326,7 @@ execute_process(COMMAND "${BRIEF}" emit-c "${self_type}"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 string(REGEX MATCHALL "(^|\n)error:" self_errors "${errors}")
 list(LENGTH self_errors self_errors)
-string(FIND "${errors}" "help: write `impl Box { read(b: Box)" self_fix)
+string(FIND "${errors}" "help: write `read(b: Box)" self_fix)
 if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT self_errors EQUAL 1 OR
    NOT errors MATCHES "^error: There is no implicit 'Self' type" OR
    self_fix LESS 0 OR

@@ -2,8 +2,9 @@
 
 Small programs that show the first-version feature scope, with N1 spelling
 updates as they are implemented: `not`, `dbl`, `->` returns, keyword-free
-aliases and `=` literal fields. Other declaration/type structure has not
-switched yet. Each program is a single file that runs on its own:
+aliases, `=` literal fields and functions inside struct bodies. Receivers remain
+explicitly typed; inference and `self`/`&self` are not added. Each program is a
+single file that runs on its own:
 
 ```sh
 ./build/brief run examples/calendar.brf
@@ -12,7 +13,7 @@ switched yet. Each program is a single file that runs on its own:
 
 | Program | What it does | Language features it shows |
 |---|---|---|
-| `calendar.brf` | Validates dates, finds weekdays and days of the year, adds and subtracts days, counts business days, computes Easter Sunday and prints month grids. | Structs with `impl`, associated functions, a named error set, `?` in `main`, value-producing `if` and matches, loops. |
+| `calendar.brf` | Validates dates, finds weekdays and days of the year, adds and subtracts days, counts business days, computes Easter Sunday and prints month grids. | Struct member functions, associated calls, a named error set, `?` in `main`, value-producing `if` and matches, loops. |
 | `loan.brf` | Calculates loan payments, total interest, the effect of extra payments and an amortization table, in exact integer cents. | `lng` arithmetic, a binary search over a simulation, fallible results matched where they are made, string formatting by hand. |
 | `life.brf` | Runs Conway's Game of Life on an 8x8 wrapping board stored in one `ulng`, and detects when a pattern dies, freezes or cycles. | Bitwise operations and shifts, a linked history built from a recursive struct, `?` on an optional result. |
 | `symbolic.brf` | Prints, simplifies and differentiates expressions in `x`, evaluates them with division-by-zero errors, and finds roots with Newton's method. | A recursive symbol type through structs, exhaustive matches, the product, quotient and chain rules, error propagation with `?`. |

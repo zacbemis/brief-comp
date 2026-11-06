@@ -1,5 +1,5 @@
-Box { value: int }
-impl Box {
+Box { value: int
+
   new(value: int) -> Box { Box { value = value } }
   read(box: Box)->int { box.value }
 }

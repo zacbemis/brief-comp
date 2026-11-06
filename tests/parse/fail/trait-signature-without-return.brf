@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: A required trait signature needs a written return type, not a guess.
+T {
+  required()
+}

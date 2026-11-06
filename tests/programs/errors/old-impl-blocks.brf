@@ -1,0 +1,3 @@
+User { value: int }
+impl User { read(u: User) -> int { u.value } } // error: Declare functions inside the struct, without 'impl'.
+main() {}

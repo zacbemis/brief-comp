@@ -9,14 +9,14 @@ Self = Ref
 
 User { text: Text
   n: Count
-  unit: Unit }
-Node { next: :next[NodeRef] | :none
-  n: Count }
-impl Ref {
+  unit: Unit
+
   new(text: Text, n: Count) -> Self { Forward { text = text, n = n, unit = () } }
   read(u: Self) -> Count { u.n }
   add(u: &Ref, n: Count) { u.n += n }
 }
+Node { next: :next[NodeRef] | :none
+  n: Count }
 ignore(n: Count) -> Unit { n }
 main() {
   let u: Ref = Self.new("heap" + " text", 41)

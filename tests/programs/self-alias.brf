@@ -1,6 +1,6 @@
 Self = :some[int] | :none
-Box { value: Self }
-impl Box {
+Box { value: Self
+
   new(n: Self) -> Box { Box { value = n } }
   read(b: Box) -> Self { b.value }
 }

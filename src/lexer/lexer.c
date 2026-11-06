@@ -168,8 +168,6 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_BOOL;
   if (len == 4 && memcmp(lexer->start, "else", 4) == 0)
     return TOK_ELSE;
-  if (len == 4 && memcmp(lexer->start, "impl", 4) == 0)
-    return TOK_IMPL;
   if (len == 4 && memcmp(lexer->start, "shrt", 4) == 0)
     return TOK_SHRT;
   if (len == 4 && memcmp(lexer->start, "true", 4) == 0)

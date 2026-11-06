@@ -3,9 +3,9 @@
 `test_doc_parser` reads the 13 language chapters in `docs/lang-*.txt`, not
 `docs/v0/`. The rationale file `lang-post-0-notes.txt` is not a language chapter.
 The manifest in `test_doc_parser.cmake` classifies all **239 code fences** and
-the two unfenced chapters. It runs **145 successful parses and five intentional
-syntax rejections**. The other **89 fences** are explicit listings, not passing
-parser tests: 16 await N1/N4/N5 syntax, 53 need later features, and 20 are
+the two unfenced chapters. It runs **147 successful parses and five intentional
+syntax rejections**. The other **87 fences** are explicit listings, not passing
+parser tests: 17 await N1/N4/N5 syntax, 50 need later features, and 20 are
 incomplete signatures/operator/context fragments. The overview and raw base
 sample have separate zero-fence listings.
 
@@ -46,7 +46,7 @@ accepted for the wrong error.
 | raw base sample | 0 | 1 |
 | functions | 20 | 7 |
 | memory | 17 | 1 |
-| modules | 13 | 6 |
+| modules | 15 | 4 |
 | pipelines | 13 | 4 |
 | standard library | 0 | 1 |
 | symbols | 11 | 4 |
@@ -99,7 +99,17 @@ asserted. Errors fence 19 and symbols fences 8 and 13 still need interpolation,
 so they move to N5 listings rather than passing as plain strings. Errors fences
 15 and 23 contain standalone signatures/interleaved multi-file usage and remain
 whole-source fragments. Symbols fence 9 still needs merged-symbol declarations.
-Counts are now 150 checks and 89 fenced listings, plus two unfenced listings.
+That increment had 150 checks and 89 fenced listings, plus two unfenced
+listings.
+
+Struct member placement adds two whole-fence checks: modules fence 19's
+constructor declarations and fence 7's namespace/tag usage. They assert syntax,
+not modules, privacy, receiver inference or N2 contracts. Typed trait signatures
+and default bodies are retained without synthesizing bodies, but explicit
+`self`/`&self` and conformance headers remain pending. The standard-library
+listing now identifies its remaining keyword-named qualified JSON members;
+`Json.str` and `Json.int` do not parse yet. Counts are 152 checks and 87 fenced
+listings, plus two unfenced listings. No native chapter audit is completed.
 
 ## Native acceptance gap
 

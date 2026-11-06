@@ -854,7 +854,11 @@ static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
   SemaProgram *p = r->program;
   if (d->kind != DECL_FN) {
     diagnostics_error(r->errors, d->span,
-                      "Only functions are supported inside impl.");
+                      "Only function members can be resolved as functions.");
+    return;
+  }
+  if (!d->as.function.body) {
+    diagnostics_error(r->errors, d->span, "Struct functions require a body.");
     return;
   }
   if (!owner && alias(p, d->name)) {
@@ -1003,10 +1007,9 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
   name_map_init(&r.local_names, a);
   for (size_t i = 0; i < syntax->count; i++) {
     const Decl *d = syntax->items[i];
-    if (d->kind == DECL_IMPL)
-      capacity += d->as.impl.count;
     if (d->kind != DECL_STRUCT)
       continue;
+    capacity += d->as.structure.function_count;
     if (structure(p, d->name) || lookup(p, d->name)) {
       diagnostics_error(errors, d->span, "Duplicate or reserved struct name.");
       continue;
@@ -1061,18 +1064,12 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
     const Decl *d = syntax->items[i];
     if (d->kind == DECL_FN)
       collect_function(&r, d, NULL);
-    else if (d->kind == DECL_IMPL) {
-      r.owner = NULL;
-      const SemaType *target = type(&r, d->as.impl.target);
-      if (target->kind != SEMA_STRUCT) {
-        if (target->kind != SEMA_ERROR)
-          diagnostics_error(errors, d->span,
-                            "impl currently requires a struct type.");
-        continue;
-      }
-      for (size_t j = 0; j < d->as.impl.count; j++)
-        collect_function(&r, d->as.impl.methods[j], target->structure);
-    } else if (d->kind != DECL_STRUCT && d->kind != DECL_TYPE)
+    else if (d->kind == DECL_STRUCT) {
+      SemaStruct *owner = structure(p, d->name);
+      if (owner && owner->syntax == d)
+        for (size_t j = 0; j < d->as.structure.function_count; j++)
+          collect_function(&r, d->as.structure.functions[j], owner);
+    } else if (d->kind != DECL_TYPE)
       diagnostics_error(errors, d->span,
                         "This top-level declaration is not implemented yet.");
   }

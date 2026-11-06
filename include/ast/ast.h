@@ -229,13 +229,10 @@ struct Decl {
     struct {
       Parameter *fields;
       size_t count;
+      Decl **functions;
+      size_t function_count;
     } structure;
     Type *alias;
-    struct {
-      Type *target;
-      Decl **methods;
-      size_t count;
-    } impl;
   } as;
 };
 

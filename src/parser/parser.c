@@ -398,7 +398,7 @@ static int simple_item(Parser *p, BlockItem *item);
 static Expr *block(Parser *p);
 static Type *type(Parser *p);
 static Pattern *pattern(Parser *p, int payload);
-static Decl *declaration(Parser *p, int in_impl);
+static Decl *declaration(Parser *p, int in_member);
 
 static int enter(Parser *p) {
   if (p->depth >= 128) {
@@ -1181,12 +1181,30 @@ static int old_type_declaration(Parser *p) {
   TokenType next = p->tokens.items[i].type;
   return token_is_identifier(next) || (next >= TOK_BOOL && next <= TOK_STR);
 }
-static Decl *declaration(Parser *p, int in_impl) {
+// Members distinguish a field from a function by the token after its name.
+// Removed modifier prefixes still enter declaration recovery for their hints.
+static int member_function_head(Parser *p) {
+  size_t i = p->position;
+  if (p->tokens.items[i].type == TOK_PUB)
+    i++;
+  if (i + 1 >= p->tokens.count)
+    return 0;
+  Token name = p->tokens.items[i];
+  TokenType next = p->tokens.items[i + 1].type;
+  if (token_is_identifier(name.type) && next == TOK_LPAREN)
+    return 1;
+  return name.type == TOK_LOWER_NAME &&
+         ((name.length == 3 && !memcmp(name.start, "ovr", 3)) ||
+          (name.length == 4 && !memcmp(name.start, "impl", 4)) ||
+          (name.length == 5 && !memcmp(name.start, "trait", 5))) &&
+         (next == TOK_PUB || token_is_name(next));
+}
+static Decl *declaration(Parser *p, int in_member) {
   Token start = peek(p);
   Visibility visibility = match(p, TOK_PUB) ? VISIBILITY_PUB : VISIBILITY_PRIV;
   if (match(p, TOK_IMPORT)) {
     Token keyword = p->previous;
-    if (in_impl) {
+    if (in_member) {
       error_at(p, keyword.span, "Imports are only allowed at the top level.");
       return NULL;
     }
@@ -1260,8 +1278,19 @@ static Decl *declaration(Parser *p, int in_impl) {
         prefix);
     return NULL;
   }
-  int old_type = !in_impl && old_type_declaration(p);
-  int alias = !in_impl && at(p, TOK_UPPER_NAME) &&
+  if (prefix.type == TOK_LOWER_NAME && prefix.length == 4 &&
+      !memcmp(prefix.start, "impl", 4)) {
+    size_t i = p->position + 1;
+    while (p->tokens.items[i].type == TOK_NEWLINE)
+      i++;
+    if (type_name_token(p->tokens.items[i].type)) {
+      error_at(p, prefix.span,
+               "Declare functions inside the struct, without 'impl'.");
+      return NULL; // Moving members requires an owner and is not a safe edit.
+    }
+  }
+  int old_type = !in_member && old_type_declaration(p);
+  int alias = !in_member && at(p, TOK_UPPER_NAME) &&
               p->tokens.items[p->position + 1].type == TOK_EQUAL;
   if (old_type || alias) {
     Token keyword = {0};
@@ -1303,55 +1332,38 @@ static Decl *declaration(Parser *p, int in_impl) {
     d->span = through(start.span, d->as.alias->span);
     return d;
   }
-  if (!in_impl && match(p, TOK_IMPL)) {
-    Decl *d = new_decl(p, DECL_IMPL, start.span, visibility);
-    d->as.impl.target = type(p);
-    if (!d->as.impl.target || !expect(p, TOK_LBRACE,
-                                      "Expected '{' after impl type; traits "
-                                      "are not in the first version."))
-      return NULL;
-    List methods = {0};
-    newlines(p);
-    while (!at(p, TOK_RBRACE) && !at(p, TOK_EOF)) {
-      size_t checkpoint = p->position;
-      Decl *method = declaration(p, 1);
-      if (method)
-        PUSH(p, methods, method);
-      if (!method || !separator(p, TOK_RBRACE))
-        recover(p, checkpoint, 1);
-      newlines(p);
-    }
-    if (!expect(p, TOK_RBRACE, "Expected '}' after impl block."))
-      return NULL;
-    d->as.impl.methods = methods.data;
-    d->as.impl.count = methods.count;
-    d->span = through(start.span, p->previous.span);
-    return d;
-  }
-  if (!in_impl && visibility == VISIBILITY_PRIV && top_level_statement(p)) {
+  if (!in_member && visibility == VISIBILITY_PRIV && top_level_statement(p)) {
     error(p, top_level_statement_message);
     return NULL;
   }
   if (!expect_identifier(
-          p, in_impl ? "Expected a method declaration."
-                     : "Expected a declaration (function, struct, named "
-                       "type, or impl)."))
+          p, in_member ? "Expected a function declaration."
+                       : "Expected a declaration (function, struct, or named "
+                         "type)."))
     return NULL;
   Token declared = p->previous;
   size_t mark = p->diagnostics->count;
   const char *decl_name = name(p, declared);
-  if (!in_impl && match(p, TOK_LBRACE)) {
+  if (!in_member && match(p, TOK_LBRACE)) {
     Decl *d = new_decl(p, DECL_STRUCT, start.span, VISIBILITY_PRIV);
     d->name = decl_name;
-    List fields = {0};
+    List fields = {0}, functions = {0};
     int valid_body = 1;
     newlines(p);
     while (!at(p, TOK_RBRACE) && !at(p, TOK_EOF)) {
       size_t checkpoint = p->position;
-      Parameter field;
-      int valid = parameter(p, &field, 1);
-      if (valid)
-        PUSH(p, fields, field);
+      int valid;
+      if (member_function_head(p)) {
+        Decl *function = declaration(p, 1);
+        valid = function != NULL;
+        if (function)
+          PUSH(p, functions, function);
+      } else {
+        Parameter field;
+        valid = parameter(p, &field, 1);
+        if (valid)
+          PUSH(p, fields, field);
+      }
       if (!valid || !separator(p, TOK_RBRACE)) {
         valid_body = 0;
         recover(p, checkpoint, 1);
@@ -1362,7 +1374,25 @@ static Decl *declaration(Parser *p, int in_impl) {
       return NULL;
     d->as.structure.fields = fields.data;
     d->as.structure.count = fields.count;
-    // Classify only complete, valid bodies. A failed field keeps its primary
+    d->as.structure.functions = functions.data;
+    d->as.structure.function_count = functions.count;
+    if (fields.count) {
+      Decl **members = functions.data;
+      for (size_t i = 0; i < functions.count; i++)
+        if (!members[i]->as.function.body)
+          error_at(p, members[i]->span, "Struct functions require a body.");
+    }
+    if (!fields.count && valid_body) {
+      Decl **members = functions.data;
+      for (size_t i = 0; i < functions.count; i++)
+        if (!members[i]->as.function.body &&
+            !members[i]->as.function.return_type) {
+          error_at(p, members[i]->span,
+                   "Trait signatures require a return type.");
+          valid_body = 0;
+        }
+    }
+    // Classify only complete, valid bodies. A failed member keeps its primary
     // syntax diagnostic and a recovery struct, never a guessed trait.
     if (!fields.count && valid_body)
       d->kind = DECL_TRAIT;
@@ -1410,10 +1440,15 @@ static Decl *declaration(Parser *p, int in_impl) {
   }
   d->as.function.params = params.data;
   d->as.function.count = params.count;
-  d->as.function.body = block(p);
-  if (!d->as.function.body)
+  if (!in_member || at(p, TOK_LBRACE)) {
+    d->as.function.body = block(p);
+    if (!d->as.function.body)
+      return NULL;
+  } else if (!at(p, TOK_NEWLINE) && !at(p, TOK_RBRACE) && !at(p, TOK_EOF)) {
+    error(p, "Expected a function body or a trait signature separator.");
     return NULL;
-  d->span = through(start.span, d->as.function.body->span);
+  }
+  d->span = through(start.span, p->previous.span);
   check_name_case(p, declared, mark, TOK_LOWER_NAME,
                   "Function names must start with a lowercase letter.");
   return d;

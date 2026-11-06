@@ -326,7 +326,7 @@ int main(void) {
     expect(&lx, TOK_MOD, "mod");
     expect(&lx, TOK_IMPORT, "import");
     expect(&lx, TOK_LOWER_NAME, "trait");
-    expect(&lx, TOK_IMPL, "impl");
+    expect(&lx, TOK_LOWER_NAME, "impl");
     expect(&lx, TOK_PUB, "pub");
     expect(&lx, TOK_LOWER_NAME, "ovr");
     expect(&lx, TOK_LOWER_NAME, "types");
@@ -446,7 +446,7 @@ int main(void) {
     expect(&lx, TOK_LESS_THAN, "<");
     expect(&lx, TOK_UPPER_NAME, "T");
     expect(&lx, TOK_GREATER_THAN, ">");
-    expect(&lx, TOK_IMPL, "impl");
+    expect(&lx, TOK_LOWER_NAME, "impl");
     expect(&lx, TOK_LESS_THAN, "<");
     expect(&lx, TOK_UPPER_NAME, "T");
     expect(&lx, TOK_COLON, ":");
@@ -1050,7 +1050,7 @@ int main(void) {
     Lexer lx;
     init_lexer(&lx, "impl Admin: HasUser { ovr pub getName(admin: Admin) -> "
                     "str }");
-    expect(&lx, TOK_IMPL, "impl");
+    expect(&lx, TOK_LOWER_NAME, "impl");
     expect(&lx, TOK_UPPER_NAME, "Admin");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_UPPER_NAME, "HasUser");

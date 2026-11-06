@@ -41,7 +41,6 @@ typedef enum {
   // Keywords Definitions
   TOK_MOD,    // mod
   TOK_IMPORT, // import
-  TOK_IMPL,   // impl
   TOK_PUB,    // pub
 
   // Recovery only: never accepted as a type/converter without a diagnostic.

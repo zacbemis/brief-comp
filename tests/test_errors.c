@@ -148,15 +148,14 @@ int main(void) {
   }
   TEST("unhandled outcomes do not become usable binding or argument types") {
     const char *prefix =
-        "P { value: int }\nPair { number: int\nflag: bool }\n"
-        "Result = :ok[int] | :bad\n"
+        "P { value: int\n read(value: P) -> int { value.value } }\n"
+        "Pair { number: int\nflag: bool }\nResult = :ok[int] | :bad\n"
         "source() -> Result { 1 }\n"
         "text() -> :ok[str] | :bad { \"owned\" + \" text\" }\n"
         "object() -> :ok[P] | :bad { P { value = 1 } }\n"
         "effect() -> :ok | :bad { :ok }\n"
         "take(value: int, flag: bool) {}\ntakeFloat(value: flt) {}\n"
-        "takeData(value: Result) {}\n"
-        "impl P { read(value: P) -> int { value.value } }\n";
+        "takeData(value: Result) {}\n";
     struct {
       const char *bad, *good;
     } cases[] = {

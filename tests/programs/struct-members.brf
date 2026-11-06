@@ -1,0 +1,13 @@
+Counter {
+  pub new(n: int) -> Counter { Counter { value = n, unit = () } }
+  pub value: int
+  read(c: Counter) -> int { c.value }
+  unit: ()
+  bump(c: &Counter) { c.value++ }
+}
+impl(value: int) -> int { value + 1 }
+main() {
+  let c = Counter.new(40)
+  c.bump()
+  print(str(impl(c.read()))) // expect: 42
+}

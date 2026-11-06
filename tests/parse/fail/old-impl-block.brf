@@ -1,0 +1,4 @@
+// parse-error: line 4
+// Why: Functions belong inside the struct, not a separate impl block.
+User { value: int }
+impl User { read(u: User) -> int { u.value } }

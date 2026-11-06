@@ -18,5 +18,5 @@ ret 1 // error: Statements are only allowed inside a function.
 
 // Explicit declaration evidence must keep its specific parameter diagnostic.
 broken(value) {} // error: Expected ':' before type.
-int() {} // error: Expected a declaration (function, struct, named type, or impl).
+int() {} // error: Expected a declaration (function, struct, or named type).
 main() {}

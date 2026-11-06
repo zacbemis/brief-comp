@@ -28,8 +28,7 @@ typedef enum {
   DECL_STRUCT,
   DECL_TYPE, // Error = :!bad[str] | :!missing
   DECL_MODULE,
-  DECL_TRAIT, // Fieldless declaration; member/signature grammar still pending.
-  DECL_IMPL,
+  DECL_TRAIT, // Fieldless declaration; native support remains unavailable.
   DECL_IMPORT,
 } DeclKind;
 

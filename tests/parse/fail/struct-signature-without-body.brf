@@ -1,0 +1,6 @@
+// parse-error: line 5
+// Why: Only traits may have a required signature without a body.
+Counter {
+  value: int
+  read(c: Counter) -> int
+}

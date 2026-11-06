@@ -11,15 +11,8 @@ User {
   name: str
   age: int
   tier: Tier
-}
 
-Empty { unit: ()
-}
 
-Point { x: dbl
-  y: dbl }
-
-impl User {
   pub new(name: str, age: int) -> :ok[User] | :invalidAge[int] {
     if age < 0 {
       ret :invalidAge[age]
@@ -47,8 +40,15 @@ impl User {
   }
 }
 
-impl Empty {
+Empty { unit: ()
+
+
 }
+
+Point { x: dbl
+  y: dbl }
+
+
 
 noParams() {
 }

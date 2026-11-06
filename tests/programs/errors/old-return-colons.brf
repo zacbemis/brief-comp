@@ -5,8 +5,8 @@ pub exposed(): int { 1 } // error: Return types follow '->', not ':'. // fix: pu
 commented()/* before */:/* after */int { 1 } // error: Return types follow '->', not ':'. // fix: commented()/* before */ -> /* after */int { 1 }
 continued(): // error: Return types follow '->', not ':'. // fix: continued() ->
   int { 1 }
-Box { value: int }
-impl Box {
+Box { value: int
+
   new(): Box { Box { value = 1 } } // error: Return types follow '->', not ':'. // fix: new() -> Box { Box { value = 1 } }
   read(box: Box): int { box.value } // error: Return types follow '->', not ':'. // fix: read(box: Box) -> int { box.value }
 }

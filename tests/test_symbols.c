@@ -754,18 +754,14 @@ int main(void) {
   TEST(
       "permission messages distinguish read-only values from mutable targets") {
     const char *prefix =
-        "P { n: int }\n"
-        "Choice = :some[P] | :none\n"
-        "Nested = :outer[Choice] | :empty\n"
-        "Scalar = :text[str] | :number[int]\n"
-        "Wrapper { part: P\nmarker: int }\n"
+        "P { n: int\n bump(p: &P) { p.n++ } }\n"
+        "Choice = :some[P] | :none\nNested = :outer[Choice] | :empty\n"
+        "Scalar = :text[str] | :number[int]\nWrapper { part: P\nmarker: int }\n"
         "Holder { item: P\nchoice: Choice\nnested: Nested\nwrapper: Wrapper\n"
         "text: str\ncount: int\nscalar: Scalar }\n"
         "mut(p: &P) { p.n++ }\n"
         "mutChoice(s: &Choice) {}\nmutNested(s: &Nested) {}\n"
-        "mutScalar(s: &Scalar) {}\n"
-        "sameChoice(s: Choice) -> Choice { s }\n"
-        "impl P { bump(p: &P) { p.n++ } }\n";
+        "mutScalar(s: &Scalar) {}\nsameChoice(s: Choice) -> Choice { s }\n";
     const char *borrow =
         "A read-only value cannot be passed to an & parameter; "
         "take the parameter it comes from as &.";

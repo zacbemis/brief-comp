@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **142 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **144 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -468,7 +468,19 @@ payload creates no local alias-cycle edges or local tag of the same name.
 `errors/qualified-symbol-names.brf` checks module/tag casing fixes, keyword
 safeguards and the shared-tag qualifier prohibition. These are rejection tests,
 not module loading, remote identity, merged symbols or N2 outcome acceptance.
-There are now 142 files; prior native sources and expectations are intact.
+That inventory had 142 files; prior native sources and expectations were intact.
+
+Struct functions now belong inside their owner's declaration, without `impl`
+blocks. Existing fixtures keep their explicit receiver parameters and observed
+behavior; alias-targeted functions now live on the canonical struct. The new
+`struct-members.brf` checks fields after functions, constructor/member calls,
+mutation permissions and an ordinary function named `impl`.
+`errors/old-impl-blocks.brf` requires rejection without an unsafe relocation
+fix. Typed trait signatures/default bodies still hit the unsupported-trait
+barrier. The inventory is 144 files. Native rejection lines and expectations
+remain unchanged except the declaration message no longer lists retired `impl`
+syntax. Receiver inference, `self`/`&self`, wrong-way rules and N2 behavior
+remain pending.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

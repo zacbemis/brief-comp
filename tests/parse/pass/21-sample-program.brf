@@ -11,14 +11,8 @@ User {
   name: str
   age: int
   tier: Tier
-}
 
-Admin {
-  user: User
-  level: int
-}
 
-impl User {
   pub new(name: str, age: int) -> :ok[User] | Error {
     if name == "" {
       ret :emptyName
@@ -58,11 +52,17 @@ impl User {
   }
 }
 
-impl Admin {
+Admin {
+  user: User
+  level: int
+
+
   pub new(name: str, age: int) -> :ok[Admin] | Error {
     Admin { user = User.new(name, age)?, level = 1 }
   }
 }
+
+
 
 countAdults(limit: int) -> int {
   var count = 0

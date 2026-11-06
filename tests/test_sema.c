@@ -210,7 +210,7 @@ int main(void) {
       "trait-only word retirement does not enable trait or override lowering") {
     const char *sources[] = {
         "trait HasUser {}\nmain() {}",
-        "P { x: int }\nimpl P { ovr pub read(p: P) { p.x } }\nmain() {}"};
+        "P { x: int\n ovr pub read(p: P) { p.x } }\nmain() {}"};
     for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
       Result r = check(&a, sources[i]);
       ASSERT_TRUE(r.errors.count > 0);
@@ -323,9 +323,9 @@ int main(void) {
             "This type is unknown or not implemented yet.");
   }
   TEST("unsupported generic headers do not resolve as ordinary callees") {
-    const char *prefix = "P { unit: () }\nimpl P { make(value: int) "
-                         "{}\nread(p: P, n: int) {} }\n"
-                         "f(value: shrt) {}\ncheck(value: int) {}\n";
+    const char *prefix =
+        "P { unit: ()\n make(value: int) {}\nread(p: P, n: int) {} }\n"
+        "f(value: shrt) {}\ncheck(value: int) {}\n";
     struct {
       const char *body, *site;
     } cases[] = {

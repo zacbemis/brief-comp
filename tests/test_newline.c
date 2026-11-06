@@ -47,6 +47,11 @@ int main(void) {
     check(&arena, "Self { next: Self\nn: int }\r\nmain() {}\r\n",
           "Self { next: Self\nn: int }\r\nmain() {}\r\n");
   }
+  TEST("ordinary impl names do not continue declarations across newlines") {
+    check(&arena, "impl\nnext()\n", "impl\nnext()\n");
+    check(&arena, "impl(value: int) ->\nint { value }\n",
+          "impl(value: int) -> int { value }\n");
+  }
   TEST("ordinary newlines and blank lines remain") {
     check(&arena, "\nlet x = 1\n\nlet y = 2\n", "\nlet x = 1\n\nlet y = 2\n");
   }
@@ -135,7 +140,7 @@ int main(void) {
           "x |> {\n:!bad[value] => value\n_ => 0\n}\n");
   }
   TEST("documented continuation keywords do not end statements") {
-    const char *keywords[] = {"let",  "var", "const", "impl",  "pub", "if",
+    const char *keywords[] = {"let",  "var", "const", "pub",   "if",
                               "else", "for", "in",    "while", "not"};
     for (size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++) {
       char raw[64], expected[64];

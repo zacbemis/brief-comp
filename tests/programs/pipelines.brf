@@ -1,5 +1,5 @@
-Box { n: int }
-impl Box {
+Box { n: int
+
   value(box: Box) { box.n }
   add(box: &Box, n: int) { box.n += n }
   make(n: int) -> Box { Box { n = n } }

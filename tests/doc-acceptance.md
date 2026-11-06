@@ -6,7 +6,7 @@ executable scripts and CTest registrations are deleted; they are not maintained
 as a second syntax or extended into a migration system. `docs/v0/` is untouched.
 
 The replacement [current-document parser inventory](doc-parser.md) reads all
-13 current chapters: 239 fences, 146 parser checks, 93 explicitly listed fences
+13 current chapters: 239 fences, 152 parser checks, 87 explicitly listed fences
 and two zero-fence listings. Parser checks are not native acceptance. The
 retirement leaves an intentional native document-coverage gap; the checked-in
 program fixtures and independent C/compiler/native-driver tests remain active.
@@ -49,6 +49,14 @@ Qualified symbol syntax is also parser-only: native compilation reports the
 module-qualified scope boundary. Four newly checked complete fences bring the
 inventory to 150 checks and 89 fenced listings, not module/API, merged symbol,
 interpolation or N2/N3 acceptance.
+
+Struct-owned function declarations now replace `impl` blocks, with existing
+explicit receivers and native behavior preserved. Typed trait signatures and
+default bodies parse but retain the native unsupported-trait barrier. Receiver
+inference, `self`/`&self`, wrong-way calls and conformance remain pending. Two
+additional whole module fences bring the current inventory to 152 checks and
+87 fenced listings; neither they nor converted native fixtures complete a
+replacement chapter audit or accept module/library APIs.
 
 ## N1 spelling bridges
 

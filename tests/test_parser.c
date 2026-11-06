@@ -359,6 +359,91 @@ int main(void) {
                  "(let dblx _ (name dubx)) (call (name print) "
                  "(str \"dub dbl\")))))\n");
   }
+  TEST(
+      "type members retain functions, fields and trait signatures separately") {
+    program_dump(
+        &arena,
+        "P { pub make(n: int) -> P { P { n = n } }\npub n: int\nread(p: P) { "
+        "p.n } }\n"
+        "T { required(n: int) -> int\ndefault(n: int) -> int { missing(n) } "
+        "}\n",
+        "(program (struct P (field pub n int) (fn pub make (params (n int)) P "
+        "(block (struct-value (name P) (n (name n))))) (fn read (params (p P)) "
+        "_ "
+        "(block (field (name p) n)))) (trait T (fn required (params (n int)) "
+        "int none) "
+        "(fn default (params (n int)) int (block (call (name missing) (name "
+        "n))))))\n");
+    for (unsigned crlf = 0; crlf < 2; crlf++) {
+      const char *lf =
+          "P {\npub\nread(p: &P) -> int { p.n }\nn: int\n}\nafter() {}\n";
+      char text[512];
+      size_t n = 0;
+      for (size_t i = 0; lf[i]; i++) {
+        if (crlf && lf[i] == '\n')
+          text[n++] = '\r';
+        text[n++] = lf[i];
+      }
+      text[n] = 0;
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(0, v->diagnostics.count);
+      ASSERT_EQ_INT(2, v->program->count);
+      Decl *p = v->program->items[0];
+      ASSERT_EQ_INT(1, p->as.structure.count);
+      ASSERT_EQ_INT(1, p->as.structure.function_count);
+      Decl *f = p->as.structure.functions[0];
+      ASSERT_EQ_INT(VISIBILITY_PUB, f->visibility);
+      ASSERT_EQ_INT(BORROW_MUT, f->as.function.params[0].borrow);
+      ASSERT_EQ_INT((size_t)(strstr(text, "pub") - text), f->span.start);
+      TokenArray filtered = newline_filter(&arena, v->raw);
+      size_t bytes = filtered.count * sizeof(Token);
+      Token *saved = arena_alloc(&arena, bytes);
+      memcpy(saved, filtered.items, bytes);
+      Diagnostics again;
+      diagnostics_init(&again, &arena);
+      Program *next = parse_program(&arena, &v->names, filtered, &again);
+      ASSERT_EQ_INT(0, again.count);
+      ASSERT_EQ_INT(0, strcmp(dump(&arena, v->program), dump(&arena, next)));
+      ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+    }
+    invalid(&arena, "P { n: int\nread(p: P) -> int\n}",
+            "Struct functions require a body.");
+    invalid(&arena, "f() -> int\nmain() {}", "Expected '{' to start a block.");
+    invalid(&arena, "T { required() }",
+            "Trait signatures require a return type.");
+    Parsed *bad_member = parse(&arena, "T { bad(x) {} }");
+    ASSERT_EQ_INT(1, bad_member->diagnostics.count);
+    ASSERT_EQ_INT(DECL_STRUCT, bad_member->program->items[0]->kind);
+    char wide[32768];
+    size_t width = (size_t)sprintf(wide, "P { n: int\n");
+    for (unsigned i = 0; i < 512; i++)
+      width += (size_t)sprintf(wide + width, "f%u() -> int { 1 }\n", i);
+    sprintf(wide + width, "}\n");
+    Parsed *many = parse(&arena, wide);
+    ASSERT_EQ_INT(0, many->diagnostics.count);
+    ASSERT_EQ_INT(512, many->program->items[0]->as.structure.function_count);
+    Parsed *partial =
+        parse(&arena, "P { n: int\nbad(x) {}\ngood() { 1 } }\nafter() {}\n");
+    ASSERT_EQ_INT(1, partial->diagnostics.count);
+    ASSERT_EQ_INT(1, partial->program->items[0]->as.structure.function_count);
+    Parsed *pub_eof = parse(&arena, "P { pub");
+    ASSERT_TRUE(pub_eof->diagnostics.count > 0);
+    program_dump(
+        &arena, "impl(impl: int) { impl }\n",
+        "(program (fn impl (params (impl int)) _ (block (name impl))))\n");
+    const char *old[] = {"impl P { f() {} }", "impl\nP { f() {} }",
+                         "pub impl P {}"};
+    for (size_t i = 0; i < sizeof(old) / sizeof(*old); i++) {
+      Parsed *v = parse(&arena, old[i]);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      if (v->diagnostics.count) {
+        ASSERT_EQ_INT(
+            0, strcmp("Declare functions inside the struct, without 'impl'.",
+                      v->diagnostics.items[0]->message));
+        ASSERT_TRUE(!v->diagnostics.items[0]->fixes);
+      }
+    }
+  }
   TEST("empty type bodies are traits; unit fields still make structs") {
     program_dump(&arena,
                  "Empty {}\nCommented { /* keep */ }\nData { unit: () }\n",
@@ -688,7 +773,7 @@ int main(void) {
                  {"f():\n// continuation\nint { 1 }\n", " ->"},
                  {"pub f(x: Vec[Vec[int]]): Vec[Vec[int]] { x }\n", " ->"},
                  {"f(): :ok[int] | _ { 1 }\n", " ->"},
-                 {"P { x: int }\nimpl P { f(p: P): int { p.x } }\n", " ->"}};
+                 {"P { x: int\n f(p: P): int { p.x } }\n", " ->"}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
       for (unsigned ending = 0; ending < 2; ending++) {
         char text[1024];
@@ -1570,7 +1655,7 @@ int main(void) {
         {"import models.User as Other", "Expected a newline between items."},
         {"main() { import models.User }",
          "Imports are only allowed at the top level."},
-        {"impl P { import models.User }",
+        {"P { value: int\nf() { import models.User } }",
          "Imports are only allowed at the top level."},
         {"P { import models.User }",
          "Imports are only allowed at the top level."},
@@ -1595,8 +1680,8 @@ int main(void) {
   TEST("trait and ovr are names, not declaration or override modifiers") {
     const char *text =
         "trait(ovr: int) -> int { ovr }\novr(trait: int) -> int { trait }\n"
-        "P { trait: int\novr: int }\nimpl P { trait(p: P) { p.trait "
-        "}\novr(p: P) { p.ovr } }\n"
+        "P { trait: int\novr: int\n trait(p: P) { p.trait }\novr(p: P) { p.ovr "
+        "} }\n"
         "main() { let trait = P { trait = 1, ovr = 2 }\nvar ovr = "
         "trait.trait()\n"
         "for trait in 0..2 { ovr += trait }\n:trait |> { :trait => :ovr } }";
@@ -1604,12 +1689,12 @@ int main(void) {
     if (v->diagnostics.count)
       diagnostics_print(&v->diagnostics, stderr);
     ASSERT_EQ_INT(0, v->diagnostics.count);
-    ASSERT_EQ_INT(5, v->program->count);
-    if (v->program->count == 5) {
+    ASSERT_EQ_INT(4, v->program->count);
+    if (v->program->count == 4) {
       ASSERT_EQ_INT(0, strcmp("trait", v->program->items[0]->name));
       ASSERT_EQ_INT(0, strcmp("ovr", v->program->items[1]->name));
       ASSERT_EQ_INT(2, v->program->items[2]->as.structure.count);
-      ASSERT_EQ_INT(2, v->program->items[3]->as.impl.count);
+      ASSERT_EQ_INT(2, v->program->items[2]->as.structure.function_count);
     }
     const char *fixed[] = {"Trait() {}", "Ovr() {}", "main() { :Trait }",
                            "main() { :Ovr }"};
@@ -1625,8 +1710,8 @@ int main(void) {
   TEST("removed trait/override prefixes reject without losing later "
        "declarations") {
     const char *cases[] = {"trait HasUser {}", "pub trait HasUser {}",
-                           "ovr read() {}", "impl P { ovr pub read(p: P) {} }",
-                           "impl P { pub ovr read(p: P) {} }"};
+                           "ovr read() {}", "P { ovr pub read(p: P) {} }",
+                           "P { pub ovr read(p: P) {} }"};
     const char *trait_message = "Traits are declared without 'trait'; trait "
                                 "declarations are not implemented yet.";
     const char *override_message = "The 'ovr' modifier is no longer used; "
@@ -1679,7 +1764,7 @@ int main(void) {
                   "Type names must start with an uppercase letter."},
                  {"Read() {}", "Read", "read",
                   "Function names must start with a lowercase letter."},
-                 {"impl Date { Read() {} }", "Read", "read",
+                 {"Date { Read() {} }", "Read", "read",
                   "Function names must start with a lowercase letter."},
                  {"Date { pub Year: int }", "Year", "year",
                   "Field names must start with a lowercase letter."},
@@ -2570,25 +2655,24 @@ int main(void) {
   TEST("bindings, typed fields, methods, written and partial return types") {
     const char *text =
         "Error = :bad[str] | :missing\n"
-        "User {\nname: str\nresult: :ok[User] | Error\ncount: int\n}\n"
-        "impl User {\npub new(name: str) -> :ok[User] | _ {\n"
+        "User {\nname: str\nresult: :ok[User] | Error\ncount: int\n\n\n"
+        "pub new(name: str) -> :ok[User] | _ {\n"
         "var count: shrt = 0\ncount += 1\n:ok[User { name = name, count = "
-        "count "
-        "}]\n}\n"
+        "count }]\n}\n"
         "setAge(user: &User, age: int) -> () { user.count = age }\n}\n";
     Parsed *v = parse(&arena, text);
     if (v->diagnostics.count)
       diagnostics_print(&v->diagnostics, stderr);
     ASSERT_EQ_INT(0, v->diagnostics.count);
-    ASSERT_EQ_INT(3, v->program->count);
+    ASSERT_EQ_INT(2, v->program->count);
     Decl *structure = v->program->items[1];
     ASSERT_EQ_INT(3, structure->as.structure.count);
-    Decl *impl = v->program->items[2];
-    ASSERT_EQ_INT(2, impl->as.impl.count);
-    ASSERT_EQ_INT(BORROW_MUT,
-                  impl->as.impl.methods[1]->as.function.params[0].borrow);
+    ASSERT_EQ_INT(2, structure->as.structure.function_count);
+    ASSERT_EQ_INT(
+        BORROW_MUT,
+        structure->as.structure.functions[1]->as.function.params[0].borrow);
     ASSERT_EQ_INT(TYPE_INFER,
-                  impl->as.impl.methods[0]
+                  structure->as.structure.functions[0]
                       ->as.function.return_type->as.union_type.items[1]
                       .type->kind);
     ASSERT_TRUE(structure->name == intern(&v->names, "User"));
@@ -3041,9 +3125,9 @@ int main(void) {
     invalid(&arena, "User { name: }", "Expected a type.");
     program_dump(&arena, "import User", "(program (import User))\n");
     invalid(&arena, "int() {}",
-            "Expected a declaration (function, struct, named type, or impl).");
+            "Expected a declaration (function, struct, or named type).");
     invalid(&arena, "str(x: int) {}",
-            "Expected a declaration (function, struct, named type, or impl).");
+            "Expected a declaration (function, struct, or named type).");
     Parsed *v = parse(&arena, "broken(@)\nmain() {}\n");
     ASSERT_EQ_INT(1, v->diagnostics.count);
     ASSERT_EQ_STRN("Unexpected character.", v->diagnostics.items[0]->message,
@@ -3081,15 +3165,14 @@ int main(void) {
     ASSERT_EQ_INT(1, v->program->items[0]->as.function.body->as.block.count);
     ASSERT_EQ_STRN("next", v->program->items[1]->name,
                    strlen(v->program->items[1]->name));
-    v = parse(&arena,
-              "User {\n: bad\ngood: int\n}\nimpl User {\nbad(x) {}\ngood() "
-              "{}\n}\nmain() {\nx |> {\n:ok[x] x\n:none => 0\n}\n}\n");
+    v = parse(&arena, "User {\n: bad\ngood: int\n\n\nbad(x) {}\ngood() {}\n}\n"
+                      "main() {\nx |> {\n:ok[x] x\n:none => 0\n}\n}\n");
     ASSERT_TRUE(v->diagnostics.count >= 3);
-    ASSERT_EQ_INT(3, v->program->count);
+    ASSERT_EQ_INT(2, v->program->count);
     ASSERT_EQ_INT(1, v->program->items[0]->as.structure.count);
-    ASSERT_EQ_INT(1, v->program->items[1]->as.impl.count);
+    ASSERT_EQ_INT(1, v->program->items[0]->as.structure.function_count);
     Expr *pipe =
-        v->program->items[2]->as.function.body->as.block.items[0].as.expr;
+        v->program->items[1]->as.function.body->as.block.items[0].as.expr;
     ASSERT_EQ_INT(1, pipe->as.pipe.stage->as.match.count);
   }
   TEST("lexer errors do not hide syntax errors or create duplicate "

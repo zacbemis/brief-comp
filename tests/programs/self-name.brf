@@ -1,10 +1,10 @@
-Self { value: int }
-Holder { value: Self }
-impl Self {
+Self { value: int
+
   new(n: int) -> Self { Self { value = n } }
   read(s: Self) -> int { s.value }
 }
-impl Holder {
+Holder { value: Self
+
   wrap(s: Self) -> Holder { Holder { value = s } }
   read(h: Holder) -> Self { h.value }
 }

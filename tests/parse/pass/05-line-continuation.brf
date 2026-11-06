@@ -110,6 +110,8 @@ pub
   Alias =
   :a
 
-impl
-  User {
+Members {
+  value: int
+  pub
+    read(value: int) { value }
 }

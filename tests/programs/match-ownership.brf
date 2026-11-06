@@ -1,8 +1,8 @@
-Child { name: str }
-Holder { child: Child }
-impl Child {
+Child { name: str
+
   combine(c: &Child, other: Child) -> str { c.name + ":" + other.name }
 }
+Holder { child: Child }
 swap(h: &Holder) -> Child {
   let old = h.child
   h.child = Child { name = "new" }

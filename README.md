@@ -89,27 +89,34 @@ payload unions and partial return markers. `Sym` is an ordinary name; `Sym<...>`
 rejects with safe unwrap/separator fixes. `Self` is also an ordinary uppercase
 name, not an implicit receiver type. Known-owner uses of the old shorthand get
 concrete-type fixes; real structs and aliases named `Self` keep ordinary lookup.
-Aliases transparently reuse any existing native type, including primitives, unit
-and structs. Numeric/string aliases use the existing converters, and struct
-aliases share literals and associated functions with their target type. Other
-declaration/type structure and receivers await the full switch.
+
+Aliases transparently reuse any existing native type, including primitives,
+unit and structs. Numeric/string aliases use the existing converters, and
+struct aliases share literals and associated functions with their target type.
+
+Functions now live inside struct bodies, alongside fields; separate `impl`
+blocks reject without a guessed relocation fix. `impl` is an ordinary name.
+Existing explicit receiver parameters, associated calls and permissions retain
+their behavior. Receiver inference, `self`/`&self` and wrong-way-call rules are
+still pending. Fieldless bodies, including typed required signatures and
+default bodies, parse as traits but remain unsupported by native compilation.
+Unit fields make structs and still require explicit initializers.
+
 Struct names start uppercase; functions, fields, parameters, bindings and loops
 require lowercase names, with safe casing fixes. Symbol tags also require
 lowercase names in types, values and patterns. `:!name` records an error tag; a
 name cannot have both neutral and error kinds in one module. `:!` must be
 adjacent. This is N1 metadata only: outcomes, entry status and runtime
 formatting retain first-version rules until N2. `trait` and `ovr` are ordinary
-names, not declaration/modifier keywords. A native struct needs a field: an
-empty type body now parses as a trait and compilation rejects it explicitly,
-without guessing fields. Unit fields count, but still need written initializers.
-Trait member/signature grammar and conformance remain pending. In patterns,
-lowercase names bind and uppercase names denote symbol sets, without
-lookup-based reclassification. Typed symbol payload bindings such as
-`:!notFound[path: str]` retain their annotations in the AST. Native compilation
-explicitly rejects them until merged-symbol matching exists. Whole-value typed
-arms are not added. Module-selection declarations such as `import models.User`
-parse, but compilation stops with `Imports are not implemented yet.` No module
-loading or cross-file lookup is added; broader module casing remains pending.
+names, not declaration/modifier keywords. Conformance and the remaining trait
+receiver grammar are pending. In patterns, lowercase names bind and uppercase
+names denote symbol sets, without lookup-based reclassification. Typed symbol
+payload bindings such as `:!notFound[path: str]` retain their annotations in the
+AST. Native compilation explicitly rejects them until merged-symbol matching
+exists. Whole-value typed arms are not added. Module-selection declarations
+such as `import models.User` parse, but compilation stops with `Imports are not
+implemented yet.` No module loading or cross-file lookup is added; broader
+module casing remains pending.
 
 Qualified symbols such as `models.Db.:!notFound[str]` now parse in types, values
 and patterns. Their paths and kinds are retained, but native compilation reports
@@ -202,17 +209,16 @@ Compilation supports:
 - Transparent aliases of native types, with canonical identity, forward chains
   and recursion only through structs. Aliases add no runtime representation.
 - Field-bearing nominal structs, complete named field initialization, field
-  reads/writes and numeric field updates, `impl`, associated/receiver calls, and
-  explicit owner type names.
-  Ordinary parameters and their direct local/field aliases are read-only; `&`
-  struct or symbol parameters permit mutation of reachable objects. Permissions
-  propagate through symbol payloads, rebinding and
-  control flow. Struct/symbol call results are conservatively read-only when
-  their types can reach a read-only argument's objects; struct/symbol literals
-  built from such values retain the restriction. Read-only object-bearing
-  values cannot be stored in fields, so retaining functions take source
-  parameters as `&`. Copied scalars, immutable strings and immutable-only
-  symbols remain unrestricted.
+  reads/writes and numeric field updates, member functions, associated/receiver
+  calls, and explicit owner type names. Ordinary parameters and their direct
+  local/field aliases are read-only; `&` struct or symbol parameters permit
+  mutation of reachable objects. Permissions propagate through symbol payloads,
+  rebinding and control flow. Struct/symbol call results are conservatively
+  read-only when their types can reach a read-only argument's objects;
+  struct/symbol literals built from such values retain the restriction.
+  Read-only object-bearing values cannot be stored in fields, so retaining
+  functions take source parameters as `&`. Copied scalars, immutable strings and
+  immutable-only symbols remain unrestricted.
   References share objects rather than copying them (this is not `const` or purity).
 - Fieldwise equality for nonrecursive structs. Reference counting owns locals,
   temporaries, fields and returns; parameters borrow. Every scope exit and early
@@ -295,12 +301,12 @@ Panics terminate the process without unwinding owners.
 - `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
   native driver tests; program tests in normal and sanitizer configurations;
   and the [current-document parser inventory](tests/doc-parser.md): 239 fences
-  across 13 chapters, with 150 parser checks and 89 explicit fence listings,
+  across 13 chapters, with 152 parser checks and 87 explicit fence listings,
   plus two unfenced-chapter listings. Listed examples are not passing coverage.
   N1 retired all v0 native chapter scripts and bridges; replacement native audits
   return milestone by milestone. Run the inventory and its structural guards with
   `ctest --test-dir build -L doc-parser --output-on-failure`.
-- `tests/parse/`: 143 parser example files that must parse or be rejected
+- `tests/parse/`: 147 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
 

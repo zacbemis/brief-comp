@@ -1,8 +1,8 @@
 Box {
   pub shown: int
   hidden: str
-}
-impl Box {
+
+
   pub new(shown: int) -> Box {
     Box { shown = shown, hidden = "heap" + " secret" }
   }

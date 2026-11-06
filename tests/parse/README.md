@@ -32,10 +32,12 @@ lowercase, unqualified binding names. They parse only in payload patterns,
 including grouped/nested forms; native type-directed matching remains
 unsupported. `Self` is an ordinary uppercase name in all these contexts.
 Implicit-owner shorthand is diagnosed by resolution, not by reserving the name
-or making the parser guess whether a real `Self` type exists. Empty type bodies
-now build `DECL_TRAIT`, while a unit field is enough to make a struct. Syntax
-recovery for a broken field is not reclassified as a trait. Trait members and
-signatures still await the member grammar; native trait support is not added.
+or making the parser guess whether a real `Self` type exists. Functions now
+share struct bodies with fields; `impl` is ordinary and old blocks reject
+without relocation fixes. A fieldless body builds `DECL_TRAIT`, retaining typed
+required signatures and default bodies; a unit field makes a struct. Broken
+members are not reclassified as a valid trait. Struct functions require bodies.
+Native trait support, `self`/`&self`, inference and conformance remain pending.
 
 Qualified symbols such as `models.Db.:!bad[str]` retain their module path in
 types, values and patterns. The final module name must start uppercase; tags
@@ -70,12 +72,16 @@ does not load modules or resolve external tag identities.
 - `43`: empty/comment-only traits distinguished from a struct with a unit field.
 - `44`: qualified neutral/error symbols, payload/type nesting, named-set roles,
   multiline paths and ordinary bitwise-or separation.
+- `45`: interleaved fields/functions, visibility, typed trait signatures/default
+  bodies and ordinary `impl` names, without receiver inference claims.
 - `underscore-type-syntax`: promoted from the old parser rejection; semantic
   checking still rejects its bare partial return marker.
 
 ## `fail/`
 
-There are 106 rejection fixtures, including `qualified-shared-symbol.brf`,
+There are 109 rejection fixtures, including `old-impl-block.brf`,
+`struct-signature-without-body.brf`, `trait-signature-without-return.brf`,
+`qualified-shared-symbol.brf`,
 `qualified-symbol-missing-name.brf` and `pub-trait.brf`,
 `typed-pattern-outside-payload.brf`, `typed-payload-missing-name.brf`,
 `typed-payload-missing-type.brf`, `old-symbol-union.brf`,

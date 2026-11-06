@@ -2,8 +2,8 @@ User {
   name: str
   age: int
   ignored: ()
-}
-impl User {
+
+
   pub new(name: str, age: int) -> User { User { age = age, ignored = (), name = name } }
   pub label(user: User) { user.name + ": " + str(user.age) }
   pub birthday(user: &User) { user.age++ }

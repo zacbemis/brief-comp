@@ -1,7 +1,7 @@
 // parse-error: line 5
 // Why: ovr is an ordinary name, not an override modifier (fix: delete it);
 //   conformance remains unimplemented. This spelling must never pass.
-impl User {
+User {
   ovr pub getName(user: User) -> str {
     user.name
   }

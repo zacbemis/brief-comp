@@ -1,13 +1,13 @@
 // Self is an ordinary uppercase name, not an implicit owner type.
-Self { value: int }
+Self { value: int
+
+  new(value: int) -> Self { Self { value = value } }
+}
 Alias = Self
 Nested = Vec[Self]
 Result = :ok[Self] | :!missing
-Holder { value: Self }
-impl Self {
-  new(value: int) -> Self { Self { value = value } }
-}
-impl Holder {
+Holder { value: Self
+
   wrap(value: Self) -> Holder { Holder { value = value } }
 }
 main() {
