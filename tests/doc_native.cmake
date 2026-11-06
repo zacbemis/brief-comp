@@ -104,6 +104,17 @@ function(native_reject index name message line)
     native_expect_diagnostic("${name}" "${message}" "${line}")
 endfunction()
 
+# A fence that already contains its entry point needs no wrapper at all.
+# In particular, appending another main would mask the intended rejection.
+function(native_reject_complete index name message line)
+    native_case("${name}" "${index}" reject)
+    get_property(chapter GLOBAL PROPERTY doc_active)
+    get_property(code GLOBAL PROPERTY doc_${chapter}_${index}_code)
+    file(WRITE "${TEST_DIR}/diagnostics/${name}.brf" "${code}")
+    set_property(GLOBAL APPEND PROPERTY native_diagnostics "${name}")
+    native_expect_diagnostic("${name}" "${message}" "${line}")
+endfunction()
+
 # Arguments after name are message/original-fence-line pairs. Only the body
 # wrapper's one-line offset is applied; no error markers enter quoted code.
 function(native_reject_body index name)

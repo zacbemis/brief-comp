@@ -261,8 +261,10 @@ to a fence. This does not complete function/API acceptance, the other N1 native
 chapter audits or N1 itself; parser counts and N2 policy remain unchanged.
 A scoped types native audit now checks eight unchanged fences, adds twelve
 independent prose programs and lists twenty context/later-feature fences.
-Syntax, modules, the raw base sample and remaining casing/keyword review are
-still pending; no N2/N4/N5 semantics are introduced by either audit.
+A scoped syntax native audit now checks seven unchanged fences with thirteen
+independent prose programs, including local casing/keyword roles, and lists 28
+other fences. Modules, the raw base sample and remaining module/file casing and
+keyword review are still pending; no N2/N4/N5 semantics are introduced.
 
 Primitive keywords now name function members and dotted expression members,
 without broadening ordinary names or type paths. Context-specific casing fixes
@@ -2486,6 +2488,72 @@ language fences and 162 parser checks. Functions and types have scoped native
 audits, not full API acceptance; the types audit still lists 20 fences. Syntax,
 modules, the raw base sample and remaining casing/keyword review remain pending.
 N1 stays in progress, with no changes to outcomes, entry policy or formatting.
+
+### N1 increment: scoped current-syntax native audit and local name review
+
+`test_doc_syntax_n1.cmake` classifies all 35 fences in `docs/lang-syntax.txt`,
+pinned by the current hash. Two whole fences execute unchanged: comments with
+an empty entry, and the complete while loop with a count observer. Five whole
+fences reject for the documented annotation, comparison-chain, pipeline-stage,
+outside-loop break and unwrapped-header errors. The first three body forms and
+the header case receive only the one-line entry wrapper; the existing main is
+written verbatim, not followed by a duplicate entry. Primary text/count/status,
+source frame, no C, unexpected fixes and sanitizer reports are checked.
+
+The other 28 fences are explicit fragment/context/later-feature listings.
+Mixed binding/constant/type scopes, ellipsis bodies and missing User/scalar/
+collection APIs are not made executable with invented inputs or stand-ins.
+Rejecting a bad comparison/pipeline/header does not accept the other alternative
+expression or grouped/array forms in the same fence. The supported exclusive
+loop is not extracted from the fence also containing inclusive/collection loops.
+N4 declared bindings, inclusive/typed loops and N5 interpolation stay deferred.
+
+Thirteen independent prose programs test arithmetic/power/bitwise/pipeline/
+logical precedence, continuation lines, branch values, loops, updates and
+compound assignment, initializer visibility/shadowing, range bounds evaluated
+once left to right, descending empty ranges and nearest-loop break. Logical
+inputs distinguish and/or grouping; a bool-operand diagnostic pins prefix not
+before equality. Bound calls record digits so reversed/repeated evaluation is
+observable. Real Gate values check the two valid literal-header escapes without
+supplying the document's Guest API. There are 20 cases: eight native executions
+and twelve compiler-rejection programs. Prose is not substitute fence coverage.
+
+The local name review pins safe casing fixes for type/function/field/parameter/
+constant/binding/loop/tag roles. Sym/Self declarations and type/impl/trait/ovr
+functions are ordinary names; primitive-spelled members stay distinct from
+builtins while primitive/self bindings and underscore prefixes reject. Old
+logical operators and dub still reject with exact fixes. Crucially, ambiguous
+lowercase `choice = ...` retains the existing file-level-statement diagnostic;
+no type-alias intent or casing fix is invented. Immutable/duplicate bindings,
+self-initializer visibility, statement-only updates/assignment and missing else
+also reject. No production parser, checker or keyword table change was needed,
+and no global module/file naming completion is claimed.
+
+The sole native harness extension writes complete rejection sources unchanged,
+with no entry wrapper or location shift. Its positive integrity test verifies
+CRLF bytes and the original frame, alongside existing top/body/UTF-8/semicolon
+checks. Thirteen independent negative manifest guards now include a
+listed-as-complete attempt. The functions/types cases retain their generated
+sources and expectations. No v0 audit, adapter or API mock is restored.
+
+Validation preserves all 392 retained complete CLI results and 129 previous C
+outputs, including both committed native audits. All 20 new cases preserve
+baseline compiler results, with eight byte-identical C outputs. The baseline
+compiler passes the complete audit normally and under sanitizers. Independent
+byte checks cover all seven whole fences, including exact equality of the
+complete main source. All six examples retain sanitized stdout/stderr/status.
+Four fresh `-Werror` configurations pass: GCC/Clang Debug ASan/UBSan and GCC
+Release, 33/33 each; GCC Debug without sanitizers, 29/29. Pinned clang-format
+23.1.3, diff/prose checks, unchanged plan design/table and the 23-ending CRLF
+fixture pass. Evidence stays under
+`build/validation/syntax-native.20261106T191156Z/` (ignored).
+
+Counts remain 156 native fixtures, 155 parser files (41 pass, 114 fail), 239
+language fences and 162 parser checks; no parser listing is promoted. Syntax,
+functions and types now have bounded native audits, not complete API coverage.
+Modules, the raw base sample and module/file casing and any remaining keyword
+review are pending. N1 stays in progress. The reviewed blank/empty split,
+positional ABI boundaries, outcomes, entry policy and formatting are unchanged.
 
 ## Risks
 

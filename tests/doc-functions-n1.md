@@ -80,10 +80,11 @@ The shared reader preserves mixed LF/CRLF bytes instead of CMake's default
 newline normalization. The manifest positive test checks semicolons, braces,
 comments, UTF-8 and CRLF byte-for-byte, plus prose/quoted-source separation.
 The shared guard now also covers body wrappers and multiple diagnostics for
-[types](doc-types-n1.md), without changing function-fence generation. Twelve
+[types](doc-types-n1.md), without changing function-fence generation. Thirteen
 negative tests guard stale hashes/counts, duplicate/missing classifications,
 unexercised fences, duplicate cases, listed-as-native attempts, invalid indices,
-changed case counts and malformed body diagnostic frames.
+changed case counts and malformed body diagnostic frames. The syntax audit's
+complete-source writer is checked for byte preservation and no duplicate main.
 
 Generated sources, classifications, case provenance and logs are under
 `build/tests/current-doc-functions/`, with a separate

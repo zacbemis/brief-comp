@@ -82,13 +82,15 @@ checked. Existing whole-function fence generation is unchanged.
 
 The compiler-free manifest positive now checks both top-level and body
 wrappers byte-for-byte, including mixed LF/CRLF, Unicode, braces, semicolons,
-comments and multiple-diagnostic frame offsets. Twelve negative guards include
-malformed message/line pairs, invalid fence lines and listed-as-body attempts.
+comments and multiple-diagnostic frame offsets. Thirteen negative guards now
+include malformed message/line pairs, invalid fence lines, listed-as-body and
+listed-as-complete attempts. Complete-source generation for the syntax audit
+also preserves its original entry and frame, without altering types cases.
 The real three-error fence also exercises a semicolon-bearing diagnostic.
 
 Sources, case provenance, classifications and logs are generated under
 `build/tests/current-doc-types/` and `current-doc-types_sanitized/`. Shared
 manifest reports stay under `build/tests/doc-native-manifest-fixtures/`.
 Parser counts remain unchanged. Functions and types now have scoped native
-audits; syntax, modules, the raw base sample and remaining casing/keyword review
-are still pending. N1 remains in progress.
+audits, now joined by syntax. Modules, the raw base sample and remaining
+module/file casing and keyword review are still pending. N1 remains in progress.

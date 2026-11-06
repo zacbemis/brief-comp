@@ -112,12 +112,13 @@ function(add_current_native_audit chapter)
 endfunction()
 add_current_native_audit(functions)
 add_current_native_audit(types)
+add_current_native_audit(syntax)
 add_test(NAME test_doc_native_manifest
     COMMAND ${CMAKE_COMMAND}
         -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/doc-native-manifest-fixtures
         -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_native_manifest.cmake)
 set_tests_properties(test_doc_native_manifest PROPERTIES
-    LABELS "doc-native;doc-functions;doc-types" TIMEOUT 30)
+    LABELS "doc-native;doc-functions;doc-types;doc-syntax" TIMEOUT 30)
 
 # Run alone with `ctest -L parse-examples`, or skip with `-LE parse-examples`.
 add_test(NAME test_parse_examples

@@ -9,7 +9,7 @@ The replacement [current-document parser inventory](doc-parser.md) reads all
 13 current chapters: 239 fences, 162 parser checks, 77 explicitly listed fences
 and two zero-fence listings. Parser checks are not native acceptance. The
 retirement left an intentional native document-coverage gap. The first scoped
-functions/types audits below begin closing it; checked-in program fixtures and
+syntax/functions/types audits below begin closing it; program fixtures and
 independent C/compiler/native-driver tests remain active.
 
 ```sh
@@ -38,16 +38,25 @@ No inputs, APIs, split alternatives or replacement bodies are supplied.
 
 ```sh
 ctest --test-dir build -L doc-types --output-on-failure
-# Both scoped audits and shared guards:
+# All scoped audits and shared guards:
 ctest --test-dir build -L doc-native --output-on-failure
 ```
 
-This is bounded coverage, not complete function/type/API acceptance or
+The [current syntax native audit](doc-syntax-n1.md) now classifies all 35
+fences: two execute unchanged, five reject for their documented errors, and 28
+remain listings. Thirteen independent prose programs bring it to 20 cases
+(eight executions and twelve rejection programs), including local casing,
+keyword roles and exact old-spelling fixes. Mixed scopes and unavailable APIs
+receive no context substitutions. An existing main is preserved without adding
+a duplicate entry. Run this audit with `-L doc-syntax`.
+
+This is bounded coverage, not complete syntax/function/type/API acceptance or
 completion of N1. Remaining audits return with the rules they can actually
 test, rather than through rewritten v0 scaffolds:
 
-- **N1:** syntax, modules and the raw base sample; expand functions/types as
-  their listed dependencies become available, and finish casing/keyword review.
+- **N1:** modules and the raw base sample; expand the scoped audits as their
+  listed dependencies become available, and finish module/file casing and any
+  remaining keyword review.
 - **N2:** symbols and errors sections 1–5 and 7–12.
 - **N3:** error handling section 6, pipelines and memory.
 - **N4/N5:** add bindings/loops and interpolation fences to their chapter audits.
