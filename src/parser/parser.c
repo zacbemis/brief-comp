@@ -1369,9 +1369,36 @@ static Decl *declaration(Parser *p, int in_member) {
   Token declared = p->previous;
   size_t mark = p->diagnostics->count;
   const char *decl_name = name(p, declared);
-  if (!in_member && match(p, TOK_LBRACE)) {
+  if (!in_member && (at(p, TOK_LBRACE) ||
+                     (declared.type == TOK_UPPER_NAME && at(p, TOK_COLON)))) {
     Decl *d = new_decl(p, DECL_STRUCT, start.span, VISIBILITY_PRIV);
     d->name = decl_name;
+    if (match(p, TOK_COLON)) {
+      Token colon = p->previous;
+      List conformances = {0};
+      do {
+        if (!token_is_name(peek(p).type)) {
+          error(p, "Expected a named trait in conformance list.");
+          return NULL;
+        }
+        size_t before = p->diagnostics->count;
+        Type *trait = type(p);
+        if (!trait)
+          return NULL;
+        if (trait->kind != TYPE_NAME && trait->kind != TYPE_APPLY) {
+          if (p->diagnostics->count == before)
+            error_at(p, trait->span,
+                     "Expected a named trait in conformance list.");
+          return NULL;
+        }
+        PUSH(p, conformances, trait);
+      } while (match(p, TOK_AND));
+      d->as.structure.conformances = conformances.data;
+      d->as.structure.conformance_count = conformances.count;
+      d->as.structure.conformance_span = through(colon.span, p->previous.span);
+    }
+    if (!expect(p, TOK_LBRACE, "Expected '{' after conformance list."))
+      return NULL;
     List fields = {0}, functions = {0};
     int valid_body = 1;
     newlines(p);

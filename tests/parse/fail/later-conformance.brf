@@ -1,5 +1,0 @@
-// parse-error: line 4
-// Why: Type conformance headers remain outside the implemented grammar.
-//   The obsolete impl prefix is not needed to test this boundary.
-User: HasUser {
-}

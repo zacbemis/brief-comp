@@ -49,6 +49,12 @@ They remain reserved for ordinary names, fields, imports and type paths.
 Member-only casing fixes can produce `int` or `str`; this does not rename
 references, add APIs or change builtin converters or receiver rules.
 
+Uppercase declarations can list named traits after `:`, joined with `and`.
+Qualified paths and bracketed type arguments are retained in the AST; primitive,
+unit, wildcard and inline-union conformances reject without guessed names or
+fixes. Native compilation reports conformance as unsupported before dependent
+names or bodies. This does not add trait/module lookup or receiver inference.
+
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
   must show.
@@ -81,20 +87,24 @@ references, add APIs or change builtin converters or receiver rules.
   bodies and ordinary `impl` names, without receiver inference claims.
 - `46`: primitive-spelled struct/trait functions and dotted members, including
   calls, pipelines, type arguments and indexing, without API/runtime claims.
+- `47`: conformance headers promoted from `fail/later-conformance.brf`, with
+  qualified/generic traits, `and` continuation and fieldless/field-bearing
+  bodies, without native conformance claims.
 - `underscore-type-syntax`: promoted from the old parser rejection; semantic
   checking still rejects its bare partial return marker.
 
 ## `fail/`
 
-There are 110 rejection fixtures, including `primitive-field-name.brf`,
-`old-impl-block.brf`, `struct-signature-without-body.brf`,
-`trait-signature-without-return.brf`, `qualified-shared-symbol.brf`,
-`qualified-symbol-missing-name.brf` and `pub-trait.brf`,
-`typed-pattern-outside-payload.brf`, `typed-payload-missing-name.brf`,
-`typed-payload-missing-type.brf`, `old-symbol-union.brf`,
-`union-missing-member.brf`, `union-missing-separator.brf`,
-`old-payload-parentheses.brf`, `payload-missing-close.brf`,
-`payload-missing-comma.brf`, `error-tag-spacing.brf`, `collection-header.brf`,
+There are 111 rejection fixtures, including `conformance-missing-name.brf`,
+`conformance-non-name.brf`, `primitive-field-name.brf`, `old-impl-block.brf`,
+`struct-signature-without-body.brf`, `trait-signature-without-return.brf`,
+`qualified-shared-symbol.brf`, `qualified-symbol-missing-name.brf` and
+`pub-trait.brf`, `typed-pattern-outside-payload.brf`,
+`typed-payload-missing-name.brf`, `typed-payload-missing-type.brf`,
+`old-symbol-union.brf`, `union-missing-member.brf`,
+`union-missing-separator.brf`, `old-payload-parentheses.brf`,
+`payload-missing-close.brf`, `payload-missing-comma.brf`,
+`error-tag-spacing.brf`, `collection-header.brf`,
 `collection-missing-comma.brf`, `bare-collection-literal.brf`,
 `import-missing-name.brf`, `import-in-body.brf`, `tag-casing.brf`,
 `tag-wildcard.brf`, `declaration-casing.brf`, `declaration-wildcard.brf`,

@@ -3,9 +3,9 @@
 `test_doc_parser` reads the 13 language chapters in `docs/lang-*.txt`, not
 `docs/v0/`. The rationale file `lang-post-0-notes.txt` is not a language chapter.
 The manifest in `test_doc_parser.cmake` classifies all **239 code fences** and
-the two unfenced chapters. It runs **148 successful parses and five intentional
-syntax rejections**. The other **86 fences** are explicit listings, not passing
-parser tests: 16 await N1/N4/N5 syntax, 50 need later features, and 20 are
+the two unfenced chapters. It runs **152 successful parses and five intentional
+syntax rejections**. The other **82 fences** are explicit listings, not passing
+parser tests: 17 await N1/N4/N5 syntax, 43 need later features, and 22 are
 incomplete signatures/operator/context fragments. The overview and raw base
 sample have separate zero-fence listings.
 
@@ -46,12 +46,12 @@ accepted for the wrong error.
 | raw base sample | 0 | 1 |
 | functions | 20 | 7 |
 | memory | 17 | 1 |
-| modules | 15 | 4 |
+| modules | 16 | 3 |
 | pipelines | 13 | 4 |
 | standard library | 1 | 0 |
 | symbols | 11 | 4 |
 | syntax | 30 | 5 |
-| traits | 1 | 9 |
+| traits | 4 | 6 |
 | types | 20 | 8 |
 
 Chapter hashes force classification review after document edits; counts, index
@@ -110,12 +110,22 @@ and default bodies are retained without synthesizing bodies, but explicit
 checks and 87 fenced listings, plus two unfenced listings. The standard-library
 fence still needed primitive-spelled JSON member syntax at that point.
 
-Primitive-spelled function/expression members now promote the entire
+Primitive-spelled function/expression members promoted the entire
 standard-library fence without extracting methods or replacing bodies.
 `Json.str` and `Json.int` parse, but no JSON/module APIs, receiver binding or
 inference are asserted. Ordinary names, type paths and primitive tokens are
-unchanged. Counts are 153 checks and 86 fenced listings, plus two unfenced
-listings. No native chapter audit is completed.
+unchanged. That increment had 153 checks and 86 fenced listings, plus two
+unfenced listings.
+
+Conformance headers add four whole declaration fences: modules fence 9 and
+traits fences 3, 4 and 7. Named trait paths, type arguments, fields and complete
+bodies are preserved without trait/module resolution or receiver inference.
+Native compilation stops at the conformance scope error. Traits fences 1 and 2
+still need explicit `self` parameters; fence 6 mixes a declaration and direct
+usage without a supported wrapper boundary, and fence 9 has an ellipsis body.
+The latter two remain whole-source fragments, not extracted or stubbed checks.
+Counts are 157 checks and 82 fenced listings, plus two unfenced listings. No
+native chapter audit is completed.
 
 ## Native acceptance gap
 

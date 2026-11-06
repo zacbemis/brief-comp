@@ -1,0 +1,16 @@
+// Promoted from later-conformance: syntax only, not native conformance.
+User: HasUser {
+}
+Admin: User.HasUser and Printable {
+  user: User
+  tier: int
+  getUser() -> User { self.user }
+}
+UserCollection:
+  Query[User] and
+  models.Collection[Map[str, Vec[User]]] {
+  items: Vec[User]
+}
+Required: Other.Capability {
+  read(value: User) -> str
+}

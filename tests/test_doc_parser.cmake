@@ -64,7 +64,8 @@ fences(top "Complete member constructor grammar only; N2 contracts and receiver 
 fences(fragment "Conformance alternatives with ellipsis bodies; no stubbing or extraction" "14")
 fences(top "Complete field-only struct syntax; module resolution/visibility semantics are not asserted" "1")
 fences(body "Equals-initialized struct literals; no module/typechecking claims" "3")
-fences(n1 "Trait self parameters or conformance headers; module identity/visibility also remain unimplemented" "6;9")
+fences(n1 "Trait self parameters; module identity/visibility also remain unimplemented" "6")
+fences(top "Whole conformance headers and function bodies only; native conformance, receiver inference and module loading remain unsupported" "9")
 fences(body "Whole namespace/tag usage syntax only; no module loading, privacy or receiver inference claims" "7")
 fences(body "Qualified-call syntax only; documented namespace ambiguity/missing-module errors are semantic and are not asserted" "10;11")
 fences(top "Whole field/function declarations parse; file-label comments do not implement modules or dependency/cycle checks" "15")
@@ -112,7 +113,11 @@ fences(fragment "Interleaved declarations and usage with an ellipsis function bo
 end_chapter()
 
 chapter(lang-traits 10 6ca2879ed2e200fea71a3b13d4d7a7db277e1aed40dd3eb552c76d05b3489d74)
-fences(later "Traits/conformance/defaults, operators, generics and collection iteration; N1 member parsing also pending" "1;2;3;4;6;7;8;9;10")
+fences(top "Whole conformance headers and default bodies only; trait/module resolution and receiver inference are not asserted" "3;4;7")
+fences(n1 "Explicit trait self parameter grammar; native traits remain unsupported" "1;2")
+fences(fragment "Conformance declaration followed by direct usage without a supported context boundary; no extraction or rewriting" "6")
+fences(fragment "Complete conformance header but an ellipsis function body; no stubbing" "9")
+fences(later "Generic type/function/trait parameters and bounds; receiver grammar also remains pending" "8;10")
 fences(body "Dotted-call grammar only, not trait resolution" "5")
 end_chapter()
 

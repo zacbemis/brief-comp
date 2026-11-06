@@ -227,6 +227,9 @@ struct Decl {
       Expr *body;
     } function;
     struct {
+      Type **conformances;
+      size_t conformance_count;
+      Span conformance_span; // ':' through the final trait, excluding the body.
       Parameter *fields;
       size_t count;
       Decl **functions;

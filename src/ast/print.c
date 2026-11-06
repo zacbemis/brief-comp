@@ -378,6 +378,14 @@ static void decl(FILE *out, const Decl *d) {
   case DECL_TRAIT:
     fprintf(out, "(%s %s%s", d->kind == DECL_TRAIT ? "trait" : "struct",
             visibility, d->name);
+    if (d->as.structure.conformance_count) {
+      fputs(" (conforms", out);
+      for (size_t i = 0; i < d->as.structure.conformance_count; i++) {
+        fputc(' ', out);
+        type(out, d->as.structure.conformances[i]);
+      }
+      fputc(')', out);
+    }
     for (size_t i = 0; i < d->as.structure.count; i++) {
       fputc(' ', out);
       parameter(out, &d->as.structure.fields[i], "field ");

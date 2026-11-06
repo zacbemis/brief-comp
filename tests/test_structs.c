@@ -320,6 +320,33 @@ int main(void) {
     ASSERT_EQ_INT(1, trait.errors.count);
     ASSERT_TRUE(!trait.program->resolved && !trait.program->checked);
   }
+  TEST("conformance is a declaration barrier, not fake trait resolution") {
+    const char *sources[] = {
+        ("P: Missing[:same] and models.Other[Unknown] { n: Missing\nf() { "
+         "missing() } }\n"
+         "Q: Other[:!same] { n: Unknown }\nAlias = Cycle\nCycle = Alias\n"),
+        "P: A {}\nQ: B {}\nAlias = Missing\n"};
+    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
+      Result r = check(&a, sources[i]);
+      ASSERT_EQ_INT(2, r.errors.count);
+      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+      ASSERT_EQ_INT(0, r.program->struct_count);
+      ASSERT_EQ_INT(0, r.program->alias_count);
+      ASSERT_EQ_INT(0, r.program->count);
+      ASSERT_EQ_INT(1, r.program->tag_count);
+      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+      for (size_t j = 0; j < r.errors.count; j++) {
+        Diagnostic *d = r.errors.items[j];
+        ASSERT_EQ_INT(
+            0, strcmp("Trait conformance is not implemented yet.", d->message));
+        ASSERT_TRUE(!d->fixes && !d->notes);
+        ASSERT_EQ_INT(':', d->span.file->text[d->span.start]);
+      }
+    }
+    Result both =
+        check(&a, "import models.User\nP: Missing { n: Missing }\nEmpty {}\n");
+    ASSERT_EQ_INT(3, both.errors.count);
+  }
   TEST("traits stop before unavailable type, member and main cascades") {
     const char *cases[] = {
         "Empty {}\n", ("Empty {}\nAlias = Empty\nf(n: Empty) { missing() }"),

@@ -537,6 +537,107 @@ int main(void) {
       }
     }
   }
+  TEST("conformance headers retain named traits without resolving them") {
+    program_dump(&arena,
+                 "P: Traits.Reader[int] and Writer { pub n: int\nread(p: P) -> "
+                 "int { p.n } }\nEmpty: Marker {}\n",
+                 "(program (struct P (conforms (apply Traits.Reader int) "
+                 "Writer) (field pub n int) "
+                 "(fn read (params (p P)) int (block (field (name p) n)))) "
+                 "(trait Empty (conforms Marker)))\n");
+    for (unsigned crlf = 0; crlf < 2; crlf++) {
+      const char *lf =
+          "P: models.Query[Map[str, User]] and\n/* keep */ Printable "
+          "{\nread(p: P) { p.n }\nn: int\n}\nafter() {}\n";
+      char text[1024];
+      size_t n = 0;
+      for (size_t i = 0; lf[i]; i++) {
+        if (crlf && lf[i] == '\n')
+          text[n++] = '\r';
+        text[n++] = lf[i];
+      }
+      text[n] = 0;
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(0, v->diagnostics.count);
+      ASSERT_EQ_INT(2, v->program->count);
+      Decl *p = v->program->items[0];
+      ASSERT_EQ_INT(DECL_STRUCT, p->kind);
+      ASSERT_EQ_INT(2, p->as.structure.conformance_count);
+      ASSERT_EQ_INT(1, p->as.structure.count);
+      ASSERT_EQ_INT(1, p->as.structure.function_count);
+      Span span = p->as.structure.conformance_span;
+      ASSERT_TRUE(span.file == v->source);
+      ASSERT_EQ_INT(1, span.start);
+      ASSERT_EQ_INT(
+          (size_t)(strstr(text, "Printable") - text + strlen("Printable")),
+          span.end);
+      Type *q = p->as.structure.conformances[0];
+      ASSERT_EQ_INT(TYPE_APPLY, q->kind);
+      ASSERT_TRUE(q->as.apply.base->as.name ==
+                  intern(&v->names, "models.Query"));
+      ASSERT_EQ_INT(TYPE_APPLY, q->as.apply.args[0]->kind);
+      ASSERT_EQ_INT(2, q->as.apply.args[0]->as.apply.count);
+      ASSERT_TRUE(p->as.structure.conformances[1]->as.name ==
+                  intern(&v->names, "Printable"));
+      TokenArray filtered = newline_filter(&arena, v->raw);
+      size_t bytes = filtered.count * sizeof(Token);
+      Token *saved = arena_alloc(&arena, bytes);
+      memcpy(saved, filtered.items, bytes);
+      Diagnostics again;
+      diagnostics_init(&again, &arena);
+      Program *next = parse_program(&arena, &v->names, filtered, &again);
+      ASSERT_EQ_INT(0, again.count);
+      ASSERT_TRUE(!memcmp(saved, filtered.items, bytes));
+      ASSERT_EQ_INT(0, strcmp(dump(&arena, next), dump(&arena, v->program)));
+      const char *eol = crlf ? "\r\n" : "\n";
+      snprintf(text, sizeof(text),
+               "pub /* keep */ P: Query<Vec<int>> and Printable {%sn: int%s}%s",
+               eol, eol, eol);
+      Parsed *old = parse(&arena, text);
+      ASSERT_EQ_INT(2, old->diagnostics.count);
+      char *fixed = apply_fixes(&arena, old);
+      ASSERT_TRUE(
+          strstr(fixed, "/* keep */ P: Query[Vec[int]] and Printable") != NULL);
+      ASSERT_TRUE(strstr(fixed, crlf ? "{\r\nn" : "{\nn") != NULL);
+      Parsed *new = parse(&arena, fixed);
+      ASSERT_EQ_INT(0, new->diagnostics.count);
+    }
+    char wide[32768];
+    size_t n = (size_t)sprintf(wide, "P: ");
+    for (unsigned i = 0; i < 512; i++)
+      n += (size_t)sprintf(wide + n, "%sT%u", i ? " and " : "", i);
+    sprintf(wide + n, " { n: int }");
+    Parsed *many = parse(&arena, wide);
+    ASSERT_EQ_INT(0, many->diagnostics.count);
+    ASSERT_EQ_INT(512, many->program->items[0]->as.structure.conformance_count);
+    const char *bad[] = {"P: {}",    "P: T and {}", "P: int {}",   "P: () {}",
+                         "P: _ {}",  "P: :tag {}",  "P: T | U {}", "P: T, U {}",
+                         "P: T. {}", "P: T[U {} ]"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
+      char text[512];
+      snprintf(text, sizeof(text), "%s\nafter() {}\n", bad[i]);
+      Parsed *v = parse(&arena, text);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      ASSERT_TRUE(v->program->count > 0);
+      if (v->program->count)
+        ASSERT_TRUE(
+            !strcmp("after", v->program->items[v->program->count - 1]->name));
+      for (size_t j = 0; j < v->diagnostics.count; j++)
+        ASSERT_TRUE(!v->diagnostics.items[j]->fixes);
+    }
+    char deep[4096];
+    n = (size_t)sprintf(deep, "P: ");
+    for (unsigned i = 0; i < 140; i++)
+      n += (size_t)sprintf(deep + n, "Query[");
+    n += (size_t)sprintf(deep + n, "User");
+    for (unsigned i = 0; i < 140; i++)
+      deep[n++] = ']';
+    sprintf(deep + n, " { n: int }");
+    invalid(&arena, deep, "Syntax nesting limit exceeded");
+    invalid(&arena, "impl: int", "Expected '(' after function name");
+    invalid(&arena, "main() { P: Trait {} }",
+            "Expected a newline between items");
+  }
   TEST("empty type bodies are traits; unit fields still make structs") {
     program_dump(&arena,
                  "Empty {}\nCommented { /* keep */ }\nData { unit: () }\n",

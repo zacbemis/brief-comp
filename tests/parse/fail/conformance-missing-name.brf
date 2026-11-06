@@ -1,0 +1,3 @@
+// parse-error: line 3
+// Why: Every 'and' in a conformance list needs a following named trait.
+Owner: Trait and { value: int }

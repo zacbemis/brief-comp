@@ -6,7 +6,7 @@ executable scripts and CTest registrations are deleted; they are not maintained
 as a second syntax or extended into a migration system. `docs/v0/` is untouched.
 
 The replacement [current-document parser inventory](doc-parser.md) reads all
-13 current chapters: 239 fences, 153 parser checks, 86 explicitly listed fences
+13 current chapters: 239 fences, 157 parser checks, 82 explicitly listed fences
 and two zero-fence listings. Parser checks are not native acceptance. The
 retirement leaves an intentional native document-coverage gap; the checked-in
 program fixtures and independent C/compiler/native-driver tests remain active.
@@ -58,11 +58,18 @@ additional whole module fences brought that inventory to 152 checks and 87
 fenced listings; neither they nor converted native fixtures complete a
 replacement chapter audit or accept module/library APIs.
 
-Primitive-spelled members now allow the complete standard-library fence to
-parse, including `Json.str` and `Json.int`, without installing those APIs. The
-current inventory has 153 checks and 86 fenced listings. Native fixtures test
-real locally declared members, separate from builtin conversions; they do not
+Primitive-spelled members allow the complete standard-library fence to parse,
+including `Json.str` and `Json.int`, without installing those APIs. That
+inventory had 153 checks and 86 fenced listings. Native fixtures test real
+locally declared members, separate from builtin conversions; they do not
 complete a native chapter audit or add receiver inference or N2 behavior.
+
+Conformance headers now retain named trait references and type arguments, but
+native compilation reports an explicit scope error before dependent names,
+cycles, bodies or missing-main checks. Four whole module/trait fences bring the
+current inventory to 157 checks and 82 fenced listings. This does not resolve
+traits or modules, infer receivers, dispatch defaults or complete a native
+chapter audit. No bodies or missing names are invented.
 
 ## N1 spelling bridges
 

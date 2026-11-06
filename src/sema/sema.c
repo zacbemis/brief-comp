@@ -984,13 +984,18 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
     s->params[0] = arena_calloc(a, 1, sizeof(**s->params));
     s->params[0]->type = &p->types[SEMA_UNKNOWN];
   }
-  // Imports and traits have no available signatures. Report each unsupported
-  // declaration once, before collecting dependent names/types or checking main.
+  // Imports, traits and conformance headers have no available signatures.
+  // Report each unsupported declaration once, before dependent names or main.
   int unavailable_declarations = 0;
   for (size_t i = 0; i < syntax->count; i++) {
     const Decl *d = syntax->items[i];
     if (d->kind == DECL_IMPORT) {
       diagnostics_error(errors, d->span, "Imports are not implemented yet.");
+      unavailable_declarations = 1;
+    } else if ((d->kind == DECL_STRUCT || d->kind == DECL_TRAIT) &&
+               d->as.structure.conformance_count) {
+      diagnostics_error(errors, d->as.structure.conformance_span,
+                        "Trait conformance is not implemented yet.");
       unavailable_declarations = 1;
     } else if (d->kind == DECL_TRAIT) {
       diagnostics_error(

@@ -253,6 +253,34 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors MATCHES "^error: U
     message(FATAL_ERROR "JSON spelling invented an API (${status}):\n${errors}")
 endif()
 
+set(conformance "${TEST_DIR}/conformance.brf")
+file(WRITE "${conformance}" "A: models.Query[Missing] and Printable {\r\nfield: Unknown\r\nf() { missing() }\r\n}\r\nAlias = Cycle\r\nCycle = Alias\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${conformance}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+string(FIND "${output}" "(conforms (apply models.Query Missing) Printable)" header_at)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR header_at LESS 0)
+    message(FATAL_ERROR "conformance header syntax rejected (${status}):\n${errors}\n${output}")
+endif()
+set(conformance_output "${TEST_DIR}/conformance-output")
+file(REMOVE "${conformance_output}")
+foreach(mode IN ITEMS emit-c run build)
+    set(arguments "${conformance}")
+    if(mode STREQUAL "build")
+        list(APPEND arguments --debug -o "${conformance_output}")
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env "CC=${TEST_DIR}/must-not-run"
+        "${BRIEF}" ${mode} ${arguments}
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    string(REGEX MATCHALL "(^|\n)error:" scope_errors "${errors}")
+    list(LENGTH scope_errors scope_errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
+       NOT scope_errors EQUAL 1 OR EXISTS "${conformance_output}" OR
+       NOT errors MATCHES "^error: Trait conformance is not implemented yet" OR
+       errors MATCHES "Unknown|Recursive|main|help:")
+        message(FATAL_ERROR "conformance escaped its native boundary (${status}):\n${errors}")
+    endif()
+endforeach()
+
 set(old_impl "${TEST_DIR}/old-impl.brf")
 file(WRITE "${old_impl}" "User { n: int }\r\nimpl User { read(u: User) { u.n } }\r\nmain() {}\r\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${old_impl}"

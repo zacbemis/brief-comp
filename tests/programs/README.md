@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **146 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **147 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -487,8 +487,15 @@ Primitive-spelled members use the existing owned function representation.
 explicit receiver calls, alias lookup and ordinary builtin conversions in
 member bodies. `errors/primitive-member-names.brf` permits a casing fix to a
 primitive only for a member function; ordinary function/binding guards remain.
-The inventory is now 146 files. No prior source or expectation is rewritten,
+That inventory had 146 files. No prior source or expectation was rewritten,
 and JSON/module APIs, receiver inference and N2 behavior are not added.
+
+Conformance headers retain syntax but have no native trait implementation.
+`errors/conformances.brf` requires one unsupported-conformance error per
+header, before missing types/bodies, alias cycles, opposite tag kinds in type
+arguments or a missing entry can cascade. The inventory is now 147 files; this
+adds rejection coverage, not trait lookup, default dispatch or receiver
+inference. Existing native sources, outputs and error expectations are intact.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

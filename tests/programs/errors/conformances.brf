@@ -1,0 +1,11 @@
+A: Missing[:same] and models.Other[Unknown] { // error: Trait conformance is not implemented yet.
+  field: Missing
+  read() -> Missing { missing() }
+}
+B: Other[:!same] { // error: Trait conformance is not implemented yet.
+  field: Unknown
+}
+Empty: Printable {} // error: Trait conformance is not implemented yet.
+Alias = Cycle
+Cycle = Alias
+Data { field: Missing }

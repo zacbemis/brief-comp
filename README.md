@@ -108,6 +108,12 @@ remain reserved in ordinary name positions, including fields and bindings.
 Casing fixes can produce a primitive spelling only for a function member.
 This does not install JSON APIs or change builtin conversions or call rules.
 
+Uppercase type headers can list named traits after `:`, joined by `and`, with
+qualified names and bracketed type arguments. The AST retains that list, but
+native compilation stops with `Trait conformance is not implemented yet.` No
+trait/module lookup, layout or default dispatch is guessed. Receiver inference
+and `self`/`&self` remain pending.
+
 Struct names start uppercase; functions, fields, parameters, bindings and loops
 require lowercase names, with safe casing fixes. Symbol tags also require
 lowercase names in types, values and patterns. `:!name` records an error tag; a
@@ -307,12 +313,12 @@ Panics terminate the process without unwinding owners.
 - `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
   native driver tests; program tests in normal and sanitizer configurations;
   and the [current-document parser inventory](tests/doc-parser.md): 239 fences
-  across 13 chapters, with 153 parser checks and 86 explicit fence listings,
+  across 13 chapters, with 157 parser checks and 82 explicit fence listings,
   plus two unfenced-chapter listings. Listed examples are not passing coverage.
   N1 retired all v0 native chapter scripts and bridges; replacement native audits
   return milestone by milestone. Run the inventory and its structural guards with
   `ctest --test-dir build -L doc-parser --output-on-failure`.
-- `tests/parse/`: 149 parser example files that must parse or be rejected
+- `tests/parse/`: 151 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
 
