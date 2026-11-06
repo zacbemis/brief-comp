@@ -1,8 +1,8 @@
 Counter {
   value: Missing
-  bump(&self, amount: Unknown) -> Missing { missing(amount) } // error: 'self' receivers are not implemented yet.
+  bump(&self, amount: Unknown) -> Missing { missing(amount) }
   read() -> Missing {
-    ((self)).value // error: 'self' receivers are not implemented yet.
+    ((self)).value
     missing()
   }
 }

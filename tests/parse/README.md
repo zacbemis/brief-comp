@@ -37,7 +37,7 @@ share struct bodies with fields; `impl` is ordinary and old blocks reject
 without relocation fixes. A fieldless body builds `DECL_TRAIT`, retaining typed
 required signatures and default bodies; a unit field makes a struct. Broken
 members are not reclassified as a valid trait. Struct functions require bodies.
-Native traits, receiver binding/inference and conformance remain pending.
+Native traits and conformance remain pending; struct receiver binding exists.
 
 Qualified symbols such as `models.Db.:!bad[str]` retain their module path in
 types, values and patterns. The final module name must start uppercase; tags
@@ -55,12 +55,13 @@ unit, wildcard and inline-union conformances reject without guessed names or
 fixes. Native compilation reports conformance as unsupported before dependent
 names or bodies. This does not add trait/module lookup or receiver inference.
 
-`self` is a keyword and `EXPR_SELF`, not an ordinary binding or the type `Self`.
+`self` is a keyword and `EXPR_SELF`, not an ordinary name or the type `Self`.
 A trait receiver writes `self` or `&self` first, without a type; a struct can
-write `&self`, but plain `self` parameters are trait-only. Receiver metadata
-and spans are separate from ordinary parameters, with no synthetic type/slot.
-Native receiver binding/inference is still unavailable. The native syntax scan
-rejects self-using struct functions once each; outside-owner use is invalid.
+write `&self`, but plain `self` parameters are trait-only. Parser receiver
+metadata/spans stay separate from ordinary parameters and invent no type/slot.
+Native resolution now binds a canonical owner parameter for self-using struct
+functions or written `&self`, before return inference. Outside-owner use is
+invalid. Native call-form enforcement and source conversion remain pending.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree

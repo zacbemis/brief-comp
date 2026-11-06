@@ -254,7 +254,7 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors MATCHES "^error: U
 endif()
 
 set(receiver "${TEST_DIR}/self-receiver.brf")
-file(WRITE "${receiver}" "Self = int\r\nP { n: Missing\r\nread(& /* keep */ self, n: Input) -> Output { self.n }\r\n}\r\nAlias = Cycle\r\nCycle = Alias\r\n")
+file(WRITE "${receiver}" "Self = int\r\nP { n: Self\r\nread(& /* keep */ self, n: int) -> int { self.n += n\r\nself.n }\r\n}\r\nmain() { let p = P { n = 40 }\r\nprint(str(p.read(2))) }\r\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${receiver}"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
@@ -264,29 +264,21 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
 endif()
 execute_process(COMMAND "${BRIEF}" dump-ast "${receiver}"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
-string(FIND "${output}" "(params (&self) (n Input))" receiver_at)
+string(FIND "${output}" "(params (&self) (n int))" receiver_at)
 string(FIND "${output}" "(field (self) n)" self_at)
 if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR receiver_at LESS 0 OR self_at LESS 0)
     message(FATAL_ERROR "receiver syntax rejected or fabricated (${status}):\n${errors}\n${output}")
 endif()
-set(receiver_output "${TEST_DIR}/self-receiver-output")
-file(REMOVE "${receiver_output}")
-foreach(mode IN ITEMS emit-c run build)
-    set(arguments "${receiver}")
-    if(mode STREQUAL "build")
-        list(APPEND arguments --debug -o "${receiver_output}")
-    endif()
-    execute_process(COMMAND "${CMAKE_COMMAND}" -E env "CC=${TEST_DIR}/must-not-run"
-        "${BRIEF}" ${mode} ${arguments}
-        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
-    string(REGEX MATCHALL "(^|\n)error:" receiver_errors "${errors}")
-    list(LENGTH receiver_errors receiver_errors)
-    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT receiver_errors EQUAL 1 OR
-       EXISTS "${receiver_output}" OR NOT errors MATCHES "^error: 'self' receivers are not implemented yet" OR
-       errors MATCHES "Unknown|Recursive|main|help:")
-        message(FATAL_ERROR "receiver syntax escaped native scope (${status}):\n${errors}")
-    endif()
-endforeach()
+execute_process(COMMAND "${BRIEF}" emit-c "${receiver}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT output MATCHES "brm_1_P_read")
+    message(FATAL_ERROR "receiver binding failed native emission (${status}):\n${errors}")
+endif()
+execute_process(COMMAND "${BRIEF}" run --debug "${receiver}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT output STREQUAL "42\n" OR NOT errors STREQUAL "")
+    message(FATAL_ERROR "receiver native execution failed (${status}):\n${errors}\n${output}")
+endif()
 
 set(conformance "${TEST_DIR}/conformance.brf")
 file(WRITE "${conformance}" "A: models.Query[Missing] and Printable {\r\nfield: Unknown\r\nf() { missing() }\r\n}\r\nAlias = Cycle\r\nCycle = Alias\r\n")

@@ -1,0 +1,31 @@
+Counter {
+  value: int
+  name: str
+  new(value: int, name: str) -> Counter { Counter { value = value, name = name } }
+  read() { self.value }
+  label() -> str { self.name }
+  wrapped() { :box[self] }
+  bump(&self, by: int) { self.value += by }
+  chain(&self, by: int) -> Counter { self.bump(by)
+    self }
+  unused(&self) {}
+  unreachable() { ret
+    print(str(self.value)) }
+  even(n: int) { if n == 0 { ret true }
+    self.odd(n - 1) }
+  odd(n: int) { if n == 0 { ret false }
+    self.even(n - 1) }
+  copy(other: Counter) -> Counter { Counter { value = other.value, name = other.name } }
+}
+View = Counter
+main() {
+  let counter = View.new(39, "count")
+  counter.bump(1)
+  print(str(counter.chain(2).read())) // expect: 42
+  print(counter.label()) // expect: count
+  counter.wrapped() |> { :box[item] => print(str(item.read())) } // expect: 42
+  counter.unused()
+  counter.unreachable()
+  print(str(counter.even(10))) // expect: true
+  print(Counter.copy(counter).label()) // expect: count
+}

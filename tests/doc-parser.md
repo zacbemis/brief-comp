@@ -129,13 +129,19 @@ listings.
 
 The `self` keyword and explicit receiver syntax add five whole checks:
 functions fence 17, memory fence 10, modules fence 6 and traits fences 1/2.
-Receiver kinds, ordinary parameter lists and self expression nodes are retained
-without binding a native receiver, inferring methods or dispatching defaults.
+That syntax increment retained receiver kinds, ordinary parameter lists and
+self expression nodes without native binding/inference or default dispatch.
 Modules fence 4 still needs interpolation and moves to N5 instead of passing
 as a plain string. Counts are 162 checks and 77 fenced listings, plus two
 unfenced listings. No current listing is blocked only by N1 parser syntax, but
-native receiver/multi-payload support and replacement audits still leave N1
-in progress. No native chapter audit is completed.
+call-form enforcement, multi-payload support and replacement audits still leave
+N1 in progress. No native chapter audit is completed.
+
+Native struct receivers now bind a canonical owner parameter, use existing
+permissions/ownership and infer method-ness syntactically before return probes.
+This changes no parser counts and does not upgrade the whole-fence parser checks
+to native/API tests. Trait/default dispatch and strict call-form rules are still
+unavailable. No replacement native chapter audit is complete.
 
 ## Native acceptance gap
 

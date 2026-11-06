@@ -16,10 +16,10 @@ typedef enum {
   BORROW_MUT,   // user: &User
 } BorrowKind;
 
-// Written receiver syntax, separate from ordinary typed parameters.
+// Receiver form: written syntax in the AST, inferred/bound form in sema.
 typedef enum {
   RECEIVER_NONE,
-  RECEIVER_SELF,     // Trait-only plain self.
+  RECEIVER_SELF,     // Readonly; the written plain-self form is trait-only.
   RECEIVER_MUT_SELF, // &self in a struct or trait.
 } ReceiverKind;
 

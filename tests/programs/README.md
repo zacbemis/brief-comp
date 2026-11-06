@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **148 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **150 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -497,13 +497,18 @@ arguments or a missing entry can cascade. That inventory had 147 files; this
 adds rejection coverage, not trait lookup, default dispatch or receiver
 inference. Existing native sources, outputs and error expectations are intact.
 
-The `self` keyword and receiver syntax now have a native scope boundary.
-`errors/self-receivers.brf` checks explicit mutable receivers, grouped self
-expressions and invalid outside-owner use, without dependent field/parameter,
-alias-cycle, body or missing-entry errors. The inventory is 148 files. Existing
-native sources, outputs and error expectations are unchanged; no native
-receiver binding/inference or wrong-way-call rules are added. Ordinary typed
-parameters retain first-version native call behavior until that N1 step.
+Native struct receivers now use ordinary canonical parameters, inferred from
+syntactic self use or written `&self` before return inference. The old two
+unsupported-struct-receiver expectations in `errors/self-receivers.brf` are
+retired; its outside-owner error stays identical on line 9 and still suppresses
+dependent signature/body/cycle errors. `self-receivers.brf` executes inferred
+reads, mutable and unused receivers, recursive calls, returned self, string and
+symbol ownership, aliases and an associated function taking the owner type.
+`errors/self-permissions.brf` rejects direct/aliased mutation, mutable calls,
+returned aliases and storage through read-only self. The inventory is 150 files.
+Existing native runtime observations are unchanged. Strict call-form rules and
+source conversion remain pending; ordinary typed parameters keep current call
+compatibility until that N1 step.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

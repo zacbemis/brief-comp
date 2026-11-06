@@ -97,7 +97,9 @@ struct SemaSymbol {
   int builtin;
   SemaVar **params;
   const SemaType *return_type, *outcome_type; // ABI type and full outcome set.
-  SemaStruct *owner;       // NULL for a top-level function/builtin.
+  SemaStruct *owner; // NULL for a top-level function/builtin.
+  // Syntactic self classification; NONE for associated functions.
+  ReceiverKind receiver;
   SemaSymbol *next_method; // Next method of any type with this name.
 };
 typedef enum {

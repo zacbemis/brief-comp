@@ -33,6 +33,46 @@ static void invalid(Arena *a, const char *text, const char *message) {
 int main(void) {
   Arena a;
   arena_init(&a);
+  TEST(
+      "self receiver kinds and canonical slots exist before return inference") {
+    Checked c =
+        resolve(&a,
+                "Self = int\nView = P\nP { n: Self\n"
+                "read() { self.n }\nbump(&self, by: int) { self.n += by }\n"
+                "copy(p: P) { p.n }\ntext() { \"self\" } }\nmain() {}\n",
+                "self.brf");
+    ASSERT_EQ_INT(0, c.errors.count);
+    ASSERT_TRUE(c.program->resolved && !c.program->checked);
+    SemaFunction *read = &c.program->functions[0];
+    SemaSymbol *bump = &c.program->functions[1].symbol;
+    SemaSymbol *copy = &c.program->functions[2].symbol;
+    ASSERT_EQ_INT(RECEIVER_NONE, read->syntax->as.function.receiver);
+    ASSERT_EQ_INT(RECEIVER_SELF, read->symbol.receiver);
+    ASSERT_EQ_INT(1, read->symbol.arity);
+    ASSERT_EQ_INT(SEMA_UNKNOWN, read->symbol.return_type->kind);
+    const SemaType *owner = &c.program->structs[0].type;
+    ASSERT_TRUE(read->symbol.params[0]->type == owner);
+    ASSERT_TRUE(read->symbol.params[0]->annotation == owner);
+    ASSERT_TRUE(!read->symbol.params[0]->mutable &&
+                !read->symbol.params[0]->data_mutable);
+    ASSERT_EQ_INT(RECEIVER_MUT_SELF, bump->receiver);
+    ASSERT_EQ_INT(2, bump->arity);
+    ASSERT_TRUE(bump->params[0]->type == owner &&
+                bump->params[0]->data_mutable);
+    ASSERT_TRUE(!bump->params[0]->mutable);
+    ASSERT_EQ_INT(0, strcmp("by", bump->params[1]->name));
+    ASSERT_EQ_INT(RECEIVER_NONE, copy->receiver);
+    ASSERT_EQ_INT(1, copy->arity);
+    ASSERT_TRUE(copy->params[0]->type == owner);
+    ASSERT_EQ_INT(RECEIVER_NONE, c.program->functions[3].symbol.receiver);
+    SemaExpr *field = read->body->as.block.items[0];
+    ASSERT_TRUE(field->as.field.object->as.variable == read->symbol.params[0]);
+    sema_check(c.program, &c.errors);
+    ASSERT_EQ_INT(0, c.errors.count);
+    ASSERT_TRUE(c.program->checked);
+    ASSERT_EQ_INT(SEMA_INT, read->symbol.return_type->kind);
+    ASSERT_TRUE(field->as.field.object->as.variable == read->symbol.params[0]);
+  }
   TEST("resolution links forward calls before types are checked") {
     Checked c = resolve(&a, "main() { hello() }\nhello() { print(\"Hi\") }",
                         "hello.brf");
@@ -216,6 +256,46 @@ int main(void) {
         emitted[i] = arena_calloc(&a, (size_t)size + 1, 1);
         rewind(out);
         ASSERT_EQ_INT((size_t)size, fread(emitted[i], 1, (size_t)size, out));
+      }
+      fclose(out);
+    }
+    if (emitted[0] && emitted[1])
+      ASSERT_EQ_INT(0, strcmp(emitted[0], emitted[1]));
+  }
+  TEST("self binding reuses the explicit-parameter ABI and owned C") {
+    const char *sources[] = {
+        ("P { n: int\nread(p: P) -> int { p.n }\nbump(p: &P, by: int) { p.n += "
+         "by } }\n"
+         "main() { let p = P { n = 40 }\nP.bump(p, 2)\nprint(str(P.read(p))) "
+         "}\n"),
+        ("P { n: int\nread() -> int { self.n }\nbump(&self, by: int) { self.n "
+         "+= by } }\n"
+         "main() { let p = P { n = 40 }\np.bump(2)\nprint(str(p.read())) }\n")};
+    char *emitted[2] = {NULL, NULL};
+    for (size_t i = 0; i < 2; i++) {
+      Checked c = resolve(&a, sources[i], "receiver-equivalence.brf");
+      sema_check(c.program, &c.errors);
+      if (c.errors.count)
+        diagnostics_print(&c.errors, stderr);
+      ASSERT_EQ_INT(0, c.errors.count);
+      IrProgram *p = ir_lower(&a, c.program);
+      ASSERT_TRUE(p != NULL);
+      if (!p)
+        continue;
+      ir_insert_rc(&a, p);
+      FILE *out = tmpfile();
+      ASSERT_TRUE(out != NULL);
+      if (!out)
+        continue;
+      ASSERT_TRUE(emit_c(out, p));
+      ASSERT_EQ_INT(0, fflush(out));
+      long length = ftell(out);
+      ASSERT_TRUE(length > 0);
+      if (length > 0) {
+        emitted[i] = arena_calloc(&a, (size_t)length + 1, 1);
+        rewind(out);
+        ASSERT_EQ_INT((size_t)length,
+                      fread(emitted[i], 1, (size_t)length, out));
       }
       fclose(out);
     }

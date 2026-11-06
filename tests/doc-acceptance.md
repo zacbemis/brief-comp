@@ -71,13 +71,15 @@ that inventory to 157 checks and 82 fenced listings. This does not resolve
 traits or modules, infer receivers, dispatch defaults or complete a native
 chapter audit. No bodies or missing names are invented.
 
-The `self` keyword, expression nodes and explicit receiver metadata add five
-whole-fence checks, bringing the current inventory to 162 checks and 77 fenced
-listings. Native struct receivers remain explicitly unsupported; invalid
-outside-owner uses get a context error. Trait/import/conformance scope errors
-still take precedence. No implicit parameter, owner type, binding, method
-inference or wrong-way-call behavior is invented. N1 and its replacement
-native audits remain incomplete.
+The `self` keyword, expression nodes and explicit receiver metadata added five
+whole-fence checks, bringing the inventory to 162 checks and 77 fenced listings.
+Native struct receiver binding is now implemented: a syntactic self mention or
+written `&self` creates a canonical owner parameter before return inference.
+Existing permissions and ownership apply; outside-owner use and unavailable
+traits/imports/conformance retain their scope errors. Parser counts stay
+unchanged, and no whole-fence parser check becomes native/API acceptance.
+Strict call-form enforcement, source conversion and replacement chapter audits
+remain pending, so N1 is incomplete.
 
 ## N1 spelling bridges
 

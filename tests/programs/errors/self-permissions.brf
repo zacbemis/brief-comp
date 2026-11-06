@@ -1,0 +1,15 @@
+Counter {
+  value: int
+  change(&self) { self.value++ }
+  bad() { self.value++ } // error: Cannot mutate through an ordinary parameter; use &.
+  alias() {
+    var view = self
+    view.value++ // error: Cannot mutate through an ordinary parameter; use &.
+  }
+  pass() { self.change() } // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
+  view() { self }
+  indirect() { self.view().change() } // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
+  store(holder: &Holder) { holder.item = self } // error: A read-only value cannot be stored in a field; take the parameter it comes from as &.
+}
+Holder { item: Counter }
+main() {}

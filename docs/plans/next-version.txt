@@ -177,7 +177,7 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (148 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases, empty-trait classification, qualified symbol syntax and struct-owned functions with ordinary `impl`; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/programs/` (150 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases, empty-trait classification, qualified symbol syntax and struct-owned functions with ordinary `impl`; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
 | `tests/parse/pass/` (41) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
 | `tests/parse/fail/` (114) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
@@ -255,11 +255,13 @@ Conformance headers now retain named trait paths and type arguments, joined by
 before dependent declarations or main checks; trait/module lookup, defaults and
 receiver inference are not added.
 
-`self` is now a keyword and expression node, with written receiver metadata
-separate from ordinary typed parameters. Trait `self`/`&self` and struct
-`&self` parse; native receiver binding/inference and wrong-way calls remain
-pending. A syntax-only body scan reports unavailable struct receivers before
-dependent signatures, layouts or bodies, without guessing a hidden parameter.
+`self` is a keyword and expression node, with parser receiver metadata separate
+from ordinary typed parameters. Available struct functions now classify self
+syntactically before return inference and bind a canonical owner parameter.
+Readonly self and mutable `&self` use existing permissions and ownership.
+Trait/import/conformance and outside-owner context boundaries remain. Strict
+call-form enforcement, fix-its and the related source conversion are pending;
+existing value/type call compatibility is deliberately preserved for this slice.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -1792,6 +1794,70 @@ remaining casing/keywords, multi-payload checking/lowering, failure-tag source
 conversion and replacement native audits. Native traits/conformance and modules
 remain bootstrap work. N2 outcomes, entry policy, IR/RC and runtime formatting
 are unchanged.
+
+### N1 increment: native struct receiver binding and inference
+
+Available struct functions classify method-ness once from the syntax, before
+checking bodies or running return-inference probes. Any self mention counts,
+including unreachable code; written `&self` also forces a method when unused.
+Strings/comments and ordinary first owner-typed parameters do not imply self.
+Checked symbols retain the inferred receiver kind independently of parameter
+shape. Associated functions keep `RECEIVER_NONE`.
+
+Resolution prepends a semantic receiver parameter of the canonical owner type,
+with stable identity and slot zero before ordinary typed parameters. Parser
+metadata and parameter lists stay unchanged. Self expressions resolve directly
+to that binding, without restoring implicit uppercase `Self` meaning or doing
+name-based lookup. A real type named `Self` still wins ordinary type lookup.
+The receiver binding is immutable; its data is readonly unless `&self` is
+written. Existing parameter permissions, aliases, call-result sharing, SCC
+inference, ownership and ABI lowering apply without a new representation.
+
+The temporary unsupported-struct-receiver diagnostic is retired. Traits,
+imports and conformance still stop at their existing scope boundaries.
+Permanently invalid outside-owner use keeps its context error before dependent
+types, cycles, bodies or main checks. Existing value/type call compatibility is
+unchanged: strict call-form enforcement, safe fixes and conversion of the old
+explicit-parameter call sites remain a separate N1 step. This slice does not
+silently reinterpret owner-typed ordinary parameters as self receivers.
+
+`self-receivers.brf` executes inferred reads, mutation, unused mutable receivers,
+unreachable uses, mutually recursive methods, returned self, string/symbol
+ownership, aliases and associated functions. `errors/self-permissions.brf`
+rejects direct/aliased mutation, mutable calls through readonly self/results and
+storing readonly self. The old scope fixture retires its two now-obsolete
+unsupported-receiver errors; the outside-owner error remains byte-identical on
+line 9. Its dependent-error suppression is retained. The generated CLI fixture
+now emits C and runs under sanitizers, returning 42.
+
+Focused tests retain all syntax-walk container coverage as classification tests,
+including invalid/unsupported bodies whose success must not determine method
+kind. They check canonical receiver types, immutable bindings, mutable data,
+ordinary-parameter offsets and stable identity before and after inference.
+An independent explicit-parameter/associated-call source and a self-method
+source emit byte-identical C after RC lowering. Inventory: 150 native fixtures;
+parser counts stay 155 files (41 pass, 114 fail). No previous runtime observation
+requires conversion yet.
+
+Document counts remain 162 parser checks and 77 fenced listings, plus two
+unfenced listings. Native receiver support does not turn these whole-fence
+parser checks into native/module/API acceptance. Strict call-form rules and
+replacement chapter audits remain incomplete, and N1 stays in progress.
+
+Validation: four fresh `-Werror` configurations pass: GCC/Clang Debug ASan/UBSan
+and GCC Release, 25/25 each; GCC Debug without sanitizers, 24/24. Pinned
+clang-format 23.1.3, `git diff --check` and edited-prose width checks pass. Of
+349 retained sources, 347 preserve complete CLI results; the intentional two
+changes are the promoted CLI fixture and the retired scope errors above. All
+98 prior C successes remain byte-identical. All six examples preserve sanitized
+stdout/stderr/status. Reports:
+`build/validation/self-binding.20261106T063042Z/` (ignored).
+
+N1 remains in progress: strict call forms/fixes and source migration, remaining
+casing/keywords, multi-payload checking/lowering, failure-tag conversion and
+replacement native audits. Native traits/conformance and modules remain
+bootstrap work. N2 outcomes, entry policy, IR/RC and runtime formatting rules are
+unchanged.
 
 ## Risks
 

@@ -465,8 +465,13 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
       e->as.string = s->as.literal;
     return e;
   case EXPR_SELF:
-    return unsupported(r, s->name_span,
-                       "'self' receivers are not implemented yet.");
+    if (!r->function || r->function->symbol.receiver == RECEIVER_NONE)
+      return unsupported(
+          r, s->name_span,
+          "'self' is only available in struct or trait functions.");
+    e = node(r, SEMA_EXPR_VAR, s->span);
+    e->as.variable = r->function->symbol.params[0];
+    return e;
   case EXPR_NAME:
     e = node(r, SEMA_EXPR_VAR, s->span);
     e->as.variable = local(r, s->as.name);
@@ -947,17 +952,15 @@ static const Expr *first_self(const Expr *e) {
 #undef SELF
   return NULL;
 }
-static int unavailable_self(Diagnostics *errors, const Decl *d, int member) {
+static int outside_self(Diagnostics *errors, const Decl *d) {
   const Expr *use = first_self(d->as.function.body);
   if (!use && d->as.function.receiver == RECEIVER_NONE)
     return 0;
   Span span = d->as.function.receiver != RECEIVER_NONE
                   ? d->as.function.receiver_span
                   : use->name_span;
-  diagnostics_error(
-      errors, span,
-      member ? "'self' receivers are not implemented yet."
-             : "'self' is only available in struct or trait functions.");
+  diagnostics_error(errors, span,
+                    "'self' is only available in struct or trait functions.");
   return 1;
 }
 static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
@@ -1004,12 +1007,18 @@ static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
   restore(r, NULL);
   r->depth = 0;
   f->written = d->as.function.return_type != NULL;
+  const Expr *use = owner ? first_self(d->as.function.body) : NULL;
+  ReceiverKind receiver = owner ? d->as.function.receiver : RECEIVER_NONE;
+  if (use && receiver == RECEIVER_NONE)
+    receiver = RECEIVER_SELF;
+  size_t offset = receiver != RECEIVER_NONE;
   f->symbol = (SemaSymbol){.name = d->name,
                            .span = d->span,
                            .id = p->count++,
-                           .arity = d->as.function.count,
+                           .arity = d->as.function.count + offset,
                            .visibility = d->visibility,
-                           .owner = owner};
+                           .owner = owner,
+                           .receiver = receiver};
   name_map_put(&p->function_names, owner, d->name, &f->symbol);
   if (owner) {
     MethodChain *chain = name_map_get(&p->method_names, NULL, d->name);
@@ -1030,7 +1039,15 @@ static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
           : sema_success(p, f->written_type);
   f->symbol.return_type = sema_result(p, f->symbol.outcome_type);
   f->symbol.params = arena_calloc(r->arena, f->symbol.arity, sizeof(SemaVar *));
-  for (size_t j = 0; j < f->symbol.arity; j++) {
+  if (offset) {
+    Span span = d->as.function.receiver != RECEIVER_NONE
+                    ? d->as.function.receiver_span
+                    : use->name_span;
+    SemaVar *self = variable(r, "self", span, &owner->type, 0);
+    self->data_mutable = receiver == RECEIVER_MUT_SELF;
+    f->symbol.params[0] = self;
+  }
+  for (size_t j = 0; j < d->as.function.count; j++) {
     Parameter param = d->as.function.params[j];
     SemaVar *v = variable(r, param.name, param.span, type(r, param.type), 0);
     v->data_mutable = param.borrow == BORROW_MUT;
@@ -1039,7 +1056,7 @@ static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
       diagnostics_error(
           r->errors, param.span,
           "Mutable borrowing currently requires a struct or symbol type.");
-    f->symbol.params[j] = v;
+    f->symbol.params[j + offset] = v;
   }
   if (!owner && !strcmp(d->name, "main")) {
     p->entry = &f->symbol;
@@ -1116,17 +1133,13 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
   }
   if (unavailable_declarations)
     return p;
-  // Receiver syntax is retained, but do not fabricate a binding, signature or
-  // layout before native receiver inference/binding is implemented. Existing
-  // import/trait/conformance boundaries take precedence over this body walk.
+  // Reject permanently invalid outside-owner uses before dependent type/body
+  // errors. Available struct functions classify self once during collection;
+  // imports, traits and conformance still take precedence.
   for (size_t i = 0; i < syntax->count; i++) {
     const Decl *d = syntax->items[i];
     if (d->kind == DECL_FN)
-      unavailable_declarations |= unavailable_self(errors, d, 0);
-    else if (d->kind == DECL_STRUCT)
-      for (size_t j = 0; j < d->as.structure.function_count; j++)
-        unavailable_declarations |=
-            unavailable_self(errors, d->as.structure.functions[j], 1);
+      unavailable_declarations |= outside_self(errors, d);
   }
   if (unavailable_declarations)
     return p;

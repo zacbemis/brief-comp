@@ -347,8 +347,7 @@ int main(void) {
         check(&a, "import models.User\nP: Missing { n: Missing }\nEmpty {}\n");
     ASSERT_EQ_INT(3, both.errors.count);
   }
-  TEST("self syntax is rejected before fabricated receiver signatures or "
-       "bodies") {
+  TEST("syntactic self classification precedes body checking and inference") {
     const char *bodies[] = {"self",
                             "(( /* group */ self ))",
                             "self.n",
@@ -388,32 +387,36 @@ int main(void) {
     for (size_t i = 0; i < sizeof(bodies) / sizeof(*bodies); i++) {
       char text[2048];
       snprintf(text, sizeof(text),
-               "P { n: Missing\nf(value: Unknown) -> Missing { %s } }\nAlias = "
-               "Cycle\nCycle = Alias\n",
+               "P { n: int\nf(value: int) -> () { %s } }\nmain() {}\n",
                bodies[i]);
       Result r = check(&a, text);
-      if (r.errors.count != 1)
-        diagnostics_print(&r.errors, stderr);
-      ASSERT_EQ_INT(1, r.errors.count);
-      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
-      ASSERT_EQ_INT(0, r.program->struct_count);
-      ASSERT_EQ_INT(0, r.program->alias_count);
-      ASSERT_EQ_INT(0, r.program->count);
-      ASSERT_EQ_INT(1, r.program->tag_count);
-      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
-      Diagnostic *d = r.errors.items[0];
-      ASSERT_EQ_INT(
-          0, strcmp("'self' receivers are not implemented yet.", d->message));
-      ASSERT_TRUE(!d->fixes && !d->notes);
-      ASSERT_EQ_INT(4, d->span.end - d->span.start);
-      ASSERT_TRUE(!memcmp("self", d->span.file->text + d->span.start, 4));
+      // Many bodies deliberately contain unsupported or ill-typed operations.
+      // Method classification and canonical receiver binding must not depend on
+      // whether those operations resolve/check or on return-type probes.
+      ASSERT_EQ_INT(1, r.program->struct_count);
+      ASSERT_EQ_INT(2, r.program->count);
+      SemaSymbol *method = &r.program->functions[0].symbol;
+      ASSERT_EQ_INT(RECEIVER_SELF, method->receiver);
+      ASSERT_EQ_INT(2, method->arity);
+      SemaVar *self = method->params[0];
+      ASSERT_TRUE(self->type == &r.program->structs[0].type);
+      ASSERT_TRUE(!self->data_mutable && !self->mutable);
+      ASSERT_EQ_INT(0, strcmp("self", self->name));
+      ASSERT_EQ_INT(4, self->span.end - self->span.start);
+      ASSERT_TRUE(!memcmp("self", self->span.file->text + self->span.start, 4));
+      ASSERT_EQ_INT(0, strcmp("value", method->params[1]->name));
     }
-    Result header = check(
-        &a, "P { n: Missing\nf(&self, n: Missing) -> Missing { unknown() } }");
-    ASSERT_EQ_INT(1, header.errors.count);
-    ASSERT_EQ_INT('&',
-                  header.errors.items[0]
-                      ->span.file->text[header.errors.items[0]->span.start]);
+    Result header = check(&a, "P { n: int\nf(&self, n: int) {} }\nmain() {}\n");
+    ASSERT_EQ_INT(0, header.errors.count);
+    SemaSymbol *mutable = &header.program->functions[0].symbol;
+    ASSERT_EQ_INT(RECEIVER_MUT_SELF, mutable->receiver);
+    ASSERT_EQ_INT(2, mutable->arity);
+    ASSERT_TRUE(mutable->params[0]->data_mutable &&
+                !mutable->params[0]->mutable);
+    ASSERT_TRUE(mutable->params[0]->type == &header.program->structs[0].type);
+    ASSERT_EQ_INT(
+        '&',
+        mutable->params[0]->span.file->text[mutable->params[0]->span.start]);
     Result outside = check(&a, "f() -> Missing { self\nunknown() }");
     ASSERT_EQ_INT(1, outside.errors.count);
     ASSERT_EQ_INT(
@@ -421,7 +424,8 @@ int main(void) {
                   outside.errors.items[0]->message));
     Result both = check(&a, "P { n: Missing\nf() { self }\ng(&self) { "
                             "unknown() } }\nmain() { self }");
-    ASSERT_EQ_INT(3, both.errors.count);
+    ASSERT_EQ_INT(1, both.errors.count);
+    ASSERT_EQ_INT(0, both.program->struct_count);
     Result trait = check(
         &a,
         "T { f(self) -> Missing\ng(&self) { self.read() } }\nmain() { self }");
