@@ -131,16 +131,18 @@ associated function does not masquerade as a method. Fixtures, examples and
 embedded native sources use the new forms. N1 is complete for its milestone
 scope; see [the final review](tests/next-version-n1-review.md).
 
-N2 begins with the reserved neutral `:none` payload rule: `:none` and `:none[]`
-stay valid, but any payload, including `()`, is rejected without a guessed fix.
-Fallible converters now declare local error-kind `:!invalid[str]`/`:!overflow`
-tags. Explicit neutral declarations of those names conflict at a fallible call,
-with a declaration note and no guessed fix; ordinary data and infallible casts
-remain valid. Entry status now follows the actual top-level returned tag's
-kind: errors print/release and exit 1; neutral tags (including `:none`) exit 0.
-Nested errors alone do not fail an enclosing neutral value or struct. Existing
-formatter text is unchanged. Kind-based call handling, propagation, exact
-returns, optional endings and the new formatter remain pending.
+N2 reserves neutral `:none` for absence: `:none` and `:none[]` stay valid, but
+any payload, including `()`, is rejected without a guessed fix. Fallible
+converters declare local error-kind `:!invalid[str]`/`:!overflow` tags. Explicit
+neutral declarations of those names conflict at a fallible call, with a note and
+no guessed fix; ordinary data and infallible casts remain valid. Entry status
+follows the actual top-level returned tag's kind: errors print/release and exit
+1; neutral tags (including `:none`) exit 0. Nested errors do not fail an
+enclosing neutral value or struct. Entry/panic diagnostics now print error tags
+as `:!name` and nonempty payloads in `[...]`, including nested neutral/error
+tags. Escaping, limits, statuses and cleanup are unchanged by this spelling
+switch. Kind-based call handling, propagation, exact returns and optional
+endings remain pending.
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and
@@ -158,8 +160,8 @@ Struct names start uppercase; functions, fields, parameters, bindings and loops
 require lowercase names, with safe casing fixes. Symbol tags also require
 lowercase names in types, values and patterns. `:!name` records an error tag; a
 name cannot have both neutral and error kinds in one module. `:!` must be
-adjacent. Kinds now also control entry status. Outcome handling and runtime
-formatting still await their N2 switches.
+adjacent. Kinds now control entry status and diagnostic spelling. Outcome
+handling still awaits its N2 switch.
 
 Unambiguous failure tags in five examples and fourteen native program fixtures
 now use `:!` throughout their annotations, values and patterns. Optional

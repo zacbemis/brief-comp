@@ -1,5 +1,5 @@
 // expect: before
-// stderr: error: :failed((), "heap", :note("nested"))
+// stderr: error: :!failed[(), "heap", :note["nested"]]
 // exit: 1
 main() {
   let alive = "be" + "fore"

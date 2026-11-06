@@ -1,5 +1,5 @@
 // expect: before
-// stderr: error: :notFound("a\\0b\\n")
+// stderr: error: :!notFound["a\\0b\\n"]
 // exit: 1
 Report { before: str
   value: str }

@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **164 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **166 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -12,12 +12,15 @@ The next slice adds `conversion-data-tags.brf` and
 while neutral data names remain valid beside infallible casts. Those slices
 preserved all existing fixture observations.
 
-The entry-kind slice now fails only for an active top-level error, not for a
-neutral alternative beside :ok. The historical `error-tag-main-n1.brf` changes
-from exit 0/empty stderr to exit 1 with `error: :failure` plus newline. Four new
-main-*-n2 fixtures cover neutral/optional and owned/mixed error entries. Other
-existing observations are unchanged. Call handling, propagation, exact returns,
-implicit endings and the new formatter are pending.
+Entry results fail only for an active top-level error, not for a neutral
+alternative beside :ok. The historical `error-tag-main-n1.brf` now exits 1 with
+`error: :!failure` plus newline. Four main-*-n2 fixtures cover neutral/optional
+and owned/mixed error entries. Symbol diagnostics now use `:!` for errors and
+brackets around nonempty payloads; nine existing stderr/panic markers change,
+without changing statuses, locations or cleanup. `main-symbol-format-n2.brf`
+and `panics/symbol-format-n2.brf` add nested kinds, zero/unit payloads, quoting,
+UTF-8 bytes and literal punctuation. Call handling, propagation, exact returns
+and implicit endings remain pending.
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

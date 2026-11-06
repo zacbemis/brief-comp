@@ -1,14 +1,14 @@
 # Examples
 
-Small programs that show the first-version feature scope, with N1 spelling
-updates as they are implemented: `not`, `dbl`, `->` returns, keyword-free
-aliases, `=` literal fields and functions inside struct bodies. Methods infer
-readonly receivers from `self`, or write `&self` for mutation. Associated
-functions remain type-qualified; ordinary owner-typed parameters are not
-implicit receivers. Unambiguous failure tags use `:!name` in types, values and
-patterns. Shared `:ok` and optional `:none` stay neutral. Outcome handling and
-runtime spelling still follow the first version until N2; these are source
-spelling changes, not an outcome-policy switch. Each program runs on its own:
+Small programs show the first-version feature scope in N1 syntax: `not`, `dbl`,
+`->` returns, keyword-free aliases, `=` literal fields and functions inside
+struct bodies. Methods infer readonly receivers from `self`, or write `&self`
+for mutation. Associated functions stay type-qualified; ordinary owner-typed
+parameters are not implicit receivers. Unambiguous failures use `:!name` in
+types, values and patterns. Shared `:ok` and optional `:none` stay neutral. N2
+now uses kinds for entry status and prints diagnostic symbols with `:!` and
+bracketed payloads. Call handling and propagation still follow the first
+version pending their N2 slices. Each program runs on its own:
 
 ```sh
 ./build/brief run examples/calendar.brf
@@ -25,12 +25,11 @@ from the compiler under test. stderr must be empty and exit status zero.
 ctest --test-dir build -L native-examples --output-on-failure
 ```
 
-This is independent example coverage, not acceptance of the mixed raw reference
-sheet in `docs/lang-ex-base.txt`.
-The [N1 review](../tests/next-version-n1-review.md) is complete. N2's reserved
-:none-payload, intrinsic conversion-kind and entry-kind slices change none of
-these sources or their observations. The entry rule now follows active kind;
-call handling, propagation and formatter spelling remain unchanged.
+This independent example coverage does not accept the raw reference sheet in
+`docs/lang-ex-base.txt`. The [N1 review](../tests/next-version-n1-review.md) is
+complete. N2's payload, intrinsic conversion-kind, entry-kind and formatter
+slices change none of these sources or their observations. Call handling and
+propagation remain unchanged.
 
 | Program | What it does | Language features it shows |
 |---|---|---|

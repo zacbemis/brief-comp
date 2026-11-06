@@ -1,4 +1,4 @@
-// stderr: error: :invalid(Report { code: -9223372036854775808, count: 18446744073709551615, marker: '\\0', ready: true, real: nan, empty: (), detail: :note("heap") })
+// stderr: error: :!invalid[Report { code: -9223372036854775808, count: 18446744073709551615, marker: '\\0', ready: true, real: nan, empty: (), detail: :note["heap"] }]
 // exit: 1
 Report {
   code: lng

@@ -278,10 +278,10 @@ static void formatters(FILE *out, const IrProgram *p) {
             s->id, s->id);
     for (size_t i = 0; i < s->count; i++) {
       const SemaVariant *v = &s->variants[i];
-      fprintf(out, "  case %zu: fputs(\":%s\", out);", v->tag->id,
-              v->tag->name);
+      fprintf(out, "  case %zu: fputs(\":%s%s\", out);", v->tag->id,
+              v->tag->kind == SEMA_TAG_ERROR ? "!" : "", v->tag->name);
       if (v->payload_count) {
-        fputs(" fputc('(', out); ", out);
+        fputs(" fputc('[', out); ", out);
         for (size_t j = 0; j < v->payload_count; j++) {
           if (j)
             fputs("; fputs(\", \", out); ", out);
@@ -289,7 +289,7 @@ static void formatters(FILE *out, const IrProgram *p) {
           payload_name(value, sizeof(value), "value", v, j);
           write_value(out, v->payloads[j], value);
         }
-        fputs("; fputc(')', out);", out);
+        fputs("; fputc(']', out);", out);
       }
       fputs(" break;\n", out);
     }

@@ -157,8 +157,8 @@ int main(int argc, char **argv) {
         "main() { print(\"before\")\n2147483647 + 1 }\n",
         "main() { print(\"before\")\n:bad }\n"};
     TestBytes prefixes[] = {
-        TEST_BYTES("before\nerror: :bad(\"heap\")\n"),
-        TEST_BYTES("before\npanic: :bad(\"heap\")\n  --> "),
+        TEST_BYTES("before\nerror: :!bad[\"heap\"]\n"),
+        TEST_BYTES("before\npanic: :!bad[\"heap\"]\n  --> "),
         TEST_BYTES("before\npanic: integer overflow\n  --> "),
         TEST_BYTES("before\n")};
     char *input = test_path(&a, root, "ordered.brf");
@@ -195,13 +195,13 @@ int main(int argc, char **argv) {
       int status;
       const char *error;
     } cases[] = {
-        {"main() { print(\"before\")\n:!failed }", 1, "error: :failed\n"},
+        {"main() { print(\"before\")\n:!failed }", 1, "error: :!failed\n"},
         {"main() -> :ready[str] | :!failed[str] { print(\"before\")\n"
          "if true { :ready[\"he\" + \"ap\"] } else { :!failed[\"bad\"] } }",
          0, ""},
         {"main() -> :ready[str] | :!failed[str] { print(\"before\")\n"
          "if false { :ready[\"data\"] } else { :!failed[\"he\" + \"ap\"] } }",
-         1, "error: :failed(\"heap\")\n"},
+         1, "error: :!failed[\"heap\"]\n"},
         {"main() -> :ok | :idle | :!failed { print(\"before\")\n:idle }", 0,
          ""},
         {"main() -> :ok | :idle[str] { print(\"before\")\n:idle[\"he\" + "
@@ -215,16 +215,21 @@ int main(int argc, char **argv) {
          0, ""},
         {"main() -> :ok[:!hidden[str]] { print(\"before\")\n"
          ":ok[:!hidden[\"he\" + \"ap\"]] }",
-         1, "error: :hidden(\"heap\")\n"},
+         1, "error: :!hidden[\"heap\"]\n"},
         {"main() -> :error[str] | :!healthy[str] { print(\"before\")\n"
          ":error[\"he\" + \"ap\"] }",
          0, ""},
         {"main() -> :error[str] | :!healthy[str] { print(\"before\")\n"
          ":!healthy[\"he\" + \"ap\"] }",
-         1, "error: :healthy(\"heap\")\n"},
+         1, "error: :!healthy[\"heap\"]\n"},
         {"main() { print(\"before\")\n:!failed[(), \"he\" + \"ap\", "
          ":note[\"nested\"]] }",
-         1, "error: :failed((), \"heap\", :note(\"nested\"))\n"}};
+         1, "error: :!failed[(), \"heap\", :note[\"nested\"]]\n"},
+        {"main() { print(\"before\")\n:!quoted[\"\\\"\" + "
+         "\"\\\\\\t\\n\\0é:fake(x)[y]\", '\\0'] }",
+         1,
+         "error: :!quoted[\"\\\"\\\\\\t\\n\\0\\xc3\\xa9:fake(x)[y]\", "
+         "'\\0']\n"}};
     char *input = test_path(&a, root, "entry-kinds.brf");
     char *binary = test_path(&a, root, "entry-kinds");
     for (int debug = 0; debug < (argc == 5 ? 2 : 1); debug++)
@@ -285,7 +290,7 @@ int main(int argc, char **argv) {
           NULL, 0);
       ASSERT_EQ_INT(0, r.out.length);
       ASSERT_TRUE(r.err.length < 65536);
-      ASSERT_TRUE(bytes_contains(r.err, TEST_BYTES("error: :bad(Node {")));
+      ASSERT_TRUE(bytes_contains(r.err, TEST_BYTES("error: :!bad[Node {")));
       ASSERT_TRUE(bytes_contains(r.err, TEST_BYTES("...")));
       ASSERT_TRUE(!bytes_contains(r.err, TEST_BYTES("debug:")));
     }

@@ -129,6 +129,23 @@ int main(int argc, char **argv) {
     brt_release(high);
     ASSERT_EQ_INT(0, brt_live_objects);
   }
+  TEST("diagnostic byte quoting preserves escapes and literal punctuation") {
+    const unsigned char bytes[] = {'"', '\\', '\t', '\r', '\n', 0,   0xc3, 0xa9,
+                                   ':', 'f',  '(',  ')',  '[',  ']', '\''};
+    FILE *out = tmpfile();
+    ASSERT_TRUE(out != NULL);
+    if (out) {
+      size_t live = brt_live_objects;
+      brt_write_quoted(out, bytes, sizeof(bytes), '"');
+      ASSERT_EQ_INT(0, fflush(out));
+      rewind(out);
+      char text[128] = {0};
+      size_t count = fread(text, 1, sizeof(text) - 1, out);
+      ASSERT_EQ_STRN("\"\\\"\\\\\\t\\r\\n\\0\\xc3\\xa9:f()[]'\"", text, count);
+      ASSERT_EQ_INT(live, brt_live_objects);
+      fclose(out);
+    }
+  }
   TEST("integer, bool and IEEE special formatting") {
     text(brt_str_s(INT64_MIN), "-9223372036854775808");
     text(brt_str_u(UINT64_MAX), "18446744073709551615");

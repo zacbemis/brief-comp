@@ -217,9 +217,9 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 
 N0 and N1 are complete for their milestone scope. The final N1 review is in
 `tests/next-version-n1-review.md`. N2 has begun with the reserved :none payload
-invariant, intrinsic conversion error kinds and kind-based entry status below.
-This does not complete the next-version language or claim native acceptance of
-listed APIs/fragments.
+invariant, intrinsic conversion error kinds, kind-based entry status and symbol
+diagnostic spelling below. This does not complete the next-version language or
+claim native acceptance of listed APIs/fragments.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -331,14 +331,14 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 - [ ] Exact returns and only-:ok normalization without implicit call wrapping.
 - [ ] :none endings and the payload-less :ok/:none ambiguity diagnostic.
 - [x] Entry status by the actual returned symbol's active error kind.
-- [ ] New diagnostic formatter spelling.
+- [x] Symbol diagnostic spelling for entry errors, panics and nested values.
 - [ ] Scoped symbols/errors native audits for N2's available rules.
 
 The first N2 slices implement the reserved neutral :none shape, intrinsic
-conversion error kinds and entry status by active kind. Their native/unit
-regressions are not acceptance of later outcome, optional-ending or formatting
-rules. Detailed slices and changed-expectation inventories follow the N1
-historical records below.
+conversion error kinds, entry status by active kind and symbol diagnostic
+spelling. Their native/unit regressions are not acceptance of later outcome or
+optional-ending rules. Detailed slices and changed-expectation inventories
+follow the N1 historical records below.
 
 ### Historical implementation checkpoints
 
@@ -2990,6 +2990,105 @@ IR/RC and runtime sources are unchanged; formatter logic/text is unchanged.
 Kind-based call handling, postfix extraction/propagation, exact returns, optional
 endings, N2 native chapter audits and remaining formatter work stay open.
 N1 remains complete, N2 remains in progress; stop for review.
+
+### N2 increment: symbol diagnostics use kind prefixes and bracketed payloads
+
+Reviewed base b7bc65d, including the reviewed whole-paragraph rewrap in the
+program-test README. The generated shared symbol writer now prints :!name for
+error tags and :name for neutral tags. Nonempty payload lists use square brackets
+and comma/space separators, at every nesting level. Zero-position tags still
+print without delimiters; one unit position prints [()], distinct from zero.
+Entry errors and explicit symbol panics share this writer. Field display inside
+struct diagnostics stays field: value; this is not a serialization API or a
+request to change unrelated struct/string formatting.
+
+Only the tag prefix and opening/closing payload character constants change in
+production. Tag identity, schemas, evaluation, escaping, source locations, entry
+status, panic headers and flushing are unchanged. The depth cap (32), shared
+traversal budget (1024), truncation, numeric formatting and ownership behavior
+are unchanged. No formatter owner is added; entry results are released after
+printing, while panics still do not unwind owners. Call handling/propagation
+still use the legacy rules pending their own N2 slices.
+
+Existing expectation changes (complete inventory for review): each row changes
+one stderr/panic marker. Error/panic headers and all other text are retained.
+
+| Native fixture | Old symbol text | New symbol text |
+|---|---|---|
+| error-tag-main-n1.brf | :failure | :!failure |
+| main-mixed-kind-n2.brf | :blocked | :!blocked |
+| main-conversion-error.brf | :invalid("bad\0text") | :!invalid["bad\0text"] |
+| main-error.brf | :notFound("a\0b\n") | :!notFound["a\0b\n"] |
+| main-error-object.brf | :invalid(Report { ... detail: :note("heap") }) | :!invalid[Report { ... detail: :note["heap"] }] |
+| main-error-payloads-n2.brf | :failed((), "heap", :note("nested")) | :!failed[(), "heap", :note["nested"]] |
+| panics/symbol-error.brf | :bad("heap") | :!bad["heap"] |
+| panics/positional-payloads.brf | :bad("owned text", 7, ()) | :!bad["owned text", 7, ()] |
+| panics/conversion.brf | :invalid("bad\0text") | :!invalid["bad\0text"] |
+
+The ellipsis in the Report row above stands only for its unchanged scalar fields;
+the actual full committed marker is exact, not abbreviated. Quotes/escapes and
+unit () are untouched. All nine programs retain their body bytes and line count;
+the three existing symbol-panic location markers remain lines 7, 4 and 7.
+
+Eight compiler-output expectations in test_cli_native also change:
+
+1. The merged entry prefix changes from before/error: :bad("heap") to
+   before/error: :!bad["heap"], with the same newlines.
+2. The merged symbol-panic prefix makes the same change after panic:, retaining
+   its location header and ordered.brf line 3 assertion.
+3. Entry-case 0 changes error: :failed to error: :!failed.
+4. Entry-case 2 changes error: :failed("heap") to error: :!failed["heap"].
+5. Entry-case 8 changes error: :hidden("heap") to error: :!hidden["heap"].
+6. Entry-case 10 changes error: :healthy("heap") to error: :!healthy["heap"].
+7. Entry-case 11 changes :failed((), "heap", :note("nested")) to
+   :!failed[(), "heap", :note["nested"]] after the unchanged error: prefix.
+8. The shared-DAG prefix changes error: :bad(Node { to error: :!bad[Node {;
+   the size limit, truncation and no-owner-diagnostic assertions stay intact.
+
+No other existing expectation changes. In particular, test_program_runner's
+opaque marker-parser byte strings are not compiler-generated displays and stay
+unchanged; literal :fake(x)[y] text inside quoted payload data is not rewritten.
+Statuses, stdout, source/error lines, fix previews and all six example goldens
+are unchanged. This is the N2 diagnostic spelling switch, not the outcome
+classification or no-error-postfix switch.
+
+New main-symbol-format-n2 checks nested neutral/error kinds, absent/empty versus
+unit payloads, multiple positions, structs, owned strings, NUL chars and literal
+punctuation. New panics/symbol-format-n2 checks quotes, backslashes, tabs,
+newline, NUL, UTF-8 bytes, literal symbol-looking text and its original line 9. A
+new 13th native CLI entry case pins the escaped bytes exactly in separate and
+merged streams, normal and sanitized, with unchanged cleanup/status. A direct
+runtime unit covers CR, quotes and literal punctuation without adding a language
+escape. The first focused run rejected a new test's unsupported source \r escape;
+that test was corrected to supported syntax and CR remains covered by the helper
+unit. No lexer, grammar or runtime helper was changed to force acceptance.
+
+Validation: fresh -Werror GCC Debug ASan/UBSan, Clang Debug ASan/UBSan and GCC
+Release pass 37/37 each; unsanitized GCC Debug passes 31/31. Corrected focused
+object/native-driver/program checks pass 3/3. All 447 retained CLI sources keep
+identical ASTs, compile statuses and diagnostics. Of 156 prior C outputs, 86 are
+identical and 70 differ only in symbol-writer spelling constants. Independent
+normalization restricted to those writer literals proves every other emitted
+byte unchanged, including entry wrappers, functions, RC, budgets and source maps.
+
+Independent baseline/current sanitized comparisons cover 143 prior executable
+sources: all statuses/stdout are identical; only the nine listed stderr spellings
+change. A quote-aware symbol parser verifies the spelling-only delta while
+preserving quoted payload bytes, unit parentheses, struct fields and panic
+location suffixes. Thirteen actual C-authored entry sources plus the complete
+shared-DAG source are captured intact and checked against the baseline. The DAG
+retains identical node/truncation counts and the same budgeted traversal; the
+two new fixtures also pass the independent spelling oracle. The six examples
+remain byte-identical in their observations. Formatter 23.1.3, prose/paragraph,
+diff/design and the 23-ending CRLF checks pass. Ignored evidence is under
+`build/validation/n2-symbol-format.20261106T220006Z/`.
+
+Current native inventory is 166 fixtures. Parser counts stay 155 files, 239
+fences, 162 checks, 77 fenced and two unfenced listings. No fence is promoted,
+completed with stand-ins or extracted into a passing program, and no v0 reader
+returns. The pre-progress design/table and single-line status remain unchanged.
+Semantic checker, IR/RC and runtime sources are untouched. N1 stays complete,
+N2 stays in progress; stop for review before switching the remaining consumers.
 
 ## Risks
 

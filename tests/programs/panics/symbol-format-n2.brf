@@ -1,0 +1,10 @@
+// expect: before
+// panic: panic: :!quoted["\"\\\t\n\0\xc3\xa9:fake(x)[y]", '\0']
+// panic: symbol-format-n2.brf:9
+f() -> :ok | :!quoted[str, chr] {
+  :!quoted["\"" + "\\\t\n\0é:fake(x)[y]", '\0']
+}
+main() {
+  print("before")
+  f()!
+}
