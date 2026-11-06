@@ -97,8 +97,10 @@ Five examples and fourteen native fixtures now spell unambiguous failure tags
 with `:!`. Full-source AST checks guard those kinds without changing native
 observations or claiming a document audit. Optional `:none` stays neutral, and
 `outcomes.brf`'s mixed `:empty` was split into data `:empty` and failure
-`:!blank`. Embedded C-test source conversion remains explicitly deferred. No
-document fence is promoted, and N1 stays in progress.
+`:!blank`. Unambiguous failure strings in five checker/compiler C-test modules
+are now converted as well. Intentional neutral data/kind characterizations are
+retained; remaining parser/generated sources and native audits stay separate.
+No document fence is promoted, and N1 stays in progress.
 
 ## N1 spelling bridges
 

@@ -559,8 +559,17 @@ preserved; runtime formatting still uses the first-version spelling. A new
 including five converted examples and the unchanged optional `life.brf`.
 `outcomes.brf` used `:empty` both as nested data and as `append`'s failure;
 review gave `append` its own `:!blank` tag, so `:empty` stays neutral data.
-Embedded C-test sources remain a later source-conversion increment. Fixture
-inventory stays 156, and no native chapter audit or N2 rule is completed.
+That source increment left embedded C-test sources for later conversion.
+Fixture inventory stayed 156, with no native chapter audit or N2 rule completed.
+
+Unambiguous failure spellings are now converted in five checker/compiler C-test
+modules, including macro-assembled cases, recursive generators and CLI-native
+entry/panic cases. Error-suite and generator assertions verify error-kind
+metadata. Deliberate neutral data/failure characterization tests remain, so N1
+still tests its first-version handling policy independently of tag kind.
+The reviewed `:!blank`/`:empty` split and every native fixture are unchanged.
+Parser/lexer/newline and CMake-generated source audits remain separate work;
+no native chapter audit or N2 behavior is claimed. Fixture count remains 156.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

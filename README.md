@@ -150,8 +150,11 @@ formatting retain first-version rules until N2.
 Unambiguous failure tags in five examples and fourteen native program fixtures
 now use `:!` throughout their annotations, values and patterns. Optional
 `:none` stays neutral. `outcomes.brf`'s `append` now fails with its own
-`:!blank`, so `:empty` stays data. Embedded C-test spellings remain for later
-review; expected runtime text is not changed.
+`:!blank`, so `:empty` stays data. Unambiguous checker/compiler C-test failures
+now use `:!` too, including assembled prefixes and generated recursive cases.
+Intentional neutral-kind/data characterizations stay neutral; parser and
+CMake-generated source audits remain separate. Expected runtime text is not
+changed.
 
 `trait` and `ovr` are ordinary names, not declaration/modifier keywords. Native
 conformance remains pending. In patterns, lowercase names bind and uppercase

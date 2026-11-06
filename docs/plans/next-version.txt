@@ -247,8 +247,10 @@ module paths but stop at an explicit native scope boundary. Remaining
 bootstrap trait/module support and remaining failure-tag source conversion
 remain pending. Five examples and fourteen native fixtures now spell their
 unambiguous failures with `:!`, without changing runtime behavior. Shared
-`:ok`/`:none` stay neutral; mixed data/failure `:empty` and embedded C-test
-sources remain for explicit later review.
+`:ok`/`:none` stay neutral. Review gave `append` its own `:!blank` failure,
+leaving `:empty` as data. Unambiguous checker/compiler C-test failures now use
+`:!` as well; intentional neutral characterizations and remaining parser or
+generated sources are explicitly distinguished from that migration.
 
 Primitive keywords now name function members and dotted expression members,
 without broadening ordinary names or type paths. Context-specific casing fixes
@@ -2220,6 +2222,63 @@ conversion, the mixed tag case, remaining casing/keywords and replacement
 audits remain. Multi-`:ok`, native traits/modules and typed/refutable matching
 retain their documented boundaries. N2 outcomes, propagation, entry policy and
 runtime formatting remain unchanged.
+
+### N1 increment: failure spelling in embedded checker/compiler sources
+
+Unambiguous failures now use `:!` in `test_errors.c`, `test_conversions.c`,
+`test_sema.c`, `test_symbols.c` and `test_cli_native.c`. The changes cover
+complete literal programs, macro-assembled prefixes/bodies, partial returns,
+recursive generators and CLI-native entry/panic cases. Composed `Problems`
+variants, inferred first/second failures and generated `eN` tags keep their
+original names. Native expected output still names tags with first-version
+runtime spelling. No production compiler, IR/RC or runtime code changes.
+
+The error-suite helper now asserts error-kind metadata for its explicitly
+written failure members, excluding implicit converter tags and shared symbols.
+Converted recursive-conversion and symbol-emission generators also assert their
+error kinds. Intentional neutral cases are not blindly converted: the
+source/converter metadata test still asserts neutral `invalid`/`overflow`, and
+one neutral `:bad` failure explicitly proves that N1 still uses `:ok`-based
+handling. The CLI-native ordinary-data `:bad` case retains its neutral spelling
+and status zero. Data-only, casing, kind-conflict and obsolete-syntax test roles
+are preserved, not recast as failure examples.
+
+Review's `outcomes.brf` split is the base for this increment: `append` keeps
+`:!blank`, while `:empty` remains nested neutral data. No checked-in Brief
+fixture or example is modified, no new tag name is invented, and no source
+spelling is used to switch N2 outcomes, entry status or formatting. Parser,
+lexer/newline and CMake-generated sources remain a separate audit; intentional
+neutral characterization cases above are explicit exceptions, not migration
+bridges or a second grammar.
+
+Independent validation captures the actual `source_create` inputs while the
+four affected API checker suites run, including assembled and generated cases.
+The capture uses temporary link wrappers under the ignored report root, not
+production/test-source instrumentation or synthesized helper bodies. All 893
+inputs retain their order and names. The 193 changed inputs differ only by bang
+insertions after existing colons; all other bytes and line endings are intact.
+Three complete CLI-native literal programs bring the changed-program comparison
+to 196. Compiling before/after text at the same paths preserves statuses,
+primary diagnostics and error lines; all 140 successful C outputs have identical
+hashes. The other captured programs have identical source bytes. This avoids
+mistaking unchanged checked-in `.brf` files for coverage of C-string migration.
+
+The retained-source comparison also passes: all 358 complete CLI results and
+all 104 prior C outputs are identical, including reviewed `:!blank`. All six
+examples retain sanitized stdout/stderr/status. Four fresh `-Werror`
+configurations pass: GCC/Clang Debug ASan/UBSan and GCC Release, 26/26 each;
+GCC Debug without sanitizers, 25/25. Pinned clang-format 23.1.3, diff/prose
+checks and the 23-ending CRLF fixture pass. The plan's design and inventory
+table are unchanged. Reports and temporary capture/comparison aids stay under
+`build/validation/embedded-failures.20261106T173641Z/` (ignored); none is shipped
+as a migration utility.
+
+Counts remain 156 native fixtures, 155 parser files (41 pass, 114 fail), 239
+fences and 162 document-parser checks. No document fence is promoted and no
+native chapter audit is complete. N1 remains in progress: remaining
+parser/generated-source review, casing/keywords and replacement native audits.
+Multi-`:ok`, traits/modules and typed/refutable matching retain their documented
+boundaries. N2 policy and runtime observations are unchanged.
 
 ## Risks
 

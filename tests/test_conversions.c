@@ -145,7 +145,7 @@ int main(void) {
     // The outer ? handles int(), not g(). This used to pass only because
     // poisoned SCC outcomes became SEMA_ERROR and hid g()'s fallibility.
     SemaProgram *bad = check(
-        &a, "f() { if true { ret :bad }\nint(g())? }\ng() { f()? }\nmain() {}",
+        &a, "f() { if true { ret :!bad }\nint(g())? }\ng() { f()? }\nmain() {}",
         "must be handled");
     Diagnostics again;
     diagnostics_init(&again, &a);
@@ -154,7 +154,8 @@ int main(void) {
     ASSERT_TRUE(!bad->checked);
     ASSERT_TRUE(ir_lower(&a, bad) == NULL);
     SemaProgram *good = check(
-        &a, "f() { if true { ret :bad }\nint(g()?)? }\ng() { f()? }\nmain() {}",
+        &a,
+        "f() { if true { ret :!bad }\nint(g()?)? }\ng() { f()? }\nmain() {}",
         NULL);
     SemaProgram *programs[] = {bad, good};
     for (size_t i = 0; i < 2; i++)
@@ -162,6 +163,8 @@ int main(void) {
         SemaSymbol *s = &programs[i]->functions[j].symbol;
         const SemaVariant *ok = sema_ok(s->outcome_type);
         ASSERT_TRUE(ok != NULL);
+        ASSERT_EQ_INT(SEMA_TAG_ERROR,
+                      sema_tag(programs[i], programs[i]->module, "bad")->kind);
         if (ok) {
           ASSERT_EQ_INT(2, s->outcome_type->symbols->count);
           ASSERT_TRUE(sema_single_payload(ok) == &programs[i]->types[SEMA_INT]);
@@ -188,7 +191,7 @@ int main(void) {
        "ownership insertion") {
     SemaProgram *p = check(&a,
                            "main() { int(\"b\" + \"ad\") |> { :ok[_] => "
-                           "()\n:invalid[s] => print(s) } }",
+                           "()\n:!invalid[s] => print(s) } }",
                            NULL);
     IrProgram *ir = ir_lower(&a, p);
     ir_insert_rc(&a, ir);

@@ -425,7 +425,7 @@ int main(void) {
          "An if without else cannot be used as a value."},
         {"take(n: int) {}\nmain() { missing[int](take(false)) }",
          "missing[int](take(false))", "Function argument has the wrong type."},
-        {"fail() -> :ok[int] | :bad { 1 }\nmain() { missing[int](fail()) }",
+        {"fail() -> :ok[int] | :!bad { 1 }\nmain() { missing[int](fail()) }",
          "missing[int](fail())",
          "A call that can fail must be handled with ?, !, or a match."},
         {"P { unit: () }\nmut(p: &P) {}\nf(p: P) { missing[int](mut(p)) "
@@ -510,7 +510,7 @@ int main(void) {
     snprintf(huge_real, sizeof(huge_real), "main() { let x: Bogus = %s.0 }",
              digits);
     const char *unknown_contexts[] = {
-        "mk() -> :ok[lng] | :e[Bogus] { 5000000000 }\nmain() {}",
+        "mk() -> :ok[lng] | :!e[Bogus] { 5000000000 }\nmain() {}",
         "main() { let x: Bogus = 5000000000 }",
         "main() { let x: Bogus = -5000000000 }",
         "f(x: Bogus) {}\nmain() { f(5000000000) }",

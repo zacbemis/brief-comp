@@ -736,7 +736,7 @@ int main(void) {
     ASSERT_EQ_INT(0, strcmp("Multiple ':ok' payloads are not implemented yet.",
                             errors.items[0]->message));
     ASSERT_TRUE(!p->checked && ir_lower(&a, p) == NULL);
-    p = valid(&a, "f(value: :ok[int] | :bad) { value! }\nmain() {}").program;
+    p = valid(&a, "f(value: :ok[int] | :!bad) { value! }\nmain() {}").program;
     const SemaType *types[] = {&p->types[SEMA_INT], &p->types[SEMA_INT]};
     SemaVariant variants[] = {{p->ok, types, 2},
                               {sema_tag(p, p->module, "bad"), NULL, 0}};
@@ -973,8 +973,7 @@ int main(void) {
     // Reserving :none's meaning/payload is a semantic change for N2, not N0.
     valid(&a, "main() { :none[7] }");
   }
-  TEST("resolved and converter-created tags have neutral source-module "
-       "metadata") {
+  TEST("intentional neutral source/converter tags retain N1 module metadata") {
     Result r =
         valid(&a, "Maybe = :ok[int] | :none\n"
                   "parse(s: str) -> :ok[int] | :invalid[str] { int(s)? }\n"
@@ -1220,9 +1219,9 @@ int main(void) {
     char text[16384];
     size_t used = 0;
     for (int i = 0; i < 40; i++)
-      used +=
-          (size_t)snprintf(text + used, sizeof(text) - used,
-                           "g%d(x: int) -> :ok[int] | :e%d[int] { x }\n", i, i);
+      used += (size_t)snprintf(text + used, sizeof(text) - used,
+                               "g%d(x: int) -> :ok[int] | :!e%d[int] { x }\n",
+                               i, i);
     used += (size_t)snprintf(text + used, sizeof(text) - used, "h(x: int) {\n");
     for (int i = 0; i < 40; i++)
       used += (size_t)snprintf(text + used, sizeof(text) - used,
@@ -1231,6 +1230,9 @@ int main(void) {
              "x }\nmain() { h(1) |> { :ok[v] => print(str(v))\n"
              "_ => print(\"e\") } }\n");
     Result r = valid(&a, text);
+    for (const SemaTag *tag = r.program->tags; tag; tag = tag->next)
+      if (tag != r.program->ok)
+        ASSERT_EQ_INT(SEMA_TAG_ERROR, tag->kind);
     IrProgram *ir = ir_lower(&a, r.program);
     ASSERT_TRUE(ir != NULL);
     if (ir) {
@@ -1576,7 +1578,13 @@ int main(void) {
   }
   TEST("outcome handling extends data symbols without changing their rules") {
     valid(&a, "main() { :ok[1] }");
-    valid(&a, "f() -> :ok | :bad { :bad }\nmain() {}");
+    // Keep one explicit neutral failure: N1 still uses :ok, not error kind.
+    Result legacy = valid(&a, "f() -> :ok | :bad { :bad }\nmain() {}");
+    ASSERT_EQ_INT(
+        SEMA_TAG_NEUTRAL,
+        sema_tag(legacy.program, legacy.program->module, "bad")->kind);
+    ASSERT_TRUE(sema_failures(
+        legacy.program, legacy.program->functions[0].symbol.outcome_type));
     invalid(&a, "f() -> :a | _ { :a }\nmain() {}", "must declare :ok");
     valid(&a, "main() { :a }");
   }

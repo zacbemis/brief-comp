@@ -18,6 +18,17 @@ static Result check(Arena *a, const char *text) {
       a, &names, newline_filter(a, lexer_tokenize(a, s, &r.errors)), &r.errors);
   r.program = sema_resolve(a, ast, &r.errors);
   sema_check(r.program, &r.errors);
+  // This suite's explicit failures use error spelling. Implicit converter
+  // tags and shared :none retain their N1 metadata until the N2 switch.
+  for (const SemaSymSet *set = r.program->symbol_sets; set; set = set->next) {
+    if (!sema_ok(&set->type))
+      continue;
+    for (size_t i = 0; i < set->count; i++) {
+      const SemaTag *tag = set->variants[i].tag;
+      if (tag != r.program->ok && tag->module && tag->kind_declared)
+        ASSERT_EQ_INT(SEMA_TAG_ERROR, tag->kind);
+    }
+  }
   return r;
 }
 static Result valid(Arena *a, const char *text) {
@@ -111,23 +122,23 @@ int main(void) {
   }
   TEST("typed errors propagate and panic, with explicit or implicit success") {
     valid(&a,
-          "f(b: bool) -> :ok[lng] | :bad[str] { if b { ret :bad[\"bad\"] }\n"
+          "f(b: bool) -> :ok[lng] | :!bad[str] { if b { ret :!bad[\"bad\"] }\n"
           "4294967296 }\n"
-          "g() -> :ok[lng] | :bad[str] { f(false)? }\n"
-          "h() -> :ok[lng] | :bad[str] { :ok[f(false)!] }\n"
+          "g() -> :ok[lng] | :!bad[str] { f(false)? }\n"
+          "h() -> :ok[lng] | :!bad[str] { :ok[f(false)!] }\n"
           "main() { print(str(g()?))\nprint(str(h()!)) }");
-    valid(&a, "f() -> :ok | :bad { :ok }\nmain() { f()?\nf()! }");
+    valid(&a, "f() -> :ok | :!bad { :ok }\nmain() { f()?\nf()! }");
     invalid(&a,
-            "f() -> :ok[int] | :bad { :bad }\ng() -> int { f()? }\nmain() {}",
+            "f() -> :ok[int] | :!bad { :!bad }\ng() -> int { f()? }\nmain() {}",
             "Propagated variants");
     invalid(&a,
-            "f() -> :ok[lng] | :bad { 1 + 4294967296 }\n"
-            "g() -> :ok[int] | :bad { f()? }\nmain() {}",
+            "f() -> :ok[lng] | :!bad { 1 + 4294967296 }\n"
+            "g() -> :ok[int] | :!bad { f()? }\nmain() {}",
             "body does not match");
-    invalid(&a, "f() -> :ok[int] { ret :bad }\nmain() {}", "Return value");
+    invalid(&a, "f() -> :ok[int] { ret :!bad }\nmain() {}", "Return value");
   }
   TEST("fallible calls must be handled at the call, in every position") {
-    const char *prefix = "f() -> :ok[int] | :bad { 1 }\n";
+    const char *prefix = "f() -> :ok[int] | :!bad { 1 }\n";
     char text[4096];
 #define CASE(body)                                                             \
   (snprintf(text, sizeof(text), "%smain() { %s }", prefix, body), text)
@@ -137,23 +148,23 @@ int main(void) {
     invalid(&a, CASE("print(str(f()))"), "must be handled");
     invalid(&a, CASE(":ok[f()]"), "must be handled");
     invalid(&a, CASE("f() |> str()"), "must be handled");
-    valid(&a, CASE("f() |> { :ok[n] => print(str(n))\n:bad => () }"));
+    valid(&a, CASE("f() |> { :ok[n] => print(str(n))\n:!bad => () }"));
     valid(&a, CASE("print(str(f()!))\nf()?"));
 #undef CASE
     valid(&a, "f() { :a }\nmain() -> () { let x = f()\nf() }");
     invalid(&a,
-            "f() -> :ok[int] | :bad { 1 }\nmain() { true |> { true => "
+            "f() -> :ok[int] | :!bad { 1 }\nmain() { true |> { true => "
             "()\nfalse => f() } }",
             "must be handled");
   }
   TEST("unhandled outcomes do not become usable binding or argument types") {
     const char *prefix =
         "P { value: int\n read() -> int { self.value } }\n"
-        "Pair { number: int\nflag: bool }\nResult = :ok[int] | :bad\n"
+        "Pair { number: int\nflag: bool }\nResult = :ok[int] | :!bad\n"
         "source() -> Result { 1 }\n"
-        "text() -> :ok[str] | :bad { \"owned\" + \" text\" }\n"
-        "object() -> :ok[P] | :bad { P { value = 1 } }\n"
-        "effect() -> :ok | :bad { :ok }\n"
+        "text() -> :ok[str] | :!bad { \"owned\" + \" text\" }\n"
+        "object() -> :ok[P] | :!bad { P { value = 1 } }\n"
+        "effect() -> :ok | :!bad { :ok }\n"
         "take(value: int, flag: bool) {}\ntakeFloat(value: flt) {}\n"
         "takeData(value: Result) {}\n";
     struct {
@@ -181,9 +192,9 @@ int main(void) {
         {"f() { let value = source()\nvalue! }",
          "f() { let value = source() |> { other => other }\nvalue! }"},
         {"f() { let value = source()\nvalue |> { :ok[n] => take(n, true)\n"
-         ":bad => () } }",
+         ":!bad => () } }",
          "f() { let value = source() |> { other => other }\n"
-         "value |> { :ok[n] => take(n, true)\n:bad => () } }"},
+         "value |> { :ok[n] => take(n, true)\n:!bad => () } }"},
         {"f() -> int { ret source() }", "f() -> int { ret source()! }"},
         {"f() -> Result { source() }", "f() -> Result { source()? }"},
         {"f() -> :ok[int] | _ { source() }",
@@ -234,9 +245,9 @@ int main(void) {
   }
   TEST("handling recovery preserves unrelated errors and SCC fallibility") {
     const char *prefix = "P { value: int }\nPair { number: int\nflag: bool }\n"
-                         "source() -> :ok[int] | :bad { 1 }\n"
+                         "source() -> :ok[int] | :!bad { 1 }\n"
                          "take(value: int, flag: bool) {}\n"
-                         "writable(value: &P) -> :ok[P] | :bad { value }\n";
+                         "writable(value: &P) -> :ok[P] | :!bad { value }\n";
     struct {
       const char *body, *message;
       size_t handling;
@@ -267,7 +278,7 @@ int main(void) {
       handling_errors(&a, code, cases[i].handling, cases[i].message, 1);
     }
     snprintf(code, sizeof(code), "%s%s", prefix,
-             "both(a: int, b: int) -> :ok | :other { :ok }\n"
+             "both(a: int, b: int) -> :ok | :!other { :ok }\n"
              "f() { both(source(), source()) }\nmain() {}");
     handling_errors(&a, code, 3, NULL, 0);
     handling_errors(&a,
@@ -278,28 +289,29 @@ int main(void) {
     // component fallible so its illegal recursive calls cannot disappear.
     handling_errors(
         &a,
-        "a(n: int) { if n == 0 { ret :bad }\nif n == 1 { ret 1 }\nb(n) }\n"
+        "a(n: int) { if n == 0 { ret :!bad }\nif n == 1 { ret 1 }\nb(n) }\n"
         "b(n: int) { a(n) }\nmain() {}",
         1, NULL, 0);
     handling_errors(
         &a,
-        "a(n: int) { if n == 0 { ret :bad }\nif n == 1 { ret 1 }\nb(n) }\n"
-        "b(n: int) { if n == 0 { ret :bad }\nif n == 1 { ret 1 }\na(n) }\n"
+        "a(n: int) { if n == 0 { ret :!bad }\nif n == 1 { ret 1 }\nb(n) }\n"
+        "b(n: int) { if n == 0 { ret :!bad }\nif n == 1 { ret 1 }\na(n) }\n"
         "main() {}",
         2, NULL, 0);
     handling_errors(&a,
                     "a() { b() }\nb() { source() }\n"
-                    "source() -> :ok[int] | :bad { 1 }\nmain() {}",
+                    "source() -> :ok[int] | :!bad { 1 }\nmain() {}",
                     1, NULL, 0);
   }
   TEST("return inference accumulates errors and narrows handled variants") {
-    Result r = valid(&a, "Problems = :a[str] | :b[int]\n"
-                         "source(b: bool) -> :ok[str] | Problems { if b { "
-                         "ret :a[\"a\"] }\n\"x\" }\n"
-                         "f() { source(false)? }\n"
-                         "g() { source(false) |> { :ok[text] => text\n:a[_] => "
-                         "\"\"\nother => ret other } }\n"
-                         "main() { f()!\ng()! }");
+    Result r =
+        valid(&a, "Problems = :!a[str] | :!b[int]\n"
+                  "source(b: bool) -> :ok[str] | Problems { if b { "
+                  "ret :!a[\"a\"] }\n\"x\" }\n"
+                  "f() { source(false)? }\n"
+                  "g() { source(false) |> { :ok[text] => text\n:!a[_] => "
+                  "\"\"\nother => ret other } }\n"
+                  "main() { f()!\ng()! }");
     const SemaType *f = r.program->functions[1].symbol.outcome_type;
     const SemaType *g = r.program->functions[2].symbol.outcome_type;
     ASSERT_EQ_INT(3, f->symbols->count);
@@ -311,18 +323,18 @@ int main(void) {
     ASSERT_EQ_INT(0, again.errors.count);
     ASSERT_TRUE(g == r.program->functions[2].symbol.outcome_type);
     invalid(&a,
-            "a() -> :ok | :bad[int] { :ok }\nb() -> :ok | :bad[str] { "
+            "a() -> :ok | :!bad[int] { :ok }\nb() -> :ok | :!bad[str] { "
             ":ok }\n"
             "f() { a()?\nb()? }\nmain() {}",
             "conflicting payload");
   }
   TEST(
       "partial returns fix success types and grow only compatible error sets") {
-    Result r = valid(&a, "source() -> :ok[lng] | :bad { 4294967296 }\n"
+    Result r = valid(&a, "source() -> :ok[lng] | :!bad { 4294967296 }\n"
                          "f() -> :ok[lng] | _ { source()? }\nmain() { f()! }");
     ASSERT_EQ_INT(2,
                   r.program->functions[1].symbol.outcome_type->symbols->count);
-    valid(&a, "f(b: bool) -> :ok[lng] | _ { if b { ret :bad }\n4294967296 "
+    valid(&a, "f(b: bool) -> :ok[lng] | _ { if b { ret :!bad }\n4294967296 "
               "}\nmain() {}\n");
     invalid(&a, "f() -> :ok[int] | _ { false }\nmain() {}",
             "body does not match");
@@ -382,8 +394,8 @@ int main(void) {
         ASSERT_TRUE(ok && sema_payloads_equal(ok, sema_ok(f->written_type)));
       }
     }
-    Result callers = check(&a, "f(b: bool) -> :ok[int] | :bad | _ {\n"
-                               "if b { ret :bad }\nfalse }\n"
+    Result callers = check(&a, "f(b: bool) -> :ok[int] | :!bad | _ {\n"
+                               "if b { ret :!bad }\nfalse }\n"
                                "g() { f(true)\nlet s: str = f(true)! }\n"
                                "main() {}");
     const char *caller_messages[] = {
@@ -395,23 +407,23 @@ int main(void) {
       ASSERT_TRUE(
           !strcmp(caller_messages[i], callers.errors.items[i]->message));
     Result collision = invalid(&a,
-                               "a() -> :ok[int] | :bad[int] { 1 }\n"
-                               "b() -> :ok[int] | :bad[str] { 1 }\n"
+                               "a() -> :ok[int] | :!bad[int] { 1 }\n"
+                               "b() -> :ok[int] | :!bad[str] { 1 }\n"
                                "f() -> :ok[int] | _ { a()?\nb()? }\nmain() {}",
                                "Symbol tag has conflicting payload types.");
     ASSERT_EQ_INT(1, collision.errors.count);
   }
   TEST("recursive success anchors and accumulated error sets reach a fixed "
        "point") {
-    Result r = valid(&a, "f(n: int) { if n == 0 { ret :first }\ng(n - 1)? }\n"
-                         "g(n: int) { if n == 0 { ret :second }\nif n == 1 { "
+    Result r = valid(&a, "f(n: int) { if n == 0 { ret :!first }\ng(n - 1)? }\n"
+                         "g(n: int) { if n == 0 { ret :!second }\nif n == 1 { "
                          "ret 0.5 }\nf(n - 1)? }\n"
                          "main() {}\n");
     const SemaType *type = r.program->functions[0].symbol.outcome_type;
     ASSERT_TRUE(type == r.program->functions[1].symbol.outcome_type);
     ASSERT_EQ_INT(3, type->symbols->count);
     ASSERT_EQ_INT(SEMA_DUB, sema_single_payload(sema_ok(type))->kind);
-    valid(&a, "f(b: bool) { if b { ret :bad }\ng(b)? }\n"
+    valid(&a, "f(b: bool) { if b { ret :!bad }\ng(b)? }\n"
               "g(b: bool) { if b { ret 1 }\nf(b)? }\nmain() {}\n");
     invalid(&a, "f() { g()? }\ng() { f()? }\nmain() {}",
             "Cannot infer recursive");
@@ -422,7 +434,7 @@ int main(void) {
     for (size_t i = 0; i < 2050; i++)
       length += (size_t)snprintf(
           text + length, capacity - length,
-          "f%zu(n: int) { if n == 0 { ret :%s }\nf%zu(n - 1)?\n1 }\n", i,
+          "f%zu(n: int) { if n == 0 { ret :!%s }\nf%zu(n - 1)?\n1 }\n", i,
           i == 2049 ? "last" : "first", (i + 1) % 2050);
     snprintf(text + length, capacity - length, "main() {}\n");
     Result r = valid(&a, text);
@@ -442,7 +454,7 @@ int main(void) {
         reach[i] = (1u << i) | (1u << x) | (1u << y);
         length += (size_t)snprintf(
             text + length, sizeof(text) - length,
-            "f%zu(n: int) -> :ok[int] | _ { if n == 0 { ret :e%zu }\n"
+            "f%zu(n: int) -> :ok[int] | _ { if n == 0 { ret :!e%zu }\n"
             "f%u(n - 1)?\nf%u(n - 1)?\n1 }\n",
             i, i, x, y);
       }
@@ -469,14 +481,14 @@ int main(void) {
   }
   TEST("permissions follow success projection, handlers and propagated "
        "payloads") {
-    const char *prefix = "P { x: int }\npass(p: P) -> :ok[P] | :bad { p }\n";
+    const char *prefix = "P { x: int }\npass(p: P) -> :ok[P] | :!bad { p }\n";
     char text[4096];
 #define CASE(body)                                                             \
   (snprintf(text, sizeof(text), "%s%s\nmain() {}", prefix, body), text)
     invalid(&a, CASE("f(p: P) { pass(p)!.x = 1 }"), "Cannot mutate");
     invalid(&a, CASE("f(p: P) { let q = pass(p)?\nq.x = 1 }"), "Cannot mutate");
     invalid(&a,
-            CASE("f(p: P) { pass(p) |> { :ok[q] => q.x = 1\n:bad => () } }"),
+            CASE("f(p: P) { pass(p) |> { :ok[q] => q.x = 1\n:!bad => () } }"),
             "Cannot mutate");
     valid(&a, CASE("f(p: &P) { pass(p)!.x = 1 }"));
 #undef CASE
