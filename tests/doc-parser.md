@@ -9,6 +9,12 @@ parser tests: 12 await N4/N5 syntax, 43 need later features, and 22 are
 incomplete signatures/operator/context fragments. The overview and raw base
 sample have separate zero-fence listings.
 
+The separate [current functions native audit](doc-functions-n1.md) checks six
+complete function fences and eight independent prose programs. Its 21 listings
+are not native acceptance; it does not promote or change this parser inventory.
+The shared whole-fence reader now preserves mixed LF/CRLF bytes, with CRLF,
+UTF-8 and semicolon integrity checked by the native manifest guards.
+
 ```sh
 ctest --test-dir build -L doc-parser --output-on-failure
 ```

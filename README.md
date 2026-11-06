@@ -12,7 +12,8 @@ scalar/symbol/string matching, named symbol sets, success/error inference,
 Compilation supports the subset below; the parser accepts much more syntax.
 The design docs also include deferred features and fragments needing context.
 The [document status](tests/doc-acceptance.md) distinguishes retired v0 evidence
-from the current parser inventory and the pending replacement native audits.
+from the current parser inventory, the scoped replacement functions native
+audit and the remaining native-audit gap.
 
 ## Build and test
 
@@ -354,9 +355,11 @@ Panics terminate the process without unwinding owners.
   and the [current-document parser inventory](tests/doc-parser.md): 239 fences
   across 13 chapters, with 162 parser checks and 77 explicit fence listings,
   plus two unfenced-chapter listings. Listed examples are not passing coverage.
-  N1 retired all v0 native chapter scripts and bridges; replacement native audits
-  return milestone by milestone. Run the inventory and its structural guards with
-  `ctest --test-dir build -L doc-parser --output-on-failure`.
+  N1 retired all v0 native chapter scripts and bridges. The first scoped
+  [current functions native audit](tests/doc-functions-n1.md) now checks six
+  complete fences and eight independent prose cases, with 21 explicit listings.
+  Run it with `ctest --test-dir build -L doc-functions --output-on-failure`;
+  the parser inventory and its guards use `-L doc-parser`.
 - `tests/parse/`: 155 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
@@ -425,6 +428,6 @@ and suggest direct/pipeline forms, without accepting dotted fallback.
 Unsupported generic calls no longer produce ordinary-callee cascades; their
 value expressions and surrounding calls remain checked, and generics remain
 deferred. The [document acceptance tracker](tests/doc-acceptance.md) records
-the retired evidence, current parser-only coverage and the intentional
-native-audit gap. Symbol ordering and refutable/nested payload patterns remain
-deferred, not M5 blockers.
+the retired evidence, current parser coverage, the scoped functions native
+audit and the remaining native-audit gap. Symbol ordering and refutable/nested
+payload patterns remain deferred, not M5 blockers.

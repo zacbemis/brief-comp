@@ -254,6 +254,12 @@ four parser fixtures and unambiguous lexer/newline/parser examples are converted
 while intentional neutral characterizations and rejected grammar stay intact.
 No parser check is promoted to native acceptance.
 
+A first bounded current-functions native audit is active: six complete fences
+(four executions and two return-contract rejections), eight independent prose
+cases and 21 explicit listings. No API stand-ins or incomplete bodies are added
+to a fence. This does not complete function/API acceptance, the other N1 native
+chapter audits or N1 itself; parser counts and N2 policy remain unchanged.
+
 Primitive keywords now name function members and dotted expression members,
 without broadening ordinary names or type paths. Context-specific casing fixes
 can produce primitive spellings only for function members. Builtin conversion
@@ -2341,6 +2347,74 @@ fences and 162 document-parser checks. No document fence is promoted and no
 replacement native chapter audit is complete. This closes the bounded
 parser/generated failure-spelling review, not N1: remaining keyword/casing
 rules and replacement native chapter audits still require review and coverage.
+
+### N1 increment: first scoped current-functions native audit
+
+The new `test_doc_functions_n1.cmake` reads `docs/lang-functions.txt`, pinned by
+its current whole-chapter hash and 27-fence count. Four complete fences run
+unchanged with typed/observable entry points: written `add`, early-return
+`validate`, inferred `double` and neutral-data `describe`. Two complete fences
+reject with one exact return-contract diagnostic and no C: written-body mismatch
+at original fence line 1, and undeclared explicit return at line 3. No quoted
+function, comment or line is rewritten. The observer only adds `main`; it does
+not supply types, receivers, bodies or APIs to a fence.
+
+All other 21 fences are explicit listings: seven later-feature cases, eleven
+context/API dependencies, one incomplete-signature fragment and two
+outcome/handling cases that also need missing APIs. In particular, File/Json/
+User/Report and collection examples get no local stand-ins. Lambda-inference,
+capture and wrong-success examples are not declared tested merely because an
+unsupported construct or unknown name rejects. No alternative definitions or
+individual usage lines are extracted. This is bounded native evidence, not
+complete function/API acceptance, and not completion of N1's other audits.
+
+Eight separately authored prose programs check public inference/partial
+returns, early/tail literal context, annotated and unanchored recursion, inferred
+unit, owned-tail unit discarding, immutable ordinary and borrowed bindings,
+read-only struct parameters, real self/associated calls and pipelines, exact
+wrong-way-call diagnostics/fixes, argument/operand order, short-circuiting and
+target/old-value sequencing. They do not complete a quoted fence or pretend to
+implement its unavailable API. Together the audit has 14 cases: eight compiled
+native executions and six compiler-rejection programs. It preserves N1's
+first-version outcomes; N2/N3 policy is not advanced.
+
+`doc_native.cmake` reuses only the current parser manifest's whole-fence reader
+and completeness check, not parser success as native evidence. Program execution
+uses the existing binary-safe C runner. Quoted diagnostic cases retain their
+original lines without inserted markers, and require status 1, no C, one exact
+primary diagnostic/location and no unexpected fix. Other cases use the runner's
+output, stderr, status, diagnostic/fix and sanitizer checks. Normal and sanitized
+variants have independent generated directories and the same support gate as
+native program tests. `test_doc_native_manifest` runs without a compiler and
+guards whole-source provenance, hashes/counts, classifications and case counts.
+
+The integrity positive exposed CMake's CRLF normalization in `file(READ)`.
+The shared reader now restores original bytes through hex decoding when needed;
+LF documents are unchanged. Its regression preserves mixed LF/CRLF, UTF-8,
+semicolons, braces and comments through both observer/diagnostic writers. Nine
+independent negative cases reject stale hashes/counts, duplicate/missing
+classifications, unexercised fences, duplicate cases, listed-as-native cases,
+invalid indices and wrong case counts. No migration utility, spelling bridge or
+retired v0 audit is restored; frozen documents and historical records stay put.
+
+Validation: all 358 retained complete CLI results and 104 prior C outputs are
+identical. The 14 new programs give identical baseline/current CLI results,
+including eight byte-identical emitted C outputs. The baseline compiler also
+passes the complete new audit normally and under sanitizers. Independent byte
+checks verify all six quoted fences are exact source prefixes. All six examples
+retain sanitized stdout/stderr/status. Four fresh `-Werror` configurations pass:
+GCC/Clang Debug ASan/UBSan and GCC Release, 29/29 each; GCC Debug without
+sanitizers, 27/27. Pinned clang-format 23.1.3, diff/prose checks, the unchanged
+plan design/table and the 23-ending CRLF fixture pass. Evidence stays under
+`build/validation/functions-native.20261106T182503Z/` (ignored).
+
+Native fixtures remain 156; parser files remain 155 (41 pass, 114 fail). The
+13-chapter parser inventory still has 239 fences and 162 checks; no syntax-only
+listing is promoted there. A scoped functions native audit is now active, but
+21 of its fences remain unaccepted natively and the remaining N1 native chapter
+audits and keyword/casing review are pending. N1 stays in progress. The reviewed
+`:!blank`/neutral `:empty` split, multi-`:ok` boundary, unsupported trait/module
+and matching scopes, outcome/entry behavior and runtime formatting are unchanged.
 
 ## Risks
 
