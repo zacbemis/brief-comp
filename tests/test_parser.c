@@ -1966,7 +1966,7 @@ int main(void) {
   TEST("trait and ovr are names, not declaration or override modifiers") {
     const char *text =
         "trait(ovr: int) -> int { ovr }\novr(trait: int) -> int { trait }\n"
-        "P { trait: int\novr: int\n trait(p: P) { p.trait }\novr(p: P) { p.ovr "
+        "P { trait: int\novr: int\n trait() { self.trait }\novr() { self.ovr "
         "} }\n"
         "main() { let trait = P { trait = 1, ovr = 2 }\nvar ovr = "
         "trait.trait()\n"

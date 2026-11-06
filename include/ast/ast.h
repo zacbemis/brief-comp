@@ -124,10 +124,13 @@ struct Expr {
       size_t type_count;
       Expr **args;
       size_t count;
+      Span open_span,
+          first_comma_span; // Written delimiters for safe call fixes.
     } call;
     struct {
       Expr *object;
       const char *name;
+      Span dot_span;
     } field;
     struct {
       Expr *object;

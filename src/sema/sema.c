@@ -21,6 +21,7 @@ typedef struct {
   NameMap local_names; // Each visible name's innermost binding.
   unsigned depth, loops;
   int pipeline_call;
+  const Expr *call_source;
 } Resolver;
 int sema_integer(const SemaType *t) {
   return t && t->kind >= SEMA_SHRT && t->kind <= SEMA_ULNG;
@@ -506,7 +507,10 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
   case EXPR_CALL:
     e = node(r, SEMA_EXPR_CALL, s->span);
     int pipeline = r->pipeline_call;
+    e->as.call.source_pipeline = r->call_source != NULL;
+    e->as.call.syntax = r->call_source ? r->call_source : s;
     r->pipeline_call = 0;
+    r->call_source = NULL;
     int generic = s->as.call.type_count != 0;
     if (generic)
       diagnostics_error(r->errors, s->span,
@@ -627,6 +631,7 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
       for (size_t i = 0; i < stage->as.call.count; i++)
         call.as.call.args[i + 1] = stage->as.call.args[i];
       r->pipeline_call = stage->as.call.callee->kind == EXPR_NAME;
+      r->call_source = stage;
       result = resolve_expr(r, &call);
       bind->as.binding.stage = result;
     } else {

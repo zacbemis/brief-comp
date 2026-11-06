@@ -111,10 +111,15 @@ inference apply. Traits can parse plain `self` or `&self` but remain
 unsupported; `self` outside an owner is invalid. Import/trait/conformance
 barriers remain.
 
-Call-form enforcement and its source migration are still pending: existing
-value/type call compatibility is preserved in this slice. The classifier does
-not turn functions with an ordinary first owner-typed parameter into inferred
-self methods. N1 is not complete.
+Methods are called on values; associated functions are called on their type.
+Wrong-way calls reject with source-preserving fixes when their meaning is
+certain: `Date.label(d)` becomes `d.label()`, and `d.new(...)` becomes
+`Date.new(...)`. A supplied ordinary owner argument stays explicit, so
+`d.copy()` can become `Date.copy(d)`. Missing receivers are not invented and
+potentially effectful receiver evaluation is never discarded by a fix.
+Pipelines prefer actual self methods, then visible module functions; an
+associated function does not masquerade as a method. Fixtures, examples and
+embedded native sources use the new forms. N1 is still in progress.
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and
@@ -125,8 +130,8 @@ This does not install JSON APIs or change builtin conversions or call rules.
 Uppercase type headers can list named traits after `:`, joined by `and`, with
 qualified names and bracketed type arguments. The AST retains that list, but
 native compilation stops with `Trait conformance is not implemented yet.` No
-trait/module lookup, layout or default dispatch is guessed. Strict call-form
-rules and their source conversion remain pending.
+trait/module lookup, layout or default dispatch is guessed. Native traits and
+module loading remain outside the current implementation.
 
 Struct names start uppercase; functions, fields, parameters, bindings and loops
 require lowercase names, with safe casing fixes. Symbol tags also require
@@ -134,9 +139,9 @@ lowercase names in types, values and patterns. `:!name` records an error tag; a
 name cannot have both neutral and error kinds in one module. `:!` must be
 adjacent. This is N1 metadata only: outcomes, entry status and runtime
 formatting retain first-version rules until N2. `trait` and `ovr` are ordinary
-names, not declaration/modifier keywords. Native conformance and strict call
-forms remain pending. In patterns, lowercase names bind and uppercase names
-denote symbol sets, without lookup-based reclassification. Typed symbol payload
+names, not declaration/modifier keywords. Native conformance remains pending.
+In patterns, lowercase names bind and uppercase names denote symbol sets,
+without lookup-based reclassification. Typed symbol payload
 bindings such as `:!notFound[path: str]` retain their annotations in the AST.
 Native compilation explicitly rejects them until merged-symbol matching exists.
 Whole-value typed arms are not added. Module-selection declarations such as

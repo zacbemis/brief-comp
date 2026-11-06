@@ -18,11 +18,11 @@ Date {
   }
 
   // Days since 0001-01-01.
-  ordinal(d: Date) -> int {
-    let y = d.year - 1
+  ordinal() -> int {
+    let y = self.year - 1
     var days = y * 365 + y / 4 - y / 100 + y / 400
-    for m in 1..d.month { days += daysIn(d.year, m) }
-    days + d.day - 1
+    for m in 1..self.month { days += daysIn(self.year, m) }
+    days + self.day - 1
   }
 
   fromOrdinal(n: int) -> Date {
@@ -41,18 +41,18 @@ Date {
     Date { year = year, month = month, day = rest + 1 }
   }
 
-  weekday(d: Date) -> int { d.ordinal() % 7 }
+  weekday() -> int { self.ordinal() % 7 }
 
-  dayOfYear(d: Date) -> int {
-    var total = d.day
-    for m in 1..d.month { total += daysIn(d.year, m) }
+  dayOfYear() -> int {
+    var total = self.day
+    for m in 1..self.month { total += daysIn(self.year, m) }
     total
   }
 
-  addDays(d: Date, n: int) -> Date { Date.fromOrdinal(d.ordinal() + n) }
+  addDays(n: int) -> Date { Date.fromOrdinal(self.ordinal() + n) }
 
-  label(d: Date) -> str {
-    pad(d.year, 4) + "-" + pad(d.month, 2) + "-" + pad(d.day, 2)
+  label() -> str {
+    pad(self.year, 4) + "-" + pad(self.month, 2) + "-" + pad(self.day, 2)
   }
 }
 

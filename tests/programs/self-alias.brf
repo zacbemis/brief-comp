@@ -2,7 +2,7 @@ Self = :some[int] | :none
 Box { value: Self
 
   new(n: Self) -> Box { Box { value = n } }
-  read(b: Box) -> Self { b.value }
+  read() -> Self { self.value }
 }
 main() {
   let n: Self = :some[42]

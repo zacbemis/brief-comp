@@ -280,6 +280,31 @@ if(NOT status EQUAL 0 OR NOT output STREQUAL "42\n" OR NOT errors STREQUAL "")
     message(FATAL_ERROR "receiver native execution failed (${status}):\n${errors}\n${output}")
 endif()
 
+set(wrong_call "${TEST_DIR}/wrong-call.brf")
+file(WRITE "${wrong_call}" "Date { n: int\r\nlabel() -> int { self.n } }\r\nmain() { let d = Date { n = 42 }\r\nDate.label(d) }\r\n")
+set(wrong_call_output "${TEST_DIR}/wrong-call-output")
+file(REMOVE "${wrong_call_output}")
+foreach(mode IN ITEMS emit-c run build)
+    set(arguments "${wrong_call}")
+    if(mode STREQUAL "build")
+        list(APPEND arguments --debug -o "${wrong_call_output}")
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env "CC=${TEST_DIR}/must-not-run"
+        "${BRIEF}" ${mode} ${arguments}
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    string(FIND "${errors}" "help: write `d.label() }`" fix_at)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR EXISTS "${wrong_call_output}" OR
+       NOT errors MATCHES "^error: Methods are called on a value, not the type" OR fix_at LESS 0)
+        message(FATAL_ERROR "wrong-way call escaped fix/rejection (${status}):\n${errors}")
+    endif()
+endforeach()
+file(WRITE "${wrong_call}" "Date { n: int\r\nlabel() -> int { self.n } }\r\nmain() { let d = Date { n = 42 }\r\nprint(str(d.label())) }\r\n")
+execute_process(COMMAND "${BRIEF}" run --debug "${wrong_call}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT output STREQUAL "42\n" OR NOT errors STREQUAL "")
+    message(FATAL_ERROR "fixed method call failed (${status}):\n${errors}")
+endif()
+
 set(conformance "${TEST_DIR}/conformance.brf")
 file(WRITE "${conformance}" "A: models.Query[Missing] and Printable {\r\nfield: Unknown\r\nf() { missing() }\r\n}\r\nAlias = Cycle\r\nCycle = Alias\r\n")
 execute_process(COMMAND "${BRIEF}" dump-ast "${conformance}"

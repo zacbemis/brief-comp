@@ -143,7 +143,7 @@ static SemaFlowValue child(SemaFlow *flow, SemaExpr *e, size_t index,
   }
   case SEMA_EXPR_CALL: {
     SemaExpr *arg = e->as.call.args[index];
-    SemaSymbol *s = e->as.call.target;
+    SemaSymbol *s = e->as.call.wrong_form ? NULL : e->as.call.target;
     if (value && s && index < s->arity && s->params[index]->data_mutable &&
         sema_assignable(arg->type, s->params[index]->type))
       error(flow, arg->span,

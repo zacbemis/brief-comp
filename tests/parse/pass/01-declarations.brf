@@ -20,13 +20,13 @@ User {
     User { name = name, age = age, tier = :bronze }
   }
 
-  pub getName(user: User) -> str {
-    user.name
+  pub getName() -> str {
+    self.name
   }
 
   // An inferred return type.
-  pub isAdult(user: User) {
-    user.age >= 18
+  pub isAdult() {
+    self.age >= 18
   }
 
   // A partial return type.
@@ -35,8 +35,8 @@ User {
   }
 
   // Returns the empty type.
-  pub birthday(user: &User) -> () {
-    user.age += 1
+  pub birthday(&self) -> () {
+    self.age += 1
   }
 }
 

@@ -92,7 +92,7 @@ int main(void) {
   }
   TEST("pipeline lookup prefers methods, then module functions") {
     Result r =
-        valid(&a, "A { unit: ()\n get(a: A) { true } }\n"
+        valid(&a, "A { unit: ()\n get() { self\ntrue } }\n"
                   "get(a: A) { 1 }\nmain() { A { unit = () } |> get() }");
     ASSERT_EQ_INT(SEMA_BOOL, r.program->entry->return_type->kind);
     r = valid(
@@ -100,10 +100,12 @@ int main(void) {
         "A { unit: () }\nget(a: A) { 1 }\nmain() { A { unit = () } |> get() }");
     ASSERT_EQ_INT(SEMA_INT, r.program->entry->return_type->kind);
     valid(&a,
-          "A { unit: ()\n get(a: A) { true } }\n"
+          "A { unit: ()\n get() { self\ntrue } }\n"
           "get(a: A) { 1 }\nmain() { let get = 2\nA { unit = () } |> get() }");
-    valid(&a, "A { unit: ()\n get(a: A) { true } }\n"
-              "main() { A { unit = () } |> A.get() }");
+    invalid(&a,
+            "A { unit: ()\n get() { self\ntrue } }\n"
+            "main() { A { unit = () } |> A.get() }",
+            "Methods are called on a value");
     invalid(&a, "main() { let f = 1\n2 |> f() }", "not callable");
     invalid(&a, "f(x: int) {}\nmain() { let f = 1\n2 |> f() }", "not callable");
     valid(&a, "wide(n: lng) -> lng { n }\nmain() { let n: lng = 4294967296 |> "
@@ -111,7 +113,7 @@ int main(void) {
     valid(&a,
           "small(n: flt) -> flt { n }\nmain() { let n: flt = 0.1 |> small() }");
     valid(&a,
-          "A { unit: ()\n small(a: A, n: flt) -> flt { n } }\n"
+          "A { unit: ()\n small(n: flt) -> flt { self\nn } }\n"
           "main() { let a = A { unit = () }\nlet n: flt = 0.1 |> a.small() }");
     invalid(&a, "main() { 1 |> missing() }", "Unknown function");
     invalid(&a, "f() {}\nmain() { 1 |> f() }", "Wrong number");

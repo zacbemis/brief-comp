@@ -87,26 +87,26 @@ Fraction {
     Fraction { top = sign * top / common, bottom = sign * bottom / common }
   }
 
-  plus(a: Fraction, b: Fraction) -> Fraction {
-    Fraction.new(a.top * b.bottom + b.top * a.bottom, a.bottom * b.bottom)!
+  plus(b: Fraction) -> Fraction {
+    Fraction.new(self.top * b.bottom + b.top * self.bottom, self.bottom * b.bottom)!
   }
 
-  times(a: Fraction, b: Fraction) -> Fraction { Fraction.new(a.top * b.top, a.bottom * b.bottom)! }
+  times(b: Fraction) -> Fraction { Fraction.new(self.top * b.top, self.bottom * b.bottom)! }
 
-  over(a: Fraction, b: Fraction) -> :ok[Fraction] | :zeroDenominator {
-    Fraction.new(a.top * b.bottom, a.bottom * b.top)?
+  over(b: Fraction) -> :ok[Fraction] | :zeroDenominator {
+    Fraction.new(self.top * b.bottom, self.bottom * b.top)?
   }
 
-  label(f: Fraction) -> str {
-    if f.bottom == 1 { str(f.top) } else { str(f.top) + "/" + str(f.bottom) }
+  label() -> str {
+    if self.bottom == 1 { str(self.top) } else { str(self.top) + "/" + str(self.bottom) }
   }
 
   // Greedy expansion into distinct unit fractions, e.g. 4/13 = 1/4 + 1/18 + 1/468.
   // Denominators can grow very fast; arithmetic overflow would panic, so the
   // expansion stops with what it has found before a step would overflow.
-  egyptian(f: Fraction) -> :ok[str] | :tooLarge[str] {
-    var top = f.top
-    var bottom = f.bottom
+  egyptian() -> :ok[str] | :tooLarge[str] {
+    var top = self.top
+    var bottom = self.bottom
     var text = ""
     while top > 0 {
       let unit = (bottom + top - 1) / top // ceiling of bottom / top

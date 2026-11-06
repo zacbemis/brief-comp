@@ -148,7 +148,7 @@ int main(void) {
   }
   TEST("unhandled outcomes do not become usable binding or argument types") {
     const char *prefix =
-        "P { value: int\n read(value: P) -> int { value.value } }\n"
+        "P { value: int\n read() -> int { self.value } }\n"
         "Pair { number: int\nflag: bool }\nResult = :ok[int] | :bad\n"
         "source() -> Result { 1 }\n"
         "text() -> :ok[str] | :bad { \"owned\" + \" text\" }\n"

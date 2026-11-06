@@ -2,9 +2,10 @@
 
 Small programs that show the first-version feature scope, with N1 spelling
 updates as they are implemented: `not`, `dbl`, `->` returns, keyword-free
-aliases, `=` literal fields and functions inside struct bodies. These examples
-retain existing typed parameters and call forms; their receiver conversion
-comes with N1's pending call-form switch. Each program runs on its own:
+aliases, `=` literal fields and functions inside struct bodies. Methods infer
+readonly receivers from `self`, or write `&self` for mutation. Associated
+functions remain type-qualified; ordinary owner-typed parameters are not
+implicit receivers. Each program runs on its own:
 
 ```sh
 ./build/brief run examples/calendar.brf

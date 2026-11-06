@@ -70,7 +70,7 @@ fences(body "Whole namespace/tag usage syntax only; no module loading, privacy o
 fences(body "Qualified-call syntax only; documented namespace ambiguity/missing-module errors are semantic and are not asserted" "10;11")
 fences(top "Whole field/function declarations parse; file-label comments do not implement modules or dependency/cycle checks" "15")
 fences(import-body "Import selection and qualified-call syntax only; no module loading, APIs, resolution or visibility assertions" "12;13")
-fences(body "Dotted-call grammar only; receiver inference is not asserted and wrong-way call errors await N1" "5")
+fences(body "Dotted-call grammar only; receiver inference and native wrong-way call contracts are checked separately" "5")
 fences(top "Entry/call grammar only; module loading and failure formatting are not asserted" "17;18")
 fences(error-top "The file-level print is intentionally not a declaration" "16")
 fences(error-top "Only the pub type modifier is checked; cross-file private access and alternative duplicate definitions are not asserted" "8")

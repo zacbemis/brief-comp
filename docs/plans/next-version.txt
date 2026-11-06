@@ -177,7 +177,7 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (150 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases, empty-trait classification, qualified symbol syntax and struct-owned functions with ordinary `impl`; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/programs/` (152 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases, empty-trait classification, qualified symbol syntax and struct-owned functions with ordinary `impl`; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
 | `tests/parse/pass/` (41) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
 | `tests/parse/fail/` (114) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
@@ -256,12 +256,14 @@ before dependent declarations or main checks; trait/module lookup, defaults and
 receiver inference are not added.
 
 `self` is a keyword and expression node, with parser receiver metadata separate
-from ordinary typed parameters. Available struct functions now classify self
+from ordinary typed parameters. Available struct functions classify self
 syntactically before return inference and bind a canonical owner parameter.
 Readonly self and mutable `&self` use existing permissions and ownership.
-Trait/import/conformance and outside-owner context boundaries remain. Strict
-call-form enforcement, fix-its and the related source conversion are pending;
-existing value/type call compatibility is deliberately preserved for this slice.
+Methods require value calls and associated functions require type calls, with
+source-preserving fixes when certain. A supplied receiver in `Date.label(d)`
+becomes `d.label()`; missing receivers/effects are not guessed or discarded.
+Affected native sources and examples are converted. Trait/import/conformance
+and outside-owner context boundaries remain; N1 is still in progress.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -1858,6 +1860,76 @@ casing/keywords, multi-payload checking/lowering, failure-tag conversion and
 replacement native audits. Native traits/conformance and modules remain
 bootstrap work. N2 outcomes, entry policy, IR/RC and runtime formatting rules are
 unchanged.
+
+### N1 increment: strict call forms, wrong-way fixes and source migration
+
+Checking now uses the syntactic receiver kind, not the first parameter's type:
+methods are called on values and associated functions on the type. Ordinary
+owner-typed parameters do not become receivers. Unqualified pipelines prefer
+actual self methods, then visible module functions; an associated member no
+longer masks a valid module function or a local-binding error. Pipeline input
+context uses the same lookup policy. Generic/unavailable calls retain their
+existing boundaries.
+
+Wrong-way diagnostics explain the required form and note the declaration.
+They carry certainly-correct source edits, notably `Date.label(d)` to
+`d.label()`, moving the supplied receiver rather than inventing a variable.
+Named aliases, grouping, complex supplied receiver expressions, trailing commas,
+comments, LF/CRLF and remaining argument evaluation are preserved. Simple
+`d.new(...)` becomes `Date.new(...)`. If an ordinary owner argument is needed,
+`d.copy()` becomes `Date.copy(d)` and `make().copy()` becomes
+`Date.copy(make())`, preserving evaluation. Effectful/uncertain receiver removal
+and missing supplied receivers have no guessed fix. Qualified method pipelines
+can become unqualified method stages; associated stages can be qualified when
+the existing pipeline input is the required argument.
+
+Parser call/open/comma and field-dot spans retain exact written boundaries;
+tokens and source remain immutable. Checked calls retain their original
+arena-owned syntax, never the temporary pipeline call copy. Wrong forms keep
+callee return anchors and SCC edges, while suppressing misleading signature
+arity/type and permission cascades. They cannot lower or publish C/binaries.
+Repeated checking, inferred receivers and recursive return probes retain the
+same diagnostics and valid fixes.
+
+Affected fields-and-functions fixtures, embedded native sources and four
+examples now use inferred self or explicit `&self` methods. Bound references
+are migrated by their semantic variable identity, not by a global spelling
+rename. Genuine associated owner parameters and independent canonical/explicit
+ABI comparisons remain associated. Source conversions preserve existing native
+outputs, statuses, panics and rejection messages/lines. Old first-parameter
+method-shape checks are replaced with the new wrong-form and actual method
+arity cases, rather than retaining the obsolete dispatch rule.
+
+`errors/wrong-way-calls.brf`, focused sema tests and CLI checks require exact
+fixes and rejection, including the supplied-receiver case. Tests apply all edits
+and recheck LF/CRLF, aliases, grouping, comments, pipelines, side effects,
+no-guess cases, repeated checks and recursive anchors. `call-forms.brf` observes
+legal call forms and evaluation order. Inventory: 152 native fixtures, with
+155 parser files (41 pass, 114 fail). Parser document counts stay 162 checks and
+77 fenced plus two unfenced listings; no native chapter audit is complete.
+
+Validation: four fresh `-Werror` configurations pass: GCC/Clang Debug ASan/UBSan
+and GCC Release, 25/25 each; GCC Debug without sanitizers, 24/24. Pinned
+clang-format 23.1.3, `git diff --check` and edited-prose width checks pass. All
+351 retained sources preserve emission statuses, primary messages and error
+lines. Twenty retained ASTs change for the source migration. Of 100 prior C
+successes, 98 remain byte-identical, including all six examples. All 100 retain
+emitted user function/method/struct names.
+
+Two native C differences preserve distinct old observations in legal syntax:
+the qualified-pipeline test uses a readonly self mention even though its
+receiver is otherwise unused, and the type/value-method equality assertion now
+compares pipeline and dotted calls to the same method. These add ordinary
+receiver-read/pipeline temporaries and source-map changes, not new runtime
+machinery. Their sanitized stdout/stderr/status and all six examples match the
+baseline. Reports: `build/validation/call-forms.20261106T070516Z/` (ignored).
+Temporary inspection/proposal tools stay under that ignored report root and
+are not shipped as migration helpers.
+
+N1 remains in progress: remaining casing/keywords, multi-payload native
+checking/lowering, failure-tag conversion and replacement native audits.
+Native traits/conformance and modules remain bootstrap work. N2 outcomes,
+entry policy, IR/RC and runtime formatting rules are unchanged.
 
 ## Risks
 

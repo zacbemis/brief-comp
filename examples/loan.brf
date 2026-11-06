@@ -20,12 +20,12 @@ Loan {
 
   // Simulates paying `payment` (plus `extra`) every month. Returns the months
   // taken and total interest, or the balance left if the term runs out.
-  simulate(loan: Loan, payment: lng, extra: lng) ->
+  simulate(payment: lng, extra: lng) ->
     :ok[Summary] | :unpaid[lng] {
-    var balance = loan.principal
+    var balance = self.principal
     var paid: lng = 0
-    for month in 1..loan.months + 1 {
-      let due = interest(balance, loan.rateBps)
+    for month in 1..self.months + 1 {
+      let due = interest(balance, self.rateBps)
       paid += due
       balance += due
       balance -= payment + extra
@@ -36,12 +36,12 @@ Loan {
     :unpaid[balance]
   }
 
-  payment(loan: Loan) -> lng {
+  payment() -> lng {
     var low: lng = 0
-    var high = loan.principal + interest(loan.principal, loan.rateBps)
+    var high = self.principal + interest(self.principal, self.rateBps)
     while low < high {
       let middle = (low + high) / 2
-      loan.simulate(middle, 0) |> {
+      self.simulate(middle, 0) |> {
         :ok[_] => high = middle
         :unpaid[_] => low = middle + 1
       }
@@ -49,23 +49,23 @@ Loan {
     low
   }
 
-  summary(loan: Loan, extra: lng) -> Summary {
-    let payment = loan.payment()
-    loan.simulate(payment, extra) |> {
+  summary(extra: lng) -> Summary {
+    let payment = self.payment()
+    self.simulate(payment, extra) |> {
       :ok[result] => result
-      :unpaid[_] => Summary { payment = payment, months = loan.months, interest = 0 }
+      :unpaid[_] => Summary { payment = payment, months = self.months, interest = 0 }
     }
   }
 
-  schedule(loan: Loan) {
-    let payment = loan.payment()
+  schedule() {
+    let payment = self.payment()
     print("month      payment     interest    principal        balance")
-    var balance = loan.principal
-    for month in 1..loan.months + 1 {
-      let due = interest(balance, loan.rateBps)
+    var balance = self.principal
+    for month in 1..self.months + 1 {
+      let due = interest(balance, self.rateBps)
       let amount = if payment < balance + due { payment } else { balance + due }
       balance = balance + due - amount
-      if month <= 3 or month % 60 == 0 or month == loan.months {
+      if month <= 3 or month % 60 == 0 or month == self.months {
         print(right(str(month), digits(lng(month)), 5) + column(amount, 13) +
           column(due, 13) + column(amount - due, 13) + column(balance, 15))
       }

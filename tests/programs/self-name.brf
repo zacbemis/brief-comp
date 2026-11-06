@@ -1,12 +1,12 @@
 Self { value: int
 
   new(n: int) -> Self { Self { value = n } }
-  read(s: Self) -> int { s.value }
+  read() -> int { self.value }
 }
 Holder { value: Self
 
   wrap(s: Self) -> Holder { Holder { value = s } }
-  read(h: Holder) -> Self { h.value }
+  read() -> Self { self.value }
 }
 main() {
   let s: Self = Self.new(42)

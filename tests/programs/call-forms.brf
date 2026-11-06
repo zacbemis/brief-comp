@@ -1,0 +1,19 @@
+Date {
+  day: int
+  label() -> int { self.day }
+  add(value: int) -> int { self.day + value }
+  new(day: int) -> Date { Date { day = day } }
+  copy(value: Date) -> Date { value }
+}
+make() -> Date { print("make")
+  Date { day = 40 } }
+argument() -> int { print("argument")
+  2 }
+main() {
+  print(str((make()).add(argument()))) // expect: make
+  // expect: argument
+  // expect: 42
+  let d = Date.new(42)
+  print(str(d.label())) // expect: 42
+  print(str((d |> label()) == Date.copy(d).label())) // expect: true
+}

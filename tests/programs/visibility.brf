@@ -6,7 +6,7 @@ Box {
   pub new(shown: int) -> Box {
     Box { shown = shown, hidden = "heap" + " secret" }
   }
-  read(box: Box) -> int { box.shown }
+  read() -> int { self.shown }
 }
 pub label(box: Box) -> str { box.hidden }
 replace(box: &Box) { box.hidden = "new" + " secret" }

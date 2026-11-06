@@ -41,6 +41,39 @@ static void invalid(Arena *a, const char *text, const char *message) {
   ASSERT_TRUE(found);
   ASSERT_TRUE(!r.program->checked);
 }
+static char *apply_call_fixes(Arena *a, const char *text, const Diagnostic *d) {
+  const DiagnosticFix *fixes[16];
+  size_t n = 0, length = strlen(text) + 1;
+  for (const DiagnosticFix *f = d->fixes; f; f = f->next) {
+    ASSERT_TRUE(n < 16);
+    if (n == 16)
+      return NULL;
+    size_t i = n++;
+    while (i && fixes[i - 1]->span.start > f->span.start) {
+      fixes[i] = fixes[i - 1];
+      i--;
+    }
+    fixes[i] = f;
+    length += strlen(f->replacement);
+  }
+  char *out = arena_alloc(a, length);
+  size_t at = 0, from = 0;
+  for (size_t i = 0; i < n; i++) {
+    const DiagnosticFix *f = fixes[i];
+    ASSERT_TRUE(from <= f->span.start && f->span.end <= strlen(text));
+    if (from > f->span.start || f->span.end > strlen(text))
+      return NULL;
+    size_t bytes = f->span.start - from;
+    memcpy(out + at, text + from, bytes);
+    at += bytes;
+    bytes = strlen(f->replacement);
+    memcpy(out + at, f->replacement, bytes);
+    at += bytes;
+    from = f->span.end;
+  }
+  strcpy(out + at, text + from);
+  return out;
+}
 static Result method_error(Arena *a, const char *text, const char *site,
                            const char *advice) {
   Result r = check(a, text);
@@ -153,7 +186,7 @@ int main(void) {
     Result r = check(
         &a, "Vault { pub visible: int\nhidden: int\n"
             "pub new(n: int) -> Vault { Vault { visible = n, hidden = 0 } }\n"
-            "read(v: Vault) -> int { v.hidden } }\n"
+            "read() -> int { self.hidden } }\n"
             "pub exported(v: Vault) -> int { v.hidden }\n"
             "local(v: &Vault) { v.hidden = v.visible }\n"
             "main() { let v = Vault.new(7)\nlocal(v)\nv.read()\nexported(v) }");
@@ -247,7 +280,7 @@ int main(void) {
         &a, "Alias = Forward\nForward = Item\nSelf = Alias\n"
             "NodeAlias = Node\nNode { next: :next[NodeAlias] | :none }\n"
             "Item { n: int\nmake(n: int) -> Self { Self { n = n } }\n"
-            "read(item: Forward) -> int { item.n } }\n"
+            "read() -> int { self.n } }\n"
             "main() { let n: Alias = Item { n = 1 }\n"
             "let same: bool = n == Forward.make(1)\nSelf.make(2).read() }");
     if (r.errors.count)
@@ -438,7 +471,7 @@ int main(void) {
     ASSERT_EQ_INT(1, conformance.errors.count);
     ASSERT_EQ_INT(0, strcmp("Trait conformance is not implemented yet.",
                             conformance.errors.items[0]->message));
-    valid(&a, "Self = int\nP { n: Self\nf(p: P) { p.n } }\nmain() { "
+    valid(&a, "Self = int\nP { n: Self\nf() { self.n } }\nmain() { "
               "print(\"self\")\nlet selfish = 1\n(P { n = selfish }).f() }");
   }
   TEST("traits stop before unavailable type, member and main cascades") {
@@ -558,11 +591,120 @@ int main(void) {
       ASSERT_EQ_INT(0, strcmp("B", fields.errors.items[1]->fixes->replacement));
     }
   }
+  TEST("wrong-way calls carry source-preserving fixes, not guessed receivers") {
+    const char *prefix =
+        "Date { day: int\nlabel() -> int { self.day }\ncombine(n: int) -> int "
+        "{ self.day + n }\nnew(n: int) -> Date { Date { day = n } "
+        "}\ncopy(value: Date) -> Date { value }\nzero() -> int { 0 } }\nView = "
+        "Date\nHolder "
+        "{ d: Date }\nmake() -> Date { Date { day = 1 } }\narg() -> int { 2 "
+        "}\nmain() { let d = Date { day = 1 }\nlet holder = Holder { d = d }\n";
+    struct {
+      const char *call, *fixed;
+      int method;
+    } cases[] = {{"Date.label(d)", "d.label()", 1},
+                 {"View.label(d)", "d.label()", 1},
+                 {"Date.combine(make(), arg())", "(make()).combine(arg())", 1},
+                 {"( /* T */ Date ).label( /* A */ (d), )",
+                  "( /* T */ ( /* A */ (d)) ).label()", 1},
+                 {"Date.label(// arg\n d)", "(// arg\n d).label()", 1},
+                 {"d.new(arg())", "Date.new(arg())", 0},
+                 {"((/* V */ d)).new(arg())", "((/* V */ Date)).new(arg())", 0},
+                 {"make().copy()", "Date.copy(make())", 0},
+                 {"d.copy()", "Date.copy(d)", 0},
+                 {"d |> Date.label()", "d |> label()", 1},
+                 {"d |> copy()", "d |> Date.copy()", 0},
+                 {"Date.label()", NULL, 1},
+                 {"Date.label(1)", NULL, 1},
+                 {"make().new(arg())", NULL, 0},
+                 {"holder.d.new(arg())", NULL, 0},
+                 {"d |> zero()", NULL, 0}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      for (unsigned crlf = 0; crlf < 2; crlf++) {
+        char lf[4096], text[8192], expected[8192];
+        snprintf(lf, sizeof(lf), "%s%s\n}\n", prefix, cases[i].call);
+        size_t n = 0;
+        for (size_t j = 0; lf[j]; j++) {
+          if (crlf && lf[j] == '\n')
+            text[n++] = '\r';
+          text[n++] = lf[j];
+        }
+        text[n] = 0;
+        Result r = check(&a, text);
+        for (unsigned repeat = 0; repeat < 2; repeat++) {
+          if (repeat) {
+            diagnostics_init(&r.errors, &a);
+            sema_check(r.program, &r.errors);
+          }
+          if (r.errors.count != 1)
+            diagnostics_print(&r.errors, stderr);
+          ASSERT_EQ_INT(1, r.errors.count);
+          ASSERT_TRUE(!r.program->checked && ir_lower(&a, r.program) == NULL);
+          Diagnostic *d = r.errors.items[0];
+          ASSERT_EQ_INT(
+              0, strcmp(cases[i].method
+                            ? "Methods are called on a value, not the type."
+                            : "Associated functions are called on the type, "
+                              "not a value.",
+                        d->message));
+          ASSERT_TRUE(d->notes && !d->notes->next);
+          if (cases[i].fixed) {
+            snprintf(lf, sizeof(lf), "%s%s\n}\n", prefix, cases[i].fixed);
+            n = 0;
+            for (size_t j = 0; lf[j]; j++) {
+              if (crlf && lf[j] == '\n')
+                expected[n++] = '\r';
+              expected[n++] = lf[j];
+            }
+            expected[n] = 0;
+            ASSERT_TRUE(d->fixes != NULL);
+            char *fixed = apply_call_fixes(&a, text, d);
+            ASSERT_TRUE(fixed != NULL);
+            if (fixed) {
+              ASSERT_EQ_INT(0, strcmp(expected, fixed));
+              valid(&a, fixed);
+            }
+          } else
+            ASSERT_TRUE(d->fixes == NULL);
+          ASSERT_EQ_INT(0, strcmp(text, d->span.file->text));
+        }
+      }
+    }
+    valid(&a, "P { n: int\nget(p: P) -> bool { true } }\nget(p: P) -> int { "
+              "p.n }\nmain() -> int { P { n = 1 } |> get() }");
+    invalid(&a,
+            "P { n: int\nget(p: P) -> bool { true } }\nmain() { let get = 0\nP "
+            "{ n = 1 } |> get() }",
+            "A local binding is not callable");
+  }
+  TEST("wrong-way diagnostics retain SCC return anchors and fixes") {
+    const char *text = "P { n: int\nrecur(n: int) { if n == 0 { ret self.n "
+                       "}\nP.recur(self, n - 1) } }\nmain() {}";
+    Result r = check(&a, text);
+    ASSERT_EQ_INT(1, r.errors.count);
+    ASSERT_EQ_INT(SEMA_INT, r.program->functions[0].symbol.return_type->kind);
+    ASSERT_EQ_INT(0, strcmp("Methods are called on a value, not the type.",
+                            r.errors.items[0]->message));
+    char *fixed = apply_call_fixes(&a, text, r.errors.items[0]);
+    ASSERT_TRUE(fixed != NULL);
+    if (fixed)
+      valid(&a, fixed);
+    text = "P { n: int\ncopy(p: P) { p } }\nf(p: P, b: bool) { if b { ret p "
+           "}\ng(p, b) }\ng(p: P, b: bool) { f(p, true).copy() }\nmain() {}";
+    r = check(&a, text);
+    ASSERT_EQ_INT(1, r.errors.count);
+    ASSERT_TRUE(r.program->functions[1].symbol.return_type ==
+                &r.program->structs[0].type);
+    fixed = apply_call_fixes(&a, text, r.errors.items[0]);
+    ASSERT_TRUE(fixed != NULL);
+    if (fixed)
+      valid(&a, fixed);
+  }
   TEST("member ownership, concrete types, associated and receiver calls") {
     valid(&a, "A { x: int\nnew() -> A { A { x = 1 } }\n"
-              "get(a: A) { a.x } }\nmain() { A.new().get() }");
-    valid(&a, "A { unit: ()\nget(a: A) { 1 } }\n"
-              "B { unit: ()\nget(b: B) { true } }\nget() {}\n"
+              "get() { self.x } }\nmain() { A.new().get() }");
+    valid(&a, "A { unit: ()\nget() { self\n1 } }\n"
+              "B { unit: ()\nget() { self\ntrue } }\nget() {}\n"
               "main() { let n: int = A { unit = () }.get()\n"
               "let b: bool = B { unit = () }.get()\nget() }");
     valid(&a, "A { unit: ()\nmain() {} }\nmain() {}");
@@ -578,10 +720,10 @@ int main(void) {
     invalid(&a, "A { unit: () }\nf(a: A) {}\nmain() { A { unit = () }.f() }",
             "Unknown method");
     invalid(&a, "A { unit: ()\nf() {} }\nmain() { A { unit = () }.f() }",
-            "first parameter");
+            "Associated functions are called on the type");
     invalid(&a, "A { unit: ()\nf(a: int) {} }\nmain() { A { unit = () }.f() }",
-            "first parameter");
-    invalid(&a, "A { unit: ()\nf(a: A) {} }\nmain() { A { unit = () }.f(1) }",
+            "Associated functions are called on the type");
+    invalid(&a, "A { unit: ()\nf() { self } }\nmain() { A { unit = () }.f(1) }",
             "Wrong number");
     invalid(&a, "A { unit: ()\nf(a: A) {} }\n", "must define main");
     invalid(&a, "main() { \"x\".f() }", "Unknown method");
@@ -666,10 +808,10 @@ int main(void) {
           "}\nmain() {}");
     valid(&a, "P { unit: () }\nsave(value: P, n: int) {}\n"
               "f(p: P) { save(p, 1)\np |> save(1) }\nmain() {}");
-    valid(&a, "P { unit: ()\nsave(p: P) -> int { 1 } }\n"
+    valid(&a, "P { unit: ()\nsave() -> int { self\n1 } }\n"
               "save(p: P) -> bool { true }\nf(p: P) { let save = 0\n"
               "let a: int = p.save()\nlet b: int = p |> save() }\nmain() {}");
-    r = check(&a, "P { unit: ()\nsave(p: P) -> int { 1 } }\n"
+    r = check(&a, "P { unit: ()\nsave() -> int { self\n1 } }\n"
                   "save(p: P) -> bool { true }\nf(p: P) {\n"
                   "let a: int = p.save()\nlet b: int = p |> save()\n"
                   "let c: bool = save(p) }\nmain() {}");
@@ -787,7 +929,7 @@ int main(void) {
     if (r.errors.count)
       ASSERT_EQ_STRN("Unknown binding.", r.errors.items[0]->message,
                      strlen(r.errors.items[0]->message));
-    valid(&a, "P { unit: ()\nsame(p: P) -> P { p } }\n"
+    valid(&a, "P { unit: ()\nsame() -> P { self } }\n"
               "f(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
               "g(p: P, b: bool) { f(p, true).same() }\nmain() {}");
     valid(&a, "P { unit: () }\nsame(p: P) { p }\n"
@@ -817,10 +959,10 @@ int main(void) {
     invalid(&a, "A { unit: () }\nf(a: &A) { a = A { unit = () } }\nmain() {}",
             "immutable binding");
     invalid(&a, "main() {}\nf(a: &str) {}", "requires a struct or symbol type");
-    valid(&a, "A { n: int\nbump(a: &A) { a.n++ } }\n"
+    valid(&a, "A { n: int\nbump(&self) { self.n++ } }\n"
               "g(a: &A) { a.bump() }\nmain() { g(A { n = 1 }) }");
     invalid(&a,
-            "A { n: int\nbump(a: &A) { a.n++ } }\n"
+            "A { n: int\nbump(&self) { self.n++ } }\n"
             "g(a: A) { a.bump() }\nmain() {}",
             "read-only value cannot be passed");
     invalid(&a, "A { n: int }\nf(a: A) { let alias = a\nalias.n++ }\nmain() {}",
@@ -873,7 +1015,7 @@ int main(void) {
   }
   TEST("calls and literals preserve read-only access conservatively") {
     const char *prefix =
-        "A { n: int\nsame(a: A) -> A { a }\nnew(a: A) -> A { A { n = 0 } } }\n"
+        "A { n: int\nsame() -> A { self }\nnew(a: A) -> A { A { n = 0 } } }\n"
         "Q { p: A }\nR { p: A\nother: A\nn: int }\n"
         "U { p: A\nu: () }\nidentity(a: A) -> A { a }\n"
         "pick(a: A, b: A) -> A { a }\nafter(a: A, u: ()) -> A { a }\n"

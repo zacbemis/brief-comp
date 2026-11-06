@@ -23,32 +23,32 @@ User {
     User { name = name, age = age, tier = :tier1 }
   }
 
-  pub getName(user: User) -> str {
-    user.name
+  pub getName() -> str {
+    self.name
   }
 
-  pub getAgeRange(user: User) -> :minor | :adult | :senior {
-    user.age |> {
+  pub getAgeRange() -> :minor | :adult | :senior {
+    self.age |> {
       < 18 => :minor
       18..65 => :adult
       >= 65 => :senior
     }
   }
 
-  pub promote(user: &User) {
-    user.tier = user.tier |> {
+  pub promote(&self) {
+    self.tier = self.tier |> {
       :tier1 => :tier2
       _ => :tier3
     }
   }
 
-  pub describe(user: User) -> str {
-    let range = user.getAgeRange() |> {
+  pub describe() -> str {
+    let range = self.getAgeRange() |> {
       :minor => "minor"
       :adult => "adult"
       :senior => "senior"
     }
-    user.name + " (" + range + ", " + str(user.age) + ")"
+    self.name + " (" + range + ", " + str(self.age) + ")"
   }
 }
 

@@ -1,6 +1,6 @@
 Child { name: str
 
-  combine(c: &Child, other: Child) -> str { c.name + ":" + other.name }
+  combine(&self, other: Child) -> str { self.name + ":" + other.name }
 }
 Holder { child: Child }
 swap(h: &Holder) -> Child {

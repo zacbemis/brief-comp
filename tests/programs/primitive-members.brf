@@ -15,7 +15,7 @@ Values {
 Ref = Values
 Box {
   value: int
-  str(box: Box) -> str { str(box.value) }
+  str() -> str { str(self.value) }
 }
 main() {
   print(str(Values.bool(false))) // expect: true

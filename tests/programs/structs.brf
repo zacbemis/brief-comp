@@ -5,10 +5,10 @@ User {
 
 
   pub new(name: str, age: int) -> User { User { age = age, ignored = (), name = name } }
-  pub label(user: User) { user.name + ": " + str(user.age) }
-  pub birthday(user: &User) { user.age++ }
-  pub rename(user: &User, name: str) { user.name = name }
-  identity(user: User) -> User { user }
+  pub label() { self.name + ": " + str(self.age) }
+  pub birthday(&self) { self.age++ }
+  pub rename(&self, name: str) { self.name = name }
+  identity() -> User { self }
 }
 Box { user: User }
 throughMethod(user: User, stop: bool) {
@@ -49,7 +49,7 @@ main() {
   let box = Box { user = user }
   box.user.age = 23
   print(user.label()) // expect: Robert!: 23
-  print(str(User.label(user) == user.label())) // expect: true
+  print(str((user |> label()) == user.label())) // expect: true
   box.user = User.new("Jane", 30)
   print(box.user.label()) // expect: Jane: 30
   print(alias.label()) // expect: Robert!: 23

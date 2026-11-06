@@ -59,6 +59,133 @@ static void unknown_method(Checker *c, SemaExpr *call,
            candidate->name);
   diagnostic_note(c->errors, d, candidate->span, message);
 }
+static char *source_text(Checker *c, Span span, const char *before,
+                         const char *after) {
+  if (!span.file || span.start > span.end || span.end > span.file->length)
+    return NULL;
+  size_t a = strlen(before), n = span.end - span.start, b = strlen(after);
+  if (memchr(span.file->text + span.start, 0, n))
+    return NULL; // Diagnostic replacement strings cannot contain source NULs.
+  char *text = arena_alloc(c->p->arena, a + n + b + 1);
+  memcpy(text, before, a);
+  memcpy(text + a, span.file->text + span.start, n);
+  memcpy(text + a + n, after, b + 1);
+  return text;
+}
+// Move exact source chunks, not pretty-printed expressions. Delimiter metadata
+// is immutable and belongs to the original call, including in pipeline copies.
+static void wrong_call(Checker *c, SemaExpr *call, SemaSymbol *s, int on_type) {
+  Diagnostic *d = error(
+      c, call->span,
+      on_type ? "Methods are called on a value, not the type."
+              : "Associated functions are called on the type, not a value.");
+  if (!d)
+    return;
+  diagnostic_note(c->errors, d, s->span,
+                  on_type ? "This function has a 'self' receiver."
+                          : "This function has no 'self' receiver.");
+  const Expr *syntax = call->as.call.syntax;
+  if (!syntax || syntax->kind != EXPR_CALL)
+    return;
+  const Expr *callee = syntax->as.call.callee;
+  const SemaType *owner = &s->owner->type;
+  if (on_type) {
+    if (callee->kind != EXPR_FIELD)
+      return;
+    const Expr *qualifier = callee->as.field.object;
+    if (qualifier->kind != EXPR_NAME || !qualifier->name_span.file)
+      return;
+    if (call->as.call.source_pipeline) {
+      Span dot = callee->as.field.dot_span;
+      if (dot.file != qualifier->name_span.file || dot.end != dot.start + 1 ||
+          dot.end > dot.file->length || dot.file->text[dot.start] != '.' ||
+          !call->as.call.count || call->as.call.args[0]->type != owner ||
+          qualifier->span.start != qualifier->name_span.start ||
+          qualifier->span.end != qualifier->name_span.end)
+        return;
+      diagnostic_fix(c->errors, d, qualifier->name_span, "");
+      diagnostic_fix(c->errors, d, callee->as.field.dot_span, "");
+      return;
+    }
+    if (!syntax->as.call.count || !call->as.call.count ||
+        call->as.call.args[0]->type != owner)
+      return;
+    const Expr *arg = syntax->as.call.args[0];
+    Span open = syntax->as.call.open_span,
+         comma = syntax->as.call.first_comma_span;
+    if (!open.file || open.file != arg->span.file ||
+        open.file != qualifier->name_span.file || open.end > arg->span.start)
+      return;
+    if (open.end != open.start + 1 || open.end > open.file->length ||
+        open.file->text[open.start] != '(' ||
+        (!comma.file && syntax->as.call.count > 1))
+      return;
+    if (comma.file &&
+        (comma.file != open.file || comma.start < arg->span.end ||
+         comma.end != comma.start + 1 || comma.end > open.file->length ||
+         open.file->text[comma.start] != ','))
+      return;
+    size_t end = comma.file ? comma.start : arg->span.end;
+    if (end < open.end || end > open.file->length)
+      return;
+    Span chunk = span_make(open.file, open.end, end);
+    int simple = (arg->kind == EXPR_NAME || arg->kind == EXPR_SELF) &&
+                 arg->span.start == arg->name_span.start &&
+                 arg->span.end == arg->name_span.end;
+    for (size_t i = chunk.start; simple && i < chunk.end; i++)
+      if (chunk.file->text[i] == '\n' || chunk.file->text[i] == '\r' ||
+          chunk.file->text[i] == '/')
+        simple = 0;
+    char *text = source_text(c, chunk, simple ? "" : "(", simple ? "" : ")");
+    if (!text)
+      return;
+    // Drop the separator's following spaces too, so `(d, 2)` becomes `(2)`.
+    size_t cut = comma.file ? comma.end : end;
+    while (comma.file && cut < open.file->length &&
+           (open.file->text[cut] == ' ' || open.file->text[cut] == '\t'))
+      cut++;
+    diagnostic_fix(c->errors, d, qualifier->name_span, text);
+    diagnostic_fix(c->errors, d, span_make(open.file, open.end, cut), "");
+    return;
+  }
+  int keep = s->arity && call->as.call.count == s->arity &&
+             s->params[0]->type == owner;
+  if (call->as.call.source_pipeline) {
+    if (keep && callee->kind == EXPR_NAME && callee->name_span.file) {
+      size_t n = strlen(owner->name);
+      char *prefix = arena_alloc(c->p->arena, n + 2);
+      memcpy(prefix, owner->name, n);
+      prefix[n] = '.';
+      prefix[n + 1] = 0;
+      diagnostic_fix(c->errors, d,
+                     span_make(callee->name_span.file, callee->name_span.start,
+                               callee->name_span.start),
+                     prefix);
+    }
+    return;
+  }
+  if (callee->kind != EXPR_FIELD)
+    return;
+  const Expr *value = callee->as.field.object;
+  Span open = syntax->as.call.open_span;
+  if (!open.file || open.file != value->span.file)
+    return;
+  if (keep) {
+    char *text =
+        source_text(c, value->span, "", syntax->as.call.count ? ", " : "");
+    if (!text)
+      return;
+    diagnostic_fix(c->errors, d, value->span, owner->name);
+    diagnostic_fix(c->errors, d, span_make(open.file, open.end, open.end),
+                   text);
+  } else if (call->as.call.count == s->arity + 1 &&
+             (value->kind == EXPR_NAME || value->kind == EXPR_SELF) &&
+             value->name_span.file) {
+    // Removing a simple binding read has no effects. Do not drop evaluation of
+    // calls, indexing, operators or other potentially effectful receivers.
+    diagnostic_fix(c->errors, d, value->name_span, owner->name);
+  }
+}
 static const SemaType *join(Checker *c, const SemaType *a, const SemaType *b,
                             Span span, const char *message) {
   if (a->kind == SEMA_NEVER || unknown(a))
@@ -209,8 +336,10 @@ static const SemaType *pipeline_hint(Checker *c, SemaExpr *binding) {
                                     : call->as.call.args[0]);
     s = sema_method(c->p, receiver, call->as.call.method);
     if (call->as.call.pipeline) {
-      if (!s && !call->as.call.shadowed)
-        s = call->as.call.fallback;
+      if (!s || s->receiver == RECEIVER_NONE)
+        s = call->as.call.shadowed   ? NULL
+            : call->as.call.fallback ? call->as.call.fallback
+                                     : s;
     } else
       arg = 1;
   }
@@ -530,12 +659,16 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     break;
   case SEMA_EXPR_CALL: {
     SemaSymbol *s = e->as.call.target;
+    int wrong_form = 0, on_type = 0;
     if (e->as.call.method) {
       const SemaType *receiver = check(c, e->as.call.args[0], NULL, VALUE);
       SemaSymbol *method = sema_method(c->p, receiver, e->as.call.method);
       s = method;
-      if (e->as.call.pipeline && !special(receiver) && !method)
-        s = e->as.call.shadowed ? NULL : e->as.call.fallback;
+      if (e->as.call.pipeline && !special(receiver) &&
+          (!method || method->receiver == RECEIVER_NONE)) {
+        SemaSymbol *fallback = e->as.call.fallback;
+        s = e->as.call.shadowed ? NULL : fallback ? fallback : method;
+      }
       e->as.call.target = s;
       if (!special(receiver)) {
         if (!s) {
@@ -545,15 +678,18 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
                                       : "Unknown function.");
           else
             unknown_method(c, e, receiver);
-        } else if (method && (!s->arity || s->params[0]->type != receiver))
-          error(c, e->span,
-                "A method requires a first parameter of the receiver type.");
+        } else if (s == method && s->receiver == RECEIVER_NONE)
+          wrong_form = 1;
       }
+    } else if (s && s->owner && s->receiver != RECEIVER_NONE) {
+      wrong_form = on_type = 1;
     }
+    e->as.call.wrong_form = wrong_form;
     for (size_t i = 0; i < e->as.call.count; i++) {
       c->reachable = reachable && (flow & SEMA_NEXT);
       SemaExpr *arg = e->as.call.args[i];
-      const SemaType *wanted = s && i < s->arity ? s->params[i]->type : NULL;
+      const SemaType *wanted =
+          !wrong_form && s && i < s->arity ? s->params[i]->type : NULL;
       if (!(e->as.call.method && i == 0))
         check(c, arg, conversion_context(s, arg, wanted), VALUE);
       expect(c, arg, wanted,
@@ -570,7 +706,9 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
               "Numeric conversion expects a number, chr or str argument.");
       flow = sequence(flow, arg->flow);
     }
-    if (s && e->as.call.count != s->arity)
+    if (wrong_form)
+      wrong_call(c, e, s, on_type);
+    if (!wrong_form && s && e->as.call.count != s->arity)
       error(c, e->span,
             s->builtin == SEMA_BUILTIN_PRINT
                 ? "print expects exactly one str argument."

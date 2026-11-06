@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **150 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **152 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -506,9 +506,20 @@ reads, mutable and unused receivers, recursive calls, returned self, string and
 symbol ownership, aliases and an associated function taking the owner type.
 `errors/self-permissions.brf` rejects direct/aliased mutation, mutable calls,
 returned aliases and storage through read-only self. The inventory is 150 files.
-Existing native runtime observations are unchanged. Strict call-form rules and
-source conversion remain pending; ordinary typed parameters keep current call
-compatibility until that N1 step.
+Native runtime observations were unchanged. Strict call forms and their source
+conversion were still pending at that increment; its inventory was 150 files.
+
+Strict call forms now distinguish inferred self methods from associated
+functions, even when an ordinary first parameter has the owner type. Migrated
+methods use `self`/`&self`; genuine associated parameters stay explicit.
+`errors/wrong-way-calls.brf` checks both forms, required fix previews and
+no-guess cases. `call-forms.brf` observes legal calls, pipeline equivalence and
+receiver/argument evaluation order. The inventory is 152 files. Existing
+outputs, statuses, panic observations and native error lines/messages are
+preserved. The old type/value-method equality assertion now compares pipeline
+and dotted calls to the same method; qualified-pipeline coverage retains a
+readonly self method even though its receiver is otherwise unused. N2 behavior
+and the native chapter-audit gap are unchanged.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

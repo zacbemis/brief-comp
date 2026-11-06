@@ -29,32 +29,32 @@ Account {
   history: :none | :more[Entry]
 
 
-  record(account: &Account, label: str, amount: lng) {
-    account.balance += amount
-    account.history = :more[Entry {
+  record(&self, label: str, amount: lng) {
+    self.balance += amount
+    self.history = :more[Entry {
       label = label
       amount = amount
-      balance = account.balance
-      older = account.history
+      balance = self.balance
+      older = self.history
     }]
   }
 
-  deposit(account: &Account, amount: lng, label: str) ->
+  deposit(&self, amount: lng, label: str) ->
     :ok | :badAmount[lng] | :frozen[int] {
     if amount <= 0 { ret :badAmount[amount] }
-    if account.frozen { ret :frozen[account.id] }
-    account.record(label, amount)
+    if self.frozen { ret :frozen[self.id] }
+    self.record(label, amount)
   }
 
   // The withdrawal's error set is inferred: :badAmount, :frozen and
   // :insufficient, from the returns below.
-  withdraw(account: &Account, amount: lng, label: str) {
+  withdraw(&self, amount: lng, label: str) {
     if amount <= 0 { ret :badAmount[amount] }
-    if account.frozen { ret :frozen[account.id] }
-    if amount > account.balance {
-      ret :insufficient[Shortfall { id = account.id, needed = amount - account.balance }]
+    if self.frozen { ret :frozen[self.id] }
+    if amount > self.balance {
+      ret :insufficient[Shortfall { id = self.id, needed = amount - self.balance }]
     }
-    account.record(label, -amount)
+    self.record(label, -amount)
   }
 }
 
@@ -71,23 +71,23 @@ Bank {
 
   new(name: str) -> Bank { Bank { name = name, accounts = :none, nextId = 100 } }
 
-  open(bank: &Bank, owner: str, kind: Kind) -> Account {
+  open(&self, owner: str, kind: Kind) -> Account {
     let account = Account {
-      id = bank.nextId
+      id = self.nextId
       owner = owner
       kind = kind
       balance = 0
       frozen = false
       history = :none
     }
-    bank.nextId++
-    bank.accounts = :more[Node { account = account, next = bank.accounts }]
+    self.nextId++
+    self.accounts = :more[Node { account = account, next = self.accounts }]
     account
   }
 
   // Taking the bank as & makes the account it returns writable.
-  find(bank: &Bank, id: int) -> :ok[Account] | :noAccount[int] {
-    var cursor = bank.accounts
+  find(&self, id: int) -> :ok[Account] | :noAccount[int] {
+    var cursor = self.accounts
     while true {
       let node = cursor |> {
         :none => ret :noAccount[id]
@@ -100,18 +100,18 @@ Bank {
 
   // Checks everything before moving money, so a failed transfer changes
   // nothing. The return type is inferred from every ? and ret.
-  transfer(bank: &Bank, from: int, to: int, amount: lng) {
+  transfer(&self, from: int, to: int, amount: lng) {
     if from == to { ret :sameAccount }
-    let source = bank.find(from)?
-    let target = bank.find(to)?
+    let source = self.find(from)?
+    let target = self.find(to)?
     if target.frozen { ret :frozen[to] }
     source.withdraw(amount, "transfer to #" + str(to))?
     target.deposit(amount, "transfer from #" + str(from))?
   }
 
   // Adds a month of interest to every savings account.
-  interest(bank: &Bank, yearlyBps: int) {
-    var cursor = bank.accounts
+  interest(&self, yearlyBps: int) {
+    var cursor = self.accounts
     while true {
       let node = cursor |> {
         :none => break
@@ -129,11 +129,11 @@ Bank {
     }
   }
 
-  report(bank: Bank) {
-    print("== " + bank.name)
+  report() {
+    print("== " + self.name)
     var checking: lng = 0
     var savings: lng = 0
-    var cursor = bank.accounts
+    var cursor = self.accounts
     while true {
       let node = cursor |> {
         :none => break

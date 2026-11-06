@@ -176,6 +176,8 @@ struct SemaExpr {
       int pipeline;       // Unqualified pipeline lookup: method before module
                           // function.
       int shadowed, handled;
+      const Expr *syntax; // Original arena-owned call, never a pipeline copy.
+      int source_pipeline, wrong_form;
       SemaSymbol *fallback; // Pipeline fallback; dotted calls use it only as
                             // a diagnostic candidate, never a call target.
     } call;

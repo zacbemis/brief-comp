@@ -78,8 +78,11 @@ written `&self` creates a canonical owner parameter before return inference.
 Existing permissions and ownership apply; outside-owner use and unavailable
 traits/imports/conformance retain their scope errors. Parser counts stay
 unchanged, and no whole-fence parser check becomes native/API acceptance.
-Strict call-form enforcement, source conversion and replacement chapter audits
-remain pending, so N1 is incomplete.
+Strict call forms now reject wrong-way calls with safe fixes, and affected
+native fixtures, examples and embedded sources are converted. Pipelines prefer
+actual self methods before visible module functions. This does not complete a
+replacement chapter audit or add trait/module resolution. Remaining N1 rules,
+source conversions for those rules and replacement audits keep N1 incomplete.
 
 ## N1 spelling bridges
 

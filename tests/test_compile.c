@@ -224,11 +224,11 @@ int main(void) {
     const char *bodies[] = {
         ("new(n: Num) -> Ref { Ref { n = n, text = Text(n), unit = "
          "() } }\n"
-         "read(r: Ref) -> Num { r.n } }\n"
+         "read() -> Num { self.n } }\n"
          "main() { let n = Num(42)\nprint(Text(Ref.new(n).read())) }\n"),
         ("new(n: lng) -> User { User { n = n, text = str(n), unit "
          "= () } }\n"
-         "read(r: User) -> lng { r.n } }\n"
+         "read() -> lng { self.n } }\n"
          "main() { let n = lng(42)\nprint(str(User.new(n).read())) }\n")};
     char *emitted[2] = {NULL, NULL};
     for (size_t i = 0; i < 2; i++) {

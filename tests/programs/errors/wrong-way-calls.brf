@@ -1,0 +1,15 @@
+Date {
+  day: int
+  label() -> int { self.day }
+  new(day: int) -> Date { Date { day = day } }
+  copy(value: Date) -> Date { value }
+}
+make() -> Date { Date { day = 1 } }
+main() {
+  let d = Date { day = 1 }
+  Date.label(d) // error: Methods are called on a value, not the type. // fix: d.label()
+  d.new(2) // error: Associated functions are called on the type, not a value. // fix: Date.new(2)
+  d.copy() // error: Associated functions are called on the type, not a value. // fix: Date.copy(d)
+  Date.label() // error: Methods are called on a value, not the type.
+  make().new(2) // error: Associated functions are called on the type, not a value.
+}

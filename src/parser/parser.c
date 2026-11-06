@@ -1541,6 +1541,7 @@ static Decl *declaration(Parser *p, int in_member) {
 static Expr *call(Parser *p, Expr *callee, List types) {
   if (!expect(p, TOK_LPAREN, "Expected '(' in call."))
     return NULL;
+  Span open = p->previous.span, first_comma = {0};
   List args = {0};
   if (!at(p, TOK_RPAREN)) {
     do {
@@ -1550,6 +1551,8 @@ static Expr *call(Parser *p, Expr *callee, List types) {
       PUSH(p, args, arg);
       if (!match(p, TOK_COMMA))
         break;
+      if (args.count == 1)
+        first_comma = p->previous.span;
       if (at(p, TOK_RPAREN))
         break;
     } while (!at(p, TOK_EOF));
@@ -1562,6 +1565,8 @@ static Expr *call(Parser *p, Expr *callee, List types) {
   e->as.call.count = args.count;
   e->as.call.types = types.data;
   e->as.call.type_count = types.count;
+  e->as.call.open_span = open;
+  e->as.call.first_comma_span = first_comma;
   return e;
 }
 static Expr *collection_literal(Parser *p, Expr *head, List types) {
@@ -2216,6 +2221,7 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
         continue;
       }
       if (match(p, TOK_PERIOD)) {
+        Token dot = p->previous;
         if (!expect_member_name(p,
                                 "Expected a field or method name after '.'."))
           return NULL;
@@ -2223,6 +2229,7 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
             new_expr(p, EXPR_FIELD, through(left->span, p->previous.span));
         e->as.field.object = left;
         e->as.field.name = name(p, p->previous);
+        e->as.field.dot_span = dot.span;
         left = e;
         continue;
       }

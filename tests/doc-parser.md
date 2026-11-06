@@ -134,14 +134,20 @@ self expression nodes without native binding/inference or default dispatch.
 Modules fence 4 still needs interpolation and moves to N5 instead of passing
 as a plain string. Counts are 162 checks and 77 fenced listings, plus two
 unfenced listings. No current listing is blocked only by N1 parser syntax, but
-call-form enforcement, multi-payload support and replacement audits still leave
-N1 in progress. No native chapter audit is completed.
+multi-payload support, remaining rules and replacement audits still leave N1
+in progress. No native chapter audit is completed.
 
 Native struct receivers now bind a canonical owner parameter, use existing
 permissions/ownership and infer method-ness syntactically before return probes.
 This changes no parser counts and does not upgrade the whole-fence parser checks
-to native/API tests. Trait/default dispatch and strict call-form rules are still
-unavailable. No replacement native chapter audit is complete.
+to native/API tests. Trait/default dispatch remains unavailable, and no
+replacement native chapter audit is complete.
+
+Wrong-way calls now reject in native checking, with tested source-preserving
+fixes such as `Date.label(d)` to `d.label()`. Source migration preserves native
+observations, but does not turn modules fence 5's parser-only call expressions
+into a native contract audit. Parser counts are unchanged. No missing receiver,
+helper body or speculative module API is synthesized.
 
 ## Native acceptance gap
 

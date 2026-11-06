@@ -754,7 +754,7 @@ int main(void) {
   TEST(
       "permission messages distinguish read-only values from mutable targets") {
     const char *prefix =
-        "P { n: int\n bump(p: &P) { p.n++ } }\n"
+        "P { n: int\n bump(&self) { self.n++ } }\n"
         "Choice = :some[P] | :none\nNested = :outer[Choice] | :empty\n"
         "Scalar = :text[str] | :number[int]\nWrapper { part: P\nmarker: int }\n"
         "Holder { item: P\nchoice: Choice\nnested: Nested\nwrapper: Wrapper\n"

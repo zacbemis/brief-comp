@@ -61,7 +61,8 @@ write `&self`, but plain `self` parameters are trait-only. Parser receiver
 metadata/spans stay separate from ordinary parameters and invent no type/slot.
 Native resolution now binds a canonical owner parameter for self-using struct
 functions or written `&self`, before return inference. Outside-owner use is
-invalid. Native call-form enforcement and source conversion remain pending.
+invalid. Native checking rejects wrong-way calls; syntax-only examples do not
+establish their method/associated-function contracts.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree

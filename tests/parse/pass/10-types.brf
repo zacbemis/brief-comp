@@ -32,12 +32,12 @@ Holder {
   last: str
 
 
-  pub same(holder: Holder) -> Holder {
-    holder
+  pub same() -> Holder {
+    self
   }
 
-  pub get(holder: &Holder, index: int) -> :ok[int] | :outOfRange[int] {
-    :ok[holder.plain]
+  pub get(&self, index: int) -> :ok[int] | :outOfRange[int] {
+    :ok[self.plain]
   }
 }
 

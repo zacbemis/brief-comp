@@ -12,8 +12,8 @@ User { text: Text
   unit: Unit
 
   new(text: Text, n: Count) -> Self { Forward { text = text, n = n, unit = () } }
-  read(u: Self) -> Count { u.n }
-  add(u: &Ref, n: Count) { u.n += n }
+  read() -> Count { self.n }
+  add(&self, n: Count) { self.n += n }
 }
 Node { next: :next[NodeRef] | :none
   n: Count }
