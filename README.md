@@ -12,8 +12,8 @@ scalar/symbol/string matching, named symbol sets, success/error inference,
 Compilation supports the subset below; the parser accepts much more syntax.
 The design docs also include deferred features and fragments needing context.
 The [document status](tests/doc-acceptance.md) distinguishes retired v0 evidence
-from the current parser inventory, scoped syntax/functions/types native audits
-and the remaining native-audit gap.
+from the current parser inventory and scoped syntax/functions/types/modules
+native audits, with remaining API and raw-base gaps.
 
 ## Build and test
 
@@ -361,10 +361,13 @@ Panics terminate the process without unwinding owners.
   The [types native audit](tests/doc-types-n1.md) adds eight unchanged fences,
   twelve independent prose cases and 20 listings. The
   [syntax native audit](tests/doc-syntax-n1.md) checks seven unchanged fences,
-  thirteen prose programs and 28 listings. Run all with
-  `ctest --test-dir build -L doc-native --output-on-failure`, or select
-  `-L doc-functions`, `-L doc-types` or `-L doc-syntax`. Parser checks use
-  `-L doc-parser`.
+  thirteen prose programs and 28 listings. The
+  [modules native audit](tests/doc-modules-n1.md) checks five unchanged fences,
+  fifteen prose programs and 14 listings, without cross-file API stand-ins.
+  Run all with `ctest --test-dir build -L doc-native --output-on-failure`, or
+  select `-L doc-functions`, `-L doc-types`, `-L doc-syntax` or
+  `-L doc-modules`.
+  Parser checks use `-L doc-parser`.
 - `tests/parse/`: 155 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).

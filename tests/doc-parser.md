@@ -17,7 +17,10 @@ statement fences and twelve prose programs, with 20 explicit native listings.
 Those body wrappers likewise leave the parser checks/listings unchanged.
 The [syntax native audit](doc-syntax-n1.md) checks seven complete fences and
 thirteen independent prose programs; its 28 native listings do not promote or
-alter parser classifications either.
+alter parser classifications either. The
+[modules native audit](doc-modules-n1.md) checks five complete fences and
+fifteen prose programs, with 14 native listings and no cross-file API mocks.
+Its name/visibility/scope checks do not change parser counts.
 The shared whole-fence reader now preserves mixed LF/CRLF bytes, with CRLF,
 UTF-8 and semicolon integrity checked by the native manifest guards.
 

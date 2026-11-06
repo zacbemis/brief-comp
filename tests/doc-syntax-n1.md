@@ -76,22 +76,22 @@ count, status 1, no emitted C and no unexpected fix or sanitizer report.
 
 These complete authored programs do not complete any listed fence. Local
 casing and the specified keyword retirements are covered without changing
-production diagnostics. Module/file naming and any remaining keyword review
-stay with the pending module/base audits; no global casing completion is
-claimed. N4 bindings/inclusive/typed loops and N2/N3 outcome policy are
-unchanged.
+production diagnostics. The modules audit now reviews available module-name
+and keyword grammar; filesystem module naming/discovery is not claimed.
+N4 bindings/inclusive/typed loops and N2/N3 outcome policy are unchanged.
 
 ## Integrity and artifacts
 
 The only shared harness addition writes complete rejection fences verbatim,
 so an existing main cannot acquire a duplicate entry or shifted error line.
 The compiler-free positive checks this with CRLF bytes and an unchanged line
-frame, alongside existing top/body/UTF-8/semicolon checks. Thirteen independent
-negative guards now include listed-as-complete rejection attempts.
+frame, alongside existing top/body/UTF-8/semicolon checks. Nineteen independent
+negative guards now include listed-as-complete attempts and exact fix-preview
+registration/protocol failures added for the modules audit.
 
 Generated cases, provenance, classifications and logs are under
 `build/tests/current-doc-syntax/` and `current-doc-syntax_sanitized/`.
 Shared guards use `build/tests/doc-native-manifest-fixtures/`. Parser counts,
 frozen documents, existing fixtures and compiler/runtime behavior are unchanged.
-Syntax, functions and types have bounded native audits, not full API coverage;
-modules and the raw base audit remain pending. N1 is still in progress.
+Syntax, functions, types and modules have bounded native audits, not full API
+coverage. The raw base audit and final N1 review remain pending.

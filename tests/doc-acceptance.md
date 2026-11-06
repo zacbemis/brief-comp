@@ -9,7 +9,7 @@ The replacement [current-document parser inventory](doc-parser.md) reads all
 13 current chapters: 239 fences, 162 parser checks, 77 explicitly listed fences
 and two zero-fence listings. Parser checks are not native acceptance. The
 retirement left an intentional native document-coverage gap. The first scoped
-syntax/functions/types audits below begin closing it; program fixtures and
+syntax/functions/types/modules audits begin closing it; program fixtures and
 independent C/compiler/native-driver tests remain active.
 
 ```sh
@@ -50,13 +50,23 @@ keyword roles and exact old-spelling fixes. Mixed scopes and unavailable APIs
 receive no context substitutions. An existing main is preserved without adding
 a duplicate entry. Run this audit with `-L doc-syntax`.
 
-This is bounded coverage, not complete syntax/function/type/API acceptance or
-completion of N1. Remaining audits return with the rules they can actually
+The [current modules native audit](doc-modules-n1.md) checks five unchanged
+fences: struct/alias/constructor executions, the pub-type diagnostic with its
+exact comment-preserving fix, and a file-level-statement rejection. Fifteen
+independent prose programs bring it to 20 cases (seven executions, thirteen
+rejection programs). All 19 fences are classified; 14 remain explicit listings.
+No module loader, privacy boundary or missing API is simulated. Available
+module-name syntax has casing checks, but filesystem case/discovery requires
+the out-of-scope loader. Run this audit with `-L doc-modules`.
+
+This is bounded coverage, not complete syntax/function/type/module/API
+acceptance or completion of N1. Remaining audits return with the rules they can
 test, rather than through rewritten v0 scaffolds:
 
-- **N1:** modules and the raw base sample; expand the scoped audits as their
-  listed dependencies become available, and finish module/file casing and any
-  remaining keyword review.
+- **N1:** the raw base sample and final completeness review; expand the scoped
+  audits as their listed dependencies become available. Current module-name
+  grammar and reserved-mod behavior are covered; external filename/discovery
+  rules stay with the bootstrap module loader.
 - **N2:** symbols and errors sections 1–5 and 7–12.
 - **N3:** error handling section 6, pipelines and memory.
 - **N4/N5:** add bindings/loops and interpolation fences to their chapter audits.
