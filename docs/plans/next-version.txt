@@ -267,9 +267,10 @@ and outside-owner context boundaries remain; N1 is still in progress.
 
 Canonical semantic symbol variants now own ordered payload-type arrays.
 Interning, subset checks, union conflicts, equatability and reference
-reachability account for every position. This is the type-layer foundation for
-multi-payload support, not native acceptance: type/value/pattern scope barriers
-remain, and lowering/emission reject incomplete positional representations.
+reachability account for every position. Semantic values and arm bindings also
+retain positional arrays, with per-position context, coverage and shared flow.
+This is pre-ABI groundwork, not native acceptance: type/value/pattern scope
+barriers remain, and lowering/emission reject incomplete representations.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -1998,6 +1999,71 @@ chapter audit is completed. N1 remains in progress: native positional values,
 patterns and lowering/ownership, remaining casing/keywords, failure-tag source
 conversion and replacement audits remain. N2 outcomes, entry status and
 runtime formatting are unchanged; trait/module resolution remains unavailable.
+
+### N1 increment: positional semantic values, bindings and flow
+
+The semantic tree now retains a symbol's full expression list and an arm's full
+binding list/count. Wildcard entries have no variable; whole-value/catch-all
+bindings remain separate from payload positions. Zero versus one unit is kept.
+Resolution builds the arrays for existing accepted zero/one cases without
+changing variable allocation order, scopes, immutability, spans or tag identity.
+Source type/value/pattern lists with several positions still stop at the same
+unsupported boundary; typed/refutable payload patterns and qualified symbols
+retain their existing boundaries and precedence.
+
+Checking supplies each expression with that position's contextual type,
+including numeric precision/range and nested-union widening. Every position is
+checked in order; flow and reachability stop contributing after a return while
+later syntax is still checked. Return hints visit positional children, and
+recursive probes preserve complete schemas instead of anchoring only the first
+item. Coverage checks exact arity and independently types each payload binder;
+failed matches reset every binder rather than keeping stale probe-time types.
+The old boolean payload flag and shared single-payload binding are removed.
+
+The shared flow walker visits every expression, including unit positions, with
+its original index and evaluation order. Read-only permissions conservatively
+combine all payload references rather than letting the last item erase earlier
+provenance, and initialize every arm binding from the captured input. Existing
+zero/one permission behavior is unchanged; no separate flow engine is added.
+
+This is the semantic integration, not native multi-payload acceptance. The
+native payload layout, extraction instructions and RC still have one position.
+Existing type and emission guards stay. IR preflight additionally uses the
+shared walker to reject positional expressions/arms, including dead or
+non-returning syntax that never interns a positional type. It does so before
+constructing IR, so a sema API tree cannot quietly lower its first item only.
+Current zero/one lowering and owned C remain identical. The first-version
+implicit-success path remains single-result; internal multi-`:ok` attempts
+report unsupported instead of asserting, inventing a tuple or discarding
+positions. Native source diagnostics are unchanged. No N2 outcome, entry or
+runtime-formatting rule is switched.
+
+Independent semantic-tree tests cover per-position literals/nested unions,
+wrong contextual types, independent immutable binding slots, wildcards and
+wrong-arity binder resets. They recheck repeatedly and across recursive return
+components. A 512-position value/arm checks the final unit slot. Permission
+tests retain read-only provenance whether the object is first or last beside a
+unit. Shared-flow tests observe child snapshots, unit evaluation and inactive
+later syntax after a return. Native preflight tests cover non-returning values
+with no positional type and wildcard arms introduced through the sema API.
+These tests are below the source gate, not native fixture or document audits.
+
+Four fresh `-Werror` configurations pass: GCC/Clang Debug ASan/UBSan and GCC
+Release, 25/25 each; GCC Debug without sanitizers, 24/24. All 354 retained CLI
+results preserve statuses, stdout and stderr, including ASTs and fix previews.
+All 102 prior C successes are byte-identical, and all six examples retain
+sanitized stdout/stderr/status. clang-format 23.1.3, diff/prose checks and the
+23-ending CRLF fixture pass. The reviewed call-form comma whitespace trim and
+the plan's design/inventory table are unchanged. Reports:
+`build/validation/payload-values.20261106T085429Z/` (ignored).
+
+Inventories remain 152 native fixtures, 155 parser files (41 pass, 114 fail),
+239 document fences and 162 parser checks. No fence is promoted and no native
+chapter audit is complete. Next integration is native layout, positional
+packing/projection, casts, ownership and runtime traversal before removing the
+source barriers. N1 remains in progress, also awaiting remaining casing and
+keywords, failure-tag source conversion and replacement native audits. Native
+traits/modules and typed/refutable payload matching remain unavailable.
 
 ## Risks
 

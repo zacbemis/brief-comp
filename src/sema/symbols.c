@@ -353,6 +353,9 @@ void sema_symbol_coverage(SemaProgram *p, SemaExpr *e, Diagnostics *errors) {
     a->cases = NULL;
     if (a->binding)
       a->binding->type = &p->types[SEMA_ERROR];
+    for (size_t j = 0; a->payload_bindings && j < a->payload_count; j++)
+      if (a->payload_bindings[j])
+        a->payload_bindings[j]->type = &p->types[SEMA_ERROR];
     if (a->invalid) {
       valid = 0;
       continue;
@@ -364,13 +367,14 @@ void sema_symbol_coverage(SemaProgram *p, SemaExpr *e, Diagnostics *errors) {
         valid = 0;
         continue;
       }
-      if (v->payload_count > 1 || v->payload_count != (size_t)a->payload) {
+      if (v->payload_count != a->payload_count) {
         error(errors, a->span, "Symbol pattern has the wrong payload shape.");
         valid = 0;
         continue;
       }
-      if (a->binding)
-        a->binding->type = sema_single_payload(v);
+      for (size_t j = 0; a->payload_bindings && j < a->payload_count; j++)
+        if (a->payload_bindings[j])
+          a->payload_bindings[j]->type = v->payloads[j];
     } else if (a->kind == PAT_SET) {
       if (!a->set || a->set->kind != SEMA_SYM) {
         valid = 0;

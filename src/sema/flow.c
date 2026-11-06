@@ -121,8 +121,8 @@ static SemaFlowValue visit(Walk *w, SemaExpr *e, void *state) {
       result = sequence(w, e, e->as.call.args[i], i, state, result);
     break;
   case SEMA_EXPR_SYMBOL:
-    if (e->as.symbol.payload)
-      result = sequence(w, e, e->as.symbol.payload, 0, state, result);
+    for (size_t i = 0; i < e->as.symbol.count; i++)
+      result = sequence(w, e, e->as.symbol.payloads[i], i, state, result);
     break;
   case SEMA_EXPR_STRUCT:
     for (size_t i = 0; i < e->as.structure.count; i++)

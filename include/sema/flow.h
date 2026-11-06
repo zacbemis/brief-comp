@@ -36,6 +36,7 @@ typedef struct {
 // for the target object and 1 for the RHS (a local target is not read). if uses
 // condition/yes/no = 0/1/2; match uses input = 0, arm bodies = 1 onwards;
 // while uses condition/body = 0/1; for uses lower/upper/body = 0/1/2.
+// Symbol children use payload positions, including unit-valued expressions.
 // Pattern endpoints are compile-time checks, not runtime evaluations.
 //
 // Loop headers persist across whole-tree probe passes, not recursive loop

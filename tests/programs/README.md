@@ -529,5 +529,15 @@ zero/one-payload observations stay unchanged, and lowering/emission reject
 incomplete positional representations. Fixture inventory remains 152 files;
 no native chapter audit or N2 rule is added.
 
+Semantic payload values and arm bindings now retain ordered positions too.
+C tests exercise per-position literal/nested-union context, binder types and
+wildcards, repeated/recursive inference, 512 positions and conservative
+read-only aggregation. Shared-flow tests observe evaluation order, unit slots
+and inactive later syntax after a return. These internal semantic trees do not
+bypass source acceptance: native multi-payload type/value/pattern barriers
+remain, and IR preflight rejects even non-returning positional values that
+never create a positional type. Fixture counts and native observations remain
+unchanged; native layout, extraction and ownership are the next integration.
+
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

@@ -68,6 +68,32 @@ static Result invalid(Arena *a, const char *text, const char *message) {
   ASSERT_TRUE(ir_lower(a, r.program) == NULL);
   return r;
 }
+// Build internal semantic trees below the still-closed native source gate.
+static SemaExpr *copy_expr(Arena *a, const SemaExpr *source) {
+  SemaExpr *copy = arena_alloc(a, sizeof(*copy));
+  *copy = *source;
+  return copy;
+}
+static SemaVar *extra_binding(Arena *a, SemaProgram *p, SemaFunction *f,
+                              const char *name, Span span) {
+  SemaVar *v = arena_calloc(a, 1, sizeof(*v));
+  v->name = name;
+  v->span = span;
+  v->id = f->variable_count;
+  v->type = v->annotation = &p->types[SEMA_UNKNOWN];
+  v->data_mutable = 1; // Local binding; flow carries read-only provenance.
+  SemaVar **variables =
+      arena_calloc(a, f->variable_count + 1, sizeof(*variables));
+  memcpy(variables, f->variables, f->variable_count * sizeof(*variables));
+  variables[f->variable_count++] = v;
+  f->variables = variables;
+  f->variable_capacity = f->variable_count;
+  return v;
+}
+static void recheck(Arena *a, SemaProgram *p, Diagnostics *errors) {
+  diagnostics_init(errors, a);
+  sema_check(p, errors);
+}
 // Permission diagnostics must identify the argument/RHS, not the call or
 // destination field, and report once after a loop fixpoint on every check.
 static void permission_diagnostic(Arena *a, const char *text, const char *site,
@@ -331,19 +357,26 @@ int main(void) {
     ASSERT_EQ_INT(0, strcmp("Symbol tag has conflicting payload types.",
                             errors.items[0]->message));
     ASSERT_TRUE(arms[0].cases == NULL && remaining.type == all);
-    arms[0] = (SemaArm){.kind = PAT_SYMBOL, .tag = x, .payload = 1};
+    arms[0] = (SemaArm){.kind = PAT_SYMBOL, .tag = x, .payload_count = 1};
     diagnostics_init(&errors, &a);
     sema_match_coverage(p, &match, &errors);
     ASSERT_EQ_INT(1, errors.count);
     ASSERT_EQ_INT(0, strcmp("Symbol pattern has the wrong payload shape.",
                             errors.items[0]->message));
-    // The old boolean field must not masquerade as a positional binder count.
-    arms[0].payload = 2;
+    SemaVar first = {0}, second = {0};
+    SemaVar *bindings[] = {&first, &second};
+    arms[0].payload_count = 2;
+    arms[0].payload_bindings = bindings;
     diagnostics_init(&errors, &a);
     sema_match_coverage(p, &match, &errors);
-    ASSERT_EQ_INT(1, errors.count);
-    ASSERT_EQ_INT(0, strcmp("Symbol pattern has the wrong payload shape.",
-                            errors.items[0]->message));
+    ASSERT_EQ_INT(0, errors.count);
+    ASSERT_TRUE(first.type == pair[0] && second.type == pair[1]);
+    ASSERT_TRUE(arms[0].binding == NULL && arms[0].cases == one);
+    ASSERT_TRUE(remaining.type == two);
+    arms[0].payload_bindings = NULL; // Both positions are wildcards.
+    diagnostics_init(&errors, &a);
+    sema_match_coverage(p, &match, &errors);
+    ASSERT_EQ_INT(0, errors.count);
   }
   TEST("equatability follows late positions and struct-indirected cycles") {
     SemaProgram *p =
@@ -414,6 +447,276 @@ int main(void) {
       ASSERT_EQ_INT(0, ftell(out));
       fclose(out);
     }
+  }
+  TEST("semantic payload positions contextualize literals and nested unions") {
+    SemaProgram *p =
+        valid(&a, "Pair = :row[int]\nf() -> Pair { let small = 1\nlet decimal "
+                  "= 0.1\nlet inner = :first\n:row[small] }\nmain() {}")
+            .program;
+    SemaFunction *f = &p->functions[0];
+    SemaExpr **body = f->body->as.block.items;
+    SemaExpr *items[] = {copy_expr(&a, body[0]->as.binding.value),
+                         copy_expr(&a, body[1]->as.binding.value),
+                         copy_expr(&a, body[2]->as.binding.value)};
+    SemaExpr *row = body[3];
+    row->as.symbol.payloads = items;
+    row->as.symbol.count = 3;
+    const SemaType *first = sema_symbol_type(p, items[2]->as.symbol.tag, NULL);
+    const SemaType *second =
+        sema_symbol_type(p, sema_tag(p, p->module, "second"), NULL);
+    const SemaType *nested = sema_symbol_union(p, first, second);
+    const SemaType *types[] = {&p->types[SEMA_SHRT], &p->types[SEMA_FLT],
+                               nested};
+    SemaVariant variant = {row->as.symbol.tag, types, 3};
+    f->written_type = sema_symbol_set(p, &variant, 1);
+    for (unsigned pass = 0; pass < 3; pass++) {
+      Diagnostics errors;
+      recheck(&a, p, &errors);
+      if (errors.count)
+        diagnostics_print(&errors, stderr);
+      ASSERT_EQ_INT(0, errors.count);
+      ASSERT_TRUE(p->checked && ir_lower(&a, p) == NULL);
+      ASSERT_TRUE(row->type == f->written_type);
+      ASSERT_TRUE(items[0]->type == types[0] && items[1]->type == types[1]);
+      ASSERT_TRUE(items[1]->real == (double)(float)0.1);
+      ASSERT_TRUE(sema_variant(row->type, variant.tag)->payloads[2] == nested);
+    }
+    types[1] = &p->types[SEMA_BOOL];
+    f->written_type = sema_symbol_set(p, &variant, 1);
+    Diagnostics errors;
+    recheck(&a, p, &errors);
+    ASSERT_EQ_INT(1, errors.count);
+    ASSERT_EQ_INT(
+        0, strcmp("Function body does not match the written return type.",
+                  errors.items[0]->message));
+    ASSERT_TRUE(!p->checked && ir_lower(&a, p) == NULL);
+  }
+  TEST("positional arm bindings have independent types, wildcards and slots") {
+    SemaProgram *p = valid(&a, "f(value: :row[int]) { value |> { :row[first] "
+                               "=> first } }\nmain() {}")
+                         .program;
+    SemaFunction *f = &p->functions[0];
+    SemaExpr *pipe = f->body->as.block.items[0];
+    SemaExpr *match = pipe->as.block.items[1];
+    SemaArm *arm = &match->as.match.arms[0];
+    ASSERT_TRUE(arm->binding == NULL && arm->payload_count == 1);
+    SemaVar *first = arm->payload_bindings[0];
+    ASSERT_TRUE(!first->mutable);
+    SemaVar *last = extra_binding(&a, p, f, "last", first->span);
+    SemaVar *bindings[] = {first, NULL, last};
+    arm->payload_count = 3;
+    arm->payload_bindings = bindings;
+    SemaExpr *first_read = arm->body;
+    SemaExpr *last_read = copy_expr(&a, first_read);
+    last_read->as.variable = last;
+    arm->body = last_read;
+    const SemaType *types[] = {&p->types[SEMA_INT], &p->types[SEMA_UNIT],
+                               &p->types[SEMA_STR]};
+    SemaVariant v = {arm->tag, types, 3};
+    const SemaType *input = sema_symbol_set(p, &v, 1);
+    f->symbol.params[0]->type = f->symbol.params[0]->annotation = input;
+    for (unsigned pass = 0; pass < 3; pass++) {
+      Diagnostics errors;
+      recheck(&a, p, &errors);
+      if (errors.count)
+        diagnostics_print(&errors, stderr);
+      ASSERT_EQ_INT(0, errors.count);
+      ASSERT_TRUE(first->type == types[0] && last->type == types[2]);
+      ASSERT_TRUE(first->id != last->id && !last->mutable);
+      ASSERT_TRUE(f->symbol.return_type == types[2]);
+      ASSERT_TRUE(p->checked && ir_lower(&a, p) == NULL);
+    }
+    // A malformed arm must clear every binder, not retain probe-time types.
+    arm->payload_count = 2;
+    arm->payload_bindings = (SemaVar *[]){first, last};
+    arm->body = arena_calloc(&a, 1, sizeof(*arm->body));
+    arm->body->kind = SEMA_EXPR_UNIT;
+    f->written = 1;
+    f->written_type = &p->types[SEMA_UNIT];
+    Diagnostics errors;
+    recheck(&a, p, &errors);
+    ASSERT_EQ_INT(1, errors.count);
+    ASSERT_EQ_INT(0, strcmp("Symbol pattern has the wrong payload shape.",
+                            errors.items[0]->message));
+    ASSERT_TRUE(first->type == &p->types[SEMA_ERROR] &&
+                last->type == &p->types[SEMA_ERROR]);
+  }
+  TEST("positional packing never erases readonly access from an earlier item") {
+    Result r = invalid(&a,
+                       "P { n: int }\nf(p: P) { let packed = :row[p]\npacked "
+                       "|> { :row[item] => item.n = 1 } }\nmain() {}",
+                       "Cannot mutate through an ordinary parameter");
+    SemaProgram *p = r.program;
+    SemaFunction *f = &p->functions[0];
+    SemaExpr *pack = f->body->as.block.items[0]->as.binding.value;
+    SemaExpr *match = f->body->as.block.items[1]->as.block.items[1];
+    SemaArm *arm = &match->as.match.arms[0];
+    SemaVar *item = arm->payload_bindings[0];
+    SemaExpr *object = pack->as.symbol.payloads[0];
+    SemaExpr unit = {.kind = SEMA_EXPR_UNIT};
+    SemaExpr *items[] = {object, &unit};
+    SemaVar *bindings[] = {item, NULL};
+    pack->as.symbol.payloads = items;
+    pack->as.symbol.count = 2;
+    arm->payload_bindings = bindings;
+    arm->payload_count = 2;
+    for (unsigned reverse = 0; reverse < 2; reverse++) {
+      for (unsigned pass = 0; pass < 2; pass++) {
+        Diagnostics errors;
+        recheck(&a, p, &errors);
+        ASSERT_EQ_INT(1, errors.count);
+        ASSERT_EQ_INT(
+            0, strcmp("Cannot mutate through an ordinary parameter; use &.",
+                      errors.items[0]->message));
+        ASSERT_TRUE(item->type == &p->structs[0].type);
+        ASSERT_TRUE(!p->checked && ir_lower(&a, p) == NULL);
+      }
+      items[0] = &unit;
+      items[1] = object;
+      bindings[0] = NULL;
+      bindings[1] = item;
+    }
+  }
+  TEST("later payload returns anchor inference, dead returns do not") {
+    SemaProgram *p = valid(&a, "f() { :row[if true { ret 7 } else { ret 8 }] "
+                               "}\ng() { ret \"dead\" }\nmain() {}")
+                         .program;
+    SemaFunction *f = &p->functions[0];
+    SemaExpr *row = f->body->as.block.items[0];
+    SemaExpr *returning = row->as.symbol.payloads[0];
+    SemaExpr unit = {.kind = SEMA_EXPR_UNIT};
+    SemaExpr *dead = copy_expr(&a, p->functions[1].body->as.block.items[0]);
+    SemaExpr *items[] = {&unit, returning, dead};
+    row->as.symbol.payloads = items;
+    row->as.symbol.count = 3;
+    for (unsigned pass = 0; pass < 3; pass++) {
+      Diagnostics errors;
+      recheck(&a, p, &errors);
+      if (errors.count)
+        diagnostics_print(&errors, stderr);
+      ASSERT_EQ_INT(0, errors.count);
+      ASSERT_TRUE(f->symbol.return_type == &p->types[SEMA_INT]);
+      ASSERT_TRUE(returning->reachable && !dead->reachable);
+      ASSERT_TRUE(!(row->flow & SEMA_NEXT) && (row->flow & SEMA_RETURN));
+      // No positional type exists here: the value never finishes packing.
+      for (const SemaSymSet *s = p->symbol_sets; s; s = s->next)
+        for (size_t i = 0; i < s->count; i++)
+          ASSERT_TRUE(s->variants[i].payload_count <= 1);
+      ASSERT_TRUE(p->checked && ir_lower(&a, p) == NULL);
+    }
+  }
+  TEST("positional values survive recursive return probes without losing "
+       "slots") {
+    SemaProgram *p = valid(&a, "f(n: int) { if n == 0 { ret :row[1] }\ng(n - "
+                               "1) }\ng(n: int) { f(n) }\nmain() {}")
+                         .program;
+    SemaExpr *conditional = p->functions[0].body->as.block.items[0];
+    SemaExpr *row =
+        conditional->as.conditional.yes->as.block.items[0]->as.value;
+    SemaExpr *items[] = {row->as.symbol.payloads[0],
+                         copy_expr(&a, row->as.symbol.payloads[0])};
+    row->as.symbol.payloads = items;
+    row->as.symbol.count = 2;
+    for (unsigned pass = 0; pass < 3; pass++) {
+      Diagnostics errors;
+      recheck(&a, p, &errors);
+      if (errors.count)
+        diagnostics_print(&errors, stderr);
+      ASSERT_EQ_INT(0, errors.count);
+      const SemaType *type = p->functions[0].symbol.return_type;
+      ASSERT_TRUE(type == p->functions[1].symbol.return_type);
+      const SemaVariant *v = sema_variant(type, row->as.symbol.tag);
+      ASSERT_TRUE(v != NULL);
+      if (v) {
+        ASSERT_EQ_INT(2, v->payload_count);
+        ASSERT_TRUE(v->payloads[0] == &p->types[SEMA_INT] &&
+                    v->payloads[1] == &p->types[SEMA_INT]);
+      }
+      ASSERT_TRUE(p->checked && ir_lower(&a, p) == NULL);
+    }
+  }
+  TEST("wide semantic values and wildcard arms preserve the final unit slot") {
+    SemaProgram *p = valid(&a, "f() { :row[1] }\ng(value: :row[int]) { value "
+                               "|> { :row[last] => last } }\nmain() {}")
+                         .program;
+    enum { WIDTH = 512 };
+    SemaExpr *row = p->functions[0].body->as.block.items[0];
+    SemaExpr *leaf = row->as.symbol.payloads[0];
+    SemaExpr **values = arena_calloc(&a, WIDTH, sizeof(*values));
+    const SemaType **types = arena_calloc(&a, WIDTH, sizeof(*types));
+    for (size_t i = 0; i < WIDTH; i++) {
+      values[i] = copy_expr(&a, leaf);
+      types[i] = &p->types[SEMA_INT];
+    }
+    values[WIDTH - 1] = arena_calloc(&a, 1, sizeof(**values));
+    values[WIDTH - 1]->kind = SEMA_EXPR_UNIT;
+    types[WIDTH - 1] = &p->types[SEMA_UNIT];
+    row->as.symbol.payloads = values;
+    row->as.symbol.count = WIDTH;
+    SemaVariant v = {row->as.symbol.tag, types, WIDTH};
+    const SemaType *type = sema_symbol_set(p, &v, 1);
+    SemaFunction *g = &p->functions[1];
+    g->symbol.params[0]->type = g->symbol.params[0]->annotation = type;
+    SemaExpr *match = g->body->as.block.items[0]->as.block.items[1];
+    SemaArm *arm = &match->as.match.arms[0];
+    SemaVar *last = arm->payload_bindings[0];
+    arm->payload_bindings =
+        arena_calloc(&a, WIDTH, sizeof(*arm->payload_bindings));
+    arm->payload_bindings[WIDTH - 1] = last;
+    arm->payload_count = WIDTH;
+    for (unsigned pass = 0; pass < 2; pass++) {
+      Diagnostics errors;
+      recheck(&a, p, &errors);
+      if (errors.count)
+        diagnostics_print(&errors, stderr);
+      ASSERT_EQ_INT(0, errors.count);
+      ASSERT_TRUE(p->functions[0].symbol.return_type == type);
+      ASSERT_TRUE(last->type == types[WIDTH - 1] &&
+                  g->symbol.return_type == types[WIDTH - 1]);
+      ASSERT_EQ_INT(WIDTH, sema_variant(type, v.tag)->payload_count);
+      ASSERT_TRUE(p->checked && ir_lower(&a, p) == NULL);
+    }
+  }
+  TEST("native preflight also rejects positional wildcard arms without a multi "
+       "type") {
+    SemaProgram *p =
+        valid(&a,
+              "f(value: :row[int]) { value |> { :row[_] => 0 } }\nmain() {}")
+            .program;
+    SemaExpr *match =
+        p->functions[0].body->as.block.items[0]->as.block.items[1];
+    match->as.match.arms[0].payload_count = 2;
+    for (const SemaSymSet *s = p->symbol_sets; s; s = s->next)
+      for (size_t i = 0; i < s->count; i++)
+        ASSERT_TRUE(s->variants[i].payload_count <= 1);
+    ASSERT_TRUE(p->checked && ir_lower(&a, p) == NULL);
+  }
+  TEST("multiple implicit success positions keep their explicit internal "
+       "boundary") {
+    SemaProgram *p = valid(&a, "f() -> :ok[int] { :ok[1] }\nmain() {}").program;
+    SemaExpr *ok = p->functions[0].body->as.block.items[0];
+    SemaExpr *items[] = {ok->as.symbol.payloads[0],
+                         copy_expr(&a, ok->as.symbol.payloads[0])};
+    ok->as.symbol.payloads = items;
+    ok->as.symbol.count = 2;
+    Diagnostics errors;
+    recheck(&a, p, &errors);
+    ASSERT_EQ_INT(1, errors.count);
+    ASSERT_EQ_INT(0, strcmp("Multiple ':ok' payloads are not implemented yet.",
+                            errors.items[0]->message));
+    ASSERT_TRUE(!p->checked && ir_lower(&a, p) == NULL);
+    p = valid(&a, "f(value: :ok[int] | :bad) { value! }\nmain() {}").program;
+    const SemaType *types[] = {&p->types[SEMA_INT], &p->types[SEMA_INT]};
+    SemaVariant variants[] = {{p->ok, types, 2},
+                              {sema_tag(p, p->module, "bad"), NULL, 0}};
+    const SemaType *input = sema_symbol_set(p, variants, 2);
+    p->functions[0].symbol.params[0]->type =
+        p->functions[0].symbol.params[0]->annotation = input;
+    recheck(&a, p, &errors);
+    ASSERT_EQ_INT(1, errors.count);
+    ASSERT_EQ_INT(0, strcmp("Multiple ':ok' payloads are not implemented yet.",
+                            errors.items[0]->message));
+    ASSERT_TRUE(!p->checked && ir_lower(&a, p) == NULL);
   }
   TEST("explicit tag kinds preserve identity, modules, IDs and first-use "
        "spans") {

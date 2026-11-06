@@ -61,7 +61,8 @@ static SemaFlowValue child(SemaFlow *flow, SemaExpr *e, size_t index,
                            SemaFlowValue value) {
   Analysis *a = flow->context;
   (void)state;
-  if (!flow->probe && e->kind == SEMA_EXPR_CALL) {
+  if (!flow->probe && (e->kind == SEMA_EXPR_CALL ||
+                       (e == a->root && e->kind == SEMA_EXPR_SYMBOL))) {
     ASSERT_EQ_INT(a->arg_count, index);
     ASSERT_TRUE(index < 4);
     if (index < 4)
@@ -251,6 +252,41 @@ int main(void) {
     ASSERT_EQ_INT(0, r.active[0]);
     ASSERT_EQ_INT(1, r.visits[0]); // No repeated final-pass diagnostics.
     ASSERT_TRUE(r.probes >= 2 && r.probes <= 4);
+  }
+  TEST("payload positions retain left-to-right state and child snapshots") {
+    SemaExpr *root = node(a, SEMA_EXPR_SYMBOL);
+    SemaExpr *unit = node(a, SEMA_EXPR_UNIT);
+    SemaExpr *items[] = {block(a, 2, write_fact(a, 1, 0), observe(a, 0)),
+                         block(a, 2, write_fact(a, 2, 0), observe(a, 1)), unit,
+                         block(a, 2, write_fact(a, 1, 1), observe(a, 2))};
+    root->as.symbol.payloads = items;
+    root->as.symbol.count = 4;
+    Analysis result = run(a, root, (Facts){0, 0});
+    ASSERT_EQ_INT(4, result.arg_count);
+    ASSERT_EQ_INT(1, result.args[0]);
+    ASSERT_EQ_INT(3, result.args[1]);
+    ASSERT_EQ_INT(3, result.args[2]);
+    ASSERT_EQ_INT(2, result.args[3]);
+    ASSERT_EQ_INT(1, result.seen[0].may);
+    ASSERT_EQ_INT(3, result.seen[1].may);
+    ASSERT_EQ_INT(2, result.seen[2].may);
+    ASSERT_EQ_INT(2, result.exit.may);
+    for (size_t i = 0; i < 3; i++)
+      ASSERT_TRUE(result.active[i]);
+  }
+  TEST("a payload return makes later positions inactive without skipping "
+       "syntax") {
+    SemaExpr *root = node(a, SEMA_EXPR_SYMBOL);
+    SemaExpr *items[] = {observe(a, 0), node(a, SEMA_EXPR_RETURN),
+                         observe(a, 1)};
+    root->as.symbol.payloads = items;
+    root->as.symbol.count = 3;
+    root->flow = SEMA_RETURN;
+    Analysis result = run(a, root, (Facts){1, 1});
+    ASSERT_EQ_INT(3, result.arg_count);
+    ASSERT_EQ_INT(1, result.visits[0]);
+    ASSERT_EQ_INT(1, result.visits[1]);
+    ASSERT_TRUE(result.active[0] && !result.active[1]);
   }
   TEST("for bounds precede the loop and call children carry snapshots") {
     SemaExpr *e = node(a, SEMA_EXPR_FOR);

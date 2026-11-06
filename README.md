@@ -85,10 +85,12 @@ implemented. Symbol payloads use `[...]` in types, values and patterns, with
 paired fixes for old parentheses. Lists parse with zero or more positions;
 native compilation supports zero or one, and rejects multiple payloads as not
 implemented. Canonical semantic variants now own ordered payload-type arrays;
-interning, subset checks and union conflicts compare every position. This is
-type-layer groundwork, not native multi-payload acceptance: expressions,
-patterns and the ABI still require zero or one position, with lowering/emission
-guards against incomplete positional representations. Types now use
+interning, subset checks and union conflicts compare every position. Semantic
+values and pattern bindings also retain ordered positions, with per-position
+context and shared flow/permission checking. This is pre-ABI groundwork, not
+native multi-payload acceptance. Native layout, extraction and ownership still
+require zero or one position; source barriers and lowering/emission guards
+prevent partial support from emitting C. Types now use
 `:a | NamedUnion | :!bad[Type]`, including nested payload unions and partial
 return markers. `Sym` is an ordinary name; `Sym<...>` rejects with safe
 unwrap/separator fixes. `Self` is also an ordinary uppercase name, not an

@@ -212,7 +212,8 @@ static const SemaType *join(Checker *c, const SemaType *a, const SemaType *b,
 }
 static const SemaType *full(Checker *c, const SemaType *type) {
   const SemaVariant *ok = sema_ok(c->expected);
-  if (type->kind == SEMA_UNIT && ok && sema_single_payload(ok) == type)
+  if (type->kind == SEMA_UNIT && ok && ok->payload_count <= 1 &&
+      sema_single_payload(ok) == type)
     return sema_symbol_set(c->p, ok, 1);
   return special(type) || type->kind == SEMA_SYM ? type
                                                  : sema_success(c->p, type);
@@ -263,7 +264,8 @@ static const SemaType *hint(SemaExpr *e) {
   case SEMA_EXPR_PANIC: {
     const SemaType *input = hint(e->as.value);
     const SemaVariant *ok = sema_ok(input);
-    const SemaType *payload = sema_single_payload(ok);
+    const SemaType *payload =
+        ok && ok->payload_count <= 1 ? sema_single_payload(ok) : NULL;
     return payload ? payload : e->type;
   }
   case SEMA_EXPR_FIELD: {
@@ -380,6 +382,15 @@ static const SemaType *return_hint(SemaExpr *e) {
       if (!special(h))
         return h;
     }
+  } else if (e->kind == SEMA_EXPR_SYMBOL) {
+    for (size_t i = 0; i < e->as.symbol.count; i++) {
+      SemaExpr *payload = e->as.symbol.payloads[i];
+      const SemaType *h = return_hint(payload);
+      if (!special(h))
+        return h;
+      if (!(payload->flow & SEMA_NEXT))
+        break;
+    }
   } else if (e->kind == SEMA_EXPR_WHILE)
     return return_hint(e->as.while_loop.body);
   else if (e->kind == SEMA_EXPR_FOR)
@@ -400,7 +411,7 @@ static const SemaType *literal(Checker *c, SemaExpr *e,
   int diagnosed = expected && expected->kind == SEMA_ERROR;
   const SemaVariant *ok = sema_ok(expected);
   if (ok)
-    expected = sema_single_payload(ok);
+    expected = ok->payload_count <= 1 ? sema_single_payload(ok) : NULL;
   const SemaType *kind = sema_number(expected) ? expected : NULL;
   if (e->kind == SEMA_EXPR_FLOAT && sema_integer(kind))
     kind = NULL;
@@ -465,7 +476,7 @@ static const SemaType *operand_type(Checker *c, SemaExpr *a, SemaExpr *b,
                                     const SemaType *expected) {
   const SemaVariant *ok = sema_ok(expected);
   if (ok)
-    expected = sema_single_payload(ok);
+    expected = ok->payload_count <= 1 ? sema_single_payload(ok) : NULL;
   if (sema_number(expected))
     return expected;
   const SemaType *h = hint(a);
@@ -575,29 +586,47 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     break;
   }
   case SEMA_EXPR_SYMBOL: {
-    SemaExpr *payload = e->as.symbol.payload;
     const SemaType *context_type = expected;
     if (e->as.symbol.tag == c->p->ok && !special(expected) &&
         expected->kind != SEMA_SYM)
       context_type = sema_success(c->p, expected);
     const SemaVariant *context = sema_variant(context_type, e->as.symbol.tag);
-    const SemaType *pt =
-        payload ? check(c, payload, sema_single_payload(context),
-                        payload->kind == SEMA_EXPR_SYMBOL ? OUTCOME : VALUE)
-                : NULL;
-    if (payload)
-      flow = payload->flow;
+    size_t count = e->as.symbol.count;
+    const SemaType *single = NULL;
+    const SemaType **types =
+        count > 1 ? arena_calloc(c->p->arena, count, sizeof(*types)) : &single;
+    const SemaType *incomplete = NULL;
+    for (size_t i = 0; i < count; i++) {
+      SemaExpr *payload = e->as.symbol.payloads[i];
+      const SemaType *wanted =
+          context && i < context->payload_count ? context->payloads[i] : NULL;
+      c->reachable = reachable && (flow & SEMA_NEXT);
+      const SemaType *pt =
+          check(c, payload, wanted,
+                payload->kind == SEMA_EXPR_SYMBOL ? OUTCOME : VALUE);
+      flow = sequence(flow, payload->flow);
+      if (special(pt)) {
+        if (!incomplete || pt->kind == SEMA_ERROR)
+          incomplete = pt;
+      } else if (wanted && sema_assignable(pt, wanted)) {
+        // Context can widen a nested union independently at each position.
+        pt = wanted;
+      }
+      types[i] = pt;
+    }
     if (!e->as.symbol.tag)
       result = t(c, SEMA_ERROR);
-    else if (pt && special(pt))
-      result = pt;
+    else if (incomplete)
+      result = incomplete;
     else {
-      // A payload has the variant's contextual type when it fits. In
-      // particular, nested symbol literals may widen before being packed.
-      const SemaType *wanted = sema_single_payload(context);
-      if (pt && wanted && sema_assignable(pt, wanted))
-        pt = wanted;
-      result = sema_symbol_type(c->p, e->as.symbol.tag, pt);
+      SemaVariant variant = {e->as.symbol.tag, count ? types : NULL, count};
+      result = sema_symbol_set(c->p, &variant, 1);
+    }
+    // The first-version implicit success ABI still has one result slot.
+    // Positional data checking must not invent a tuple or erase extra values.
+    if (e->as.symbol.tag == c->p->ok && count > 1) {
+      error(c, e->span, "Multiple ':ok' payloads are not implemented yet.");
+      result = t(c, SEMA_ERROR);
     }
     break;
   }
@@ -764,6 +793,9 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       result = c->probe && input->kind == SEMA_SYM ? t(c, SEMA_UNKNOWN)
                : special(input)                    ? input
                                                    : t(c, SEMA_ERROR);
+    } else if (ok->payload_count > 1) {
+      error(c, e->span, "Multiple ':ok' payloads are not implemented yet.");
+      result = t(c, SEMA_ERROR);
     } else {
       const SemaType *payload = sema_single_payload(ok);
       result = payload ? payload : t(c, SEMA_UNIT);
@@ -867,6 +899,9 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       SemaArm *a = &e->as.match.arms[i];
       if (a->binding)
         a->binding->type = it;
+      for (size_t j = 0; a->payload_bindings && j < a->payload_count; j++)
+        if (a->payload_bindings[j])
+          a->payload_bindings[j]->type = it;
       if (it->kind == SEMA_SYM || a->invalid)
         continue;
       if (!special(it) && (a->kind == PAT_SYMBOL || a->kind == PAT_SET))
@@ -996,7 +1031,8 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   e->raw_type = e->returns ? t(c, SEMA_NEVER) : (raw ? raw : result);
   if (!e->returns && !e->adapt) {
     const SemaVariant *ok = sema_ok(result);
-    if (ok && result->symbols->count == 1 && use != OUTCOME && use != TAIL &&
+    if (ok && ok->payload_count <= 1 && result->symbols->count == 1 &&
+        use != OUTCOME && use != TAIL &&
         (!expected || expected->kind != SEMA_SYM)) {
       const SemaType *payload = sema_single_payload(ok);
       result = payload ? payload : t(c, SEMA_UNIT);

@@ -685,19 +685,23 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
           a->tag =
               tag(r, p->as.symbol.tag, p->as.symbol.kind,
                   p->as.symbol.tag_span.file ? p->as.symbol.tag_span : p->span);
-          const Pattern *payload =
-              p->as.symbol.count ? p->as.symbol.payloads[0] : NULL;
-          a->payload = payload != NULL;
+          a->payload_count = p->as.symbol.count;
+          a->payload_bindings = arena_calloc(r->arena, a->payload_count,
+                                             sizeof(*a->payload_bindings));
           if (!a->tag)
             a->invalid = 1;
-          if (payload && payload->kind == PAT_BIND)
-            a->binding = variable(r, payload->as.name, payload->span,
-                                  &r->program->types[SEMA_UNKNOWN], 0);
-          else if (payload && payload->kind != PAT_WILDCARD) {
-            a->invalid = 1;
-            diagnostics_error(
-                r->errors, payload->span,
-                "Refutable symbol payload patterns are not implemented yet.");
+          for (size_t j = 0; j < a->payload_count; j++) {
+            const Pattern *payload = p->as.symbol.payloads[j];
+            if (payload->kind == PAT_BIND)
+              a->payload_bindings[j] =
+                  variable(r, payload->as.name, payload->span,
+                           &r->program->types[SEMA_UNKNOWN], 0);
+            else if (payload->kind != PAT_WILDCARD) {
+              a->invalid = 1;
+              diagnostics_error(
+                  r->errors, payload->span,
+                  "Refutable symbol payload patterns are not implemented yet.");
+            }
           }
         } else if (p->kind == PAT_LITERAL)
           a->lower = resolve_expr(r, p->as.literal);
@@ -746,8 +750,11 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     e->as.symbol.tag =
         tag(r, s->as.symbol.tag, s->as.symbol.kind,
             s->as.symbol.tag_span.file ? s->as.symbol.tag_span : s->span);
-    if (s->as.symbol.count)
-      e->as.symbol.payload = resolve_expr(r, s->as.symbol.payloads[0]);
+    e->as.symbol.count = s->as.symbol.count;
+    e->as.symbol.payloads = arena_calloc(r->arena, e->as.symbol.count,
+                                         sizeof(*e->as.symbol.payloads));
+    for (size_t i = 0; i < e->as.symbol.count; i++)
+      e->as.symbol.payloads[i] = resolve_expr(r, s->as.symbol.payloads[i]);
     return e;
   case EXPR_FIELD:
     e = node(r, SEMA_EXPR_FIELD, s->span);

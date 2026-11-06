@@ -145,7 +145,8 @@ typedef struct {
   SemaExpr *first_value, *last_value;
   int any, useful, invalid;
   SemaTag *tag;
-  int payload;
+  SemaVar **payload_bindings; // Positional; NULL array/entries are wildcards.
+  size_t payload_count;
   const SemaType *set; // Named-set pattern, or narrowed catch-all binding type.
   const SemaType *cases; // Useful symbol cases; shared with lowering.
 } SemaArm;
@@ -232,7 +233,8 @@ struct SemaExpr {
     } match;
     struct {
       SemaTag *tag;
-      SemaExpr *payload;
+      SemaExpr **payloads; // Evaluated left to right, including unit values.
+      size_t count;
     } symbol;
     SemaExpr *value;
   } as;
@@ -296,8 +298,8 @@ const SemaType *sema_conversion(SemaProgram *program, const SemaType *source,
 int sema_reference(const SemaType *type);
 const SemaVariant *sema_ok(const SemaType *type);
 int sema_payloads_equal(const SemaVariant *a, const SemaVariant *b);
-// Transitional native zero/one access: multiple positions must stop before
-// checking/lowering until expression, pattern, IR and RC support is complete.
+// Native success/extraction still has zero/one position. Data checking uses
+// positional arrays; native lowering stays gated until ABI/RC support exists.
 const SemaType *sema_single_payload(const SemaVariant *variant);
 // Zero/one constructor; sema_symbol_set accepts and owns positional lists.
 const SemaType *sema_symbol_type(SemaProgram *program, SemaTag *tag,

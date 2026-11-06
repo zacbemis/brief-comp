@@ -120,7 +120,6 @@ static SemaFlowValue child(SemaFlow *flow, SemaExpr *e, size_t index,
   unsigned char *bits = state;
   switch (e->kind) {
   case SEMA_EXPR_FIELD:
-  case SEMA_EXPR_SYMBOL:
   case SEMA_EXPR_TRY:
   case SEMA_EXPR_PANIC:
     return value;
@@ -158,6 +157,7 @@ static SemaFlowValue child(SemaFlow *flow, SemaExpr *e, size_t index,
     return result | (value && may_share(p, e->type, arg->type));
   }
   case SEMA_EXPR_STRUCT:
+  case SEMA_EXPR_SYMBOL:
     return result | value;
   case SEMA_EXPR_BLOCK:
     return flow->active ? value : result;
@@ -190,6 +190,9 @@ static void arm(SemaFlow *flow, SemaArm *a, void *state, SemaFlowValue input) {
   unsigned char *bits = state;
   if (a->binding)
     bits[a->binding->id] = (unsigned char)input;
+  for (size_t i = 0; a->payload_bindings && i < a->payload_count; i++)
+    if (a->payload_bindings[i])
+      bits[a->payload_bindings[i]->id] = (unsigned char)input;
 }
 void sema_check_permissions(SemaProgram *program, Diagnostics *errors) {
   if (!program->struct_count)
