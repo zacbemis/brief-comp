@@ -3,9 +3,9 @@
 `test_doc_parser` reads the 13 language chapters in `docs/lang-*.txt`, not
 `docs/v0/`. The rationale file `lang-post-0-notes.txt` is not a language chapter.
 The manifest in `test_doc_parser.cmake` classifies all **239 code fences** and
-the two unfenced chapters. It runs **152 successful parses and five intentional
-syntax rejections**. The other **82 fences** are explicit listings, not passing
-parser tests: 17 await N1/N4/N5 syntax, 43 need later features, and 22 are
+the two unfenced chapters. It runs **157 successful parses and five intentional
+syntax rejections**. The other **77 fences** are explicit listings, not passing
+parser tests: 12 await N4/N5 syntax, 43 need later features, and 22 are
 incomplete signatures/operator/context fragments. The overview and raw base
 sample have separate zero-fence listings.
 
@@ -44,14 +44,14 @@ accepted for the wrong error.
 | overview | 0 | 1 |
 | errors | 22 | 16 |
 | raw base sample | 0 | 1 |
-| functions | 20 | 7 |
-| memory | 17 | 1 |
-| modules | 16 | 3 |
+| functions | 21 | 6 |
+| memory | 18 | 0 |
+| modules | 17 | 2 |
 | pipelines | 13 | 4 |
 | standard library | 1 | 0 |
 | symbols | 11 | 4 |
 | syntax | 30 | 5 |
-| traits | 4 | 6 |
+| traits | 6 | 4 |
 | types | 20 | 8 |
 
 Chapter hashes force classification review after document edits; counts, index
@@ -124,8 +124,18 @@ Native compilation stops at the conformance scope error. Traits fences 1 and 2
 still need explicit `self` parameters; fence 6 mixes a declaration and direct
 usage without a supported wrapper boundary, and fence 9 has an ellipsis body.
 The latter two remain whole-source fragments, not extracted or stubbed checks.
-Counts are 157 checks and 82 fenced listings, plus two unfenced listings. No
-native chapter audit is completed.
+That increment had 157 checks and 82 fenced listings, plus two unfenced
+listings.
+
+The `self` keyword and explicit receiver syntax add five whole checks:
+functions fence 17, memory fence 10, modules fence 6 and traits fences 1/2.
+Receiver kinds, ordinary parameter lists and self expression nodes are retained
+without binding a native receiver, inferring methods or dispatching defaults.
+Modules fence 4 still needs interpolation and moves to N5 instead of passing
+as a plain string. Counts are 162 checks and 77 fenced listings, plus two
+unfenced listings. No current listing is blocked only by N1 parser syntax, but
+native receiver/multi-payload support and replacement audits still leave N1
+in progress. No native chapter audit is completed.
 
 ## Native acceptance gap
 

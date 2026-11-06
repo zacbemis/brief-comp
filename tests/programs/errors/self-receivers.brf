@@ -1,0 +1,11 @@
+Counter {
+  value: Missing
+  bump(&self, amount: Unknown) -> Missing { missing(amount) } // error: 'self' receivers are not implemented yet.
+  read() -> Missing {
+    ((self)).value // error: 'self' receivers are not implemented yet.
+    missing()
+  }
+}
+outside() -> Missing { self } // error: 'self' is only available in struct or trait functions.
+Alias = Cycle
+Cycle = Alias

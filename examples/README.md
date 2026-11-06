@@ -2,9 +2,9 @@
 
 Small programs that show the first-version feature scope, with N1 spelling
 updates as they are implemented: `not`, `dbl`, `->` returns, keyword-free
-aliases, `=` literal fields and functions inside struct bodies. Receivers remain
-explicitly typed; inference and `self`/`&self` are not added. Each program is a
-single file that runs on its own:
+aliases, `=` literal fields and functions inside struct bodies. These examples
+retain explicitly typed parameters; native receiver binding/inference is not
+added. Each program is a single file that runs on its own:
 
 ```sh
 ./build/brief run examples/calendar.brf

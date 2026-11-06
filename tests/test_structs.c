@@ -347,6 +347,96 @@ int main(void) {
         check(&a, "import models.User\nP: Missing { n: Missing }\nEmpty {}\n");
     ASSERT_EQ_INT(3, both.errors.count);
   }
+  TEST("self syntax is rejected before fabricated receiver signatures or "
+       "bodies") {
+    const char *bodies[] = {"self",
+                            "(( /* group */ self ))",
+                            "self.n",
+                            "self.read()",
+                            "unknown(self)",
+                            "not self",
+                            "self == unknown",
+                            "unknown == self",
+                            ":!bad[self]",
+                            ":pair[unknown, self]",
+                            "Arr[Missing] { unknown, self }",
+                            "Other { first = unknown, second = self }",
+                            "self.Inner { n = unknown }",
+                            "self.(unknown)",
+                            "unknown.(self)",
+                            "let value = self",
+                            "const value = self",
+                            "var value = self",
+                            "ret self",
+                            "self.n++",
+                            "other = self",
+                            "self.n = unknown",
+                            "other += self",
+                            "if self { unknown } else { unknown }",
+                            "if false { self } else { unknown }",
+                            "if true { unknown } else { self }",
+                            "while self { break }",
+                            "while true { self\nbreak }",
+                            "while true { continue\nself }",
+                            "for value in self { unknown }",
+                            "for value in 0..2 { self }",
+                            "unknown |> { :tag => self\n_ => unknown }",
+                            "self?",
+                            "self!",
+                            "self |> unknown()",
+                            "unknown |> self.read()"};
+    for (size_t i = 0; i < sizeof(bodies) / sizeof(*bodies); i++) {
+      char text[2048];
+      snprintf(text, sizeof(text),
+               "P { n: Missing\nf(value: Unknown) -> Missing { %s } }\nAlias = "
+               "Cycle\nCycle = Alias\n",
+               bodies[i]);
+      Result r = check(&a, text);
+      if (r.errors.count != 1)
+        diagnostics_print(&r.errors, stderr);
+      ASSERT_EQ_INT(1, r.errors.count);
+      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+      ASSERT_EQ_INT(0, r.program->struct_count);
+      ASSERT_EQ_INT(0, r.program->alias_count);
+      ASSERT_EQ_INT(0, r.program->count);
+      ASSERT_EQ_INT(1, r.program->tag_count);
+      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+      Diagnostic *d = r.errors.items[0];
+      ASSERT_EQ_INT(
+          0, strcmp("'self' receivers are not implemented yet.", d->message));
+      ASSERT_TRUE(!d->fixes && !d->notes);
+      ASSERT_EQ_INT(4, d->span.end - d->span.start);
+      ASSERT_TRUE(!memcmp("self", d->span.file->text + d->span.start, 4));
+    }
+    Result header = check(
+        &a, "P { n: Missing\nf(&self, n: Missing) -> Missing { unknown() } }");
+    ASSERT_EQ_INT(1, header.errors.count);
+    ASSERT_EQ_INT('&',
+                  header.errors.items[0]
+                      ->span.file->text[header.errors.items[0]->span.start]);
+    Result outside = check(&a, "f() -> Missing { self\nunknown() }");
+    ASSERT_EQ_INT(1, outside.errors.count);
+    ASSERT_EQ_INT(
+        0, strcmp("'self' is only available in struct or trait functions.",
+                  outside.errors.items[0]->message));
+    Result both = check(&a, "P { n: Missing\nf() { self }\ng(&self) { "
+                            "unknown() } }\nmain() { self }");
+    ASSERT_EQ_INT(3, both.errors.count);
+    Result trait = check(
+        &a,
+        "T { f(self) -> Missing\ng(&self) { self.read() } }\nmain() { self }");
+    ASSERT_EQ_INT(1, trait.errors.count);
+    ASSERT_EQ_INT(0, strcmp("A struct needs at least one field; traits are not "
+                            "implemented yet.",
+                            trait.errors.items[0]->message));
+    Result conformance =
+        check(&a, "P: Trait { n: Missing\nf(&self) { self } }");
+    ASSERT_EQ_INT(1, conformance.errors.count);
+    ASSERT_EQ_INT(0, strcmp("Trait conformance is not implemented yet.",
+                            conformance.errors.items[0]->message));
+    valid(&a, "Self = int\nP { n: Self\nf(p: P) { p.n } }\nmain() { "
+              "print(\"self\")\nlet selfish = 1\n(P { n = selfish }).f() }");
+  }
   TEST("traits stop before unavailable type, member and main cascades") {
     const char *cases[] = {
         "Empty {}\n", ("Empty {}\nAlias = Empty\nf(n: Empty) { missing() }"),

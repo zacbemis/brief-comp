@@ -1,0 +1,19 @@
+// Syntax and metadata only: no native receiver binding/inference yet.
+Counter {
+  value: int
+  read() -> int { self.value }
+  bump(&self, amount: int) { self.value += amount }
+  keep(& /* comment */ self) {}
+}
+Readable {
+  read(self) -> int
+  update(&self, value: int) -> ()
+  label(self) -> str { str(self.read()) }
+  new(value: int) -> Counter
+}
+Self = int
+main() {
+  let value: Self = 1
+  Counter.bump(self, value)
+  value |> self.read()
+}

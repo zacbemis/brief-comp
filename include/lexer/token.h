@@ -42,6 +42,7 @@ typedef enum {
   TOK_MOD,    // mod
   TOK_IMPORT, // import
   TOK_PUB,    // pub
+  TOK_SELF,   // self (instance expression or explicit receiver)
 
   // Recovery only: never accepted as a type/converter without a diagnostic.
   TOK_OLD_DUB, // dub (write dbl)

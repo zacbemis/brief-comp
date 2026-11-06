@@ -96,11 +96,18 @@ struct aliases share literals and associated functions with their target type.
 
 Functions now live inside struct bodies, alongside fields; separate `impl`
 blocks reject without a guessed relocation fix. `impl` is an ordinary name.
-Existing explicit receiver parameters, associated calls and permissions retain
-their behavior. Receiver inference, `self`/`&self` and wrong-way-call rules are
-still pending. Fieldless bodies, including typed required signatures and
-default bodies, parse as traits but remain unsupported by native compilation.
-Unit fields make structs and still require explicit initializers.
+Existing explicit typed parameters, associated calls and permissions retain
+their native behavior. Fieldless bodies, including typed required signatures
+and default bodies, parse as traits but remain unsupported by native
+compilation. Unit fields make structs and require explicit initializers.
+
+`self` is now a keyword and a distinct expression node, while `Self` remains
+an ordinary type name. Traits can write `self` or `&self` first; structs can
+write `&self` but not plain `self`. Receiver metadata is separate from ordinary
+typed parameters and does not invent a binding or type. Native receiver binding,
+inference and wrong-way-call rules remain pending. Struct functions using this
+syntax stop with `'self' receivers are not implemented yet.`; `self` outside an
+owner is invalid. Trait/import/conformance scope errors keep their precedence.
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and
@@ -111,8 +118,8 @@ This does not install JSON APIs or change builtin conversions or call rules.
 Uppercase type headers can list named traits after `:`, joined by `and`, with
 qualified names and bracketed type arguments. The AST retains that list, but
 native compilation stops with `Trait conformance is not implemented yet.` No
-trait/module lookup, layout or default dispatch is guessed. Receiver inference
-and `self`/`&self` remain pending.
+trait/module lookup, layout or default dispatch is guessed. Native receiver
+binding/inference and wrong-way-call rules remain pending.
 
 Struct names start uppercase; functions, fields, parameters, bindings and loops
 require lowercase names, with safe casing fixes. Symbol tags also require
@@ -120,8 +127,8 @@ lowercase names in types, values and patterns. `:!name` records an error tag; a
 name cannot have both neutral and error kinds in one module. `:!` must be
 adjacent. This is N1 metadata only: outcomes, entry status and runtime
 formatting retain first-version rules until N2. `trait` and `ovr` are ordinary
-names, not declaration/modifier keywords. Conformance and the remaining trait
-receiver grammar are pending. In patterns, lowercase names bind and uppercase
+names, not declaration/modifier keywords. Native conformance and receiver
+binding/inference are pending. In patterns, lowercase names bind and uppercase
 names denote symbol sets, without lookup-based reclassification. Typed symbol
 payload bindings such as `:!notFound[path: str]` retain their annotations in the
 AST. Native compilation explicitly rejects them until merged-symbol matching
@@ -313,12 +320,12 @@ Panics terminate the process without unwinding owners.
 - `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
   native driver tests; program tests in normal and sanitizer configurations;
   and the [current-document parser inventory](tests/doc-parser.md): 239 fences
-  across 13 chapters, with 157 parser checks and 82 explicit fence listings,
+  across 13 chapters, with 162 parser checks and 77 explicit fence listings,
   plus two unfenced-chapter listings. Listed examples are not passing coverage.
   N1 retired all v0 native chapter scripts and bridges; replacement native audits
   return milestone by milestone. Run the inventory and its structural guards with
   `ctest --test-dir build -L doc-parser --output-on-failure`.
-- `tests/parse/`: 151 parser example files that must parse or be rejected
+- `tests/parse/`: 155 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
 

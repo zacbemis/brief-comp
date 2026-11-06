@@ -47,6 +47,12 @@ int main(void) {
     check(&arena, "Self { next: Self\nn: int }\r\nmain() {}\r\n",
           "Self { next: Self\nn: int }\r\nmain() {}\r\n");
   }
+  TEST("self ends expressions without becoming an ordinary name") {
+    check(&arena, "f() { self\nnext()\n}\n", "f() { self\nnext()\n}\n");
+    check(&arena, "f() { self\n.read()\n}\n", "f() { self.read()\n}\n");
+    check(&arena, "P { f(\n&self,\nn: int\n) { self.n } }\n",
+          "P { f(&self,n: int) { self.n } }\n");
+  }
   TEST("ordinary impl names do not continue declarations across newlines") {
     check(&arena, "impl\nnext()\n", "impl\nnext()\n");
     check(&arena, "impl(value: int) ->\nint { value }\n",

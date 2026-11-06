@@ -1,0 +1,6 @@
+// parse-error: line 5
+// Why: An explicit receiver has no written type annotation.
+Counter {
+  value: int
+  bump(&self: Counter) { self.value++ }
+}

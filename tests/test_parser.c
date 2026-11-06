@@ -638,6 +638,98 @@ int main(void) {
     invalid(&arena, "main() { P: Trait {} }",
             "Expected a newline between items");
   }
+  TEST(
+      "self expressions and explicit receivers have distinct syntax metadata") {
+    program_dump(
+        &arena,
+        "T { read(self) -> int\nset(&self, n: int) { self.n = n } }\n"
+        "P { n: int\nread() { self.n }\nbump(&self) { self.n++ } }\n",
+        "(program (trait T (fn read (params (self)) int none) (fn set (params "
+        "(&self) (n int)) _ (block (= (field (self) n) (name n))))) "
+        "(struct P (field n int) (fn read (params) _ (block (field (self) n))) "
+        "(fn bump (params (&self)) _ (block (inc (field (self) n))))))\n");
+    for (unsigned crlf = 0; crlf < 2; crlf++) {
+      const char *lf = "P {\npub read(& /* keep */ self, n: Vec[Other]) -> "
+                       "Self { (( /* group */ self )) }\nunit: ()\n}\n";
+      char text[1024];
+      size_t n = 0;
+      for (size_t i = 0; lf[i]; i++) {
+        if (crlf && lf[i] == '\n')
+          text[n++] = '\r';
+        text[n++] = lf[i];
+      }
+      text[n] = 0;
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(0, v->diagnostics.count);
+      Decl *f = v->program->items[0]->as.structure.functions[0];
+      ASSERT_EQ_INT(RECEIVER_MUT_SELF, f->as.function.receiver);
+      ASSERT_EQ_INT(1, f->as.function.count);
+      ASSERT_EQ_INT(VISIBILITY_PUB, f->visibility);
+      ASSERT_EQ_INT(TYPE_NAME, f->as.function.return_type->kind);
+      ASSERT_TRUE(f->as.function.return_type->as.name ==
+                  intern(&v->names, "Self"));
+      Span receiver = f->as.function.receiver_span;
+      ASSERT_TRUE(receiver.file == v->source);
+      ASSERT_EQ_INT((size_t)(strstr(text, "& /* keep */") - text),
+                    receiver.start);
+      ASSERT_EQ_INT(strlen("& /* keep */ self"), receiver.end - receiver.start);
+      Expr *value = f->as.function.body->as.block.items[0].as.expr;
+      ASSERT_EQ_INT(EXPR_SELF, value->kind);
+      ASSERT_EQ_INT((size_t)(strstr(text, "/* group */ self") - text +
+                             strlen("/* group */ ")),
+                    value->name_span.start);
+      ASSERT_EQ_INT(4, value->name_span.end - value->name_span.start);
+      ASSERT_TRUE(value->span.start < value->name_span.start);
+      TokenArray filtered = newline_filter(&arena, v->raw);
+      size_t bytes = filtered.count * sizeof(Token);
+      Token *saved = arena_alloc(&arena, bytes);
+      memcpy(saved, filtered.items, bytes);
+      Diagnostics again;
+      diagnostics_init(&again, &arena);
+      Program *next = parse_program(&arena, &v->names, filtered, &again);
+      ASSERT_EQ_INT(0, again.count);
+      ASSERT_TRUE(!memcmp(saved, filtered.items, bytes));
+      ASSERT_EQ_INT(0, strcmp(dump(&arena, next), dump(&arena, v->program)));
+    }
+    expression_dump(&arena, "value |> self.read()",
+                    "(|> (name value) (call (field (self) read)))");
+    expression_dump(&arena, "self\n.read().(0)",
+                    "(index (call (field (self) read)) (int 0))");
+    const char *bad[] = {"f(self) {}",
+                         "f(&self) {}",
+                         "P { n: int\nf(self) { self.n } }",
+                         "P { n: int\nf(n: int, &self) {} }",
+                         "P { n: int\nf(&self, &self) {} }",
+                         "T { f(self, self) -> int }",
+                         "P { n: int\nf(&self: P) {} }",
+                         "T { f(self: T) -> int }",
+                         "main() { let self = 1 }",
+                         "P { self: int }",
+                         "f(n: self) {}",
+                         "A = self",
+                         "main() { value.self }",
+                         "main() { :self }",
+                         "main() { for self in 0..2 {} }",
+                         "Self() {}",
+                         "P { Self() {} }",
+                         "main() { :Self }"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
+      Parsed *v = parse(&arena, bad[i]);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      for (size_t j = 0; j < v->diagnostics.count; j++)
+        ASSERT_TRUE(!v->diagnostics.items[j]->fixes);
+    }
+    char wide[32768];
+    size_t n = (size_t)sprintf(wide, "P { n: int\nf(&self,");
+    for (unsigned i = 0; i < 512; i++)
+      n += (size_t)sprintf(wide + n, "%sp%u: int", i ? "," : "", i);
+    sprintf(wide + n, ") { self } }");
+    Parsed *many = parse(&arena, wide);
+    ASSERT_EQ_INT(0, many->diagnostics.count);
+    ASSERT_EQ_INT(
+        512,
+        many->program->items[0]->as.structure.functions[0]->as.function.count);
+  }
   TEST("empty type bodies are traits; unit fields still make structs") {
     program_dump(&arena,
                  "Empty {}\nCommented { /* keep */ }\nData { unit: () }\n",
@@ -2014,18 +2106,14 @@ int main(void) {
       }
     }
   }
-  TEST("ordinary Self names also become safe uppercase casing fixes") {
+  TEST("Self is ordinary but keyword self is not a casing-repair name") {
     const char *sources[] = {"self { value: int }\n", "type self = :a\n",
                              "import models.self\n"};
     for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
       Parsed *v = parse(&arena, sources[i]);
-      ASSERT_EQ_INT(i == 1 ? 2 : 1, v->diagnostics.count);
-      Diagnostic *d = v->diagnostics.items[v->diagnostics.count - 1];
-      ASSERT_TRUE(d->fixes && !d->fixes->next);
-      if (d->fixes)
-        ASSERT_EQ_INT(0, strcmp("Self", d->fixes->replacement));
-      Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
-      ASSERT_EQ_INT(0, fixed->diagnostics.count);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      for (size_t j = 0; j < v->diagnostics.count; j++)
+        ASSERT_TRUE(!v->diagnostics.items[j]->fixes);
     }
     Parsed *v = parse(&arena, "Self = int\nf(n: Self) -> Self { n }\n");
     ASSERT_EQ_INT(0, v->diagnostics.count);

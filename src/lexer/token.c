@@ -70,6 +70,8 @@ const char *token_type_name(TokenType type) {
     return "TOK_IMPORT";
   case TOK_PUB:
     return "TOK_PUB";
+  case TOK_SELF:
+    return "TOK_SELF";
   case TOK_IF:
     return "TOK_IF";
   case TOK_ELSE:

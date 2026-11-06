@@ -16,6 +16,13 @@ typedef enum {
   BORROW_MUT,   // user: &User
 } BorrowKind;
 
+// Written receiver syntax, separate from ordinary typed parameters.
+typedef enum {
+  RECEIVER_NONE,
+  RECEIVER_SELF,     // Trait-only plain self.
+  RECEIVER_MUT_SELF, // &self in a struct or trait.
+} ReceiverKind;
+
 typedef enum {
   BIND_LET,   // immutable binding, mutable data
   BIND_VAR,   // mutable binding, mutable data

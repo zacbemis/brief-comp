@@ -1,0 +1,6 @@
+// parse-error: line 5
+// Why: A receiver must precede all ordinary typed parameters.
+Counter {
+  value: int
+  bump(amount: int, &self) { self.value += amount }
+}

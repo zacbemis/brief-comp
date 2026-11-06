@@ -186,6 +186,9 @@ static void expr(FILE *out, const Expr *e) {
   case EXPR_NAME:
     fprintf(out, "(name %s)", e->as.name);
     break;
+  case EXPR_SELF:
+    fputs("(self)", out);
+    break;
   case EXPR_UNIT:
     fputs("(unit)", out);
     break;
@@ -364,6 +367,9 @@ static void decl(FILE *out, const Decl *d) {
   }
   case DECL_FN:
     fprintf(out, "(fn %s%s (params", visibility, d->name);
+    if (d->as.function.receiver != RECEIVER_NONE)
+      fputs(d->as.function.receiver == RECEIVER_SELF ? " (self)" : " (&self)",
+            out);
     for (size_t i = 0; i < d->as.function.count; i++) {
       fputc(' ', out);
       parameter(out, &d->as.function.params[i], "");

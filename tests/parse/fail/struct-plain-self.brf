@@ -1,0 +1,6 @@
+// parse-error: line 5
+// Why: Only traits write plain self; struct methods infer it from their bodies.
+Counter {
+  value: int
+  read(self) -> int { self.value }
+}

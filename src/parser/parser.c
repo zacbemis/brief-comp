@@ -1430,9 +1430,13 @@ static Decl *declaration(Parser *p, int in_member) {
     d->as.structure.function_count = functions.count;
     if (fields.count) {
       Decl **members = functions.data;
-      for (size_t i = 0; i < functions.count; i++)
+      for (size_t i = 0; i < functions.count; i++) {
         if (!members[i]->as.function.body)
           error_at(p, members[i]->span, "Struct functions require a body.");
+        if (members[i]->as.function.receiver == RECEIVER_SELF)
+          error_at(p, members[i]->as.function.receiver_span,
+                   "Plain 'self' parameters are only allowed in traits.");
+      }
     }
     if (!fields.count && valid_body) {
       Decl **members = functions.data;
@@ -1468,10 +1472,37 @@ static Decl *declaration(Parser *p, int in_member) {
   List params = {0};
   if (!at(p, TOK_RPAREN)) {
     do {
-      Parameter param;
-      if (!parameter(p, &param, 0))
-        return NULL;
-      PUSH(p, params, param);
+      if (at(p, TOK_SELF) ||
+          (at(p, TOK_BIT_AND) &&
+           p->tokens.items[p->position + 1].type == TOK_SELF)) {
+        Token receiver = take(p);
+        int mutable = receiver.type == TOK_BIT_AND;
+        if (mutable)
+          take(p); // self, recognized without consuming an ordinary name.
+        Span span = through(receiver.span, p->previous.span);
+        if (!in_member) {
+          error_at(p, span,
+                   "Receiver parameters are only allowed in struct or trait "
+                   "functions.");
+          return NULL;
+        }
+        if (params.count || d->as.function.receiver != RECEIVER_NONE) {
+          error_at(p, span,
+                   "A receiver must be the first and only receiver parameter.");
+          return NULL;
+        }
+        if (at(p, TOK_COLON)) {
+          error_at(p, span, "Receiver parameters have no written type.");
+          return NULL;
+        }
+        d->as.function.receiver = mutable ? RECEIVER_MUT_SELF : RECEIVER_SELF;
+        d->as.function.receiver_span = span;
+      } else {
+        Parameter param;
+        if (!parameter(p, &param, 0))
+          return NULL;
+        PUSH(p, params, param);
+      }
       if (!match(p, TOK_COMMA))
         break;
       if (at(p, TOK_RPAREN))
@@ -1649,6 +1680,11 @@ static Expr *primary(Parser *p, int allow_struct) {
     error(p, "Increment and decrement must be postfix standalone statements "
              "(x++ or x--).");
     return NULL;
+  }
+  if (match(p, TOK_SELF)) {
+    Expr *e = new_expr(p, EXPR_SELF, token.span);
+    e->name_span = token.span;
+    return e;
   }
   if (type_name_token(token.type) && !qualified_symbol_head(p)) {
     take(p);
@@ -2096,7 +2132,7 @@ static const Operator *operator_info(TokenType t) {
 static int name_path(Expr *e) {
   while (e->kind == EXPR_FIELD)
     e = e->as.field.object;
-  return e->kind == EXPR_NAME;
+  return e->kind == EXPR_NAME || e->kind == EXPR_SELF;
 }
 static int call_stage(Expr *stage) {
   while (stage->kind == EXPR_TRY || stage->kind == EXPR_PANIC)

@@ -37,7 +37,7 @@ share struct bodies with fields; `impl` is ordinary and old blocks reject
 without relocation fixes. A fieldless body builds `DECL_TRAIT`, retaining typed
 required signatures and default bodies; a unit field makes a struct. Broken
 members are not reclassified as a valid trait. Struct functions require bodies.
-Native trait support, `self`/`&self`, inference and conformance remain pending.
+Native traits, receiver binding/inference and conformance remain pending.
 
 Qualified symbols such as `models.Db.:!bad[str]` retain their module path in
 types, values and patterns. The final module name must start uppercase; tags
@@ -54,6 +54,13 @@ Qualified paths and bracketed type arguments are retained in the AST; primitive,
 unit, wildcard and inline-union conformances reject without guessed names or
 fixes. Native compilation reports conformance as unsupported before dependent
 names or bodies. This does not add trait/module lookup or receiver inference.
+
+`self` is a keyword and `EXPR_SELF`, not an ordinary binding or the type `Self`.
+A trait receiver writes `self` or `&self` first, without a type; a struct can
+write `&self`, but plain `self` parameters are trait-only. Receiver metadata
+and spans are separate from ordinary parameters, with no synthetic type/slot.
+Native receiver binding/inference is still unavailable. The native syntax scan
+rejects self-using struct functions once each; outside-owner use is invalid.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
@@ -90,12 +97,16 @@ names or bodies. This does not add trait/module lookup or receiver inference.
 - `47`: conformance headers promoted from `fail/later-conformance.brf`, with
   qualified/generic traits, `and` continuation and fieldless/field-bearing
   bodies, without native conformance claims.
+- `48`: distinct self expressions, explicit receiver kinds, comments and
+  ordinary `Self` types, without native binding or inference claims.
 - `underscore-type-syntax`: promoted from the old parser rejection; semantic
   checking still rejects its bare partial return marker.
 
 ## `fail/`
 
-There are 111 rejection fixtures, including `conformance-missing-name.brf`,
+There are 114 rejection fixtures, including `receiver-position.brf`,
+`struct-plain-self.brf`, `receiver-written-type.brf`,
+`conformance-missing-name.brf`,
 `conformance-non-name.brf`, `primitive-field-name.brf`, `old-impl-block.brf`,
 `struct-signature-without-body.brf`, `trait-signature-without-return.brf`,
 `qualified-shared-symbol.brf`, `qualified-symbol-missing-name.brf` and

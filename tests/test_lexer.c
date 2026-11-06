@@ -303,6 +303,20 @@ int main(void) {
       }
     }
   }
+  TEST("self alone is a keyword, not Self or identifier prefixes") {
+    Lexer lx;
+    init_lexer(&lx, "self Self selfish self_ self1 selfSelf &self");
+    expect(&lx, TOK_SELF, "self");
+    expect(&lx, TOK_UPPER_NAME, "Self");
+    expect(&lx, TOK_LOWER_NAME, "selfish");
+    expect(&lx, TOK_LOWER_NAME, "self_");
+    expect(&lx, TOK_LOWER_NAME, "self1");
+    expect(&lx, TOK_LOWER_NAME, "selfSelf");
+    expect(&lx, TOK_BIT_AND, "&");
+    expect(&lx, TOK_SELF, "self");
+    expect(&lx, TOK_EOF, NULL);
+    ASSERT_TRUE(!token_is_name(TOK_SELF) && !token_is_identifier(TOK_SELF));
+  }
   TEST("type and definition keywords are distinguished from identifiers") {
     Lexer lx;
     init_lexer(&lx, "bool int uint shrt ushrt lng ulng flt dbl chr str "
@@ -333,7 +347,7 @@ int main(void) {
     expect(&lx, TOK_LOWER_NAME, "enum");
     expect(&lx, TOK_LOWER_NAME, "intx");
     expect(&lx, TOK_LOWER_NAME, "sym");
-    expect(&lx, TOK_LOWER_NAME, "self");
+    expect(&lx, TOK_SELF, "self");
     expect(&lx, TOK_LOWER_NAME, "modern");
     expect(&lx, TOK_LOWER_NAME, "imports");
     expect(&lx, TOK_LOWER_NAME, "traits");

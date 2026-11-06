@@ -106,10 +106,10 @@ static int continues(TokenType t, int type_close, int prefix_bang) {
 }
 
 static int can_end(TokenType t) {
-  return name_token(t) || (t >= TOK_INT_LIT && t <= TOK_BOOL_LIT) ||
-         t == TOK_RPAREN || t == TOK_RBRACKET || t == TOK_RBRACE ||
-         t == TOK_QUESTION || t == TOK_BANG || t == TOK_PLUS_PLUS ||
-         t == TOK_MINUS_MINUS;
+  return name_token(t) || t == TOK_SELF ||
+         (t >= TOK_INT_LIT && t <= TOK_BOOL_LIT) || t == TOK_RPAREN ||
+         t == TOK_RBRACKET || t == TOK_RBRACE || t == TOK_QUESTION ||
+         t == TOK_BANG || t == TOK_PLUS_PLUS || t == TOK_MINUS_MINUS;
 }
 
 TokenArray newline_filter(Arena *arena, TokenArray raw) {

@@ -6,7 +6,7 @@ executable scripts and CTest registrations are deleted; they are not maintained
 as a second syntax or extended into a migration system. `docs/v0/` is untouched.
 
 The replacement [current-document parser inventory](doc-parser.md) reads all
-13 current chapters: 239 fences, 157 parser checks, 82 explicitly listed fences
+13 current chapters: 239 fences, 162 parser checks, 77 explicitly listed fences
 and two zero-fence listings. Parser checks are not native acceptance. The
 retirement leaves an intentional native document-coverage gap; the checked-in
 program fixtures and independent C/compiler/native-driver tests remain active.
@@ -66,10 +66,18 @@ complete a native chapter audit or add receiver inference or N2 behavior.
 
 Conformance headers now retain named trait references and type arguments, but
 native compilation reports an explicit scope error before dependent names,
-cycles, bodies or missing-main checks. Four whole module/trait fences bring the
-current inventory to 157 checks and 82 fenced listings. This does not resolve
+cycles, bodies or missing-main checks. Four whole module/trait fences brought
+that inventory to 157 checks and 82 fenced listings. This does not resolve
 traits or modules, infer receivers, dispatch defaults or complete a native
 chapter audit. No bodies or missing names are invented.
+
+The `self` keyword, expression nodes and explicit receiver metadata add five
+whole-fence checks, bringing the current inventory to 162 checks and 77 fenced
+listings. Native struct receivers remain explicitly unsupported; invalid
+outside-owner uses get a context error. Trait/import/conformance scope errors
+still take precedence. No implicit parameter, owner type, binding, method
+inference or wrong-way-call behavior is invented. N1 and its replacement
+native audits remain incomplete.
 
 ## N1 spelling bridges
 

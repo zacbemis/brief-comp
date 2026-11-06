@@ -158,6 +158,8 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_MOD;
   if (len == 3 && memcmp(lexer->start, "pub", 3) == 0)
     return TOK_PUB;
+  if (len == 4 && memcmp(lexer->start, "self", 4) == 0)
+    return TOK_SELF;
   if (len == 3 && memcmp(lexer->start, "ret", 3) == 0)
     return TOK_RET;
   if (len == 3 && memcmp(lexer->start, "str", 3) == 0)

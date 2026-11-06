@@ -84,7 +84,7 @@ struct Expr {
   ExprKind kind;
   Span span;
   unsigned depth; // Includes left-associated chains, not just parser recursion.
-  Span name_span; // EXPR_NAME's original token, unaffected by grouping.
+  Span name_span; // EXPR_NAME/EXPR_SELF's token, unaffected by grouping.
   union {
     const char *name;
     Token literal;
@@ -222,7 +222,9 @@ struct Decl {
     } binding;
     struct {
       Parameter *params;
-      size_t count;
+      size_t count; // Ordinary typed parameters only; no synthetic receiver.
+      ReceiverKind receiver;
+      Span receiver_span;
       Type *return_type; // NULL means inferred.
       Expr *body;
     } function;

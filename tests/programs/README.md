@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **147 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **148 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -493,9 +493,17 @@ and JSON/module APIs, receiver inference and N2 behavior are not added.
 Conformance headers retain syntax but have no native trait implementation.
 `errors/conformances.brf` requires one unsupported-conformance error per
 header, before missing types/bodies, alias cycles, opposite tag kinds in type
-arguments or a missing entry can cascade. The inventory is now 147 files; this
+arguments or a missing entry can cascade. That inventory had 147 files; this
 adds rejection coverage, not trait lookup, default dispatch or receiver
 inference. Existing native sources, outputs and error expectations are intact.
+
+The `self` keyword and receiver syntax now have a native scope boundary.
+`errors/self-receivers.brf` checks explicit mutable receivers, grouped self
+expressions and invalid outside-owner use, without dependent field/parameter,
+alias-cycle, body or missing-entry errors. The inventory is 148 files. Existing
+native sources, outputs and error expectations are unchanged; no native
+receiver binding/inference or wrong-way-call rules are added. Ordinary typed
+parameters retain first-version native call behavior until that N1 step.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

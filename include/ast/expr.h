@@ -5,6 +5,7 @@ typedef struct Expr Expr;
 
 typedef enum {
   EXPR_NAME,
+  EXPR_SELF, // self, distinct from an ordinary name or the type name Self.
   EXPR_UNIT, // ()
   EXPR_INT,
   EXPR_FLOAT,
