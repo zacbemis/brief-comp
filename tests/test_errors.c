@@ -18,8 +18,8 @@ static Result check(Arena *a, const char *text) {
       a, &names, newline_filter(a, lexer_tokenize(a, s, &r.errors)), &r.errors);
   r.program = sema_resolve(a, ast, &r.errors);
   sema_check(r.program, &r.errors);
-  // This suite's explicit failures use error spelling. Implicit converter
-  // tags and shared :none retain their N1 metadata until the N2 switch.
+  // Explicit failures and implicit converter tags have error kind. Shared
+  // :none remains neutral; extraction/handling still await their N2 switch.
   for (const SemaSymSet *set = r.program->symbol_sets; set; set = set->next) {
     if (!sema_ok(&set->type))
       continue;

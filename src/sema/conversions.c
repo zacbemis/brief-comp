@@ -27,11 +27,17 @@ const SemaType *sema_conversion(SemaProgram *p, const SemaType *source,
     infallible = 1;
   if (infallible)
     return sema_success(p, target);
-  SemaVariant variants[] = {
-      {p->ok, &target, 1},
-      {sema_tag(p, p->module,
-                source->kind == SEMA_STR ? "invalid" : "overflow"),
-       source->kind == SEMA_STR ? &source : NULL,
-       source->kind == SEMA_STR ? 1 : 0}};
+  SemaTag *failure =
+      sema_tag(p, p->module, source->kind == SEMA_STR ? "invalid" : "overflow");
+  if (!failure || (failure->kind_declared && failure->kind != SEMA_TAG_ERROR))
+    return &p->types[SEMA_ERROR];
+  // Intrinsic errors are known only for fallible domains. Do not reserve
+  // these names eagerly or overwrite a user's explicit neutral declaration.
+  // An implicit kind has no fictitious source spelling/span.
+  failure->kind = SEMA_TAG_ERROR;
+  failure->kind_declared = 1;
+  SemaVariant variants[] = {{p->ok, &target, 1},
+                            {failure, source->kind == SEMA_STR ? &source : NULL,
+                             source->kind == SEMA_STR ? 1 : 0}};
   return sema_symbol_set(p, variants, 2);
 }

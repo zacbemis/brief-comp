@@ -79,8 +79,11 @@ filename/discovery rules stay with the bootstrap module loader.
 N2's first slice rejects nonempty `:none` payload lists in types, values and
 patterns, including `()`. Empty `:none[]` remains the payload-less form. These
 unit/native regressions do not promote a fence or complete a N2 chapter audit.
-Outcome classification, propagation, exact returns, implicit endings and entry
-policy/formatting still await their N2 slices.
+The next slice gives fallible converters local intrinsic error kinds and rejects
+collisions with explicit neutral data declarations, without reserving the names
+for infallible casts or supplying APIs to a fence. Outcome classification,
+propagation, exact returns, implicit endings and entry policy/formatting still
+await their N2 slices.
 
 Remaining milestone work:
 

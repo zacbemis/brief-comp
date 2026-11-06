@@ -292,6 +292,8 @@ typedef struct {
 int sema_integer(const SemaType *type); // Excludes chr.
 int sema_number(const SemaType *type);
 // Outcome depends on source/target domains, never on a particular value.
+// Fallible domains declare the local intrinsic error kind lazily. A conflicting
+// neutral kind or exhausted tag IDs returns SEMA_ERROR; the caller diagnoses.
 const SemaType *sema_conversion(SemaProgram *program, const SemaType *source,
                                 const SemaType *target);
 // Includes value-represented symbols: their active payload needs ARC handling.

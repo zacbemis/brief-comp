@@ -1,14 +1,17 @@
 # Program tests
 
-Current inventory: **158 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **160 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
 N2's first slice adds `none-payload-shape.brf` and `errors/none-payloads.brf`.
 The reserved neutral `:none` accepts no payload positions: `:none` and `:none[]`
 are equivalent, while even `:none[()]` is an error. Other tags keep unit slots.
-All existing fixture expectations are unchanged. Outcome classification,
-propagation, exact returns, implicit endings and entry/formatting are pending.
+The next slice adds `conversion-data-tags.brf` and
+`errors/conversion-kind-conflicts.brf`: fallible converters use error-kind tags,
+while neutral data names remain valid beside infallible casts. All existing
+fixture expectations are unchanged. Outcome classification, propagation, exact
+returns, implicit endings and entry/formatting are pending.
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

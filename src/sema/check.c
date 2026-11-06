@@ -758,6 +758,29 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
           e->as.call.count == 1
               ? sema_conversion(c->p, e->as.call.args[0]->type, s->return_type)
               : t(c, SEMA_ERROR);
+      if (outcome->kind == SEMA_ERROR && e->as.call.count == 1 &&
+          (sema_number(e->as.call.args[0]->type) ||
+           e->as.call.args[0]->type->kind == SEMA_STR)) {
+        int text = e->as.call.args[0]->type->kind == SEMA_STR;
+        SemaTag *failure = name_map_get(&c->p->tag_names, c->p->module,
+                                        text ? "invalid" : "overflow");
+        // Source/source kind conflicts already have a resolver diagnostic.
+        // Otherwise report on every final check, not via persistent flags
+        // that could swallow the error on a recheck. error() also defers a
+        // locally invalid conversion during SCC probes.
+        if (!failure || !failure->kind_conflict) {
+          Diagnostic *d =
+              error(c, e->span,
+                    !failure ? "Too many symbol tags."
+                    : text ? "Numeric conversions use ':!invalid', not neutral "
+                             "':invalid'."
+                           : "Numeric conversions use ':!overflow', not "
+                             "neutral ':overflow'.");
+          if (d && failure && failure->kind_span.file)
+            diagnostic_note(c->errors, d, failure->kind_span,
+                            "The neutral symbol is declared here.");
+        }
+      }
       result = sema_result(c->p, outcome);
     }
     const SemaVariant *ok = sema_ok(outcome);

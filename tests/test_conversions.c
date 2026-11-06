@@ -59,6 +59,16 @@ int main(void) {
         const SemaType *outcome = sema_conversion(p, from, to);
         ASSERT_EQ_INT(infallible[i][j] ? 1 : 2, outcome->symbols->count);
         ASSERT_TRUE(sema_single_payload(sema_ok(outcome)) == to);
+        ASSERT_EQ_INT(infallible[i][j] ? 1 : 2, p->tag_count);
+        if (!infallible[i][j]) {
+          const SemaVariant *failure = &outcome->symbols->variants[1];
+          ASSERT_EQ_INT(SEMA_TAG_ERROR, failure->tag->kind);
+          ASSERT_TRUE(failure->tag->kind_declared);
+          ASSERT_TRUE(failure->tag->module == p->module);
+          ASSERT_TRUE(!failure->tag->kind_span.file);
+          ASSERT_EQ_INT(0, failure->payload_count);
+          ASSERT_EQ_INT(0, strcmp("overflow", failure->tag->name));
+        }
         ASSERT_TRUE(p->functions[0].symbol.return_type == to);
         IrProgram *ir = ir_lower(&a, p);
         ASSERT_TRUE(ir != NULL);
@@ -106,6 +116,52 @@ int main(void) {
         fclose(out);
       }
     }
+  }
+  TEST("intrinsic error kinds are lazy, local, stable and non-destructive") {
+    SemaProgram *p = check(&a, "main() {}", NULL);
+    const SemaType *number = &p->types[SEMA_INT];
+    ASSERT_EQ_INT(1, p->tag_count);
+    ASSERT_TRUE(sema_conversion(p, &p->types[SEMA_UNKNOWN], number) != NULL);
+    ASSERT_TRUE(sema_conversion(p, &p->types[SEMA_CHR], number) != NULL);
+    ASSERT_EQ_INT(1, p->tag_count);
+    SourceFile *other = source_create(&a, "other.brf", "", 0);
+    SemaTag *remote = sema_tag(p, other, "invalid");
+    const SemaType *from[] = {&p->types[SEMA_STR], &p->types[SEMA_LNG]};
+    for (size_t i = 0; i < 2; i++) {
+      const SemaType *outcome = sema_conversion(p, from[i], number);
+      const SemaVariant *failure = &outcome->symbols->variants[1];
+      SemaTag *tag = failure->tag;
+      size_t count = p->tag_count, id = tag->id;
+      ASSERT_EQ_INT(SEMA_TAG_ERROR, tag->kind);
+      ASSERT_TRUE(tag->kind_declared && tag->module == p->module);
+      ASSERT_TRUE(!tag->kind_span.file && !tag->kind_conflict);
+      ASSERT_EQ_INT(i == 0 ? 1 : 0, failure->payload_count);
+      if (!i)
+        ASSERT_TRUE(failure->payloads[0] == from[i]);
+      for (unsigned repeat = 0; repeat < 3; repeat++) {
+        ASSERT_TRUE(sema_conversion(p, from[i], number) == outcome);
+        ASSERT_EQ_INT(count, p->tag_count);
+        ASSERT_EQ_INT(id, tag->id);
+      }
+    }
+    ASSERT_TRUE(remote != sema_tag(p, p->module, "invalid"));
+    ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, remote->kind);
+    p = check(&a, "Data = :invalid[str] | :overflow\nmain() {}", NULL);
+    size_t count = p->tag_count, sets = p->symbol_set_count;
+    ASSERT_TRUE(sema_conversion(p, &p->types[SEMA_STR], &p->types[SEMA_INT]) ==
+                &p->types[SEMA_ERROR]);
+    ASSERT_TRUE(sema_conversion(p, &p->types[SEMA_LNG], &p->types[SEMA_INT]) ==
+                &p->types[SEMA_ERROR]);
+    ASSERT_EQ_INT(count, p->tag_count);
+    ASSERT_EQ_INT(sets, p->symbol_set_count);
+    for (const SemaTag *tag = p->tags; tag; tag = tag->next)
+      ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, tag->kind);
+    p = check(&a, "main() {}", NULL);
+    p->tag_count = UINT32_MAX;
+    ASSERT_TRUE(sema_conversion(p, &p->types[SEMA_STR], &p->types[SEMA_INT]) ==
+                &p->types[SEMA_ERROR]);
+    ASSERT_EQ_INT(UINT32_MAX, p->tag_count);
+    ASSERT_TRUE(name_map_get(&p->tag_names, p->module, "invalid") == NULL);
   }
   TEST(
       "typed sources retain their domain; literal arguments adopt the target") {

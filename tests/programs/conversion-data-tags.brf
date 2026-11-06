@@ -1,0 +1,15 @@
+// expect: 42
+// expect: data
+// expect: overflow data
+Data = :invalid[str] | :overflow
+Wide = lng
+widen(n: int) -> lng { Wide(n) }
+main() {
+  print(str(widen(42)))
+  let input: Data = :invalid["data"]
+  input |> { :invalid[text] => print(text)
+             :overflow => print("wrong") }
+  :overflow |> { :overflow => print("overflow data") }
+  int(7)
+  int('a')
+}

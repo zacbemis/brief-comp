@@ -22,8 +22,15 @@ static Result check(Arena *a, const char *text) {
   ASSERT_EQ_INT(1, r.program->ok->id);
   size_t id = r.program->tag_count;
   for (const SemaTag *tag = r.program->tags; tag; tag = tag->next) {
-    if (!strstr(text, ":!"))
-      ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, tag->kind);
+    if (!strstr(text, ":!")) {
+      if (tag->module && !tag->kind_span.file) {
+        ASSERT_TRUE(!strcmp(tag->name, "invalid") ||
+                    !strcmp(tag->name, "overflow"));
+        ASSERT_TRUE(tag->kind_declared);
+        ASSERT_EQ_INT(SEMA_TAG_ERROR, tag->kind);
+      } else
+        ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, tag->kind);
+    }
     ASSERT_EQ_INT(id, tag->id);
     id--;
     ASSERT_TRUE(
@@ -1084,11 +1091,115 @@ int main(void) {
         ASSERT_TRUE(!r.errors.items[0]->fixes);
     }
   }
-  TEST("intentional neutral source/converter tags retain N1 module metadata") {
+  TEST("conversion failure kinds reject the old neutral characterization") {
+    const char *source =
+        "Maybe = :ok[int] | :none\n"
+        "parse(s: str) -> :ok[int] | :invalid[str] { int(s)? }\n"
+        "small(n: lng) -> :ok[int] | :overflow { int(n)? }\n"
+        "main() { :none }";
+    Result r = check(&a, source);
+    for (unsigned repeat = 0; repeat < 3; repeat++) {
+      if (repeat) {
+        diagnostics_init(&r.errors, &a);
+        sema_check(r.program, &r.errors);
+      }
+      ASSERT_EQ_INT(2, r.errors.count);
+      ASSERT_TRUE(r.program->resolved && !r.program->checked);
+      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+      ASSERT_EQ_INT(SEMA_TAG_NEUTRAL,
+                    sema_tag(r.program, r.program->module, "invalid")->kind);
+      ASSERT_EQ_INT(SEMA_TAG_NEUTRAL,
+                    sema_tag(r.program, r.program->module, "overflow")->kind);
+      for (size_t i = 0; i < r.errors.count; i++) {
+        Diagnostic *d = r.errors.items[i];
+        int text = strstr(d->message, ":!invalid") != NULL;
+        const char *call = strstr(source, text ? "int(s)" : "int(n)");
+        const char *decl = strstr(source, text ? ":invalid" : ":overflow");
+        ASSERT_EQ_INT(0, strcmp(text ? "Numeric conversions use ':!invalid', "
+                                       "not neutral ':invalid'."
+                                     : "Numeric conversions use ':!overflow', "
+                                       "not neutral ':overflow'.",
+                                d->message));
+        ASSERT_EQ_INT((size_t)(call - source), d->span.start);
+        ASSERT_EQ_INT(d->span.start + 6, d->span.end);
+        ASSERT_TRUE(d->notes && !d->notes->next && !d->fixes);
+        if (d->notes)
+          ASSERT_EQ_INT((size_t)(decl - source), d->notes->span.start);
+      }
+    }
+  }
+  TEST("conversion kind conflicts survive inference, source order and "
+       "rechecks") {
+    struct {
+      const char *text, *call, *decl;
+    } cases[] = {
+        {"Bad = :invalid[str]\nf(s: str) { int(s)? }\nmain() {}", "int(s)",
+         ":invalid"},
+        {"f(s: str) { int(s)? }\nBad = :invalid[str]\nmain() {}", "int(s)",
+         ":invalid"},
+        {"Bad = :overflow\nf(n: lng) { int(n)! }\nmain() {}", "int(n)",
+         ":overflow"},
+        {"f(n: lng) { int(n)! }\nBad = :overflow\nmain() {}", "int(n)",
+         ":overflow"},
+        {"Number = int\nBad = :invalid[str]\nf(s: str) { Number(s)! }\nmain() "
+         "{}",
+         "Number(s)", ":invalid"},
+        {"Bad = :invalid[str]\nf(s: str) { ret 1\nint(s)? }\nmain() {}",
+         "int(s)", ":invalid"},
+        {"Bad = :overflow\nf(n: lng) { if n == 0 { ret 1 }\nint(g(n)?)? }\n"
+         "g(n: lng) { if n == 0 { ret lng(1) }\nlng(f(n)?) }\nmain() {}",
+         "int(g(n)?)", ":overflow"}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++)
+      for (unsigned crlf = 0; crlf < 2; crlf++) {
+        char source[1024];
+        size_t length = 0;
+        for (const char *s = cases[i].text; *s; s++) {
+          if (crlf && *s == '\n')
+            source[length++] = '\r';
+          source[length++] = *s;
+        }
+        source[length] = 0;
+        Result r = check(&a, source);
+        size_t tags = r.program->tag_count;
+        for (unsigned repeat = 0; repeat < 3; repeat++) {
+          if (repeat) {
+            diagnostics_init(&r.errors, &a);
+            sema_check(r.program, &r.errors);
+          }
+          if (r.errors.count != 1)
+            diagnostics_print(&r.errors, stderr);
+          ASSERT_EQ_INT(1, r.errors.count);
+          ASSERT_TRUE(r.program->resolved && !r.program->checked);
+          ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+          ASSERT_EQ_INT(tags, r.program->tag_count);
+          ASSERT_TRUE(!memcmp(source, r.program->module->text, length));
+          if (r.errors.count) {
+            Diagnostic *d = r.errors.items[0];
+            ASSERT_TRUE(strstr(d->message, "Numeric conversions use ':!") !=
+                        NULL);
+            ASSERT_EQ_INT((size_t)(strstr(source, cases[i].call) - source),
+                          d->span.start);
+            ASSERT_EQ_INT(d->span.start + strlen(cases[i].call), d->span.end);
+            ASSERT_TRUE(d->notes && !d->notes->next && !d->fixes);
+            if (d->notes)
+              ASSERT_EQ_INT((size_t)(strstr(source, cases[i].decl) - source),
+                            d->notes->span.start);
+          }
+        }
+      }
+    Result r = invalid(&a,
+                       "A = :invalid[str]\nB = :!invalid[str]\n"
+                       "f(s: str) { int(s)? }\nmain() {}",
+                       "both neutral and error");
+    ASSERT_EQ_INT(1, r.errors.count);
+    valid(&a, "Data = :invalid[str] | :overflow\nNumber = lng\n"
+              "f(n: int) { Number(n) }\nmain() { int(7)\n:invalid[\"data\"] }");
+  }
+  TEST("intrinsic error kinds preserve module identities and payload schemas") {
     Result r =
         valid(&a, "Maybe = :ok[int] | :none\n"
-                  "parse(s: str) -> :ok[int] | :invalid[str] { int(s)? }\n"
-                  "small(n: lng) -> :ok[int] | :overflow { int(n)? }\n"
+                  "parse(s: str) -> :ok[int] | :!invalid[str] { int(s)? }\n"
+                  "small(n: lng) -> :ok[int] | :!overflow { int(n)? }\n"
                   "main() { :none }");
     SemaProgram *p = r.program;
     SemaTag *invalid_tag = sema_tag(p, p->module, "invalid");
@@ -1100,9 +1211,9 @@ int main(void) {
     ASSERT_TRUE(sema_variant(narrowed, overflow)->payload_count == 0);
     ASSERT_TRUE(invalid_tag->module == p->module &&
                 overflow->module == p->module);
-    ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, invalid_tag->kind);
-    ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, overflow->kind);
-    // Kind is metadata only: legacy :ok-based failure detection still applies.
+    ASSERT_EQ_INT(SEMA_TAG_ERROR, invalid_tag->kind);
+    ASSERT_EQ_INT(SEMA_TAG_ERROR, overflow->kind);
+    // Extraction/handling still use :ok until their own N2 slice.
     ASSERT_TRUE(sema_failures(p, parsed) != NULL);
     ASSERT_TRUE(sema_failures(p, narrowed) != NULL);
     size_t count = p->tag_count;

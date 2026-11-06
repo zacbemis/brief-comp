@@ -133,8 +133,11 @@ scope; see [the final review](tests/next-version-n1-review.md).
 
 N2 begins with the reserved neutral `:none` payload rule: `:none` and `:none[]`
 stay valid, but any payload, including `()`, is rejected without a guessed fix.
-Kind-based outcome handling, propagation, exact returns, entry status and the
-new formatter remain pending; existing behavior is unchanged for those rules.
+Fallible converters now declare local error-kind `:!invalid[str]`/`:!overflow`
+tags. Explicit neutral declarations of those names conflict at a fallible call,
+with a declaration note and no guessed fix; ordinary data and infallible casts
+remain valid. Kind-based outcome handling, propagation, exact returns, entry
+status and the new formatter remain pending.
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and

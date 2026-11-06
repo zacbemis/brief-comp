@@ -1,0 +1,9 @@
+TextProblem = :invalid[str]
+NumberProblem = :overflow
+read(s: str) -> :ok[int] | TextProblem {
+  int(s)? // error: Numeric conversions use ':!invalid', not neutral ':invalid'.
+}
+narrow(n: lng) -> :ok[int] | NumberProblem {
+  int(n)! // error: Numeric conversions use ':!overflow', not neutral ':overflow'.
+}
+main() { :invalid["ordinary data"] }
