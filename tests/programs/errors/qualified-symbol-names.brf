@@ -1,0 +1,5 @@
+A = db.:bad[int] // error: Module names must start with an uppercase letter. // fix: A = Db.:bad[int]
+B = Db.:Bad[int] // error: Symbol tags must start with a lowercase letter. // fix: B = Db.:bad[int]
+C = Db.:ok // error: ':ok' and ':none' cannot have a module qualifier.
+D = fn.:bad // error: Module names must start with an uppercase letter.
+main() {}

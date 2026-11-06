@@ -1,0 +1,18 @@
+// Syntax only: no module loading or external tag identity is implemented.
+Remote = models.Db.:!notFound[str] | File.:healthy | :ok[int]
+Nested = :outer[Db.:value[int] | File.:!bad[str]]
+Generic = Vec[Db.:!bad[str]]
+main() {
+  let data = models.Db.:value[1, "text",]
+  let flags = Db.:first | File.:second
+  data |> {
+    models.Db.:value[number, text] => number
+    Db.:!notFound[id: int] => id
+    File.Error => ()
+    _ => ()
+  }
+  Db
+    . :!notFound[
+      "path",
+    ]
+}

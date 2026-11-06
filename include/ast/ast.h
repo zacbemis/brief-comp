@@ -17,8 +17,10 @@ typedef struct {
   Span span;
   const char *tag; // NULL includes a named set (or TYPE_INFER).
   SymbolKind kind;
-  Span tag_span; // Prefix through name, excluding the payload.
-  Type *type;    // Named-set inclusion or inference; NULL for a tag.
+  Span tag_span;      // Prefix through name, excluding the payload.
+  const char *module; // NULL for an unqualified tag.
+  Span module_span;
+  Type *type; // Named-set inclusion or inference; NULL for a tag.
   Type **payloads;
   size_t count;
 } UnionEntry;
@@ -90,6 +92,8 @@ struct Expr {
       const char *tag;
       SymbolKind kind;
       Span tag_span;
+      const char *module;
+      Span module_span;
       Expr **payloads;
       size_t count;
     } symbol;
@@ -188,6 +192,8 @@ struct Pattern {
       const char *tag;
       SymbolKind kind;
       Span tag_span;
+      const char *module;
+      Span module_span;
       Pattern **payloads;
       size_t count;
     } symbol;

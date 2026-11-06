@@ -409,13 +409,15 @@ static int enter(Parser *p) {
   return 1;
 }
 
-static const char *path(Parser *p) {
+static const char *path(Parser *p, int qualifier) {
   if (!type_name_token(peek(p).type)) {
     error(p, "Expected a name.");
     return NULL;
   }
   const char *result = name(p, take(p));
-  while (match(p, TOK_PERIOD)) {
+  while (at(p, TOK_PERIOD) &&
+         !(qualifier && p->tokens.items[p->position + 1].type == TOK_COLON)) {
+    take(p);
     if (!expect_identifier(p, "Expected a name after '.'."))
       return NULL;
     const char *part = name(p, p->previous);
@@ -427,6 +429,42 @@ static const char *path(Parser *p) {
     result = intern(p->names, joined);
   }
   return result;
+}
+
+// Token-only recognition: a simple name path followed by '.:' is a symbol
+// qualifier, never a receiver expression. Accepted parsing does not rewind.
+static int qualified_symbol_head(Parser *p) {
+  size_t i = p->position;
+  if (!token_is_name(p->tokens.items[i].type))
+    return 0;
+  while (i + 2 < p->tokens.count && p->tokens.items[i + 1].type == TOK_PERIOD) {
+    if (p->tokens.items[i + 2].type == TOK_COLON)
+      return 1;
+    if (!token_is_name(p->tokens.items[i + 2].type))
+      return 0;
+    i += 2;
+  }
+  return 0;
+}
+static Token symbol_prefix(Parser *p, const char **module, Span *span,
+                           Token *leaf) {
+  if (!at(p, TOK_COLON)) {
+    Token start = peek(p);
+    *module = path(p, 1);
+    *leaf = p->previous;
+    *span = through(start.span, leaf->span);
+    take(p); // The qualifier's final dot, recognized above.
+  }
+  return take(p); // ':'
+}
+static void check_symbol_module(Parser *p, const char *module, Span span,
+                                Token leaf, size_t mark, const char *tag) {
+  if (!module)
+    return;
+  check_name_case(p, leaf, mark, TOK_UPPER_NAME,
+                  "Module names must start with an uppercase letter.");
+  if (!strcmp(tag, "ok") || !strcmp(tag, "none"))
+    error_at(p, span, "':ok' and ':none' cannot have a module qualifier.");
 }
 
 // Only diagnostic recovery needs angle closers.
@@ -740,9 +778,12 @@ static Type *type_atom(Parser *p) {
     t = old_symbol_type(p);
     if (!t)
       return NULL;
-  } else if (match(p, TOK_COLON)) {
+  } else if (at(p, TOK_COLON) || qualified_symbol_head(p)) {
     UnionEntry entry = {.span = start.span};
-    if (!symbol_name(p, start, &entry.kind, &entry.tag_span,
+    Token leaf = {0};
+    size_t module_mark = p->diagnostics->count;
+    Token colon = symbol_prefix(p, &entry.module, &entry.module_span, &leaf);
+    if (!symbol_name(p, colon, &entry.kind, &entry.tag_span,
                      "Expected a symbol tag after ':'."))
       return NULL;
     Token tag = p->previous;
@@ -771,6 +812,8 @@ static Type *type_atom(Parser *p) {
     }
     check_name_case(p, tag, mark, TOK_LOWER_NAME,
                     "Symbol tags must start with a lowercase letter.");
+    check_symbol_module(p, entry.module, entry.module_span, leaf, module_mark,
+                        entry.tag);
     entry.span = through(start.span, p->previous.span);
     t = new_type(p, TYPE_UNION, entry.span);
     t->as.union_type.items = arena_alloc(p->arena, sizeof(entry));
@@ -779,7 +822,7 @@ static Type *type_atom(Parser *p) {
   } else if (match(p, TOK_WILDCARD)) {
     t = new_type(p, TYPE_INFER, start.span);
   } else if (type_name_token(start.type)) {
-    const char *text = path(p);
+    const char *text = path(p, 0);
     if (!text)
       return NULL;
     t = new_type(p, TYPE_NAME, through(start.span, p->previous.span));
@@ -1519,7 +1562,7 @@ static Expr *primary(Parser *p, int allow_struct) {
              "(x++ or x--).");
     return NULL;
   }
-  if (type_name_token(token.type)) {
+  if (type_name_token(token.type) && !qualified_symbol_head(p)) {
     take(p);
     Expr *e = new_expr(p, EXPR_NAME, token.span);
     e->name_span = token.span;
@@ -1563,9 +1606,13 @@ static Expr *primary(Parser *p, int allow_struct) {
     e->span = through(token.span, p->previous.span);
     return e;
   }
-  if (match(p, TOK_COLON)) {
+  if (at(p, TOK_COLON) || qualified_symbol_head(p)) {
     Expr *e = new_expr(p, EXPR_SYMBOL, token.span);
-    if (!symbol_name(p, token, &e->as.symbol.kind, &e->as.symbol.tag_span,
+    Token leaf = {0};
+    size_t module_mark = p->diagnostics->count;
+    Token colon = symbol_prefix(p, &e->as.symbol.module,
+                                &e->as.symbol.module_span, &leaf);
+    if (!symbol_name(p, colon, &e->as.symbol.kind, &e->as.symbol.tag_span,
                      "Expected a symbol tag after ':'."))
       return NULL;
     Token tag = p->previous;
@@ -1594,6 +1641,8 @@ static Expr *primary(Parser *p, int allow_struct) {
     }
     check_name_case(p, tag, mark, TOK_LOWER_NAME,
                     "Symbol tags must start with a lowercase letter.");
+    check_symbol_module(p, e->as.symbol.module, e->as.symbol.module_span, leaf,
+                        module_mark, e->as.symbol.tag);
     e->span = through(token.span, p->previous.span);
     return e;
   }
@@ -1702,7 +1751,7 @@ static Expr *pattern_value(Parser *p) {
     return e;
   }
   if (token_is_identifier(t.type)) {
-    const char *text = path(p);
+    const char *text = path(p, 0);
     if (!text)
       return NULL;
     Expr *e = new_expr(p, EXPR_NAME, through(t.span, p->previous.span));
@@ -1729,9 +1778,13 @@ static Pattern *pattern_inner(Parser *p, int payload_context) {
     v->span = through(start.span, p->previous.span);
     return v;
   }
-  if (match(p, TOK_COLON)) {
+  if (at(p, TOK_COLON) || qualified_symbol_head(p)) {
     Pattern *v = new_pattern(p, PAT_SYMBOL, start.span);
-    if (!symbol_name(p, start, &v->as.symbol.kind, &v->as.symbol.tag_span,
+    Token leaf = {0};
+    size_t module_mark = p->diagnostics->count;
+    Token colon = symbol_prefix(p, &v->as.symbol.module,
+                                &v->as.symbol.module_span, &leaf);
+    if (!symbol_name(p, colon, &v->as.symbol.kind, &v->as.symbol.tag_span,
                      "Expected a symbol tag in pattern."))
       return NULL;
     Token tag = p->previous;
@@ -1759,6 +1812,8 @@ static Pattern *pattern_inner(Parser *p, int payload_context) {
     }
     check_name_case(p, tag, mark, TOK_LOWER_NAME,
                     "Symbol tags must start with a lowercase letter.");
+    check_symbol_module(p, v->as.symbol.module, v->as.symbol.module_span, leaf,
+                        module_mark, v->as.symbol.tag);
     v->span = through(start.span, p->previous.span);
     return v;
   }
@@ -1773,7 +1828,7 @@ static Pattern *pattern_inner(Parser *p, int payload_context) {
     return v;
   }
   if (token_is_identifier(start.type)) {
-    const char *text = path(p);
+    const char *text = path(p, 0);
     if (!text)
       return NULL;
     if (match(p, TOK_COLON)) {

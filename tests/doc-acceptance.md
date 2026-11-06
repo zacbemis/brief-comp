@@ -45,6 +45,11 @@ acceptance audits. Empty type bodies now classify as unsupported traits, with
 explicit unit fields used for retained struct cases. This does not implement
 trait members/conformance or complete any replacement chapter audit.
 
+Qualified symbol syntax is also parser-only: native compilation reports the
+module-qualified scope boundary. Four newly checked complete fences bring the
+inventory to 150 checks and 89 fenced listings, not module/API, merged symbol,
+interpolation or N2/N3 acceptance.
+
 ## N1 spelling bridges
 
 The early `not`, `dbl` and return-header spelling bridges are deleted. References

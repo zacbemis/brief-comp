@@ -37,6 +37,11 @@ now build `DECL_TRAIT`, while a unit field is enough to make a struct. Syntax
 recovery for a broken field is not reclassified as a trait. Trait members and
 signatures still await the member grammar; native trait support is not added.
 
+Qualified symbols such as `models.Db.:!bad[str]` retain their module path in
+types, values and patterns. The final module name must start uppercase; tags
+still start lowercase. Shared `:ok` and `:none` never have a qualifier. Parsing
+does not load modules or resolve external tag identities.
+
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
   must show.
@@ -63,12 +68,15 @@ signatures still await the member grammar; native trait support is not added.
 - `42`: ordinary `Self` names in declarations, annotations, type arguments,
   literals, calls and named-set pattern roles.
 - `43`: empty/comment-only traits distinguished from a struct with a unit field.
+- `44`: qualified neutral/error symbols, payload/type nesting, named-set roles,
+  multiline paths and ordinary bitwise-or separation.
 - `underscore-type-syntax`: promoted from the old parser rejection; semantic
   checking still rejects its bare partial return marker.
 
 ## `fail/`
 
-There are 104 rejection fixtures, including `pub-trait.brf`,
+There are 106 rejection fixtures, including `qualified-shared-symbol.brf`,
+`qualified-symbol-missing-name.brf` and `pub-trait.brf`,
 `typed-pattern-outside-payload.brf`, `typed-payload-missing-name.brf`,
 `typed-payload-missing-type.brf`, `old-symbol-union.brf`,
 `union-missing-member.brf`, `union-missing-separator.brf`,

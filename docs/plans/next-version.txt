@@ -177,14 +177,14 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (140 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases and empty-trait classification; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
-| `tests/parse/pass/` (36) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
-| `tests/parse/fail/` (104) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
+| `tests/programs/` (142 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases, empty-trait classification and qualified symbol syntax; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/parse/pass/` (37) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
+| `tests/parse/fail/` (106) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
 | CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
 | Document acceptance (13 v0 audits, now retired) | Scripts, bridges and registrations deleted in N1; records retained as historical evidence | Each new document's audit is written in the milestone that implements its rules (see "Milestones"), so document coverage returns chapter by chapter instead of all at the end. |
-| `test_doc_parser` | Reads 13 current chapters: 239 fences, 146 parser checks, 93 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
+| `test_doc_parser` | Reads 13 current chapters: 239 fences, 150 parser checks, 89 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
 | `examples/*.brf` | Not run in CI | Converted in N1, and added to the program runner with their output as expectations, so the examples cannot rot again. |
 
 ### New test forms
@@ -238,9 +238,10 @@ concrete names, with ordinary declarations named `Self` taking precedence over
 legacy recovery. Type aliases now transparently reuse all existing native types,
 including primitives, unit and structs, with shared converters and struct
 namespaces. Valid empty type bodies now classify as unsupported traits; native
-struct fixtures have explicit fields, including unit fields. Trait/member body
-grammar remains pending, along with multi-payload checking/lowering and the old
-failure-tag conversion.
+struct fixtures have explicit fields, including unit fields. Qualified symbols
+retain module paths but stop at an explicit native scope boundary. Trait/member
+body grammar, multi-payload checking/lowering and the old failure-tag conversion
+remain pending.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -1484,6 +1485,65 @@ multi-payload checking/lowering, remaining keywords/casing, failure-tag
 conversion and native audits. Outcomes, entry policy, IR/RC and runtime
 formatting rules remain unchanged; the explicit unit field is source data, not a
 formatter-policy change.
+
+### N1 increment: qualified symbol syntax without module loading
+
+`Db.:!notFound[str]` and `models.File.:healthy` now parse in types, values and
+patterns. Syntax retains an optional interned module path and its span separately
+from the existing tag prefix/name span. A token-only name-path recognizer selects
+this form without speculative AST allocation or rewind. Ordinary dotted names,
+named-set patterns, calls, expression bitwise-or and unqualified tag dumps remain
+unchanged. Qualified dumps show the written path and `.:`/`:!` kind spelling.
+
+The final module name must start uppercase; tag names remain lowercase. Exact
+name-token fixes preserve qualifiers, comments and LF/CRLF and compose with old
+payload/type-argument fixes. Malformed prefixes keep their primary error without
+inventing names. Shared `:ok` and `:none` reject qualifiers without guessing
+whether to rename a remote tag or remove its qualifier. Qualifiers are simple
+name paths, never arbitrary receiver expressions or calls.
+
+Resolution reports `Module-qualified symbols are not implemented yet.` before
+unavailable payload types/values, positional shapes or arm bodies are resolved.
+Nested qualified patterns invalidate the affected arm without input, refutability
+or binding cascades. External payloads create no local alias-dependency edges,
+including apparent self-cycles. No remote tag is interned locally, given an ID or
+kind-checked against a same-spelled local tag. Import loading, remote identity,
+merged symbols, typed matching and N2 semantics remain unimplemented.
+
+`pass/44-qualified-symbols.brf` covers types, values, patterns, nested payloads,
+several positions, type arguments, layout and named-set separation. Two parser
+rejections pin missing names and shared-tag qualification. Two native rejection
+fixtures lock scope/casing diagnostics and safe fixes. Parser/semantic/CLI tests
+check exact trees/spans, interning, LF/CRLF, token immutability, grouped fixes,
+512-wide payloads, no fake local tags/cycles and no C after the scope error.
+Inventory: 142 programs and 143 parser files (37 pass, 106 fail). No prior source
+or expectation is rewritten.
+
+Four whole document fences become checks: errors fence 17 is wrapped as a type;
+24, 37 and 38 are bodies. Counts are 150 checks: 145 successful parses and five
+intentional syntax rejections, plus 89 fenced and two unfenced listings. Of the
+fenced listings, 16 await N1/N4/N5 syntax, 53 need later features and 20 are
+fragments. Errors fence 19 and symbols fences 8/13 still need interpolation, so
+move to N5 listings instead of passing accidentally as plain strings. Errors
+fences 15/23 remain signature/mixed-context fragments, without stubbing bodies or
+extracting lines. The 16 manifest failure guards also check preservation of a
+qualified type fragment. This is parser coverage, not module/API acceptance; no
+replacement native chapter audit is complete.
+
+Validation: fresh `-Werror` GCC/Clang Debug ASan/UBSan and GCC Release builds
+pass 25/25; GCC Debug without sanitizers passes 24/24. Pinned clang-format
+23.1.3, `git diff --check` and added-line prose-width checks pass. All 321
+retained sources preserve statuses, AST/C bytes and complete diagnostics,
+including all 96 byte-identical C successes. All six sanitized examples
+preserve output and status.
+
+Reports: `build/validation/qualified-symbols.20261106T033745Z/` (ignored).
+
+N1 remains in progress: member functions, trait bodies, `impl` retirement,
+receivers/wrong-way calls, multi-payload checking/lowering, remaining casing and
+keywords, failure-tag conversion and replacement native audits. Qualified-symbol
+resolution remains bootstrap work. Outcomes, entry policy, IR/RC and runtime
+formatting rules are unchanged.
 
 ## Risks
 

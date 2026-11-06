@@ -116,6 +116,13 @@ static const SemaType *type(Resolver *r, const Type *syntax) {
       UnionEntry entry = syntax->as.union_type.items[i];
       const SemaType *part;
       if (entry.tag) {
+        if (entry.module) {
+          diagnostics_error(
+              r->errors, entry.span,
+              "Module-qualified symbols are not implemented yet.");
+          valid = 0;
+          continue;
+        }
         if (entry.count > 1) {
           diagnostics_error(
               r->errors, entry.span,
@@ -181,6 +188,8 @@ static void alias_dependencies(Resolver *r, const Type *syntax,
   } else if (syntax->kind == TYPE_UNION) {
     for (size_t i = 0; i < syntax->as.union_type.count; i++) {
       UnionEntry entry = syntax->as.union_type.items[i];
+      if (entry.module)
+        continue; // Unavailable external payloads create no local alias edges.
       if (entry.type)
         alias_dependencies(r, entry.type, head);
       if (entry.count == 1)
@@ -360,6 +369,18 @@ static const Pattern *typed_payload(const Pattern *p) {
       if (typed)
         return typed;
     }
+  return NULL;
+}
+static const Pattern *qualified_payload(const Pattern *p) {
+  if (p->kind == PAT_SYMBOL) {
+    if (p->as.symbol.module)
+      return p;
+    for (size_t i = 0; i < p->as.symbol.count; i++) {
+      const Pattern *qualified = qualified_payload(p->as.symbol.payloads[i]);
+      if (qualified)
+        return qualified;
+    }
+  }
   return NULL;
 }
 static SemaExpr *resolve_expr(Resolver *r, const Expr *syntax);
@@ -613,6 +634,7 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
         MatchArm source = stage->as.match.arms[i];
         const Pattern *p = source.pattern;
         const Pattern *typed = typed_payload(p);
+        const Pattern *qualified = qualified_payload(p);
         SemaArm *a = &result->as.match.arms[i];
         if (p->kind == PAT_SYMBOL || p->kind == PAT_SET)
           bind->as.binding.outcome = 1;
@@ -622,7 +644,12 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
         r->depth++;
         SemaAlias *named =
             p->kind == PAT_SET ? alias(r->program, p->as.name) : NULL;
-        if (named) {
+        if (qualified) {
+          a->invalid = 1;
+          a->body =
+              unsupported(r, qualified->span,
+                          "Module-qualified symbols are not implemented yet.");
+        } else if (named) {
           a->set = named->type;
           if (a->set && a->set->kind != SEMA_SYM &&
               a->set->kind != SEMA_ERROR) {
@@ -697,6 +724,9 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     return e;
   }
   case EXPR_SYMBOL:
+    if (s->as.symbol.module)
+      return unsupported(r, s->span,
+                         "Module-qualified symbols are not implemented yet.");
     if (s->as.symbol.count > 1)
       return unsupported(r, s->span,
                          "Multiple symbol payloads are not implemented yet.");

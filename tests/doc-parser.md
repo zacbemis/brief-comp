@@ -3,9 +3,9 @@
 `test_doc_parser` reads the 13 language chapters in `docs/lang-*.txt`, not
 `docs/v0/`. The rationale file `lang-post-0-notes.txt` is not a language chapter.
 The manifest in `test_doc_parser.cmake` classifies all **239 code fences** and
-the two unfenced chapters. It runs **141 successful parses and five intentional
-syntax rejections**. The other **93 fences** are explicit listings, not passing
-parser tests: 13 await N1/N4/N5 syntax, 62 need later features, and 18 are
+the two unfenced chapters. It runs **145 successful parses and five intentional
+syntax rejections**. The other **89 fences** are explicit listings, not passing
+parser tests: 16 await N1/N4/N5 syntax, 53 need later features, and 20 are
 incomplete signatures/operator/context fragments. The overview and raw base
 sample have separate zero-fence listings.
 
@@ -42,7 +42,7 @@ accepted for the wrong error.
 |---|---:|---:|
 | collections | 3 | 28 |
 | overview | 0 | 1 |
-| errors | 18 | 20 |
+| errors | 22 | 16 |
 | raw base sample | 0 | 1 |
 | functions | 20 | 7 |
 | memory | 17 | 1 |
@@ -72,16 +72,13 @@ mixed contexts are not extracted or stubbed into tests. Native multi-payload
 support, typed/refutable matching and N2/N3 semantics remain separate gaps.
 
 Typed payload binding syntax now parses, but the sole current-document example
-is still inside the complete signature/ellipsis/module-qualified fragment in
-symbols fence 10. It is not extracted into a passing test: counts remain 146
-checks and 93 fenced listings. Dedicated parser fixtures test the new syntax;
-native rejection fixtures keep its type-directed matching explicitly
-unsupported.
+is still inside symbols fence 10's signature/ellipsis/interpolation fragment. It
+is not extracted into a passing test. Dedicated parser fixtures test the syntax;
+native rejection fixtures keep type-directed matching explicitly unsupported.
 
-`Self` is now an ordinary name; this retires a compiler keyword, not another
-current-document fence blocker. The 146 checks and 93 listings stay unchanged.
-The remaining member/receiver syntax is still pending, and no native chapter
-audit is completed by the ordinary-name fixtures.
+Retiring `Self` as a keyword did not unblock another complete document fence.
+Member/receiver syntax is still pending, and the ordinary-name fixtures did not
+complete a native chapter audit.
 
 Native type aliases now support the existing primitive/unit/struct types as well
 as symbol sets. Their syntax already parsed, so no fence is promoted and counts
@@ -90,10 +87,19 @@ comparison test this capability; they do not constitute a replacement chapter
 audit.
 
 Empty type declarations now print as traits rather than fieldless structs;
-compilation reports the explicit field/unsupported-trait boundary. Their syntax
-already parsed, so the 146 checks and 93 listings do not change.
-Member/trait-body grammar is still pending, and no native chapter audit is
-completed here.
+compilation reports the explicit field/unsupported-trait boundary. That syntax
+already parsed, so that increment retained 146 checks and 93 listings. Member
+and trait-body grammar is still pending; that recognition did not complete a
+native chapter audit.
+
+Qualified symbols add four complete checks: errors fence 17 uses a type context;
+fences 24, 37 and 38 use a body context. Module paths, kind prefixes and whole
+payload/match sources are preserved; module loading and N2/N3 handling are not
+asserted. Errors fence 19 and symbols fences 8 and 13 still need interpolation,
+so they move to N5 listings rather than passing as plain strings. Errors fences
+15 and 23 contain standalone signatures/interleaved multi-file usage and remain
+whole-source fragments. Symbols fence 9 still needs merged-symbol declarations.
+Counts are now 150 checks and 89 fenced listings, plus two unfenced listings.
 
 ## Native acceptance gap
 

@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: Shared :ok and :none tags never have a module qualifier.
+main() {
+  Db.:none
+}

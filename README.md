@@ -104,13 +104,17 @@ empty type body now parses as a trait and compilation rejects it explicitly,
 without guessing fields. Unit fields count, but still need written initializers.
 Trait member/signature grammar and conformance remain pending. In patterns,
 lowercase names bind and uppercase names denote symbol sets, without
-lookup-based reclassification. Typed symbol payload
-bindings such as `:!notFound[path: str]` retain their annotations in the AST,
-but native compilation explicitly rejects them until merged-symbol matching
-exists. Whole-value typed arms are not added. Module-selection declarations such
-as `import models.User` parse, but compilation stops with `Imports are not
-implemented yet.` No module loading or cross-file lookup is added; broader
-module casing remains pending.
+lookup-based reclassification. Typed symbol payload bindings such as
+`:!notFound[path: str]` retain their annotations in the AST. Native compilation
+explicitly rejects them until merged-symbol matching exists. Whole-value typed
+arms are not added. Module-selection declarations such as `import models.User`
+parse, but compilation stops with `Imports are not implemented yet.` No module
+loading or cross-file lookup is added; broader module casing remains pending.
+
+Qualified symbols such as `models.Db.:!notFound[str]` now parse in types, values
+and patterns. Their paths and kinds are retained, but native compilation reports
+that module-qualified symbols are not implemented; no module loading or remote
+tag identity is guessed. Shared `:ok` and `:none` cannot have module qualifiers.
 
 Diagnostics can carry machine-applicable fixes as byte spans and replacement
 text. These print as `help:` previews below the error and its notes. Previews
@@ -291,12 +295,12 @@ Panics terminate the process without unwinding owners.
 - `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
   native driver tests; program tests in normal and sanitizer configurations;
   and the [current-document parser inventory](tests/doc-parser.md): 239 fences
-  across 13 chapters, with 146 parser checks and 93 explicit fence listings,
+  across 13 chapters, with 150 parser checks and 89 explicit fence listings,
   plus two unfenced-chapter listings. Listed examples are not passing coverage.
   N1 retired all v0 native chapter scripts and bridges; replacement native audits
   return milestone by milestone. Run the inventory and its structural guards with
   `ctest --test-dir build -L doc-parser --output-on-failure`.
-- `tests/parse/`: 140 parser example files that must parse or be rejected
+- `tests/parse/`: 143 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
 

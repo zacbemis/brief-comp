@@ -226,6 +226,30 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
     message(FATAL_ERROR "collection escaped its scope boundary (${status}):\n${errors}")
 endif()
 
+set(qualified "${TEST_DIR}/qualified-symbol.brf")
+file(WRITE "${qualified}" "A = models.Db.:!bad[Missing]\r\nmain() {}\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${qualified}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+string(FIND "${output}" "(models.Db.:!bad Missing)" qualified_at)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR qualified_at LESS 0)
+    message(FATAL_ERROR "qualified tag lost its module (${status}):\n${errors}\n${output}")
+endif()
+execute_process(COMMAND "${BRIEF}" emit-c "${qualified}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+string(REGEX MATCHALL "(^|\n)error:" qualified_errors "${errors}")
+list(LENGTH qualified_errors qualified_errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT qualified_errors EQUAL 1 OR
+   NOT errors MATCHES "^error: Module-qualified symbols are not implemented yet")
+    message(FATAL_ERROR "qualified tag escaped its scope (${status}):\n${errors}")
+endif()
+file(WRITE "${qualified}" "main() { Db.:none }\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${qualified}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
+   NOT errors MATCHES "^error: ':ok' and ':none' cannot have a module qualifier")
+    message(FATAL_ERROR "shared tag accepted a module (${status}):\n${errors}")
+endif()
+
 set(empty_trait "${TEST_DIR}/empty-trait.brf")
 file(WRITE "${empty_trait}" "Empty { /* keep */ }\r\nAlias = Empty\r\nf(n: Empty) { missing(n) }\r\n")
 execute_process(COMMAND "${BRIEF}" dump-ast "${empty_trait}"

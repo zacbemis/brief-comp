@@ -2239,6 +2239,105 @@ int main(void) {
     strcpy(text + n, "] => () } }");
     invalid(&arena, text, "Syntax nesting limit exceeded.");
   }
+  TEST("qualified symbol syntax retains paths, kinds and distinct prefix "
+       "spans") {
+    expression_dump(&arena, "models.Db.:!bad[1]",
+                    "(symbol models.Db.:!bad (int 1))");
+    expression_dump(&arena, "x |> { models.Db.:!bad[p: str] => p }",
+                    "(|> (name x) (match (arm (tag models.Db.:!bad (typed-bind "
+                    "p str)) (name p))))");
+    program_dump(&arena, "A = Db.:!bad[str] | :ok[int]\n",
+                 "(program (type A (union (Db.:!bad str) (:ok int))))\n");
+    const char *lf =
+        "A = models\n . Db\n . :!bad[str]\nmain() { models.Db.:value[1] }\n";
+    for (unsigned crlf = 0; crlf < 2; crlf++) {
+      char text[512];
+      size_t n = 0;
+      for (size_t i = 0; lf[i]; i++) {
+        if (crlf && lf[i] == '\n')
+          text[n++] = '\r';
+        text[n++] = lf[i];
+      }
+      text[n] = 0;
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(0, v->diagnostics.count);
+      UnionEntry entry = v->program->items[0]->as.alias->as.union_type.items[0];
+      ASSERT_EQ_INT(0, strcmp("models.Db", entry.module));
+      ASSERT_TRUE(entry.module == intern(&v->names, "models.Db"));
+      ASSERT_EQ_INT(SYMBOL_ERROR, entry.kind);
+      ASSERT_EQ_INT((size_t)(strstr(text, "models") - text),
+                    entry.module_span.start);
+      ASSERT_EQ_INT((size_t)(strstr(text, "Db") - text) + 2,
+                    entry.module_span.end);
+      ASSERT_EQ_INT((size_t)(strstr(text, ":!bad") - text),
+                    entry.tag_span.start);
+      ASSERT_EQ_INT(5, entry.tag_span.end - entry.tag_span.start);
+      Expr *value =
+          v->program->items[1]->as.function.body->as.block.items[0].as.expr;
+      ASSERT_EQ_INT(0, strcmp("models.Db", value->as.symbol.module));
+      TokenArray filtered = newline_filter(&arena, v->raw);
+      size_t bytes = filtered.count * sizeof(Token);
+      Token *saved = arena_alloc(&arena, bytes);
+      memcpy(saved, filtered.items, bytes);
+      Diagnostics again;
+      diagnostics_init(&again, &arena);
+      Program *next = parse_program(&arena, &v->names, filtered, &again);
+      ASSERT_EQ_INT(0, again.count);
+      ASSERT_EQ_INT(0, strcmp(dump(&arena, v->program), dump(&arena, next)));
+      ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+    }
+    const char *bad[] = {"main() { get().:bad }",
+                         "main() { _. :bad }",
+                         "main() { Db.:! }",
+                         "A = Db.:none\n",
+                         "main() { Db.:ok }",
+                         "main() { x |> { Db.:none => () } }",
+                         "main() { x |> { Db.Error.: => () } }"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
+      Parsed *v = parse(&arena, bad[i]);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+      for (size_t j = 0; j < v->diagnostics.count; j++)
+        ASSERT_TRUE(!v->diagnostics.items[j]->fixes);
+    }
+  }
+  TEST("qualified symbol name and legacy fixes preserve comments and line "
+       "breaks") {
+    const char *lf = "A = db . :/* keep */ !Bad(Vec<str>)\nmain() {}\n";
+    for (unsigned crlf = 0; crlf < 2; crlf++) {
+      char text[512];
+      size_t n = 0;
+      for (size_t i = 0; lf[i]; i++) {
+        if (crlf && lf[i] == '\n')
+          text[n++] = '\r';
+        text[n++] = lf[i];
+      }
+      text[n] = 0;
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(5, v->diagnostics.count);
+      Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
+      ASSERT_EQ_INT(0, fixed->diagnostics.count);
+      ASSERT_TRUE(strstr(fixed->source->text,
+                         "Db . :!/* keep */ bad[Vec[str]]") != NULL);
+      ASSERT_EQ_INT(v->source->line_count, fixed->source->line_count);
+      Parsed *reserved = parse(&arena, "A = fn.:bad\n");
+      ASSERT_EQ_INT(1, reserved->diagnostics.count);
+      ASSERT_TRUE(!reserved->diagnostics.items[0]->fixes);
+    }
+  }
+  TEST("qualified symbol payload width remains iterative") {
+    char *text = arena_alloc(&arena, 16000);
+    size_t n = (size_t)sprintf(text, "main() { pkg.Db.:wide[");
+    for (size_t i = 0; i < 512; i++)
+      n += (size_t)sprintf(text + n, "%s%zu", i ? "," : "", i);
+    strcpy(text + n, "] }");
+    Parsed *v = parse(&arena, text);
+    ASSERT_EQ_INT(0, v->diagnostics.count);
+    Expr *value =
+        v->program->items[0]->as.function.body->as.block.items[0].as.expr;
+    ASSERT_EQ_INT(EXPR_SYMBOL, value->kind);
+    ASSERT_EQ_INT(512, value->as.symbol.count);
+    ASSERT_EQ_INT(0, strcmp("pkg.Db", value->as.symbol.module));
+  }
   TEST("error tag kinds are retained in type, value and pattern syntax") {
     program_dump(&arena,
                  "E = :!bad[int] | :ok[int]\nmain() { :!bad[1] |> { "

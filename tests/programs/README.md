@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **140 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **142 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -457,9 +457,18 @@ nominal typing, lookup/inference errors and original expectation lines.
 has no runtime storage, shared borrowing and equality. `errors/empty-traits.brf`
 requires one scope error per trait, without guessed fields or dependent
 alias/type/body/main errors. Trait member/signature grammar and conformance are
-still pending. The inventory is now 140 files. The converted equality fixture's
+still pending. That inventory had 140 files. The converted equality fixture's
 only C change is its unused `Empty` diagnostic formatter describing the explicit
 unit field; its runtime output is unchanged.
+
+Qualified symbol syntax is now retained but not resolved. The rejection fixture
+`errors/qualified-symbols.brf` requires an explicit scope error before external
+payload types/values, nested patterns or arm bodies can cascade. A qualified
+payload creates no local alias-cycle edges or local tag of the same name.
+`errors/qualified-symbol-names.brf` checks module/tag casing fixes, keyword
+safeguards and the shared-tag qualifier prohibition. These are rejection tests,
+not module loading, remote identity, merged symbols or N2 outcome acceptance.
+There are now 142 files; prior native sources and expectations are intact.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

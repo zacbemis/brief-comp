@@ -26,6 +26,16 @@ static const char *binary(BinaryOp op) {
                                 "&",  "|", "^",  "<<", ">>", ".."};
   return names[op];
 }
+static void symbol_tag(FILE *out, const char *module, SymbolKind kind,
+                       const char *tag, int colon) {
+  if (module)
+    fprintf(out, "%s.", module);
+  if (module || colon)
+    fputc(':', out);
+  if (kind == SYMBOL_ERROR)
+    fputc('!', out);
+  fputs(tag, out);
+}
 static void type(FILE *out, const Type *t) {
   if (!t) {
     fputc('_', out);
@@ -56,8 +66,8 @@ static void type(FILE *out, const Type *t) {
       UnionEntry entry = t->as.union_type.items[i];
       fputc(' ', out);
       if (entry.tag) {
-        fprintf(out, "(:%s%s", entry.kind == SYMBOL_ERROR ? "!" : "",
-                entry.tag);
+        fputc('(', out);
+        symbol_tag(out, entry.module, entry.kind, entry.tag, 1);
         for (size_t j = 0; j < entry.count; j++) {
           fputc(' ', out);
           type(out, entry.payloads[j]);
@@ -144,8 +154,9 @@ static void pattern(FILE *out, const Pattern *p) {
     fputc(')', out);
     break;
   case PAT_SYMBOL:
-    fprintf(out, "(tag %s%s", p->as.symbol.kind == SYMBOL_ERROR ? "!" : "",
-            p->as.symbol.tag);
+    fputs("(tag ", out);
+    symbol_tag(out, p->as.symbol.module, p->as.symbol.kind, p->as.symbol.tag,
+               0);
     for (size_t i = 0; i < p->as.symbol.count; i++) {
       fputc(' ', out);
       pattern(out, p->as.symbol.payloads[i]);
@@ -209,8 +220,9 @@ static void expr(FILE *out, const Expr *e) {
     fputc(')', out);
     break;
   case EXPR_SYMBOL:
-    fprintf(out, "(symbol %s%s", e->as.symbol.kind == SYMBOL_ERROR ? "!" : "",
-            e->as.symbol.tag);
+    fputs("(symbol ", out);
+    symbol_tag(out, e->as.symbol.module, e->as.symbol.kind, e->as.symbol.tag,
+               0);
     for (size_t i = 0; i < e->as.symbol.count; i++) {
       fputc(' ', out);
       expr(out, e->as.symbol.payloads[i]);

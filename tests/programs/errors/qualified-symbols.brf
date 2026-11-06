@@ -1,0 +1,11 @@
+Remote = models.Db.:!notFound[Missing] // error: Module-qualified symbols are not implemented yet.
+Cycle = Db.:next[Cycle] // error: Module-qualified symbols are not implemented yet.
+Many = Db.:pair[Missing, Other] // error: Module-qualified symbols are not implemented yet.
+value() { Db.:!notFound[unknown] } // error: Module-qualified symbols are not implemented yet.
+pattern() {
+  1 |> { Db.:!missing[v: Missing] => unknown(v) } // error: Module-qualified symbols are not implemented yet.
+}
+nested() {
+  :outer[1] |> { :outer[Db.:!bad[v]] => unknown(v) } // error: Module-qualified symbols are not implemented yet.
+}
+main() {}

@@ -289,6 +289,32 @@ int main(void) {
                     strcmp("Multiple symbol payloads are not implemented yet.",
                            many.errors.items[0]->message));
   }
+  TEST("qualified symbols stop before unavailable payloads and arm bodies") {
+    const char *cases[] = {
+        "A = Db.:!bad[Missing]\nmain() {}",
+        "A = Db.:next[A]\nmain() {}",
+        "A = Db.:pair[Missing, Other]\nmain() {}",
+        "main() { Db.:!bad[missing()] }",
+        "main() { 1 |> { Db.:!bad[x: Missing] => missing(x) } }",
+        "main() { 1 |> { :outer[Db.:!bad[x]] => missing(x) } }"};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      Result r = check(&a, cases[i]);
+      ASSERT_EQ_INT(1, r.errors.count);
+      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+      ASSERT_EQ_INT(1, r.program->tag_count); // Only the eager shared :ok.
+      if (r.errors.count) {
+        ASSERT_EQ_INT(
+            0, strcmp("Module-qualified symbols are not implemented yet.",
+                      r.errors.items[0]->message));
+        ASSERT_TRUE(!r.errors.items[0]->fixes);
+      }
+    }
+    Result local = check(&a, "main() { :bad[1]\nDb.:!bad[unknown] }");
+    ASSERT_EQ_INT(1, local.errors.count);
+    ASSERT_EQ_INT(2, local.program->tag_count);
+    ASSERT_EQ_INT(SEMA_TAG_NEUTRAL,
+                  sema_tag(local.program, local.program->module, "bad")->kind);
+  }
   TEST("union syntax and ordinary Sym names preserve checked set identity") {
     Result r = valid(&a, "A = :a | :b[str]\nB = A | :c\nSym = B\n"
                          "main() { let value: Sym = :b[\"heap\"]\nvalue |> { "
