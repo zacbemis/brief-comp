@@ -1,0 +1,29 @@
+// Baseline c3a09f0; full independent example, not raw-base acceptance.
+// expect: == Transfers
+// expect:   ok: transfer $750.50 #100 -> #102
+// expect:   refused: transfer $1000.00 #102 -> #103: account #102 is short by $199.50
+// expect:   refused: transfer $1.00 #100 -> #999: there is no account #999
+// expect:   refused: transfer $1.00 #100 -> #100: an account cannot transfer to itself
+// expect:   refused: transfer -$0.05 #101 -> #100: -$0.05 is not a positive amount
+// expect:   refused: transfer $10.00 #102 -> #103: account #103 is frozen
+// expect:   ok: transfer $123.45 #101 -> #103
+// expect:   ok: rent paid
+// expect:   refused: car: account #102 is short by $9199.50
+// expect:
+// expect: == Brief Savings & Loan
+// expect:   #103 Alan (savings): $549.24
+// expect:   #102 Grace (checking): $800.50
+// expect:   #101 Ada (savings): $9981.86
+// expect:   #100 Ada (checking): $1549.50
+// expect:   total checking $2350.00, savings $10531.10, held $12881.10
+// expect:
+// expect:   statement for #101 Ada
+// expect:     opening deposit: +$10000.00 -> $10000.00
+// expect:     transfer to #103: -$123.45 -> $9876.55
+// expect:     interest: +$34.98 -> $9911.53
+// expect:     interest: +$35.10 -> $9946.63
+// expect:     interest: +$35.23 -> $9981.86
+// expect:   statement for #102 Grace
+// expect:     opening deposit: +$50.00 -> $50.00
+// expect:     transfer from #100: +$750.50 -> $800.50
+// exit: 0

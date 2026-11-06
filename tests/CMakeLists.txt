@@ -106,20 +106,25 @@ function(add_current_native_audit chapter)
                 -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/current-doc-${chapter}${suffix}
                 -DDEBUG=${debug}
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_${chapter}_n1.cmake)
+        set(labels "doc-native;doc-${chapter}")
+        if(chapter STREQUAL "base")
+            list(APPEND labels native-examples)
+        endif()
         set_tests_properties(test_doc_${chapter}_n1${suffix} PROPERTIES
-            LABELS "doc-native;doc-${chapter}" TIMEOUT 180)
+            LABELS "${labels}" TIMEOUT 180)
     endforeach()
 endfunction()
 add_current_native_audit(functions)
 add_current_native_audit(types)
 add_current_native_audit(syntax)
 add_current_native_audit(modules)
+add_current_native_audit(base)
 add_test(NAME test_doc_native_manifest
     COMMAND ${CMAKE_COMMAND}
         -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/doc-native-manifest-fixtures
         -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_native_manifest.cmake)
 set_tests_properties(test_doc_native_manifest PROPERTIES
-    LABELS "doc-native;doc-functions;doc-types;doc-syntax;doc-modules" TIMEOUT 30)
+    LABELS "doc-native;doc-functions;doc-types;doc-syntax;doc-modules;doc-base;native-examples" TIMEOUT 30)
 
 # Run alone with `ctest -L parse-examples`, or skip with `-LE parse-examples`.
 add_test(NAME test_parse_examples

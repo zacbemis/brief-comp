@@ -1,0 +1,106 @@
+// Baseline c3a09f0; full independent example, not raw-base acceptance.
+// expect: == Blinker (3 cells)
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . # # # . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   generation 1:
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . # . . . .
+// expect:   . . . # . . . .
+// expect:   . . . # . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   repeats every 2 generations from generation 0
+// expect: == Glider (5 cells)
+// expect:   . # . . . . . .
+// expect:   . . # . . . . .
+// expect:   # # # . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   generation 1:
+// expect:   . . . . . . . .
+// expect:   # . # . . . . .
+// expect:   . # # . . . . .
+// expect:   . # . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   generation 2:
+// expect:   . . . . . . . .
+// expect:   . . # . . . . .
+// expect:   # . # . . . . .
+// expect:   . # # . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   generation 3:
+// expect:   . . . . . . . .
+// expect:   . # . . . . . .
+// expect:   . . # # . . . .
+// expect:   . # # . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   generation 4:
+// expect:   . . . . . . . .
+// expect:   . . # . . . . .
+// expect:   . . . # . . . .
+// expect:   . # # # . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   repeats every 32 generations from generation 0
+// expect: == Block with a stray cell (5 cells)
+// expect:   . . . . . . . .
+// expect:   . # # . . . . .
+// expect:   . # # . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . # . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   generation 1:
+// expect:   . . . . . . . .
+// expect:   . # # . . . . .
+// expect:   . # # . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   froze into a still life at generation 1
+// expect: == R-pentomino on a small torus (5 cells)
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . # # . . .
+// expect:   . . # # . . . .
+// expect:   . . . # . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   died out at generation 34
+// expect: == Two lonely cells (2 cells)
+// expect:   # . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . # . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   . . . . . . . .
+// expect:   died out at generation 1
+// exit: 0

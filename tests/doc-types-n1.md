@@ -82,17 +82,20 @@ checked. Existing whole-function fence generation is unchanged.
 
 The compiler-free manifest positive now checks both top-level and body
 wrappers byte-for-byte, including mixed LF/CRLF, Unicode, braces, semicolons,
-comments and multiple-diagnostic frame offsets. Nineteen negative guards now
+comments and multiple-diagnostic frame offsets. Twenty-seven negative guards now
 include malformed message/line pairs, invalid fence lines, listed-as-body and
 listed-as-complete attempts. Complete-source generation for the syntax audit
 also preserves its original entry and frame, without altering types cases.
 Module fix-preview guards add exact full-line/comment checks and reject missing,
 wrong, extra, unexpected or incorrectly registered expectations.
 The real three-error fence also exercises a semicolon-bearing diagnostic.
+A second positive and raw/example guards verify whole unaccepted raw bytes,
+example source hashes and exact independent-example inventory/counts.
 
 Sources, case provenance, classifications and logs are generated under
 `build/tests/current-doc-types/` and `current-doc-types_sanitized/`. Shared
 manifest reports stay under `build/tests/doc-native-manifest-fixtures/`.
 Parser counts remain unchanged. Functions and types now have scoped native
-audits, now joined by syntax and modules. The raw base sample and final N1
-completeness review remain pending. Filesystem module discovery is not claimed.
+audits, now joined by syntax/modules and a whole raw-base inventory with
+independent examples. Final N1 completeness review remains pending; filesystem
+module discovery is not claimed.

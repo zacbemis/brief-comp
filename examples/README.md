@@ -15,6 +15,20 @@ spelling changes, not an outcome-policy switch. Each program runs on its own:
 ./build/brief run --debug examples/calendar.brf   # with sanitizers and leak checks
 ```
 
+All six complete sources now run in normal and sanitized CI. Their original
+bytes are preserved in generated copies, with committed output/status markers
+from `tests/examples/*.expect` appended. Source hashes and exact inventory
+checks require review when an example changes; tests never regenerate goldens
+from the compiler under test. stderr must be empty and exit status zero.
+
+```sh
+ctest --test-dir build -L native-examples --output-on-failure
+```
+
+This is independent example coverage, not acceptance of the mixed raw reference
+sheet in `docs/lang-ex-base.txt`. N1 remains in progress; N2/N3 semantics are
+unchanged.
+
 | Program | What it does | Language features it shows |
 |---|---|---|
 | `calendar.brf` | Validates dates, finds weekdays and days of the year, adds and subtracts days, counts business days, computes Easter Sunday and prints month grids. | Struct member functions, associated calls, a named error set, `?` in `main`, value-producing `if` and matches, loops. |

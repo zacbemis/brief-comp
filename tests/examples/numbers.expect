@@ -1,0 +1,43 @@
+// Baseline c3a09f0; full independent example, not raw-base acceptance.
+// expect: == Primes
+// expect: first primes: 2 3 5 7 11 13 17 19 23 29 31 37 41 43 47
+// expect: is 2147483647 prime? true
+// expect: is 1000000007 * 3 prime? false
+// expect: 360 = 2^3 * 3^2 * 5
+// expect: 9699690 = 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19
+// expect: 600851475143 = 71 * 839 * 1471 * 6857
+// expect: 1048576 = 2^20
+// expect:
+// expect: == Divisors
+// expect: gcd(1071, 462) = 21
+// expect: lcm(21, 6) = 42
+// expect: totient(36) = 12, totient(97) = 96
+// expect: perfect numbers below 10000: 6 28 496 8128
+// expect:
+// expect: == Fractions
+// expect: 1/2 + 1/3 + 1/6 = 1
+// expect: 1/2 * 1/3 = 1/6
+// expect: 1/2 / 0 has a zero denominator
+// expect: 4/13 = 1/4 + 1/18 + 1/468
+// expect: 7/15 = 1/3 + 1/8 + 1/120
+// expect: 5/121 = 1/25 + 1/757 + 1/763309 + ... (the next step overflows lng)
+// expect:
+// expect: == Factorials
+// expect: 19! = 121645100408832000
+// expect: 20! = 2432902008176640000
+// expect: 21! overflows lng when multiplying by 21
+// expect:
+// expect: == Roman numerals and bases
+// expect: 1994 = MCMXCIV
+// expect: 2026 = MMXXVI
+// expect: 3999 = MMMCMXCIX
+// expect: 4000 cannot be written in Roman numerals
+// expect: 49 = XLIX
+// expect: 255 in base 2 = 11111111
+// expect: 3735928559 in base 16 = deadbeef
+// expect: 18446744073709551615 in base 7 = 45012021522523134134601
+// expect: base 20 is not supported
+// expect:
+// expect: == Collatz
+// expect: below 300000, 230631 takes the most steps to reach 1: 442
+// exit: 0

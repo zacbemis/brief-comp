@@ -1,0 +1,25 @@
+// Baseline c3a09f0; full independent example, not raw-base acceptance.
+// expect: 30-year mortgage: $350,000.00 at 6.50% over 30 years
+// expect:   monthly payment $2,212.24, total interest $446,404.05, total paid $796,404.05
+// expect:   paying $200.00 extra each month: done in 286 months, 6 years and 2 months early, saving $108,095.91
+// expect: 15-year mortgage: $350,000.00 at 6.00% over 15 years
+// expect:   monthly payment $2,953.50, total interest $181,629.64, total paid $531,629.64
+// expect:   paying $200.00 extra each month: done in 163 months, 1 year and 5 months early, saving $19,773.29
+// expect: Car loan: $28,000.00 at 7.99% over 5 years
+// expect:   monthly payment $567.61, total interest $6,056.25, total paid $34,056.25
+// expect:   paying $200.00 extra each month: done in 42 months, 1 year and 6 months early, saving $1,873.82
+// expect: Interest-free plan: $1,200.00 at 0.00% over 1 year
+// expect:   monthly payment $100.00, total interest $0.00, total paid $1,200.00
+// expect:   paying $200.00 extra each month: done in 4 months, 0 years and 8 months early, saving $0.00
+// expect:
+// expect: Car loan schedule (first months, every fifth year, and the last):
+// expect: month      payment     interest    principal        balance
+// expect:     1      $567.61      $186.43      $381.18     $27,618.82
+// expect:     2      $567.61      $183.90      $383.71     $27,235.11
+// expect:     3      $567.61      $181.34      $386.27     $26,848.84
+// expect:    60      $567.26        $3.75      $563.51          $0.00
+// expect:
+// expect: rejected: the principal $0.00 must be positive
+// expect: rejected: the rate 90.00% is outside 0%-50%
+// expect: rejected: a 80-year term is outside 1-50 years
+// exit: 0

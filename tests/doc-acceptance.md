@@ -9,8 +9,9 @@ The replacement [current-document parser inventory](doc-parser.md) reads all
 13 current chapters: 239 fences, 162 parser checks, 77 explicitly listed fences
 and two zero-fence listings. Parser checks are not native acceptance. The
 retirement left an intentional native document-coverage gap. The first scoped
-syntax/functions/types/modules audits begin closing it; program fixtures and
-independent C/compiler/native-driver tests remain active.
+syntax/functions/types/modules audits and raw-base inventory begin closing it.
+Six complete independent examples now run in normal/sanitized CI too; program
+fixtures and independent C/compiler/native-driver tests remain active.
 
 ```sh
 ctest --test-dir build -L doc-parser --output-on-failure
@@ -59,12 +60,19 @@ No module loader, privacy boundary or missing API is simulated. Available
 module-name syntax has casing checks, but filesystem case/discovery requires
 the out-of-scope loader. Run this audit with `-L doc-modules`.
 
-This is bounded coverage, not complete syntax/function/type/module/API
-acceptance or completion of N1. Remaining audits return with the rules they can
-test, rather than through rewritten v0 scaffolds:
+The [raw-base inventory and examples](doc-base-n1.md) now preserves the entire
+323-line unfenced sheet as one unaccepted raw listing. Nothing is extracted,
+stubbed or rewritten into a passing program. The independent six complete
+examples run normally and under sanitizers, with pinned source hashes and
+committed byte-exact output/status markers. They are not native acceptance of
+the raw sheet. Use `-L doc-base` or `-L native-examples` to run this slice.
 
-- **N1:** the raw base sample and final completeness review; expand the scoped
-  audits as their listed dependencies become available. Current module-name
+All five N1 audit entry points now exist. This is bounded coverage, not complete
+syntax/function/type/module/API acceptance or completion of N1. Remaining
+audits return with the rules they can test, not rewritten v0 scaffolds:
+
+- **N1:** final completeness review; expand the scoped audits as their listed
+  dependencies become available. Current module-name
   grammar and reserved-mod behavior are covered; external filename/discovery
   rules stay with the bootstrap module loader.
 - **N2:** symbols and errors sections 1–5 and 7–12.

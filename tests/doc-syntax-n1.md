@@ -85,13 +85,17 @@ N4 bindings/inclusive/typed loops and N2/N3 outcome policy are unchanged.
 The only shared harness addition writes complete rejection fences verbatim,
 so an existing main cannot acquire a duplicate entry or shifted error line.
 The compiler-free positive checks this with CRLF bytes and an unchanged line
-frame, alongside existing top/body/UTF-8/semicolon checks. Nineteen independent
-negative guards now include listed-as-complete attempts and exact fix-preview
-registration/protocol failures added for the modules audit.
+frame, alongside existing top/body/UTF-8/semicolon checks. Twenty-seven
+independent negative guards now include listed-as-complete attempts and exact
+fix-preview registration/protocol failures added for the modules audit.
+The raw/example
+positive and guards verify zero-fence completeness, unchanged bytes, pinned
+source hashes and exact example inventory/counts.
 
 Generated cases, provenance, classifications and logs are under
 `build/tests/current-doc-syntax/` and `current-doc-syntax_sanitized/`.
 Shared guards use `build/tests/doc-native-manifest-fixtures/`. Parser counts,
 frozen documents, existing fixtures and compiler/runtime behavior are unchanged.
 Syntax, functions, types and modules have bounded native audits, not full API
-coverage. The raw base audit and final N1 review remain pending.
+coverage. The raw-base inventory now exists with independent example tests;
+final N1 completeness review remains pending.

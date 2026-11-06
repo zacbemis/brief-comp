@@ -1,0 +1,37 @@
+// Baseline c3a09f0; full independent example, not raw-base acceptance.
+// expect: == A quadratic
+// expect: f(x)   = 3 * x^2 + x * 2 - 5
+// expect: simple = 3 * x^2 + 2 * x - 5
+// expect: f'(x)  = 6 * x + 2
+// expect: f''(x) = 6
+// expect:   f(-1) = -4
+// expect:   f(0) = -5
+// expect:   f(1) = 0
+// expect:   f(2) = 11
+// expect: == A product
+// expect: f(x)   = (x + 1) * (x - 1)^3 * 1 + 0
+// expect: simple = (x + 1) * (x - 1)^3
+// expect: f'(x)  = (x - 1)^3 + (x + 1) * 3 * (x - 1)^2
+// expect: f''(x) = 3 * (x - 1)^2 + 3 * (x - 1)^2 + (x + 1) * 6 * (x - 1)
+// expect:   f(-1) = 0
+// expect:   f(0) = -1
+// expect:   f(1) = 0
+// expect:   f(2) = 3
+// expect: == A quotient with a pole at 2
+// expect: f(x)   = x / (x - 2)
+// expect: simple = x / (x - 2)
+// expect: f'(x)  = (x - 2 - x) / (x - 2)^2
+// expect: f''(x) = -((x - 2 - x) * 2 * (x - 2)) / (x - 2)^4
+// expect:   f(-1) = 0.3333333333333333
+// expect:   f(0) = 0
+// expect:   f(1) = -1
+// expect:   f(2) divides by zero
+// expect:
+// expect: == Newton's method
+// expect: 3x^2 + 2x - 5 = 0 from 0: x = 1
+// expect: 3x^2 + 2x - 5 = 0 from -3: x = -1.6666666666666665
+// expect: x^2 - 2 = 0 from 1: x = 1.414213562373095
+// expect: x^2 + 1 = 0 from 0: the slope is flat at x = 0
+// expect: 1 / x = 0 from 0: division by zero
+// expect: x^3 - 2x + 2 = 0 from 0: no convergence
+// exit: 0

@@ -85,14 +85,16 @@ or modifying quoted code. A missing, wrong, extra or unexpected help fails;
 other diagnostic records retain their no-fix default.
 
 The compiler-free positive covers a semicolon/Unicode fix preview alongside
-existing top/body/complete-source byte and frame checks. Nineteen independent
-negative guards include absent diagnostic indices, duplicate registrations and
-missing/wrong/extra/unexpected fixes. Existing three audits keep their source
-and expectations unchanged.
+existing top/body/complete-source byte and frame checks. Twenty-seven
+independent negative guards include absent diagnostic indices, duplicate
+registrations and missing/wrong/extra/unexpected fixes. Raw/example checks
+also protect zero-fence
+completeness, source hashes and exact example inventory/counts. Existing quoted
+source and expectations stay unchanged.
 
 Generated cases, provenance, classifications, diagnostic logs and runner logs
 are under `build/tests/current-doc-modules/` and
 `current-doc-modules_sanitized/`. Shared guards use
 `build/tests/doc-native-manifest-fixtures/`. Parser inventory counts remain
-unchanged. The raw base audit and final N1 completeness review remain pending;
-this bounded audit is not full module/API acceptance. N1 is still in progress.
+unchanged. The raw-base inventory now exists with independent example tests;
+final N1 completeness review is pending. This is not full module/API acceptance.

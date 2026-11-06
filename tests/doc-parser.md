@@ -21,6 +21,9 @@ alter parser classifications either. The
 [modules native audit](doc-modules-n1.md) checks five complete fences and
 fifteen prose programs, with 14 native listings and no cross-file API mocks.
 Its name/visibility/scope checks do not change parser counts.
+The [raw-base inventory](doc-base-n1.md) preserves its whole zero-fence listing
+without native acceptance; six complete examples run independently. Neither the
+raw listing nor those examples promote a parser check.
 The shared whole-fence reader now preserves mixed LF/CRLF bytes, with CRLF,
 UTF-8 and semicolon integrity checked by the native manifest guards.
 
