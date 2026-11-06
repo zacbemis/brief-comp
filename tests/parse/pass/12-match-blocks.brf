@@ -49,9 +49,9 @@ main() {
     :ok => print("done")
     :ok[value] => print(value)
     :ok[:some[inner]] => print(inner)
-    :notFound[_] => print("missing")
-    :denied["root"] => print("root denied")
-    :tooLarge[< 100] => print("slightly large")
+    :!notFound[_] => print("missing")
+    :!denied["root"] => print("root denied")
+    :!tooLarge[< 100] => print("slightly large")
     :range[1..10] => print("small range")
     Json.Error => print("bad json")
     models.Json.Error => print("bad json again")
@@ -64,7 +64,7 @@ main() {
     item |> {
       :skip => continue
       :stop => break
-      :fail[reason] => ret :failed[reason]
+      :!fail[reason] => ret :!failed[reason]
       :bare => ret
       :count => total += 1
       :reset => total = 0

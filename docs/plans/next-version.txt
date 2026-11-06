@@ -243,14 +243,16 @@ unsupported traits; native struct fixtures have explicit fields, including unit
 fields. Functions now live inside struct bodies, preserving explicit receivers;
 separate `impl` blocks reject. Typed trait signatures and default bodies parse
 but retain the native unsupported-trait barrier. Qualified symbols retain
-module paths but stop at an explicit native scope boundary. Remaining
-bootstrap trait/module support and remaining failure-tag source conversion
-remain pending. Five examples and fourteen native fixtures now spell their
-unambiguous failures with `:!`, without changing runtime behavior. Shared
+module paths but stop at an explicit native scope boundary. Bootstrap
+trait/module native support remains outside these source conversions. Five
+examples and fourteen native fixtures now spell their unambiguous failures with
+`:!`, without changing runtime behavior. Shared
 `:ok`/`:none` stay neutral. Review gave `append` its own `:!blank` failure,
 leaving `:empty` as data. Unambiguous checker/compiler C-test failures now use
-`:!` as well; intentional neutral characterizations and remaining parser or
-generated sources are explicitly distinguished from that migration.
+`:!` as well. The parser/generated-source failure-spelling review is now done:
+four parser fixtures and unambiguous lexer/newline/parser examples are converted,
+while intentional neutral characterizations and rejected grammar stay intact.
+No parser check is promoted to native acceptance.
 
 Primitive keywords now name function members and dotted expression members,
 without broadening ordinary names or type paths. Context-specific casing fixes
@@ -2279,6 +2281,66 @@ native chapter audit is complete. N1 remains in progress: remaining
 parser/generated-source review, casing/keywords and replacement native audits.
 Multi-`:ok`, traits/modules and typed/refutable matching retain their documented
 boundaries. N2 policy and runtime observations are unchanged.
+
+### N1 increment: parser/generated-source failure-spelling review
+
+The remaining unambiguous parser examples now spell failures with `:!`.
+`01-declarations`, `10-types`, `12-match-blocks` and `21-sample-program` have
+exactly 22 bang insertions after existing colons. Every other source byte,
+comment, newline and expectation marker is preserved. Error aliases,
+constructor failures, named/partial return examples and failure arms retain
+names and payloads; tiers, age categories, control tags and nested ordinary
+values remain neutral. In particular, `:range`, `:empty`, `:outer` and `:extra`
+are not reclassified from a name or the presence of a sibling `:ok` alone.
+
+Lexer examples now exercise error-prefix tokens in their failure union and
+early-return case; a neutral `:missing` alternative remains explicit. The
+newline example keeps the same raw/filtered token correspondence, including
+source/token immutability, with an error-kind alias. Parser examples retain
+error-kind alias entries and a returned `:!invalid`; direct kind assertions and
+the golden AST pin those changes. Existing postfix neutral `:bad!`, acronym
+spelling, qualified-name, casing/conflict and recovery cases retain their roles.
+The CMake-generated CLI sources need no further failure-tag conversion: their
+neutral casing repairs, conflicting kinds, data payloads and rejected obsolete
+syntax are intentional, not legacy grammar bridges. No rejected fixture is
+rewritten to make it pass.
+
+The source-spelling CTest expands from 20 to 24 full sources. The four added
+parser checks require every occurrence of each selected failure name to carry
+error kind, and guard explicit neutral tags too. Independent negative runs
+revert each of the four files and flip one neutral tag per file; all eight
+mutations are rejected. No new source-rewriting utility or migration bridge is
+shipped, and the guard does not claim native support for parser-only syntax.
+
+Actual `source_create` captures cover 3,756 lexer/newline/parser inputs before
+and after. Exactly six captured inputs change, with only seven colon-following
+bang insertions (the newline example is seen as both raw and expected input).
+Names, order and all other bytes are identical. The six changed inputs preserve
+CLI statuses, primary diagnostics/error lines and kind-normalized parser ASTs;
+they do not become native successes. All four changed parser files also retain
+their native rejections. A direct sanitized-build attempt on the declarations
+fixture confirms its existing top-level-constant barrier; no constants, missing
+APIs or refutable arms are removed or stubbed to force native acceptance.
+
+All 358 retained statuses, primary errors and error lines are preserved. The
+354 untouched sources retain complete CLI results; the four changed ASTs differ
+only by kind prefixes. The match-block fixture's two refutable-pattern source
+excerpts and columns move by one for the inserted bangs; messages and lines do
+not change. All 104 prior C outputs are byte-identical, and all six examples
+retain sanitized stdout/stderr/status. No production compiler, IR/RC or runtime
+code is changed; N2 still owns kind-based outcomes, entry status and formatting.
+Review's `append`/`:!blank` versus neutral `:empty` split is untouched.
+
+Four fresh `-Werror` configurations pass: GCC/Clang Debug ASan/UBSan and GCC
+Release, 26/26 each; GCC Debug without sanitizers, 25/25. Pinned clang-format
+23.1.3, diff/prose checks, the unchanged plan design/table and the 23-ending
+CRLF fixture pass. Reports, actual-input captures and temporary comparison aids
+stay under `build/validation/parser-failures.20261106T180337Z/` (ignored).
+Counts remain 156 native fixtures, 155 parser files (41 pass, 114 fail), 239
+fences and 162 document-parser checks. No document fence is promoted and no
+replacement native chapter audit is complete. This closes the bounded
+parser/generated failure-spelling review, not N1: remaining keyword/casing
+rules and replacement native chapter audits still require review and coverage.
 
 ## Risks
 

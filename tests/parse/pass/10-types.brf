@@ -3,7 +3,7 @@
 // bracketed payloads/arguments preserve the next field/declaration separator.
 
 Simple = :a
-WithPayload = :ok[int] | :err[str]
+WithPayload = :ok[int] | :!err[str]
 Nested = :ok[:inner[int] | :none] | :outer
 Merged = Simple | WithPayload | :extra
 Qualified = Json.Error | File.Error
@@ -14,9 +14,9 @@ Grid = Arr[Arr[int]]
 Unit = ()
 TrailingComma = :a | :b
 Multiline =
-  :notFound[str] |
-  :denied[str] |
-  :tooLarge[lng]
+  :!notFound[str] |
+  :!denied[str] |
+  :!tooLarge[lng]
 LastAfterMultiline = :z
 
 Holder {
@@ -36,7 +36,7 @@ Holder {
     self
   }
 
-  pub get(&self, index: int) -> :ok[int] | :outOfRange[int] {
+  pub get(&self, index: int) -> :ok[int] | :!outOfRange[int] {
     :ok[self.plain]
   }
 }

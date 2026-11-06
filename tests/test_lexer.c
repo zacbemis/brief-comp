@@ -492,7 +492,8 @@ int main(void) {
 
   TEST("union types use bars and bracketed payloads") {
     Lexer lx;
-    init_lexer(&lx, ":ok[User] | :err[str] | :missing");
+    // Mix an explicit error kind with neutral tags, without inferring outcomes.
+    init_lexer(&lx, ":ok[User] | :!err[str] | :missing");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_LOWER_NAME, "ok");
     expect(&lx, TOK_LBRACKET, "[");
@@ -500,6 +501,7 @@ int main(void) {
     expect(&lx, TOK_RBRACKET, "]");
     expect(&lx, TOK_BIT_OR, "|");
     expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_BANG, "!");
     expect(&lx, TOK_LOWER_NAME, "err");
     expect(&lx, TOK_LBRACKET, "[");
     expect(&lx, TOK_STR, "str");
@@ -797,7 +799,7 @@ int main(void) {
 
   TEST("early return from docs") {
     Lexer lx;
-    init_lexer(&lx, "if age < 18 { ret :err[\"Age is too low\"] }");
+    init_lexer(&lx, "if age < 18 { ret :!err[\"Age is too low\"] }");
     expect(&lx, TOK_IF, "if");
     expect(&lx, TOK_LOWER_NAME, "age");
     expect(&lx, TOK_LESS_THAN, "<");
@@ -805,6 +807,7 @@ int main(void) {
     expect(&lx, TOK_LBRACE, "{");
     expect(&lx, TOK_RET, "ret");
     expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_BANG, "!");
     expect(&lx, TOK_LOWER_NAME, "err");
     expect(&lx, TOK_LBRACKET, "[");
     expect(&lx, TOK_STR_LIT, "\"Age is too low\"");

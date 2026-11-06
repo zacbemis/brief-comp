@@ -568,8 +568,10 @@ entry/panic cases. Error-suite and generator assertions verify error-kind
 metadata. Deliberate neutral data/failure characterization tests remain, so N1
 still tests its first-version handling policy independently of tag kind.
 The reviewed `:!blank`/`:empty` split and every native fixture are unchanged.
-Parser/lexer/newline and CMake-generated source audits remain separate work;
-no native chapter audit or N2 behavior is claimed. Fixture count remains 156.
+The later parser/generated-source spelling review adds four parser files to
+the source-kind guard (24 full sources total). Their native rejections remain;
+neutral grammar and CLI-generated rejection cases are intentional exceptions.
+No native chapter audit or N2 behavior is claimed. Fixture count remains 156.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

@@ -152,8 +152,11 @@ now use `:!` throughout their annotations, values and patterns. Optional
 `:none` stays neutral. `outcomes.brf`'s `append` now fails with its own
 `:!blank`, so `:empty` stays data. Unambiguous checker/compiler C-test failures
 now use `:!` too, including assembled prefixes and generated recursive cases.
-Intentional neutral-kind/data characterizations stay neutral; parser and
-CMake-generated source audits remain separate. Expected runtime text is not
+Four parser fixtures and the remaining unambiguous lexer/newline/parser
+examples now use `:!` as well. Full-source spelling checks cover 24 sources.
+Intentional neutral data/kind, casing and rejected-grammar cases stay unchanged;
+the CMake-generated sources need no further failure-tag conversion. This is
+source-kind coverage, not native API acceptance. Expected runtime text is not
 changed.
 
 `trait` and `ovr` are ordinary names, not declaration/modifier keywords. Native

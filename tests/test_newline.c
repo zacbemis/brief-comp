@@ -157,7 +157,7 @@ int main(void) {
     check(&arena, "ret\nx\nbreak\ncontinue\n", "ret\nx\nbreak\ncontinue\n");
   }
   TEST("type closers preserve separators, including nested >> and aliases") {
-    const char *text = "Error = :bad\nmain() {}\nUser {\n"
+    const char *text = "Error = :!bad\nmain() {}\nUser {\n"
                        "x: Vec[:ok[int] | :none]\ny: int\nz: Mod.Box[int]\n}\n";
     check(&arena, text, text);
     check(&arena, "f() ->\n:ok[int] |\n:none { 1 }\n",

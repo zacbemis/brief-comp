@@ -99,8 +99,12 @@ observations or claiming a document audit. Optional `:none` stays neutral, and
 `outcomes.brf`'s mixed `:empty` was split into data `:empty` and failure
 `:!blank`. Unambiguous failure strings in five checker/compiler C-test modules
 are now converted as well. Intentional neutral data/kind characterizations are
-retained; remaining parser/generated sources and native audits stay separate.
-No document fence is promoted, and N1 stays in progress.
+retained. The parser/generated-source spelling review now converts four parser
+fixtures and unambiguous lexer/newline/parser C-test examples; CLI-generated
+casing, kind-conflict and obsolete-syntax cases stay intentional. Full-source
+spelling checks cover 24 sources, not 24 native audits. All four parser fixtures
+retain their native rejections. No document fence is promoted, no replacement
+native audit is completed, and N1 stays in progress.
 
 ## N1 spelling bridges
 

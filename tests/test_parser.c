@@ -2936,7 +2936,7 @@ int main(void) {
   }
   TEST("bindings, typed fields, methods, written and partial return types") {
     const char *text =
-        "Error = :bad[str] | :missing\n"
+        "Error = :!bad[str] | :!missing\n"
         "User {\nname: str\nresult: :ok[User] | Error\ncount: int\n\n\n"
         "pub new(name: str) -> :ok[User] | _ {\n"
         "var count: shrt = 0\ncount += 1\n:ok[User { name = name, count = "
@@ -2947,6 +2947,11 @@ int main(void) {
       diagnostics_print(&v->diagnostics, stderr);
     ASSERT_EQ_INT(0, v->diagnostics.count);
     ASSERT_EQ_INT(2, v->program->count);
+    Type *failures = v->program->items[0]->as.alias;
+    ASSERT_EQ_INT(TYPE_UNION, failures->kind);
+    ASSERT_EQ_INT(2, failures->as.union_type.count);
+    ASSERT_EQ_INT(SYMBOL_ERROR, failures->as.union_type.items[0].kind);
+    ASSERT_EQ_INT(SYMBOL_ERROR, failures->as.union_type.items[1].kind);
     Decl *structure = v->program->items[1];
     ASSERT_EQ_INT(3, structure->as.structure.count);
     ASSERT_EQ_INT(2, structure->as.structure.function_count);
@@ -3201,9 +3206,9 @@ int main(void) {
     expression_dump(
         &arena,
         "parse(text) |> {\n:ok[value] => value\nJson.Error => ret "
-        ":invalid\nother => ret other\n}",
+        ":!invalid\nother => ret other\n}",
         "(|> (call (name parse) (name text)) (match (arm (tag ok (bind value)) "
-        "(name value)) (arm (set Json.Error) (block (ret (symbol invalid)))) "
+        "(name value)) (arm (set Json.Error) (block (ret (symbol !invalid)))) "
         "(arm (bind other) (block (ret (name other))))))");
     expression_dump(
         &arena, "x |> {\n:ok[:some[user]] => user\n:none => ()\n_ => 0\n}",

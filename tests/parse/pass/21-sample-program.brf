@@ -2,7 +2,7 @@
 // without the later-version features (lambdas, traits, tuples, modules).
 
 Tier = :tier1 | :tier2 | :tier3
-Error = :invalidAge[int] | :emptyName
+Error = :!invalidAge[int] | :!emptyName
 
 const minAge = 0
 const maxAge: int = 150
@@ -15,10 +15,10 @@ User {
 
   pub new(name: str, age: int) -> :ok[User] | Error {
     if name == "" {
-      ret :emptyName
+      ret :!emptyName
     }
     if age < minAge or age > maxAge {
-      ret :invalidAge[age]
+      ret :!invalidAge[age]
     }
     User { name = name, age = age, tier = :tier1 }
   }
@@ -99,8 +99,8 @@ main() {
 
   User.new("", 10) |> {
     :ok[user] => print(user.describe())
-    :emptyName => print("A name is required")
-    :invalidAge[age] => print("Not a valid age: " + str(age))
+    :!emptyName => print("A name is required")
+    :!invalidAge[age] => print("Not a valid age: " + str(age))
   }
 
   print(bob.describe())

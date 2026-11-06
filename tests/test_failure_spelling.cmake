@@ -48,4 +48,10 @@ check_spelling(tests/programs/panics/symbol-error.brf "bad" "")
 check_spelling(tests/programs/return-arrows.brf "bad" "")
 check_spelling(tests/programs/string-match-ownership.brf "invalid" "")
 check_spelling(tests/programs/union-types.brf "bad" "")
-message(STATUS "Checked migrated failure kinds and explicit neutral exceptions in 20 full sources")
+# Parser fixtures deliberately retain neutral ordinary/nested/control tags.
+# These checks do not establish native support for their other syntax/APIs.
+check_spelling(tests/parse/pass/01-declarations.brf "notFound,denied,invalidAge,tooLong,failed" "bronze,silver,gold")
+check_spelling(tests/parse/pass/10-types.brf "err,notFound,denied,tooLarge,outOfRange" "a,inner,none,outer,extra,b,z,x,y")
+check_spelling(tests/parse/pass/12-match-blocks.brf "notFound,denied,tooLarge,fail,failed" "some,range,skip,stop,empty")
+check_spelling(tests/parse/pass/21-sample-program.brf "invalidAge,emptyName" "tier1,tier2,tier3,minor,adult,senior")
+message(STATUS "Checked migrated failure kinds and explicit neutral exceptions in 24 full sources")

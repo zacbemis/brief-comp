@@ -66,6 +66,23 @@ functions or written `&self`, before return inference. Outside-owner use is
 invalid. Native checking rejects wrong-way calls; syntax-only examples do not
 establish their method/associated-function contracts.
 
+Unambiguous failures in `01`, `10`, `12` and `21` now use `:!` consistently in
+annotations, values and patterns. The `source-spelling` CTest guards every
+occurrence of those selected names and their neutral exceptions across the
+complete files. Tiers, age categories, control tags, nested data, `:range` and
+`:empty` remain neutral; generic alternatives such as `:outer` are not inferred
+to be errors just because they share a union with `:ok`. All four files retain
+their existing native scope/semantic rejections. This conversion neither
+supplies missing APIs nor promotes a parser fixture to native acceptance.
+
+Lexer/newline/parser C-test examples also use the error spelling where their
+role is unambiguous, with token/kind/golden assertions. Neutral `:missing` in
+the lexer union and optional mapping, postfix neutral `:bad!`, acronym/casing
+examples and kind-conflict/recovery cases stay intentional. CLI CMake sources
+retain their casing-repair, kind-conflict, ordinary-data and obsolete-syntax
+roles; their review found no further unambiguous failure example to convert.
+Rejection fixtures below keep their original rule, source and diagnostic line.
+
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
   must show.
