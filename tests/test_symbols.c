@@ -1800,10 +1800,16 @@ int main(void) {
   }
   TEST("error-kind classification is shallow and agrees with subset masks") {
     ASSERT_TRUE(!sema_has_errors(NULL));
+    ASSERT_TRUE(!sema_only_errors(NULL));
+    SemaSymSet empty = {0};
+    SemaType empty_type = {.kind = SEMA_SYM, .symbols = &empty};
+    ASSERT_TRUE(!sema_only_errors(&empty_type));
     for (unsigned kinds = 0; kinds < 8; kinds++) {
       SemaProgram *p = valid(&a, "main() {}").program;
-      for (size_t i = 0; i < SEMA_SYM; i++)
+      for (size_t i = 0; i < SEMA_SYM; i++) {
         ASSERT_TRUE(!sema_has_errors(&p->types[i]));
+        ASSERT_TRUE(!sema_only_errors(&p->types[i]));
+      }
       Diagnostics errors;
       diagnostics_init(&errors, &a);
       SemaTag *leaf = sema_declare_tag(p, p->module, "leaf", SEMA_TAG_ERROR,
@@ -1837,6 +1843,8 @@ int main(void) {
         size_t sets = p->symbol_set_count, tag_count = p->tag_count;
         for (unsigned repeat = 0; repeat < 3; repeat++) {
           ASSERT_EQ_INT((mask & (kinds << 2)) != 0, sema_has_errors(type));
+          ASSERT_EQ_INT(!(mask & 3) && !((mask >> 2) & ~kinds),
+                        sema_only_errors(type));
           ASSERT_EQ_INT(sets, p->symbol_set_count);
           ASSERT_EQ_INT(tag_count, p->tag_count);
         }
@@ -1910,9 +1918,10 @@ int main(void) {
     valid(&a, "f() -> :!problem[str] { :!problem[\"owned\"] }\n"
               "main() { f() |> { :!problem[text] => print(text) } }");
     Result boundary =
-        invalid(&a, "f() -> :!problem { :!problem }\nmain() { f()? }",
-                "require a symbol outcome with an :ok");
-    ASSERT_EQ_INT(1, boundary.errors.count);
+        valid(&a, "f() -> :!problem { :!problem }\nmain() { f()? }");
+    ASSERT_TRUE(
+        sema_only_errors(boundary.program->functions[1].symbol.return_type));
+    ASSERT_TRUE(!sema_ok(boundary.program->functions[1].symbol.outcome_type));
     boundary =
         invalid(&a, "f() -> :ok[:!problem] { :ok[:!problem] }\nmain() { f() }",
                 required);

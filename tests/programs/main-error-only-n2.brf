@@ -1,0 +1,16 @@
+// expect: before
+// expect: source
+// stderr: error: :!bad["owned", (), :note["nested"]]
+// exit: 1
+Error = :!bad[str, (), :note[str]]
+Box { text: str }
+source() -> Error {
+  print("source")
+  :!bad["own" + "ed", (), :note["nested"]]
+}
+main() {
+  let held = Box { text = "held" + " owner" }
+  print("before")
+  source()?
+  print("unreachable")
+}

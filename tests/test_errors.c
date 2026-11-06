@@ -19,7 +19,7 @@ static Result check(Arena *a, const char *text) {
   r.program = sema_resolve(a, ast, &r.errors);
   sema_check(r.program, &r.errors);
   // Explicit failures and implicit converter tags have error kind. Shared
-  // :none remains neutral; postfix extraction still awaits its N2 switch.
+  // :none remains neutral; general success extraction awaits its N2 switch.
   for (const SemaSymSet *set = r.program->symbol_sets; set; set = set->next) {
     if (!sema_ok(&set->type))
       continue;
@@ -119,6 +119,105 @@ int main(void) {
     invalid(&a, "main() { 1? }", "require a symbol outcome");
     invalid(&a, "main() { :data! }", "require a symbol outcome");
     invalid(&a, "f() {}\nmain() { f() |> { :ok[x] => x } }", "payload shape");
+  }
+  TEST("error-only postfixes terminate in every enclosing value position") {
+    const char *prefix = "Error = :!bad[str, (), :!inner] | :!other\n"
+                         "source() -> Error { :!bad[\"owned\", (), :!inner] }\n"
+                         "Box { value: int }\ng() { ";
+    const char *bodies[] = {"source()%c",
+                            "let value = source()%c",
+                            "print(str(source()%c))",
+                            "Box { value = source()%c }",
+                            ":box[source()%c]",
+                            "ret source()%c",
+                            "not source()%c",
+                            "source()%c |> print()",
+                            "while true { source()%c }",
+                            "1 + source()%c"};
+    for (size_t i = 0; i < sizeof(bodies) / sizeof(*bodies); i++)
+      for (unsigned panic = 0; panic < 2; panic++)
+        for (unsigned crlf = 0; crlf < 2; crlf++) {
+          char body[256], lf[1024], source[2048];
+          snprintf(body, sizeof(body), bodies[i], panic ? '!' : '?');
+          snprintf(lf, sizeof(lf), "%s%s\nprint(\"unreachable\") }\nmain() {}",
+                   prefix, body);
+          size_t length = 0;
+          for (const char *s = lf; *s; s++) {
+            if (crlf && *s == '\n')
+              source[length++] = '\r';
+            source[length++] = *s;
+          }
+          source[length] = 0;
+          Result r = valid(&a, source);
+          for (unsigned repeat = 0; repeat < 3; repeat++) {
+            if (repeat) {
+              diagnostics_init(&r.errors, &a);
+              sema_check(r.program, &r.errors);
+            }
+            ASSERT_EQ_INT(0, r.errors.count);
+            ASSERT_TRUE(r.program->checked);
+            ASSERT_TRUE(!memcmp(source, r.program->module->text, length));
+            const SemaFunction *g = &r.program->functions[1];
+            ASSERT_TRUE(!(g->body->flow & SEMA_NEXT));
+            ASSERT_TRUE(!g->body->as.block.items[g->body->as.block.count - 1]
+                             ->reachable);
+            if (panic) {
+              ASSERT_EQ_INT(SEMA_UNIT, g->symbol.return_type->kind);
+              ASSERT_EQ_INT(0, g->body->flow);
+            } else {
+              ASSERT_TRUE(g->symbol.return_type == r.program->aliases[0].type);
+              ASSERT_TRUE(sema_only_errors(g->symbol.outcome_type));
+              ASSERT_EQ_INT(SEMA_RETURN, g->body->flow);
+            }
+          }
+          if (i == 0) {
+            const SemaExpr *postfix =
+                r.program->functions[1].body->as.block.items[0];
+            ASSERT_EQ_INT(SEMA_NEVER, postfix->type->kind);
+            ASSERT_TRUE(postfix->failures == postfix->as.value->type);
+            IrProgram *ir = ir_lower(&a, r.program);
+            ASSERT_TRUE(ir != NULL);
+            if (ir) {
+              size_t exits = 0;
+              for (size_t j = 0; j < ir->functions[1].count; j++) {
+                IrOp op = ir->functions[1].instructions[j].op;
+                exits += op == (panic ? IR_PANIC_SYMBOL : IR_RETURN);
+                ASSERT_TRUE(op != IR_SYMBOL_TAG && op != IR_SYMBOL_PAYLOAD &&
+                            op != IR_BRANCH_FALSE);
+              }
+              ASSERT_EQ_INT(1, exits);
+            }
+          }
+        }
+    Result anchored =
+        valid(&a, "source() -> :!bad { :!bad }\n"
+                  "g(b: bool) { if b { source()? } else { 7 } }\nmain() {}");
+    const SemaType *type = anchored.program->functions[1].symbol.outcome_type;
+    ASSERT_EQ_INT(2, type->symbols->count);
+    ASSERT_EQ_INT(SEMA_INT, sema_single_payload(sema_ok(type))->kind);
+    const char *bad = "source() -> :!bad { :!bad }\n"
+                      "g() -> int { source()? }\nmain() {}";
+    Result r = invalid(
+        &a, bad, "Propagated variants are not in the written return type.");
+    for (unsigned repeat = 0; repeat < 3; repeat++) {
+      if (repeat) {
+        diagnostics_init(&r.errors, &a);
+        sema_check(r.program, &r.errors);
+      }
+      ASSERT_EQ_INT(1, r.errors.count);
+      ASSERT_TRUE(!r.program->checked && ir_lower(&a, r.program) == NULL);
+      if (r.errors.count) {
+        ASSERT_EQ_INT(
+            0, strcmp("Propagated variants are not in the written return type.",
+                      r.errors.items[0]->message));
+        ASSERT_TRUE(!r.errors.items[0]->fixes && !r.errors.items[0]->notes);
+      }
+    }
+    // Non-errors keep their prior boundary until their own reviewed slice.
+    invalid(&a, "main() { :none? }", "require a symbol outcome with an :ok");
+    invalid(&a, "main() { :box[:!bad]! }",
+            "require a symbol outcome with an :ok");
+    valid(&a, "f() -> :ok[int] { :ok[1] }\nmain() { f()! }");
   }
   TEST("typed errors propagate and panic, with explicit or implicit success") {
     valid(&a,
@@ -438,9 +537,22 @@ int main(void) {
           i == 2049 ? "last" : "first", (i + 1) % 2050);
     snprintf(text + length, capacity - length, "main() {}\n");
     Result r = valid(&a, text);
-    for (size_t i = 0; i < 2050; i++)
-      ASSERT_EQ_INT(
-          3, r.program->functions[i].symbol.outcome_type->symbols->count);
+    const SemaType *type = r.program->functions[0].symbol.outcome_type;
+    for (size_t i = 0; i < 2050; i++) {
+      // Every recursive route reaches an error or recurses forever. The 1
+      // after ? cannot be a success anchor for an error-only component.
+      const SemaFunction *f = &r.program->functions[i];
+      ASSERT_TRUE(type == f->symbol.outcome_type);
+      ASSERT_EQ_INT(2, f->symbol.outcome_type->symbols->count);
+      ASSERT_TRUE(sema_only_errors(f->symbol.outcome_type));
+      ASSERT_TRUE(!sema_ok(f->symbol.outcome_type));
+      ASSERT_TRUE(
+          !f->body->as.block.items[f->body->as.block.count - 1]->reachable);
+    }
+    ASSERT_TRUE(
+        sema_variant(type, sema_tag(r.program, r.program->module, "first")));
+    ASSERT_TRUE(
+        sema_variant(type, sema_tag(r.program, r.program->module, "last")));
   }
   TEST("partial-return error closure agrees with an independent graph oracle") {
     uint32_t random = UINT32_C(12345678);

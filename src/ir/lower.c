@@ -362,6 +362,22 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
     size_t input = lower(l, e->as.value);
     if (l->returned)
       return IR_NO_VALUE;
+    if (sema_only_errors(e->as.value->type)) {
+      // There is no success edge, tag test or payload projection. Keep the
+      // existing propagation cleanup and panic's non-unwinding behavior.
+      if (e->kind == SEMA_EXPR_PANIC)
+        emit(l, (IrInstruction){.op = IR_PANIC_SYMBOL,
+                                .span = e->span,
+                                .type = e->as.value->type,
+                                .a = input});
+      else {
+        size_t value = convert(l, input, l->function->return_type, e->span);
+        cleanup(l, NULL, value, e->span);
+        emit(l, (IrInstruction){.op = IR_RETURN, .span = e->span, .a = value});
+      }
+      l->returned = 1;
+      return IR_NO_VALUE;
+    }
     if (e->failures) {
       size_t tag = temporary(l, &l->program->types[SEMA_UINT]);
       emit(l, (IrInstruction){.op = IR_SYMBOL_TAG,

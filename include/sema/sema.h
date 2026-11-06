@@ -301,6 +301,8 @@ int sema_reference(const SemaType *type);
 const SemaVariant *sema_ok(const SemaType *type);
 // Shallow native result classification: no traversal into payloads or fields.
 int sema_has_errors(const SemaType *type);
+// Nonempty symbol set with no possible non-error alternative.
+int sema_only_errors(const SemaType *type);
 int sema_payloads_equal(const SemaVariant *a, const SemaVariant *b);
 // Zero/one access for success-result semantics and preserved scalar layouts.
 // Positional data uses arrays; never collapse several values to the first.

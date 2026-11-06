@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **168 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **172 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for parser coverage and gaps.
 
@@ -25,10 +25,18 @@ Calls now require handling if their actual ABI result has a top-level error,
 even without :ok. `call-kind-data-n2.brf` covers ordinary neutral-only optional
 and data calls plus matched error-only calls. `errors/call-kind-errors-n2.brf`
 rejects twelve previously missed calls, including an existing only-:ok ABI
-exposure of an error result. These are new expectations; all prior fixture
-markers remain unchanged. Errors nested in neutral payloads or structs do not
-require handling of the enclosing call. Postfix extraction/rejection,
-propagation, exact returns and implicit endings remain pending.
+exposure of an error result. That slice preserved prior fixture markers. Errors
+nested in neutral payloads or structs do not require handling of the enclosing
+call. General success extraction, no-error postfix rejection, exact returns and
+implicit endings remain pending.
+
+Error-only operand sets now make `?` always propagate and `!` always panic,
+without a success edge. `error-only-propagation-n2.brf` covers owned positional
+payloads, borrowed forwarding, widening and cleanup. `main-error-only-n2.brf`
+checks entry failure; `panics/error-only-n2.brf` and
+`panics/error-only-empty-n2.brf` check messages and locations. No existing
+fixture marker changes. The plan lists the changed semantic/CLI expectations,
+including removal of a phantom success from an inferred recursive component.
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

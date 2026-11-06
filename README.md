@@ -143,8 +143,10 @@ as `:!name` and nonempty payloads in `[...]`, including nested neutral/error
 tags. Escaping, limits, statuses and cleanup are unchanged by this spelling
 switch. Calls now require handling if their actual ABI result contains a
 top-level error tag, even without `:ok`; neutral-only optional/data calls are
-ordinary values. Error-only calls can be matched. Postfix extraction/rejection,
-propagation, exact returns and optional endings remain pending.
+ordinary values. Error-only operand sets now make `?` always propagate and `!`
+always panic, without a success value or fallthrough. General success
+extraction, no-error postfix rejection, exact returns and optional endings
+remain pending.
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and

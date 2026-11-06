@@ -1,0 +1,10 @@
+// expect: before
+// panic: panic: :!bad["owned", (), :note["nested"]]
+// panic: error-only-n2.brf:8
+Error = :!bad[str, (), :note[str]]
+source() -> Error { :!bad["own" + "ed", (), :note["nested"]] }
+main() {
+  print("before")
+  source()!
+  print("unreachable")
+}

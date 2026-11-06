@@ -809,7 +809,8 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     const SemaType *input = check(c, value, NULL, OUTCOME);
     flow = value->flow;
     const SemaVariant *ok = sema_ok(input);
-    if (!ok) {
+    int terminal = sema_only_errors(input);
+    if (!ok && !terminal) {
       if (!special(input))
         error(c, e->span,
               "? and ! require a symbol outcome with an :ok variant.");
@@ -818,24 +819,32 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       result = c->probe && input->kind == SEMA_SYM ? t(c, SEMA_UNKNOWN)
                : special(input)                    ? input
                                                    : t(c, SEMA_ERROR);
-    } else if (ok->payload_count > 1) {
+    } else if (ok && ok->payload_count > 1) {
       error(c, e->span, "Multiple ':ok' payloads are not implemented yet.");
       result = t(c, SEMA_ERROR);
     } else {
       const SemaType *payload = sema_single_payload(ok);
-      result = payload ? payload : t(c, SEMA_UNIT);
-      e->failures = sema_failures(c->p, input);
+      result = terminal  ? t(c, SEMA_NEVER)
+               : payload ? payload
+                         : t(c, SEMA_UNIT);
+      e->failures = terminal ? input : sema_failures(c->p, input);
       if (e->kind == SEMA_EXPR_TRY && e->failures) {
-        flow = sequence(flow, SEMA_NEXT | SEMA_RETURN);
+        flow = sequence(flow, terminal ? SEMA_RETURN : SEMA_NEXT | SEMA_RETURN);
         if (c->function->written && !return_fits(c, e->failures))
           error(c, e->span,
                 "Propagated variants are not in the written return type.");
-        if (reachable && (value->flow & SEMA_NEXT))
+        if (reachable && (value->flow & SEMA_NEXT)) {
+          // An always-propagating expression is a real return, not a
+          // valueless ending that can invent an implicit :ok alternative.
+          if (terminal)
+            c->saw_return = 1;
           c->failures = c->failures
                             ? join(c, c->failures, e->failures, e->span,
                                    "Symbol tag has conflicting payload types.")
                             : e->failures;
-      }
+        }
+      } else if (terminal)
+        flow = sequence(flow, 0);
     }
     break;
   }

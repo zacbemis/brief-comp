@@ -84,9 +84,10 @@ tag's top-level kind. Entry/panic symbol diagnostics now use `:!` for errors and
 `[...]` for nonempty payloads, including nested symbols. Escaping, limits,
 release/flush and panic locations are unchanged. Mandatory call handling now
 uses top-level error kinds in the actual ABI result; neutral-only optional/data
-calls are ordinary values. These unit/native regressions do not promote a fence,
-supply APIs or complete a N2 chapter audit. Postfix extraction/rejection,
-propagation, exact returns and implicit endings still await their N2 slices.
+calls are ordinary values. Error-only postfixes always propagate or panic,
+without a success edge. These unit/native regressions do not promote a fence,
+supply APIs or complete a N2 chapter audit. General success extraction, no-error
+postfix rejection, exact returns and implicit endings await their N2 slices.
 
 Remaining milestone work:
 
@@ -95,20 +96,21 @@ Remaining milestone work:
 - **N4/N5:** add bindings/loops and interpolation fences to their chapter audits.
 - **N6:** overview, traits, collections and standard library scope inventories.
 
-N1's syntax/kind checks are not the N2 native audit. Propagation, postfix
-extraction and `:ok` equivalence still use first-version rules. The original
-error-only entry fixture now exits 1 and prints its error; its text now uses the
-new symbol spelling. The formatter slice changes nine existing stderr/panic
-markers, not statuses or error locations; the plan lists every expectation. The
-call-kind slice changes no existing expectation and matches error-only calls,
-without completing postfix or exact-return rules. Bracketed payload lists
-compile with positional data/failure payloads, preserving zero/one behavior.
-Multiple `:ok` positions still stop at the single-result success boundary. Union
-types and ordinary `Sym` names retain the remaining first-version adaptations.
-Type-context and whole-fence parser checks do not complete a native audit. Typed
-symbol payload binders retain annotations for parser checks, but native
-compilation still reports typed matching as unimplemented. No native/API
-acceptance follows from that syntax support.
+N1's syntax/kind checks are not the N2 native audit. General success extraction
+and `:ok` equivalence still use first-version rules. The original error-only
+entry fixture now exits 1 and prints its error; its text now uses the new symbol
+spelling. The formatter slice changes nine existing stderr/panic markers, not
+statuses or error locations; the plan lists every expectation. The call-kind
+slice changes no existing expectation. Error-only postfix support changes the
+three listed semantic/CLI expectations, without completing other postfix or
+exact-return rules. Bracketed payload lists compile with positional data/failure
+payloads, preserving zero/one behavior. Multiple `:ok` positions still stop at
+the single-result success boundary. Union types and ordinary `Sym` names retain
+the remaining first-version adaptations. Type-context and whole-fence parser
+checks do not complete a native audit. Typed symbol payload binders retain
+annotations for parser checks, but native compilation still reports typed
+matching as unimplemented. No native/API acceptance follows from that syntax
+support.
 
 ## Historical grammar checkpoints
 

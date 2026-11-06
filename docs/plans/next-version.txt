@@ -218,8 +218,9 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 N0 and N1 are complete for their milestone scope. The final N1 review is in
 `tests/next-version-n1-review.md`. N2 has begun with the reserved :none payload
 invariant, intrinsic conversion error kinds, kind-based entry status, symbol
-diagnostic spelling and mandatory call handling below. This does not complete the
-next-version language or claim native acceptance of listed APIs/fragments.
+diagnostic spelling, mandatory call handling and error-only postfixes below. This
+does not complete the next-version language or claim native acceptance of listed
+APIs/fragments.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -327,7 +328,8 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 - [x] :none has zero payload positions in source and canonical semantic sets.
 - [x] Intrinsic conversion error kinds and neutral-kind collision diagnostics.
 - [x] Mandatory call handling by top-level error kind in the actual ABI result.
-- [ ] No-error postfix rejection and error-kind propagation/extraction.
+- [x] Error-only postfix operands always propagate/panic, without a success edge.
+- [ ] No-error postfix rejection and general error-kind propagation/extraction.
 - [ ] Exact returns and only-:ok normalization without implicit call wrapping.
 - [ ] :none endings and the payload-less :ok/:none ambiguity diagnostic.
 - [x] Entry status by the actual returned symbol's active error kind.
@@ -335,10 +337,11 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 - [ ] Scoped symbols/errors native audits for N2's available rules.
 
 The first N2 slices implement the reserved neutral :none shape, intrinsic
-conversion error kinds, entry status by active kind, symbol diagnostic spelling
-and mandatory call handling. Their native/unit regressions are not acceptance of
-postfix, exact-return or optional-ending rules. Detailed slices and
-changed-expectation inventories follow the N1 historical records below.
+conversion error kinds, entry status by active kind, symbol diagnostic spelling,
+mandatory call handling and error-only postfixes. Their native/unit regressions
+are not acceptance of general extraction, no-error postfix rejection,
+exact-return or optional-ending rules. Detailed slices and changed-expectation
+inventories follow the N1 historical records below.
 
 ### Historical implementation checkpoints
 
@@ -3177,6 +3180,119 @@ unchanged. No quoted source is extracted, completed with stand-ins or promoted t
 native acceptance. No frozen/current language document or v0 reader changes.
 IR/RC, code generation and runtime sources are untouched. N1 remains complete, N2
 remains in progress; stop uncommitted for review before the postfix slice.
+
+### N2 increment: error-only postfixes have no success edge
+
+Reviewed base: `1f962b6`, the call-kind slice, committed unchanged. This bounded
+consumer slice permits ? and ! on checked symbol operands whose alternatives are
+all error-kind tags. ? always returns the complete error value; ! always panics.
+There is no remaining success value, projection, tag test or fallthrough.
+
+`sema_only_errors` is a shallow, nonempty-set predicate using SemaTag.kind, not
+names, IDs, spelling or payload layout. Primitive/sentinel and empty inputs are
+not error-only. The checker gives these postfix expressions never type and RETURN
+flow for ? or zero flow for !. A reachable always-propagating ? counts as a real
+return, so a dead tail cannot manufacture an implicit :ok alternative. Errors
+still accumulate through the existing written-return checks and SCC fixed point.
+The real success anchors in the existing recursive regressions remain intact.
+Panic functions retain their existing inferred/written ABI policy; this does not
+introduce general never-return function types.
+
+Lowering evaluates the operand once, then emits an unconditional return or symbol
+panic. Propagation converts to the function's ABI and uses the existing cleanup
+path; panic retains its existing non-unwinding behavior. There is no new
+ownership analysis or RC pass. Checked operand types still preserve legacy
+only-:ok envelopes: those wrappers are not normalized here. General success
+extraction, mixed neutral/error handling, no-error postfix rejection, exact
+returns, optional endings and N3 delayed/linear handling remain separate work.
+
+Changed existing expectations, exhaustively:
+
+1. `test_symbols` retains the exact input `f() -> :!problem { :!problem }`
+   followed by `main() { f()? }`. It changes from one error,
+   `? and ! require a symbol outcome with an :ok variant.`, at line 2, column 10
+   (four-byte f()? span), with no lowering, to zero errors and successful
+   lowering/emission. The added checks require main's actual result to be
+   error-only with no :ok. Independent native execution exits 1, with empty
+   stdout and stderr `error: :!problem` plus newline. All-error propagation has
+   no success case to require or synthesize.
+2. `test_errors`' unchanged 2,050-function stress input now expects two tags,
+   :!first and :!last, instead of :ok[int] plus those errors, for every function
+   f0 through f2049 inclusive. The 1 following the recursive ? is unreachable:
+   every finite returning route ends in an error. All 2,050 old/new schemas and
+   body flows are independently recorded; each flow changes NEXT|RETURN to
+   RETURN. The strengthened unit checks both exact tags, canonical identity,
+   absence of :ok and the dead tail, not just a smaller count. This removes a
+   phantom success anchor; it does not remove either error or alter a real
+   success path.
+3. The retained CLI characterization of unchanged parser fixture
+   `tests/parse/pass/38-error-tag-kinds.brf` loses exactly its obsolete
+   error-only panic diagnostic at line 11, column 3 (six-byte :!bad! span). Its
+   unknown binding at line 6 and neutral :neutral! rejection at line 12 remain
+   exactly ordered and unchanged. dump-ast still succeeds and emit-c still exits
+   1 with no C output; the parser-pass expectation and source bytes do not
+   change.
+
+No other existing diagnostic, fixture marker, stdout/stderr/status observation or
+golden changes. No prior Brief source is rewritten. The first focused run failed
+on the old rejection and all 2,050 old three-tag assertions; these are the listed
+rule changes, not failures hidden by regenerated expectations.
+
+Four new whole native fixtures cover matched positional/owned errors, unit
+payload effects, borrowed forwarding, widening to a written union, local-owner
+cleanup, direct entry propagation and zero/multiple-payload panics:
+`error-only-propagation-n2.brf`, `main-error-only-n2.brf`,
+`panics/error-only-n2.brf` and `panics/error-only-empty-n2.brf`. Unreachable
+prints are not emitted or evaluated. Existing entry/panic spelling, flushing,
+locations and status policy are reused without changes to the code generator or
+runtime.
+
+The 248 independent kind/subset masks now check both any-error and all-error
+predicates across zero/one/multiple payload layouts and nested errors. Ten value
+positions, both operators and LF/CRLF produce 40 complete semantic inputs, each
+checked three times for stable diagnostics, immutable bytes, terminal flow and
+unreachable following syntax. Direct cases pin never type, one IR exit and no
+symbol tag test, success projection or branch. Written-contract negatives keep
+one exact primary and refuse lowering; neutral :none and nested-error data keep
+their old rejection boundary. A no-error :ok-only ! control intentionally keeps
+its legacy acceptance until that consumer slice. Two new C-authored CLI cases pin
+merged output order and panic locations normally and sanitized, without changing
+the four existing cases.
+
+Validation: fresh -Werror GCC Debug ASan/UBSan, Clang Debug ASan/UBSan and GCC
+Release pass 37/37 each; unsanitized GCC Debug passes 31/31. Focused final
+native-driver/program/sanitized-program checks pass 3/3. All 451 retained ASTs
+are identical. The sole retained CLI diagnostic change is item 3. Of 159 prior C
+outputs, 158 are byte-identical; outcomes.brf only reuses symbol-set ID 14 rather
+than 18 and reorders its complete type/helper definitions. An independent
+normalizer limited to that ID and complete symbol declarations/helpers proves all
+remaining emitted bytes unchanged. The anchored recursive C-authored input has
+the same limited ID/order delta (8 to 4), not a semantic change.
+
+All 146 prior sanitized executable comparisons preserve exact status and both
+streams, including the six unchanged examples/goldens. Actual source_create
+captures retain all 1,580 old C-test records, with only 45 new error-test
+records. Of 1,434 unique old raw programs, just three change complete CLI/C
+observations: item 1, the stress source in item 2, and the anchored ID/order-only
+source above. Raw-source comparisons supplement the actual C suites' direct
+AST/API tests. The complete stress source is retained; its C loses only the
+phantom-success paths/layouts. A whole-source observer exercises its first/last
+error routes before/after, under strict GCC normally and sanitized, with
+identical true/true output, empty stderr and exit 0. Both independent stress
+schema manifests list all 2,050 functions rather than sampling them.
+
+All four new fixtures retain identical baseline/current ASTs and pass strict
+GCC/Clang normal/sanitized C compilation and exact execution (16/16). A written
+non-void panic also compiles cleanly with both strict compilers, without a fake
+return. Formatter 23.1.3, diff/prose/whole-paragraph/design/status and the
+23-ending CRLF checks pass. Ignored evidence is under
+`build/validation/n2-error-only.20261106T231355Z/`.
+
+Current native inventory is 172 fixtures. Parser/document inventories and fence
+classifications are unchanged. No quoted fence is extracted, supplied with
+stand-ins or promoted to native acceptance; no current/frozen language document
+or v0 reader changes. Code generation, runtime and independent RC sources are
+untouched. N1 stays complete, N2 stays in progress; stop uncommitted for review.
 
 ## Risks
 

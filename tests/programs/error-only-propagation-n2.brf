@@ -1,0 +1,38 @@
+// expect: source
+// expect: unit
+// expect: owned
+// expect: nested
+// expect: source
+// expect: unit
+// expect: other
+Detail = :note[str]
+Error = :!bad[str, (), Detail] | :!other[()]
+Box { text: str }
+stamp() { print("unit") }
+source(b: bool) -> Error {
+  print("source")
+  if b { ret :!bad["own" + "ed", stamp(), :note["nested"]] }
+  :!other[stamp()]
+}
+forward(value: Error) { value? }
+step(b: bool) {
+  let held = Box { text = "held" + " owner" }
+  forward(source(b) |> { value => value })?
+  print("unreachable")
+  7
+}
+wide(b: bool) -> :ready[()] | Error { step(b)? }
+main() {
+  wide(true) |> {
+    :ready[_] => print("unexpected")
+    :!bad[text, _, detail] => {
+      print(text)
+      detail |> { :note[nested] => print(nested) }
+    }
+    :!other[_] => print("other")
+  }
+  step(false) |> {
+    :!bad[text, _, _] => print(text)
+    :!other[_] => print("other")
+  }
+}

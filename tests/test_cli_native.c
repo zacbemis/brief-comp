@@ -155,16 +155,22 @@ int main(int argc, char **argv) {
         "f() -> :ok | :!bad[str] { :!bad[\"he\" + \"ap\"] }\n"
         "main() { print(\"before\")\nf()! }\n",
         "main() { print(\"before\")\n2147483647 + 1 }\n",
-        "main() { print(\"before\")\n:bad }\n"};
+        "main() { print(\"before\")\n:bad }\n",
+        "f() -> :!bad[str] { :!bad[\"he\" + \"ap\"] }\n"
+        "main() { print(\"before\")\nf()? }\n",
+        "f() -> :!bad[str] { :!bad[\"he\" + \"ap\"] }\n"
+        "main() { print(\"before\")\nf()! }\n"};
     TestBytes prefixes[] = {
         TEST_BYTES("before\nerror: :!bad[\"heap\"]\n"),
         TEST_BYTES("before\npanic: :!bad[\"heap\"]\n  --> "),
         TEST_BYTES("before\npanic: integer overflow\n  --> "),
-        TEST_BYTES("before\n")};
+        TEST_BYTES("before\n"),
+        TEST_BYTES("before\nerror: :!bad[\"heap\"]\n"),
+        TEST_BYTES("before\npanic: :!bad[\"heap\"]\n  --> ")};
     char *input = test_path(&a, root, "ordered.brf");
     char *binary = test_path(&a, root, "ordered");
     for (int debug = 0; debug < (argc == 5 ? 2 : 1); debug++)
-      for (size_t i = 0; i < 4; i++) {
+      for (size_t i = 0; i < sizeof(texts) / sizeof(*texts); i++) {
         ASSERT_TRUE(
             test_write_file(input, (TestBytes){(const unsigned char *)texts[i],
                                                strlen(texts[i])}));
@@ -181,12 +187,12 @@ int main(int argc, char **argv) {
         ASSERT_TRUE(!sanitizer_report(r.out));
         ASSERT_TRUE(r.out.length >= prefixes[i].length &&
                     !memcmp(r.out.data, prefixes[i].data, prefixes[i].length));
-        if (i == 0 || i == 3)
+        if (i == 0 || i == 3 || i == 4)
           ASSERT_TRUE(bytes_equal(r.out, prefixes[i]));
         else
-          ASSERT_TRUE(
-              bytes_contains(r.out, i == 1 ? TEST_BYTES("ordered.brf:3\n")
-                                           : TEST_BYTES("ordered.brf:2\n")));
+          ASSERT_TRUE(bytes_contains(
+              r.out, i == 1 || i == 5 ? TEST_BYTES("ordered.brf:3\n")
+                                      : TEST_BYTES("ordered.brf:2\n")));
       }
   }
   TEST("entry status follows the active top-level kind, not ok or payloads") {

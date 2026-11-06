@@ -1,0 +1,3 @@
+// panic: panic: :!empty
+// panic: error-only-empty-n2.brf:3
+main() { :!empty! }

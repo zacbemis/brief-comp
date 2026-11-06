@@ -93,6 +93,14 @@ int sema_has_errors(const SemaType *type) {
         return 1;
   return 0;
 }
+int sema_only_errors(const SemaType *type) {
+  if (!type || type->kind != SEMA_SYM || !type->symbols->count)
+    return 0;
+  for (size_t i = 0; i < type->symbols->count; i++)
+    if (type->symbols->variants[i].tag->kind != SEMA_TAG_ERROR)
+      return 0;
+  return 1;
+}
 int sema_payloads_equal(const SemaVariant *a, const SemaVariant *b) {
   if (a->payload_count != b->payload_count)
     return 0;
