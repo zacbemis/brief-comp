@@ -19,8 +19,9 @@ type entries, values and patterns; `_` is not a tag name. `trait` and `ovr` are
 ordinary names; old declaration/modifier spellings still reject. Unqualified
 lowercase pattern names bind; uppercase names reference symbol sets. Imports
 select module paths at top level, with uppercase final module names; compilation
-still reports them as unimplemented. Symbol/type/member grammar and broader
-module casing remain pending. Error tags use adjacent `:!name` in the existing
+still reports them as unimplemented. N1 symbol/type/member grammar and available
+module-name casing are complete; filesystem naming/discovery needs the loader.
+Error tags use adjacent `:!name` in the existing
 type/value/pattern contexts. Payload lists use brackets, including empty lists,
 trailing commas and several positional values/patterns. Native data/failure
 payloads support several positions; multiple `:ok` positions remain unsupported
@@ -168,7 +169,8 @@ tree. Each file starts with a header:
   later ones or cause a cascade.
 - `old-trait-keyword.brf` and `old-override-modifier.brf` (formerly `later-*`)
   test removed prefixes, not syntax that should eventually become valid. Their
-  error lines are preserved; modern fieldless-trait detection is still pending.
+  error lines are preserved. Modern fieldless bodies parse as traits; native
+  trait support remains unavailable.
 - Other files named `later-*` use syntax from later versions (lambdas, traits,
   tuples). Move them to `pass/` as each feature's syntax is added.
 - Files named `limit-*` exceed the parser's 128-level nesting limit

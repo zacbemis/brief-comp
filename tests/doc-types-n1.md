@@ -1,4 +1,4 @@
-# Current types native audit (N1 in progress)
+# Current types native audit (N1 scope)
 
 `test_doc_types_n1.cmake` reads `docs/lang-types.txt`, not `docs/v0/`. All **28
 fences** are classified: six execute successfully, one reaches its first
@@ -97,5 +97,6 @@ Sources, case provenance, classifications and logs are generated under
 manifest reports stay under `build/tests/doc-native-manifest-fixtures/`.
 Parser counts remain unchanged. Functions and types now have scoped native
 audits, now joined by syntax/modules and a whole raw-base inventory with
-independent examples. Final N1 completeness review remains pending; filesystem
-module discovery is not claimed.
+independent examples. The [final N1 review](next-version-n1-review.md) closes
+the milestone's scope, not full API acceptance. Filesystem module discovery is
+not claimed.

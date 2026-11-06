@@ -1,4 +1,4 @@
-# Current-document parser inventory (N1 in progress)
+# Current-document parser inventory (N1 complete)
 
 `test_doc_parser` reads the 13 language chapters in `docs/lang-*.txt`, not
 `docs/v0/`. The rationale file `lang-post-0-notes.txt` is not a language chapter.
@@ -79,6 +79,15 @@ failure guards, import/type context preservation and positive listing/zero-fence
 accounting without a compiler.
 When syntax is implemented, move its applicable listings into parser checks;
 when documents change, review classifications before updating their hashes.
+
+The [final N1 review](next-version-n1-review.md) verifies every current fence
+and generated context independently. No listing is blocked solely by N1 syntax.
+Parser coverage remains distinct from native acceptance.
+
+## Historical grammar checkpoints
+
+Earlier pending/incomplete statements and counts below describe their slices,
+not current open N1 work. The final review supersedes those status statements.
 
 The union switch adds 21 whole-fence checks: four type fragments, complete
 aliases/functions/fields and one mixed declaration/usage example. File labels

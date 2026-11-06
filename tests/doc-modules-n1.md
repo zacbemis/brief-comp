@@ -1,4 +1,4 @@
-# Current modules native audit (N1 in progress)
+# Current modules native audit (N1 scope)
 
 `test_doc_modules_n1.cmake` reads `docs/lang-modules.txt`, not `docs/v0/`.
 All **19 fences** are classified: three execute unchanged, two reject for the
@@ -97,4 +97,5 @@ are under `build/tests/current-doc-modules/` and
 `current-doc-modules_sanitized/`. Shared guards use
 `build/tests/doc-native-manifest-fixtures/`. Parser inventory counts remain
 unchanged. The raw-base inventory now exists with independent example tests;
-final N1 completeness review is pending. This is not full module/API acceptance.
+the [final N1 review](next-version-n1-review.md) closes its milestone scope.
+This is not full module/API acceptance.

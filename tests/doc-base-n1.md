@@ -1,4 +1,4 @@
-# Current raw-base inventory and independent examples (N1 in progress)
+# Current raw-base inventory and independent examples (N1 scope)
 
 `test_doc_base_n1.cmake` reads `docs/lang-ex-base.txt`, not `docs/v0/`. Its
 **zero fences** are intentional: this is a 323-line mixed reference sheet, not
@@ -87,4 +87,5 @@ Shared guards use `build/tests/doc-native-manifest-fixtures/`. Parser inventory
 counts do not change: this remains one of its two unfenced listings, not a
 promoted parser check. All five N1 audit entry points now exist, but the raw
 sheet is still unaccepted natively and API limitations remain explicit.
-Final N1 completeness review is pending; N1 remains in progress.
+The [final N1 review](next-version-n1-review.md) closes the milestone's scope,
+not native acceptance of the raw listing or its unavailable APIs.

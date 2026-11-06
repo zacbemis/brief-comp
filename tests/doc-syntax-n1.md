@@ -1,4 +1,4 @@
-# Current syntax native audit (N1 in progress)
+# Current syntax native audit (N1 scope)
 
 `test_doc_syntax_n1.cmake` reads `docs/lang-syntax.txt`, not `docs/v0/`. All
 **35 fences** are classified: two execute unchanged and five reject for their
@@ -98,4 +98,4 @@ Shared guards use `build/tests/doc-native-manifest-fixtures/`. Parser counts,
 frozen documents, existing fixtures and compiler/runtime behavior are unchanged.
 Syntax, functions, types and modules have bounded native audits, not full API
 coverage. The raw-base inventory now exists with independent example tests;
-final N1 completeness review remains pending.
+the [final N1 review](next-version-n1-review.md) closes its milestone scope.

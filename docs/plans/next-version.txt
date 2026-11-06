@@ -1,6 +1,6 @@
 # Plan: Moving the Compiler to the Next-Version Language
 
-> **Status: N0 complete; N1 in progress.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
+> **Status: N0 and N1 complete; N2 not started.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
 
 ## Goal
 
@@ -177,7 +177,7 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (156 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (positional data/failure native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases, empty-trait classification, qualified symbol syntax and struct-owned functions with ordinary `impl`; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/programs/` (156 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (positional data/failure native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases, empty-trait classification, qualified symbol syntax and struct-owned functions with ordinary `impl`, syntactic self receivers and strict call forms, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
 | `tests/parse/pass/` (41) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
 | `tests/parse/fail/` (114) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
@@ -215,15 +215,29 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 
 ## Implementation progress
 
-N0 is complete. N1's identifier tokens, `not`, `dbl`, `->` returns, keyword-free
+N0 and N1 are complete for their milestone scope. The final N1 review is in
+`tests/next-version-n1-review.md`; N2 has not started. This does not complete the
+next-version language or claim native acceptance of listed APIs/fragments.
+
+- [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
+  rules, with reviewed syntax-message changes and added rejection cases.
+- [x] N1: old grammar rejects with safe fixes; recovery cannot reach lowering.
+- [x] N1: all 239 current fences parse/reject as intended or are explicitly
+  listed, with no N1-only syntax listing; both unfenced chapters are classified.
+- [x] N1: all five scoped audit entry points and six independent example CI
+  programs are active; full API acceptance remains limited as recorded.
+
+### Current implementation summary
+
+N1's identifier tokens, `not`, `dbl`, `->` returns, keyword-free
 aliases, `=` struct literal fields, `.()` indices and bracketed type arguments
 are implemented, together with casing on recognized declarations and symbol
 tags. `Sym`, `Self`, `trait`, `ovr` and `impl` are ordinary names. Sized array
 annotations recover as `Arr[Type]` with diagnostics. Structs/aliases reject
 `pub`; checked fields/functions retain written visibility. The v0 scripts/bridges
-are retired and the current-document parser inventory is active. Other
-declaration/type structure, remaining keywords, receivers, module casing,
-source conversion and replacement native chapter audits remain pending. Pattern
+are retired and the current-document parser inventory is active. N1 declaration/
+type grammar, keyword roles, receivers, available module-name casing, source
+conversion and the five scoped audit entry points are complete. Pattern
 binding/set roles now follow the name classes. Module-selection imports parse,
 with an explicit not-implemented compilation barrier and no file loading. Typed
 `Arr`/`Vec` literals parse but remain unimplemented at native compilation. Error
@@ -257,8 +271,8 @@ No parser check is promoted to native acceptance.
 A first bounded current-functions native audit is active: six complete fences
 (four executions and two return-contract rejections), eight independent prose
 cases and 21 explicit listings. No API stand-ins or incomplete bodies are added
-to a fence. This does not complete function/API acceptance, the other N1 native
-chapter audits or N1 itself; parser counts and N2 policy remain unchanged.
+to a fence. This does not complete function/API acceptance; parser counts and
+N2 policy remain unchanged.
 A scoped types native audit now checks eight unchanged fences, adds twelve
 independent prose programs and lists twenty context/later-feature fences.
 A scoped syntax native audit now checks seven unchanged fences with thirteen
@@ -270,8 +284,8 @@ filename/discovery rules that need the bootstrap loader. The raw-base inventory
 now preserves the entire unfenced mixed sheet as one unaccepted listing; six
 complete independent examples run in normal/sanitized CI with pinned source
 hashes and committed output/status expectations. All five N1 audit entry points
-exist, but final completeness review remains pending. N1 stays in progress;
-no N2/N4/N5 policy is introduced.
+exist, and final completeness review closes N1 against its three criteria.
+No N2/N4/N5 policy is introduced.
 
 Primitive keywords now name function members and dotted expression members,
 without broadening ordinary names or type paths. Context-specific casing fixes
@@ -280,8 +294,8 @@ lookup, receiver rules and native/module/API boundaries are unchanged.
 
 Conformance headers now retain named trait paths and type arguments, joined by
 `and`. Native resolution reports an explicit unsupported-conformance boundary
-before dependent declarations or main checks; trait/module lookup, defaults and
-receiver inference are not added.
+before dependent declarations or main checks; trait/module lookup and defaults
+are not added. Available struct receiver inference is independent of conformance.
 
 `self` is a keyword and expression node, with parser receiver metadata separate
 from ordinary typed parameters. Available struct functions classify self
@@ -291,7 +305,7 @@ Methods require value calls and associated functions require type calls, with
 source-preserving fixes when certain. A supplied receiver in `Date.label(d)`
 becomes `d.label()`; missing receivers/effects are not guessed or discarded.
 Affected native sources and examples are converted. Trait/import/conformance
-and outside-owner context boundaries remain; N1 is still in progress.
+and outside-owner context boundaries remain; they do not block N1 completion.
 
 Canonical semantic symbol variants now own ordered payload-type arrays.
 Interning, subset checks, union conflicts, equatability and reference
@@ -300,11 +314,18 @@ retain positional arrays, with per-position context, coverage and shared flow.
 Native data/failure packing, projection, casts and reference traversal now
 support every position, and source barriers are removed for those payloads.
 Malformed positional IR still rejects before any C is published. Multi-`:ok`,
-typed/refutable matching and module/trait boundaries remain; N1 is in progress.
+typed/refutable matching and module/trait boundaries remain unsupported.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
 - [x] N0 (3): neutral tag kinds and module identity.
+
+### Historical implementation checkpoints
+
+The staged records below describe their state at the time. Earlier incomplete/
+pending statements are superseded by the current completion decision above and
+final review. The N1 checklist is updated cumulatively; historical validation
+counts and reviewed corrections are retained, not rewritten as present claims.
 
 ### N0 (1): diagnostic fixes
 
@@ -406,7 +427,7 @@ The `// fix:` marker from "New test forms" is in the program runner already, so
 N1's fixes can be tested as they are added. The `&&` and `||` fixtures and the
 first-version syntax audit's two logical-operator cases carry markers.
 
-### N1 (in progress): identifier classification
+### N1 checklist (complete); initial identifier checkpoint
 
 - [x] `TOK_UPPER_NAME`, `TOK_LOWER_NAME`, a separate `TOK_WILDCARD`, and lexical
   rejection of underscore-prefixed names.
@@ -435,10 +456,10 @@ first-version syntax audit's two logical-operator cases carry markers.
 - [x] Empty type bodies classify as traits and stop at a scope barrier; native
   struct cases use explicit fields, including unit fields. Trait/member bodies
   are not implemented by this recognition step.
-- [ ] Remaining keyword/declaration/type/expression grammar changes, module
-  casing, struct methods and receiver inference.
-- [ ] Remaining source conversion, old-syntax rejection tests and N1 native
-  chapter audits in the full syntax switch.
+- [x] Complete N1 keyword/declaration/type/expression grammar, available module
+  casing, struct methods, receiver inference and strict call forms.
+- [x] Complete source conversion, old-syntax rejection/fix tests and all five
+  scoped N1 native audit entry points; final three-criterion review passes.
 
 The lexer classifies ordinary names by their first ASCII byte, preserves their
 source spelling/spans, and reports a whole `_name` as one lexical error. `_`
@@ -2692,6 +2713,43 @@ N1 audit entry points now exist, but the raw sheet and listed APIs remain
 unaccepted natively. Final N1 completeness review is still pending; N1 remains
 in progress. The reviewed blank/empty split, ABI boundaries, outcomes, entry
 policy and runtime formatting are unchanged.
+
+### N1 final completeness review: complete
+
+Reviewed committed base ca94731 against the N1 Done when criteria. All 87
+pre-N1 native fixtures remain, with identical runtime expectation markers;
+original negative rules remain covered. The declaration message drops removed
+impl advice. Previously reviewed underscore/not cases add rejection coverage;
+not cases add six source lines before existing update-value errors, whose
+fixture-local markers move with their source. No expectation is changed here.
+
+Fresh `-Werror` GCC Debug ASan/UBSan, Clang Debug ASan/UBSan and GCC Release
+suites pass 37/37 each; unsanitized GCC Debug passes 31/31. All 432 retained
+complete CLI comparisons and 144 previous C outputs remain identical, as do
+six generated example C hashes and six original sanitized example observations.
+An independent final probe passes 168 fail-closed CLI checks on 22 old/wrong
+forms in LF/CRLF, including required fixes, deliberate no-fix cases, no published
+executable and unchanged source bytes. Its guessed diagnostic wording was
+corrected to the existing messages; no production defect or change was needed.
+
+An independent reader confirms all 239 whole fences across 13 chapters against
+the generated contexts: 157 successful parses, five intended one-error syntax
+rejections, 77 explicit fenced listings and two unfenced listings. No listing
+is blocked solely by N1 syntax. All five scoped audit entry points exist, with
+26 checked whole fences; their other listings remain unaccepted. Raw-base and
+six independent example copies preserve all original bytes. Parser success,
+prose programs and examples do not supply missing native APIs or fence context.
+No active v0 reader/bridge returns. Formatter 23.1.3, diff/prose/design checks
+and the 23-ending CRLF fixture pass. Ignored evidence is under
+`build/validation/n1-final.20261106T202748Z/`; the durable criterion-by-criterion
+review is `tests/next-version-n1-review.md`.
+
+N1 is complete, not the whole next-version plan. Only current status/checklists
+and documentation are updated; the pre-progress design and milestone contracts
+stay unchanged. The native inventory's Today cell now reflects completed N1
+receiver/call grammar. Historical progress remains historical. N2 is not started;
+kind-based outcomes, handling, entry/formatting, N4/N5 and bootstrap boundaries
+are unchanged. Stop for review before advancing another milestone.
 
 ## Risks
 

@@ -1,4 +1,4 @@
-# Current functions native audit (N1 in progress)
+# Current functions native audit (N1 scope)
 
 `test_doc_functions_n1.cmake` reads `docs/lang-functions.txt`, not `docs/v0/`.
 It classifies all **27 fences**: four run unchanged with entry observers, two
@@ -95,5 +95,6 @@ Generated sources, classifications, case provenance and logs are under
 `build/tests/current-doc-functions/`, with a separate
 `current-doc-functions_sanitized/` directory. Manifest guard reports are under
 `build/tests/doc-native-manifest-fixtures/`. Parser inventory counts remain
-unchanged. This is a bounded first replacement native audit, not complete
-function/API acceptance or completion of N1's other chapter audits.
+unchanged. This bounded native audit is not complete function/API acceptance.
+The [final N1 review](next-version-n1-review.md) closes the milestone's scope,
+not the later native/API requirements.

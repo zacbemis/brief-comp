@@ -1,15 +1,18 @@
 # Document acceptance status
 
-**N1 is in progress.** The first-version native document audits and all spelling
-bridges have been retired as required by `docs/plans/next-version.txt`. Their
-executable scripts and CTest registrations are deleted; they are not maintained
-as a second syntax or extended into a migration system. `docs/v0/` is untouched.
+**N1 is complete for its milestone scope; N2 has not started.** The
+[final review](next-version-n1-review.md) checks all three completion criteria.
+First-version native document audits and all spelling bridges have been retired
+as required by `docs/plans/next-version.txt`. Executable scripts and CTest
+registrations are deleted; they are not maintained as a second syntax or
+extended into a migration system. `docs/v0/` is untouched.
 
 The replacement [current-document parser inventory](doc-parser.md) reads all
 13 current chapters: 239 fences, 162 parser checks, 77 explicitly listed fences
 and two zero-fence listings. Parser checks are not native acceptance. The
 retirement left an intentional native document-coverage gap. The first scoped
-syntax/functions/types/modules audits and raw-base inventory begin closing it.
+syntax/functions/types/modules audits and raw-base inventory cover available
+N1 rules, not the later native/API requirements.
 Six complete independent examples now run in normal/sanitized CI too; program
 fixtures and independent C/compiler/native-driver tests remain active.
 
@@ -67,14 +70,14 @@ examples run normally and under sanitizers, with pinned source hashes and
 committed byte-exact output/status markers. They are not native acceptance of
 the raw sheet. Use `-L doc-base` or `-L native-examples` to run this slice.
 
-All five N1 audit entry points now exist. This is bounded coverage, not complete
-syntax/function/type/module/API acceptance or completion of N1. Remaining
-audits return with the rules they can test, not rewritten v0 scaffolds:
+All five N1 audit entry points exist and final completeness review closes N1.
+This is bounded coverage, not full syntax/function/type/module/API acceptance.
+Listed cases return with their actual dependencies, not rewritten v0 scaffolds.
+Current module-name grammar and reserved-mod behavior are covered; external
+filename/discovery rules stay with the bootstrap module loader.
 
-- **N1:** final completeness review; expand the scoped audits as their listed
-  dependencies become available. Current module-name
-  grammar and reserved-mod behavior are covered; external filename/discovery
-  rules stay with the bootstrap module loader.
+Remaining milestones (none advanced by this review):
+
 - **N2:** symbols and errors sections 1–5 and 7–12.
 - **N3:** error handling section 6, pipelines and memory.
 - **N4/N5:** add bindings/loops and interpolation fences to their chapter audits.
@@ -91,6 +94,13 @@ Type-context and whole-fence parser checks do not complete a native audit.
 Typed symbol payload binders retain annotations for parser checks, but native
 compilation still reports that typed matching is not implemented. No native/API
 acceptance follows from that syntax support.
+
+## Historical grammar checkpoints
+
+These paragraphs record earlier migration slices. Their pending/incomplete
+statements and counts are historical, superseded by the current status above
+and the final N1 review; they are not additional open N1 work.
+
 Ordinary `Self` names and concrete owner-type spelling also do not complete the
 remaining member/receiver grammar or any replacement chapter audit.
 Native aliases now reuse existing primitive/unit/struct/symbol types, with

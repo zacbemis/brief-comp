@@ -128,7 +128,9 @@ certain: `Date.label(d)` becomes `d.label()`, and `d.new(...)` becomes
 potentially effectful receiver evaluation is never discarded by a fix.
 Pipelines prefer actual self methods, then visible module functions; an
 associated function does not masquerade as a method. Fixtures, examples and
-embedded native sources use the new forms. N1 is still in progress.
+embedded native sources use the new forms. N1 is complete for its milestone
+scope; see [the final review](tests/next-version-n1-review.md). N2 has not
+started.
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and

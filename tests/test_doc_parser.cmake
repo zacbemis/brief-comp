@@ -36,7 +36,7 @@ fences(mixed "Complete function plus usage; only usage is wrapped in main" "33")
 end_chapter()
 
 chapter(lang-ex-base 0 ae2940e8e43e55c65f36dff14681d56d3827868b37259cdf2391f627baf98cec)
-fences(raw "Unfenced mixed running sample; full N1 declarations/types/payloads and the replacement native audit remain pending" "0")
+fences(raw "Unfenced mixed reference sheet; whole raw listing is preserved by the N1 audit, not native acceptance or extracted fragments" "0")
 end_chapter()
 
 chapter(lang-functions 27 218e30918ab5dbed1e1d7e568705e81e9f9b7e54ba2ad8d553ac101dc4a9433a)
