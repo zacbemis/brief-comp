@@ -359,6 +359,66 @@ int main(void) {
                  "(let dblx _ (name dubx)) (call (name print) "
                  "(str \"dub dbl\")))))\n");
   }
+  TEST("empty type bodies are traits; unit fields still make structs") {
+    program_dump(&arena,
+                 "Empty {}\nCommented { /* keep */ }\nData { unit: () }\n",
+                 "(program (trait Empty) (trait Commented) (struct Data (field "
+                 "unit ())))\n");
+    for (unsigned crlf = 0; crlf < 2; crlf++) {
+      const char *lf = "Empty {\n // keep\n}\nData { unit: () }\nafter() {}\n";
+      char text[512];
+      size_t n = 0;
+      for (size_t i = 0; lf[i]; i++) {
+        if (crlf && lf[i] == '\n')
+          text[n++] = '\r';
+        text[n++] = lf[i];
+      }
+      text[n] = 0;
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(0, v->diagnostics.count);
+      ASSERT_EQ_INT(3, v->program->count);
+      Decl *trait = v->program->items[0];
+      ASSERT_EQ_INT(DECL_TRAIT, trait->kind);
+      ASSERT_EQ_INT(VISIBILITY_PRIV, trait->visibility);
+      ASSERT_EQ_INT(0, trait->as.structure.count);
+      ASSERT_EQ_INT(0, trait->span.start);
+      ASSERT_EQ_INT((size_t)(strchr(text, '}') - text) + 1, trait->span.end);
+      ASSERT_EQ_INT(DECL_STRUCT, v->program->items[1]->kind);
+      TokenArray filtered = newline_filter(&arena, v->raw);
+      size_t bytes = filtered.count * sizeof(Token);
+      Token *saved = arena_alloc(&arena, bytes);
+      memcpy(saved, filtered.items, bytes);
+      Diagnostics again;
+      diagnostics_init(&again, &arena);
+      Program *next = parse_program(&arena, &v->names, filtered, &again);
+      ASSERT_EQ_INT(0, again.count);
+      ASSERT_EQ_INT(0, strcmp(dump(&arena, v->program), dump(&arena, next)));
+      ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
+    }
+    Parsed *bad = parse(&arena, "Broken { field\n}\nAfter {}\n");
+    ASSERT_EQ_INT(1, bad->diagnostics.count);
+    ASSERT_EQ_INT(DECL_STRUCT, bad->program->items[0]->kind);
+    ASSERT_EQ_INT(DECL_TRAIT, bad->program->items[1]->kind);
+    Parsed *lexical = parse(&arena, "Broken { @ }\nAfter {}\n");
+    ASSERT_EQ_INT(1, lexical->diagnostics.count);
+    ASSERT_EQ_INT(DECL_STRUCT, lexical->program->items[0]->kind);
+    Parsed *pub = parse(&arena, "pub\r\n/* keep */ Empty {}\r\n");
+    ASSERT_EQ_INT(1, pub->diagnostics.count);
+    if (pub->diagnostics.count == 1) {
+      ASSERT_EQ_INT(0, strcmp("Trait types cannot be marked 'pub'.",
+                              pub->diagnostics.items[0]->message));
+      Parsed *fixed = parse(&arena, apply_fixes(&arena, pub));
+      ASSERT_EQ_INT(0, fixed->diagnostics.count);
+      ASSERT_EQ_INT(DECL_TRAIT, fixed->program->items[0]->kind);
+      ASSERT_TRUE(strstr(fixed->source->text, "/* keep */ Empty {}\r\n") !=
+                  NULL);
+    }
+    Parsed *lower = parse(&arena, "empty {}\n");
+    ASSERT_EQ_INT(1, lower->diagnostics.count);
+    Parsed *fixed = parse(&arena, apply_fixes(&arena, lower));
+    ASSERT_EQ_INT(0, fixed->diagnostics.count);
+    ASSERT_EQ_INT(DECL_TRAIT, fixed->program->items[0]->kind);
+  }
   TEST("pub is recorded on fields/functions but rejected on struct types") {
     program_dump(
         &arena,
@@ -366,10 +426,10 @@ int main(void) {
         "}\n",
         "(program (struct P (field pub value int) (field hidden int)) "
         "(fn pub read (params (p P)) int (block (field (name p) hidden))))\n");
-    const char *cases[] = {"pub P { pub value: int }\n",
-                           "pub\t P { value: int }\n",
-                           "pub/* keep */P { value: int }\n",
-                           "\tpub\nP { pub\nvalue: int }\n", "pub P {}\n"};
+    const char *cases[] = {
+        "pub P { pub value: int }\n", "pub\t P { value: int }\n",
+        "pub/* keep */P { value: int }\n", "\tpub\nP { pub\nvalue: int }\n",
+        "pub P { unit: () }\n"};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
       for (unsigned ending = 0; ending < 2; ending++) {
         char text[1024];
@@ -1155,8 +1215,9 @@ int main(void) {
     expression_dump(&arena, "a or b and not c",
                     "(or (name a) (and (name b) (not (name c))))");
     expression_dump(&arena, "- -x", "(- (- (name x)))");
-    program_dump(&arena, "P {}\nf(p: &P) {}",
-                 "(program (struct P) (fn f (params (p & P)) _ (block)))\n");
+    program_dump(&arena, "P { unit: () }\nf(p: &P) {}",
+                 "(program (struct P (field unit ())) (fn f (params (p & P)) _ "
+                 "(block)))\n");
     Parsed *v = parse(
         &arena, "main() { true && false\ntrue || false\n++x\nlet kept = 1 }\n");
     TokenArray filtered = newline_filter(&arena, v->raw);

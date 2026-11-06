@@ -201,8 +201,14 @@ int main(void) {
     ASSERT_TRUE(r.program->functions[0].symbol.return_type == &box->type);
     ASSERT_TRUE(r.program->functions[1].symbol.return_type == &box->type);
     ASSERT_TRUE(child->fields[0].type == &r.program->types[SEMA_SHRT]);
-    invalid(&a, "A {}\nB {}\nmain() { let x: A = B {} }", "annotation");
-    invalid(&a, "A {}\nB {}\nmain() { A {} == B {} }", "same type");
+    invalid(
+        &a,
+        "A { unit: () }\nB { unit: () }\nmain() { let x: A = B { unit = () } }",
+        "annotation");
+    invalid(&a,
+            "A { unit: () }\nB { unit: () }\nmain() { A { unit = () } == B { "
+            "unit = () } }",
+            "same type");
     valid(&a, "Node { next: Node }\nmain() {}");
     valid(&a, "A { b: B }\nB { a: A }\nmain() {}");
     invalid(&a,
@@ -212,21 +218,24 @@ int main(void) {
             "Node { next: Node }\nHolder { node: Node }\nmain() {}\n"
             "f(a: Holder, b: Holder) { a != b }",
             "can contain a reference cycle have no == or !=");
-    invalid(&a, "A {}\nmain() { A {} < A {} }",
+    invalid(&a, "A { unit: () }\nmain() { A { unit = () } < A { unit = () } }",
             "Comparison of this type is not implemented yet.");
   }
   TEST("fields and struct literal initialization are complete and typed") {
     invalid(&a, "A { x: int\nx: int }\nmain() {}", "Duplicate struct field");
-    invalid(&a, "A {}\nA {}\nmain() {}", "Duplicate or reserved");
-    invalid(&a, "A {}\nA() {}\nmain() {}", "cannot share a name");
+    invalid(&a, "A { unit: () }\nA { unit: () }\nmain() {}",
+            "Duplicate or reserved");
+    invalid(&a, "A { unit: () }\nA() {}\nmain() {}", "cannot share a name");
     invalid(&a, "A { x: int }\nmain() { A {} }", "Missing struct field");
     invalid(&a, "A { x: int }\nmain() { A { x = 1, x = 2 } }",
             "Duplicate struct field initializer");
-    invalid(&a, "A {}\nmain() { A { x = 1 } }", "Unknown struct field");
+    invalid(&a, "A { unit: () }\nmain() { A { unit = (), x = 1 } }",
+            "Unknown struct field");
     invalid(&a, "A { x: int }\nmain() { A { x = true } }",
             "initializer has the wrong type");
     invalid(&a, "main() { Missing {} }", "Unknown struct type");
-    invalid(&a, "A {}\nmain() { A {}.missing }", "Unknown struct field");
+    invalid(&a, "A { unit: () }\nmain() { A { unit = () }.missing }",
+            "Unknown struct field");
     invalid(&a, "main() { 1.missing }", "Field access requires");
     invalid(&a, "A { x: int }\nmain() { let a = A { x = 0 }\na.x = true }",
             "Assignment value");
@@ -271,6 +280,34 @@ int main(void) {
             "Ref = Item\nItem { n: int }\n"
             "impl Ref { f() {} }\nimpl Item { f() {} }\nmain() {}",
             "Duplicate function name");
+  }
+  TEST("traits stop before unavailable type, member and main cascades") {
+    const char *cases[] = {
+        "Empty {}\n", ("Empty {}\nAlias = Empty\nf(n: Empty) { missing() }"),
+        ("Empty {}\nData { n: Missing }\nimpl Empty { f() { missing() } }")};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      Result r = check(&a, cases[i]);
+      ASSERT_EQ_INT(1, r.errors.count);
+      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+      ASSERT_EQ_INT(0, r.program->struct_count);
+      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+      if (r.errors.count) {
+        Diagnostic *d = r.errors.items[0];
+        ASSERT_EQ_INT(0, strcmp("A struct needs at least one field; traits are "
+                                "not implemented yet.",
+                                d->message));
+        ASSERT_EQ_INT(0, d->span.start);
+        ASSERT_EQ_INT(8, d->span.end);
+        ASSERT_TRUE(!d->fixes && !d->notes);
+      }
+    }
+    Result both = check(&a, "import models.User\nA {}\nB {}\n");
+    ASSERT_EQ_INT(3, both.errors.count);
+    valid(&a, "Marker { unit: () }\nmain() { Marker { unit = () } }");
+    invalid(&a, "Marker { unit: () }\nmain() { Marker {} }",
+            "Missing struct field");
+    invalid(&a, "Marker { unit: () }\nf(m: Marker) { m.unit = () }\nmain() {}",
+            "Cannot mutate through");
   }
   TEST("ordinary Self types do not mean the current owner") {
     valid(&a, "Self { n: int }\nOther { value: Self }\n"
@@ -349,27 +386,38 @@ int main(void) {
   TEST("impl membership, concrete owner types, associated and receiver calls") {
     valid(&a, "A { x: int }\nimpl A { new() -> A { A { x = 1 } }\nget(a: "
               "A) { a.x } }\nmain() { A.new().get() }");
-    valid(&a, "A {}\nB {}\nimpl A { get(a: A) { 1 } }\nimpl B { get(b: "
-              "B) { true } }\nget() {}\nmain() { let n: int = A "
-              "{}.get()\nlet b: bool = B {}.get()\nget() }");
-    valid(&a, "A {}\nimpl A { main() {} }\nmain() {}");
-    valid(&a, "A {}\nimpl A { make() -> A { if true { ret A {} "
-              "}\nA.make() } }\nmain() { A.make() }");
-    invalid(&a, "A {}\nimpl A { f() {}\nf() {} }\nmain() {}",
+    valid(&a,
+          "A { unit: () }\nB { unit: () }\nimpl A { get(a: A) { 1 } }\nimpl B "
+          "{ get(b: "
+          "B) { true } }\nget() {}\nmain() { let n: int = A "
+          "{ unit = () }.get()\nlet b: bool = B { unit = () }.get()\nget() }");
+    valid(&a, "A { unit: () }\nimpl A { main() {} }\nmain() {}");
+    valid(
+        &a,
+        "A { unit: () }\nimpl A { make() -> A { if true { ret A { unit = () } "
+        "}\nA.make() } }\nmain() { A.make() }");
+    invalid(&a, "A { unit: () }\nimpl A { f() {}\nf() {} }\nmain() {}",
             "Duplicate function");
-    invalid(&a, "A {}\nimpl A { f() {} }\nimpl A { f() {} }\nmain() {}",
+    invalid(&a,
+            "A { unit: () }\nimpl A { f() {} }\nimpl A { f() {} }\nmain() {}",
             "Duplicate function");
     invalid(&a, "impl int {}\nmain() {}", "impl currently requires");
     invalid(&a, "main() {}\nf(a: Self) {}", "type is unknown");
-    invalid(&a, "A {}\nmain() { A.nope() }", "Unknown associated");
-    invalid(&a, "A {}\nf(a: A) {}\nmain() { A {}.f() }", "Unknown method");
-    invalid(&a, "A {}\nimpl A { f() {} }\nmain() { A {}.f() }",
+    invalid(&a, "A { unit: () }\nmain() { A.nope() }", "Unknown associated");
+    invalid(&a, "A { unit: () }\nf(a: A) {}\nmain() { A { unit = () }.f() }",
+            "Unknown method");
+    invalid(&a,
+            "A { unit: () }\nimpl A { f() {} }\nmain() { A { unit = () }.f() }",
             "first parameter");
-    invalid(&a, "A {}\nimpl A { f(a: int) {} }\nmain() { A {}.f() }",
+    invalid(&a,
+            "A { unit: () }\nimpl A { f(a: int) {} }\nmain() { A { unit = () "
+            "}.f() }",
             "first parameter");
-    invalid(&a, "A {}\nimpl A { f(a: A) {} }\nmain() { A {}.f(1) }",
+    invalid(&a,
+            "A { unit: () }\nimpl A { f(a: A) {} }\nmain() { A { unit = () "
+            "}.f(1) }",
             "Wrong number");
-    invalid(&a, "A {}\nimpl A { f(a: A) {} }", "must define main");
+    invalid(&a, "A { unit: () }\nimpl A { f(a: A) {} }", "must define main");
     invalid(&a, "main() { \"x\".f() }", "Unknown method");
   }
   TEST("unknown methods suggest only visible compatible top-level functions") {
@@ -381,13 +429,14 @@ int main(void) {
       const char *definition, *body, *site, *note;
     } cases[] = {
         {"save(value: P) {}", "f(p: P) { p.save() }", "p.save()", one},
-        {"save(value: P) {}", "f() { P {}.save() }", "P {}.save()", one},
-        {"save(value: P) {}\nmake() { P {} }", "f() { make().save() }",
-         "make().save()", one},
+        {"save(value: P) {}", "f() { P { unit = () }.save() }",
+         "P { unit = () }.save()", one},
+        {"save(value: P) {}\nmake() { P { unit = () } }",
+         "f() { make().save() }", "make().save()", one},
         {"save(value: P) {}", "f(h: Holder) { h.p.save() }", "h.p.save()", one},
         {"save(value: P) {}",
-         "f(p: P, b: bool) { (if b { p } else { P {} }).save() }",
-         "(if b { p } else { P {} }).save()", one},
+         "f(p: P, b: bool) { (if b { p } else { P { unit = () } }).save() }",
+         "(if b { p } else { P { unit = () } }).save()", one},
         {"save(value: &P) {}", "f(p: &P) { p.save() }", "p.save()", one},
         {"save(value: &P) {}", "f(p: P) { p.save() }", "p.save()", one},
         {"save(value: P, n: int) {}", "f(p: P) { p.save(1) }", "p.save(1)",
@@ -413,9 +462,10 @@ int main(void) {
         {"", "f() { \"text\".print() }", "\"text\".print()", NULL}};
     char code[2048], crlf[4096];
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
-      snprintf(code, sizeof(code),
-               "P {}\nQ {}\nHolder { p: P }\n%s\n%s\nmain() {}",
-               cases[i].definition, cases[i].body);
+      snprintf(
+          code, sizeof(code),
+          "P { unit: () }\nQ { unit: () }\nHolder { p: P }\n%s\n%s\nmain() {}",
+          cases[i].definition, cases[i].body);
       size_t n = 0;
       for (size_t j = 0; code[j]; j++) {
         if (code[j] == '\n')
@@ -426,32 +476,33 @@ int main(void) {
       method_error(&a, code, cases[i].site, cases[i].note);
       method_error(&a, crlf, cases[i].site, cases[i].note);
     }
-    Result r = method_error(
-        &a, "P {}\nf(p: P) { p.archive() }\narchive(value: P) {}\nmain() {}",
-        "p.archive()",
-        "This is a top-level function, not a method; use "
-        "archive(value) or value |> archive().");
+    Result r = method_error(&a,
+                            "P { unit: () }\nf(p: P) { p.archive() "
+                            "}\narchive(value: P) {}\nmain() {}",
+                            "p.archive()",
+                            "This is a top-level function, not a method; use "
+                            "archive(value) or value |> archive().");
     SemaExpr *call = r.program->functions[0].body->as.block.items[0];
     ASSERT_TRUE(call->as.call.target == NULL);
     ASSERT_TRUE(call->as.call.fallback == &r.program->functions[1].symbol);
     ASSERT_TRUE(r.program->functions[0].edges == NULL);
     method_error(
         &a,
-        "P {}\nsave(value: P) {}\n"
+        "P { unit: () }\nsave(value: P) {}\n"
         "f(p: P, b: bool) { if b { ret p }\nforward(p, b)\np.save()\np }\n"
         "forward(p: P, b: bool) { if b { ret p }\nf(p, b) }\nmain() {}",
         "p.save()", one);
-    valid(
-        &a,
-        "P {}\nsave(value: P) {}\nf(p: P) { save(p)\np |> save() }\nmain() {}");
-    valid(&a, "P {}\nsave(value: &P) {}\nf(p: &P) { save(p)\np |> save() "
-              "}\nmain() {}");
-    valid(&a, "P {}\nsave(value: P, n: int) {}\n"
+    valid(&a, "P { unit: () }\nsave(value: P) {}\nf(p: P) { save(p)\np |> "
+              "save() }\nmain() {}");
+    valid(&a,
+          "P { unit: () }\nsave(value: &P) {}\nf(p: &P) { save(p)\np |> save() "
+          "}\nmain() {}");
+    valid(&a, "P { unit: () }\nsave(value: P, n: int) {}\n"
               "f(p: P) { save(p, 1)\np |> save(1) }\nmain() {}");
-    valid(&a, "P {}\nimpl P { save(p: P) -> int { 1 } }\n"
+    valid(&a, "P { unit: () }\nimpl P { save(p: P) -> int { 1 } }\n"
               "save(p: P) -> bool { true }\nf(p: P) { let save = 0\n"
               "let a: int = p.save()\nlet b: int = p |> save() }\nmain() {}");
-    r = check(&a, "P {}\nimpl P { save(p: P) -> int { 1 } }\n"
+    r = check(&a, "P { unit: () }\nimpl P { save(p: P) -> int { 1 } }\n"
                   "save(p: P) -> bool { true }\nf(p: P) {\n"
                   "let a: int = p.save()\nlet b: int = p |> save()\n"
                   "let c: bool = save(p) }\nmain() {}");
@@ -459,16 +510,20 @@ int main(void) {
     ASSERT_TRUE(r.program->checked);
     ASSERT_TRUE(ir_lower(&a, r.program) != NULL);
     invalid(&a,
-            "P {}\nsave(value: P, n: int) {}\n"
+            "P { unit: () }\nsave(value: P, n: int) {}\n"
             "f(p: P) { save(p, false) }\nmain() {}",
             "Function argument has the wrong type.");
-    invalid(&a, "P {}\nsave(value: &P) {}\nf(p: P) { save(p) }\nmain() {}",
-            "A read-only value cannot be passed to an & parameter");
-    r = check(&a, "P {}\nsave(value: P) {}\nf() { missing.save() }\nmain() {}");
+    invalid(
+        &a,
+        "P { unit: () }\nsave(value: &P) {}\nf(p: P) { save(p) }\nmain() {}",
+        "A read-only value cannot be passed to an & parameter");
+    r = check(
+        &a,
+        "P { unit: () }\nsave(value: P) {}\nf() { missing.save() }\nmain() {}");
     ASSERT_EQ_INT(1, r.errors.count);
     if (r.errors.count)
       ASSERT_TRUE(r.errors.items[0]->notes == NULL);
-    r = check(&a, "P {}\nsave(value: P) {}\ntake(value: int) {}\n"
+    r = check(&a, "P { unit: () }\nsave(value: P) {}\ntake(value: int) {}\n"
                   "f(p: P) { p.save()\ntake(false) }\nmain() {}");
     ASSERT_EQ_INT(2, r.errors.count);
     if (r.errors.count == 2) {
@@ -509,8 +564,8 @@ int main(void) {
       snprintf(g, sizeof(g), "g(p: %s, b: bool) { %s }\n", cases[i].type,
                cases[i].body);
       for (unsigned order = 0; order < 2; order++) {
-        snprintf(text, sizeof(text), "P {}\n%s%smain() {}", order ? g : f,
-                 order ? f : g);
+        snprintf(text, sizeof(text), "P { unit: () }\n%s%smain() {}",
+                 order ? g : f, order ? f : g);
         size_t n = 0;
         for (size_t j = 0; text[j]; j++) {
           if (text[j] == '\n')
@@ -522,20 +577,21 @@ int main(void) {
         recursive_lookup_error(&a, crlf, cases[i].site, cases[i].message, NULL);
       }
     }
-    recursive_lookup_error(
-        &a,
-        "P {}\nf(p: P, b: bool) { if b { ret p }\nf(p, b).missing }\nmain() {}",
-        "f(p, b).missing", "Unknown struct field.", NULL);
     recursive_lookup_error(&a,
-                           "P {}\nmissing(p: P) { p }\n"
+                           "P { unit: () }\nf(p: P, b: bool) { if b { ret p "
+                           "}\nf(p, b).missing }\nmain() {}",
+                           "f(p, b).missing", "Unknown struct field.", NULL);
+    recursive_lookup_error(&a,
+                           "P { unit: () }\nmissing(p: P) { p }\n"
                            "f(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
                            "g(p: P, b: bool) { f(p, b).missing() }\nmain() {}",
                            "f(p, b).missing()", "Unknown method for this type.",
                            "This is a top-level function, not a method; use "
                            "missing(value) or value |> missing().");
-    Result r = check(&a, "P {}\nf(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
-                         "g(p: P, b: bool) { f(p, b).missing }\n"
-                         "wrong() -> int { false }\nmain() {}");
+    Result r = check(
+        &a, "P { unit: () }\nf(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
+            "g(p: P, b: bool) { f(p, b).missing }\n"
+            "wrong() -> int { false }\nmain() {}");
     ASSERT_EQ_INT(2, r.errors.count);
     if (r.errors.count == 2) {
       ASSERT_EQ_STRN("Unknown struct field.", r.errors.items[0]->message,
@@ -546,8 +602,8 @@ int main(void) {
     }
     ASSERT_TRUE(!r.program->checked);
     ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
-    r = check(&a,
-              "P {}\nf(p: P) { g(p) }\ng(p: P) { f(p).missing }\nmain() {}");
+    r = check(&a, "P { unit: () }\nf(p: P) { g(p) }\ng(p: P) { f(p).missing "
+                  "}\nmain() {}");
     ASSERT_TRUE(!r.program->checked);
     ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
     ASSERT_EQ_INT(1, r.errors.count);
@@ -555,18 +611,19 @@ int main(void) {
       ASSERT_EQ_STRN("Cannot infer recursive return type; write a return type.",
                      r.errors.items[0]->message,
                      strlen(r.errors.items[0]->message));
-    r = check(&a, "P {}\nf(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
-                  "g(p: P, b: bool) { unknown.missing }\nmain() {}");
+    r = check(&a,
+              "P { unit: () }\nf(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
+              "g(p: P, b: bool) { unknown.missing }\nmain() {}");
     ASSERT_EQ_INT(1, r.errors.count);
     ASSERT_TRUE(!r.program->checked);
     ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
     if (r.errors.count)
       ASSERT_EQ_STRN("Unknown binding.", r.errors.items[0]->message,
                      strlen(r.errors.items[0]->message));
-    valid(&a, "P {}\nimpl P { same(p: P) -> P { p } }\n"
+    valid(&a, "P { unit: () }\nimpl P { same(p: P) -> P { p } }\n"
               "f(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
               "g(p: P, b: bool) { f(p, true).same() }\nmain() {}");
-    valid(&a, "P {}\nsame(p: P) { p }\n"
+    valid(&a, "P { unit: () }\nsame(p: P) { p }\n"
               "f(p: P, b: bool) { if b { ret p }\ng(p, b) }\n"
               "g(p: P, b: bool) { f(p, true) |> same() }\nmain() {}");
     valid(&a, "Link { next: :end | :more[Link] }\n"
@@ -584,11 +641,14 @@ int main(void) {
             "Cannot mutate through");
     invalid(&a, "A { n: int }\nB { a: A }\nf(b: B) { b.a.n += 1 }\nmain() {}",
             "Cannot mutate through");
-    invalid(&a, "A {}\nf(a: &A) {}\ng(a: A) { f(a) }\nmain() {}",
+    invalid(&a, "A { unit: () }\nf(a: &A) {}\ng(a: A) { f(a) }\nmain() {}",
             "read-only value cannot be passed");
-    invalid(&a, "A {}\nB { a: A }\nf(a: &A) {}\ng(b: B) { f(b.a) }\nmain() {}",
+    invalid(&a,
+            "A { unit: () }\nB { a: A }\nf(a: &A) {}\ng(b: B) { f(b.a) "
+            "}\nmain() {}",
             "read-only value cannot be passed");
-    invalid(&a, "A {}\nf(a: &A) { a = A {} }\nmain() {}", "immutable binding");
+    invalid(&a, "A { unit: () }\nf(a: &A) { a = A { unit = () } }\nmain() {}",
+            "immutable binding");
     invalid(&a, "main() {}\nf(a: &str) {}", "requires a struct or symbol type");
     valid(&a, "A { n: int }\nimpl A { bump(a: &A) { a.n++ } }\ng(a: &A) { "
               "a.bump() }\nmain() { g(A { n = 1 }) }");
@@ -750,8 +810,8 @@ int main(void) {
   TEST(
       "nested permission loops do not recursively multiply fixed-point walks") {
     char text[4096];
-    size_t n =
-        (size_t)snprintf(text, sizeof(text), "A {}\nf(a: A, b: bool) {\n");
+    size_t n = (size_t)snprintf(text, sizeof(text),
+                                "A { unit: () }\nf(a: A, b: bool) {\n");
     for (size_t i = 0; i < 25; i++)
       n += (size_t)snprintf(text + n, sizeof(text) - n, "while b {\n");
     for (size_t i = 0; i < 25; i++)
@@ -772,7 +832,8 @@ int main(void) {
     invalid(&a, "main() { str('x') }", "expects a number or bool");
     invalid(&a, "main() { int(\"1\") }", "must be handled");
     invalid(&a, "main() { int(true) }", "expects a number, chr or str");
-    invalid(&a, "A {}\nmain() { str(A {}) }", "expects a number or bool");
+    invalid(&a, "A { unit: () }\nmain() { str(A { unit = () }) }",
+            "expects a number or bool");
   }
   TEST("long field dependency chains use no compiler C recursion") {
     size_t count = 2050, capacity = count * 64, length = 0;
@@ -780,7 +841,8 @@ int main(void) {
     for (size_t i = 0; i < count; i++)
       length += (size_t)snprintf(text + length, capacity - length,
                                  "T%zu { child: T%zu }\n", i, i + 1);
-    snprintf(text + length, capacity - length, "T%zu {}\nmain() {}", count);
+    snprintf(text + length, capacity - length, "T%zu { unit: () }\nmain() {}",
+             count);
     Result r = check(&a, text);
     ASSERT_EQ_INT(0, r.errors.count);
     ASSERT_TRUE(r.program->structs[0].equatable);

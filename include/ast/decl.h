@@ -26,9 +26,9 @@ typedef enum {
   DECL_BINDING,
   DECL_FN,
   DECL_STRUCT,
-  DECL_TYPE, // Error = Sym<...>
+  DECL_TYPE, // Error = :!bad[str] | :!missing
   DECL_MODULE,
-  DECL_TRAIT,
+  DECL_TRAIT, // Fieldless declaration; member/signature grammar still pending.
   DECL_IMPL,
   DECL_IMPORT,
 } DeclKind;

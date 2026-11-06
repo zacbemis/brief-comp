@@ -13,7 +13,7 @@ User {
   tier: Tier
 }
 
-Empty {
+Empty { unit: ()
 }
 
 Point { x: dbl

@@ -1,0 +1,5 @@
+Empty {} // error: A struct needs at least one field; traits are not implemented yet.
+Commented { /* no fields */ } // error: A struct needs at least one field; traits are not implemented yet.
+Alias = Empty
+Data { value: Missing }
+use(value: Empty) { missing(value) }

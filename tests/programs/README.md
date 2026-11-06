@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **138 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **140 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -447,8 +447,19 @@ overflow panic. `errors/type-aliases.brf` rejects cycles, unknown/unsupported
 types, scalar union inclusions, partial aliases and non-symbol named patterns;
 these are not general typed patterns. `errors/type-alias-checks.brf` keeps type
 mismatches, literal ranges, explicit unit returns and read-only access rejected
-through aliases. The inventory is now 138 files. No prior native source or
+through aliases. The inventory was then 138 files. No prior native source or
 expectation is rewritten, and no IR, ownership or runtime type is added.
+
+Empty type bodies are now recognized as unsupported traits. The old fieldless
+struct fixtures use explicit unit fields and initializers, retaining equality,
+nominal typing, lookup/inference errors and original expectation lines.
+`unit-structs.brf` observes an initializer's side effect even though its field
+has no runtime storage, shared borrowing and equality. `errors/empty-traits.brf`
+requires one scope error per trait, without guessed fields or dependent
+alias/type/body/main errors. Trait member/signature grammar and conformance are
+still pending. The inventory is now 140 files. The converted equality fixture's
+only C change is its unused `Empty` diagnostic formatter describing the explicit
+unit field; its runtime output is unchanged.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

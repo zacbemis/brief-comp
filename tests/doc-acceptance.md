@@ -41,7 +41,9 @@ remaining member/receiver grammar or any replacement chapter audit.
 Native aliases now reuse existing primitive/unit/struct/symbol types, with
 direct native fixtures and a canonical-spelling C-emission comparison. This
 closes the old symbol-only alias limitation, not the pending document/API
-acceptance audits.
+acceptance audits. Empty type bodies now classify as unsupported traits, with
+explicit unit fields used for retained struct cases. This does not implement
+trait members/conformance or complete any replacement chapter audit.
 
 ## N1 spelling bridges
 

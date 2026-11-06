@@ -177,9 +177,9 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (138 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
-| `tests/parse/pass/` (35) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
-| `tests/parse/fail/` (103) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
+| `tests/programs/` (140 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases and empty-trait classification; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/parse/pass/` (36) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
+| `tests/parse/fail/` (104) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
 | CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
@@ -237,8 +237,10 @@ merged-symbol matching exists. Implicit owner-type `Self` has been replaced by
 concrete names, with ordinary declarations named `Self` taking precedence over
 legacy recovery. Type aliases now transparently reuse all existing native types,
 including primitives, unit and structs, with shared converters and struct
-namespaces. Multi-payload checking/lowering and the old failure-tag conversion
-remain pending.
+namespaces. Valid empty type bodies now classify as unsupported traits; native
+struct fixtures have explicit fields, including unit fields. Trait/member body
+grammar remains pending, along with multi-payload checking/lowering and the old
+failure-tag conversion.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -370,6 +372,9 @@ first-version syntax audit's two logical-operator cases carry markers.
   barrier, without loading files or cascading dependent-name diagnostics.
 - [x] Typed `Arr`/`Vec` literal syntax and collection-scope rejection, without a
   collection runtime; explicit rejection of untyped bare-bracket literals.
+- [x] Empty type bodies classify as traits and stop at a scope barrier; native
+  struct cases use explicit fields, including unit fields. Trait/member bodies
+  are not implemented by this recognition step.
 - [ ] Remaining keyword/declaration/type/expression grammar changes, module
   casing, struct methods and receiver inference.
 - [ ] Remaining source conversion, old-syntax rejection tests and N1 native
@@ -1422,6 +1427,63 @@ member functions, `impl` retirement, receivers/wrong-way calls, fieldless traits
 multi-payload checking/lowering, remaining keywords/casing, failure-tag conversion
 and native audits. IR, RC, runtime formatting, entry policy and N2/N3 handling
 rules are unchanged.
+
+### N1 increment: empty-trait recognition and field-bearing native structs
+
+A valid empty/comment-only type body now produces `DECL_TRAIT`, printed as
+`(trait Name)`, rather than a zero-field `DECL_STRUCT`. A unit field counts as a
+field. Classification happens only after a complete valid body: parser recovery
+for a failed field, including a lexer error that adds no parser error, stays a
+recovery struct and keeps its primary syntax error. Trait names use the existing
+uppercase-name checks. `pub` on a trait rejects with a modifier-only removal fix
+and private declaration metadata, like other inherently public types.
+
+Resolution reports `A struct needs at least one field; traits are not implemented
+yet.` once per recognized trait. Imports and traits share the early unavailable-
+declaration barrier, before dependent aliases/types, impl targets, bodies or main
+are collected. No fields are invented and no native layout is created for a
+trait. This completes recognition for empty bodies only: function members, trait
+signatures/default bodies, conformance and receiver grammar remain pending. It
+is not full trait parsing or implementation.
+
+Existing fieldless-struct cases now declare/init an explicit `unit: ()` field.
+This keeps nominal distinctions, equality, borrowing, lookup and return/inference
+rejection coverage, plus the 2,051-struct dependency stress test. Missing-field
+and unknown-struct literals stay missing/unknown rather than being mechanically
+filled. The unknown-field case supplies the unit initializer so it retains only
+its intended unknown-field error. Original Brief line breaks, native expectations
+and error lines are retained; no migration helper is shipped.
+
+`unit-structs.brf` tests initializer effects, shared borrowing and equality when
+the only field has no runtime storage. `errors/empty-traits.brf` locks
+trait-scope rejection without dependent cascades. Parser/semantic/CLI tests cover
+exact kinds, spans, visibility/casing fixes, LF/CRLF comments, immutable
+reparsing, failed-body recovery, mixed import/trait errors and no C after the
+scope error. Unit fields still require explicit initializers and obey read-only
+permissions. `pass/43-empty-traits.brf` and `fail/pub-trait.brf` add focused
+syntax coverage. Inventory: 140 programs; 36 parse-pass and 104 parse-fail files
+(140 parser files).
+
+Validation: fresh `-Werror` GCC/Clang Debug ASan/UBSan and GCC Release pass
+25/25; GCC Debug without sanitizers passes 24/24. Pinned clang-format 23.1.3 and
+`git diff --check` pass. All 316 retained sources preserve emission statuses,
+primary/note texts and error lines. Of 95 prior C successes, 94 remain
+byte-identical; the only reviewed difference is `struct-equality.brf`'s unused
+`Empty` diagnostic formatter describing its newly explicit unit field. Layout,
+allocation, equality and other C bytes are unchanged. Among tracked `.brf` files,
+six ASTs change only for the written unit fields/initializers; three rejection
+files update source/fix rendering. All six examples and the converted equality
+program preserve sanitized stdout/stderr/status. Reports and the exact C diff are
+under ignored `build/validation/empty-traits.20261105T225619Z/`.
+
+Document counts remain 146 parser checks, 93 fenced listings and two unfenced
+listings: the empty-body syntax already parsed. No replacement native chapter
+audit is complete. N1 remains in progress: struct/member functions, complete
+trait-body recognition, `impl` retirement, receivers/wrong-way calls,
+multi-payload checking/lowering, remaining keywords/casing, failure-tag
+conversion and native audits. Outcomes, entry policy, IR/RC and runtime
+formatting rules remain unchanged; the explicit unit field is source data, not a
+formatter-policy change.
 
 ## Risks
 

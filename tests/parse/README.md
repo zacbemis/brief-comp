@@ -32,7 +32,10 @@ lowercase, unqualified binding names. They parse only in payload patterns,
 including grouped/nested forms; native type-directed matching remains
 unsupported. `Self` is an ordinary uppercase name in all these contexts.
 Implicit-owner shorthand is diagnosed by resolution, not by reserving the name
-or making the parser guess whether a real `Self` type exists.
+or making the parser guess whether a real `Self` type exists. Empty type bodies
+now build `DECL_TRAIT`, while a unit field is enough to make a struct. Syntax
+recovery for a broken field is not reclassified as a trait. Trait members and
+signatures still await the member grammar; native trait support is not added.
 
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
@@ -59,17 +62,18 @@ or making the parser guess whether a real `Self` type exists.
   multiple typed positions, without native matching claims.
 - `42`: ordinary `Self` names in declarations, annotations, type arguments,
   literals, calls and named-set pattern roles.
+- `43`: empty/comment-only traits distinguished from a struct with a unit field.
 - `underscore-type-syntax`: promoted from the old parser rejection; semantic
   checking still rejects its bare partial return marker.
 
 ## `fail/`
 
-There are 103 rejection fixtures, including `typed-pattern-outside-payload.brf`,
-`typed-payload-missing-name.brf`, `typed-payload-missing-type.brf`,
-`old-symbol-union.brf`, `union-missing-member.brf`,
-`union-missing-separator.brf`, `old-payload-parentheses.brf`,
-`payload-missing-close.brf`, `payload-missing-comma.brf`,
-`error-tag-spacing.brf`, `collection-header.brf`,
+There are 104 rejection fixtures, including `pub-trait.brf`,
+`typed-pattern-outside-payload.brf`, `typed-payload-missing-name.brf`,
+`typed-payload-missing-type.brf`, `old-symbol-union.brf`,
+`union-missing-member.brf`, `union-missing-separator.brf`,
+`old-payload-parentheses.brf`, `payload-missing-close.brf`,
+`payload-missing-comma.brf`, `error-tag-spacing.brf`, `collection-header.brf`,
 `collection-missing-comma.brf`, `bare-collection-literal.brf`,
 `import-missing-name.brf`, `import-in-body.brf`, `tag-casing.brf`,
 `tag-wildcard.brf`, `declaration-casing.brf`, `declaration-wildcard.brf`,

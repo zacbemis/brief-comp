@@ -99,9 +99,12 @@ lowercase names in types, values and patterns. `:!name` records an error tag; a
 name cannot have both neutral and error kinds in one module. `:!` must be
 adjacent. This is N1 metadata only: outcomes, entry status and runtime
 formatting retain first-version rules until N2. `trait` and `ovr` are ordinary
-names, not declaration/modifier keywords; trait declarations and conformance
-remain unsupported. In patterns, lowercase names bind and uppercase names denote
-symbol sets, without lookup-based reclassification. Typed symbol payload
+names, not declaration/modifier keywords. A native struct needs a field: an
+empty type body now parses as a trait and compilation rejects it explicitly,
+without guessing fields. Unit fields count, but still need written initializers.
+Trait member/signature grammar and conformance remain pending. In patterns,
+lowercase names bind and uppercase names denote symbol sets, without
+lookup-based reclassification. Typed symbol payload
 bindings such as `:!notFound[path: str]` retain their annotations in the AST,
 but native compilation explicitly rejects them until merged-symbol matching
 exists. Whole-value typed arms are not added. Module-selection declarations such
@@ -194,9 +197,9 @@ Compilation supports:
   `str(bool)` conversions. See `docs/v0/lang-types.txt` for formatting choices.
 - Transparent aliases of native types, with canonical identity, forward chains
   and recursion only through structs. Aliases add no runtime representation.
-- Nominal structs, complete named field initialization, field reads/writes and
-  numeric field updates, `impl`, associated/receiver calls, and explicit owner
-  type names.
+- Field-bearing nominal structs, complete named field initialization, field
+  reads/writes and numeric field updates, `impl`, associated/receiver calls, and
+  explicit owner type names.
   Ordinary parameters and their direct local/field aliases are read-only; `&`
   struct or symbol parameters permit mutation of reachable objects. Permissions
   propagate through symbol payloads, rebinding and
@@ -293,7 +296,7 @@ Panics terminate the process without unwinding owners.
   N1 retired all v0 native chapter scripts and bridges; replacement native audits
   return milestone by milestone. Run the inventory and its structural guards with
   `ctest --test-dir build -L doc-parser --output-on-failure`.
-- `tests/parse/`: 138 parser example files that must parse or be rejected
+- `tests/parse/`: 140 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
 

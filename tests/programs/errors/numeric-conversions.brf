@@ -1,4 +1,4 @@
-Box {}
+Box { unit: () }
 f() -> int {
   int("1")? // error: Propagated variants are not in the written return type.
 }
@@ -10,7 +10,7 @@ main() {
   70000 |> shrt() // error: Number literal is outside the range of its type.
   uint(-1) // error: Number literal is outside the range of its type.
   int(true) // error: Numeric conversion expects a number, chr or str argument.
-  int(Box {}) // error: Numeric conversion expects a number, chr or str argument.
+  int(Box { unit = () }) // error: Numeric conversion expects a number, chr or str argument.
   lng() // error: Numeric conversion expects exactly one number, chr or str argument.
   dbl(1, 2) // error: Numeric conversion expects exactly one number, chr or str argument.
 }

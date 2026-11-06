@@ -1,0 +1,10 @@
+// Empty type bodies are recognized as traits, not fieldless structs.
+Empty {}
+Commented {
+  // No fields.
+}
+Data { unit: () }
+main() {
+  let value = Data { unit = () }
+  value.unit
+}

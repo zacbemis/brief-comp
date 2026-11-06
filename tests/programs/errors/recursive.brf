@@ -4,7 +4,7 @@ shortAnchor(p: shrt, b: bool) { if b { ret p }
 shortCycle(p: shrt, b: bool) { if b { ret shortAnchor(p, b) }
   40000 // error: Number literal is outside the range of its type.
 }
-P {}
+P { unit: () }
 fieldAnchor(p: P, b: bool) { if b { ret p }
   fieldCycle(p, b) }
 fieldCycle(p: P, b: bool) {

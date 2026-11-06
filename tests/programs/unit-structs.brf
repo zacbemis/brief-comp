@@ -1,0 +1,10 @@
+Marker { unit: () }
+makeUnit() -> () { print("initializer") } // expect: initializer
+touch(value: &Marker) { value.unit = () }
+main() {
+  let value = Marker { unit = makeUnit() }
+  let alias = value
+  touch(alias)
+  print(str(value == Marker { unit = () })) // expect: true
+  value.unit
+}

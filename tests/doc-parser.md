@@ -89,6 +89,12 @@ remain unchanged. Native fixtures and a canonical-spelling code-generation
 comparison test this capability; they do not constitute a replacement chapter
 audit.
 
+Empty type declarations now print as traits rather than fieldless structs;
+compilation reports the explicit field/unsupported-trait boundary. Their syntax
+already parsed, so the 146 checks and 93 listings do not change.
+Member/trait-body grammar is still pending, and no native chapter audit is
+completed here.
+
 ## Native acceptance gap
 
 N1 retired all 13 v0 native chapter scripts, their normal/sanitized CTest

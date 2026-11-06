@@ -1301,6 +1301,7 @@ static Decl *declaration(Parser *p, int in_impl) {
     Decl *d = new_decl(p, DECL_STRUCT, start.span, VISIBILITY_PRIV);
     d->name = decl_name;
     List fields = {0};
+    int valid_body = 1;
     newlines(p);
     while (!at(p, TOK_RBRACE) && !at(p, TOK_EOF)) {
       size_t checkpoint = p->position;
@@ -1308,20 +1309,29 @@ static Decl *declaration(Parser *p, int in_impl) {
       int valid = parameter(p, &field, 1);
       if (valid)
         PUSH(p, fields, field);
-      if (!valid || !separator(p, TOK_RBRACE))
+      if (!valid || !separator(p, TOK_RBRACE)) {
+        valid_body = 0;
         recover(p, checkpoint, 1);
+      }
       newlines(p);
     }
     if (!expect(p, TOK_RBRACE, "Expected '}' after struct fields."))
       return NULL;
     d->as.structure.fields = fields.data;
     d->as.structure.count = fields.count;
+    // Classify only complete, valid bodies. A failed field keeps its primary
+    // syntax diagnostic and a recovery struct, never a guessed trait.
+    if (!fields.count && valid_body)
+      d->kind = DECL_TRAIT;
     check_name_case(p, declared, mark, TOK_UPPER_NAME,
                     "Type names must start with an uppercase letter.");
     if (visibility == VISIBILITY_PUB)
-      remove_modifier(
-          p, error_at(p, start.span, "Struct types cannot be marked 'pub'."),
-          start);
+      remove_modifier(p,
+                      error_at(p, start.span,
+                               d->kind == DECL_TRAIT
+                                   ? "Trait types cannot be marked 'pub'."
+                                   : "Struct types cannot be marked 'pub'."),
+                      start);
     d->span = through(start.span, p->previous.span);
     return d;
   }

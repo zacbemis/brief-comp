@@ -91,23 +91,28 @@ int main(void) {
     valid(&a, "main() { :a[1] |> { :a[value] => str(value) } }");
   }
   TEST("pipeline lookup prefers methods, then module functions") {
-    Result r = valid(&a, "A {}\nimpl A { get(a: A) { true } }\n"
-                         "get(a: A) { 1 }\nmain() { A {} |> get() }");
+    Result r =
+        valid(&a, "A { unit: () }\nimpl A { get(a: A) { true } }\n"
+                  "get(a: A) { 1 }\nmain() { A { unit = () } |> get() }");
     ASSERT_EQ_INT(SEMA_BOOL, r.program->entry->return_type->kind);
-    r = valid(&a, "A {}\nget(a: A) { 1 }\nmain() { A {} |> get() }");
+    r = valid(
+        &a,
+        "A { unit: () }\nget(a: A) { 1 }\nmain() { A { unit = () } |> get() }");
     ASSERT_EQ_INT(SEMA_INT, r.program->entry->return_type->kind);
-    valid(&a, "A {}\nimpl A { get(a: A) { true } }\n"
-              "get(a: A) { 1 }\nmain() { let get = 2\nA {} |> get() }");
-    valid(&a, "A {}\nimpl A { get(a: A) { true } }\n"
-              "main() { A {} |> A.get() }");
+    valid(&a,
+          "A { unit: () }\nimpl A { get(a: A) { true } }\n"
+          "get(a: A) { 1 }\nmain() { let get = 2\nA { unit = () } |> get() }");
+    valid(&a, "A { unit: () }\nimpl A { get(a: A) { true } }\n"
+              "main() { A { unit = () } |> A.get() }");
     invalid(&a, "main() { let f = 1\n2 |> f() }", "not callable");
     invalid(&a, "f(x: int) {}\nmain() { let f = 1\n2 |> f() }", "not callable");
     valid(&a, "wide(n: lng) -> lng { n }\nmain() { let n: lng = 4294967296 |> "
               "wide() }");
     valid(&a,
           "small(n: flt) -> flt { n }\nmain() { let n: flt = 0.1 |> small() }");
-    valid(&a, "A {}\nimpl A { small(a: A, n: flt) -> flt { n } }\n"
-              "main() { let a = A {}\nlet n: flt = 0.1 |> a.small() }");
+    valid(&a,
+          "A { unit: () }\nimpl A { small(a: A, n: flt) -> flt { n } }\n"
+          "main() { let a = A { unit = () }\nlet n: flt = 0.1 |> a.small() }");
     invalid(&a, "main() { 1 |> missing() }", "Unknown function");
     invalid(&a, "f() {}\nmain() { 1 |> f() }", "Wrong number");
   }
@@ -408,14 +413,15 @@ int main(void) {
             "A { n: int }\nf(a: A, b: bool) { var x = A { n = 0 }\nb |> { true "
             "=> x = a\nfalse => () }\nx.n++ }\nmain() {}",
             "Cannot mutate through");
-    invalid(
-        &a,
-        "A {}\nQ { p: A }\nf(a: A, q: &Q) { a |> { x => q.p = x } }\nmain() {}",
-        "cannot be stored in a field");
+    invalid(&a,
+            "A { unit: () }\nQ { p: A }\nf(a: A, q: &Q) { a |> { x => q.p = x "
+            "} }\nmain() {}",
+            "cannot be stored in a field");
     valid(&a,
           "A { n: int }\nf(a: A, b: bool) { var x = A { n = 0 }\n"
           "b |> { true => { x = a\nret }\nfalse => () }\nx.n++ }\nmain() {}");
-    invalid(&a, "A {}\nmut(a: &A) {}\nf(a: A) { a |> mut() }\nmain() {}",
+    invalid(&a,
+            "A { unit: () }\nmut(a: &A) {}\nf(a: A) { a |> mut() }\nmain() {}",
             "read-only value cannot be passed");
     valid(&a, "A { n: int }\nf(a: &A) { a |> { x => x.n++ } }\nmain() {}");
     valid(&a, "A { n: int }\nf(a: A, b: bool) { var x = a\nb |> { true => x = "

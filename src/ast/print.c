@@ -370,6 +370,9 @@ static void decl(FILE *out, const Decl *d) {
     }
     fputc(')', out);
     break;
+  case DECL_TRAIT:
+    fprintf(out, "(trait %s)", d->name);
+    break;
   case DECL_TYPE:
     fprintf(out, "(type %s%s ", visibility, d->name);
     type(out, d->as.alias);

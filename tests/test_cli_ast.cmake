@@ -158,7 +158,7 @@ endif()
 # syntax-only commands must remain independent of method lookup.
 set(method "${TEST_DIR}/method-invalid.brf")
 set(declaration "save(value: P) {}")
-file(WRITE "${method}" "P {}\r\n${declaration}\r\nmain() { let p = P {}\r\n  p.save()\r\n}\r\n")
+file(WRITE "${method}" "P { unit: () }\r\n${declaration}\r\nmain() { let p = P { unit = () }\r\n  p.save()\r\n}\r\n")
 string(LENGTH "${declaration}" length)
 math(EXPR tail_length "${length} - 1")
 string(REPEAT "~" ${tail_length} tail)
@@ -224,6 +224,31 @@ execute_process(COMMAND "${BRIEF}" emit-c "${collection}"
 if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
    NOT errors MATCHES "^error: Collection literals are not implemented yet\\.")
     message(FATAL_ERROR "collection escaped its scope boundary (${status}):\n${errors}")
+endif()
+
+set(empty_trait "${TEST_DIR}/empty-trait.brf")
+file(WRITE "${empty_trait}" "Empty { /* keep */ }\r\nAlias = Empty\r\nf(n: Empty) { missing(n) }\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${empty_trait}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT output MATCHES "[(]trait Empty[)]")
+    message(FATAL_ERROR "empty declaration was not a trait (${status}):\n${errors}\n${output}")
+endif()
+execute_process(COMMAND "${BRIEF}" emit-c "${empty_trait}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+string(REGEX MATCHALL "(^|\n)error:" trait_errors "${errors}")
+list(LENGTH trait_errors trait_errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT trait_errors EQUAL 1 OR
+   NOT errors MATCHES "^error: A struct needs at least one field; traits are not implemented yet" OR
+   errors MATCHES "Unknown|must define main|help:")
+    message(FATAL_ERROR "trait escaped its scope or cascaded (${status}):\n${errors}")
+endif()
+file(WRITE "${empty_trait}" "pub Empty {}\r\n")
+execute_process(COMMAND "${BRIEF}" dump-ast "${empty_trait}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+string(FIND "${errors}" "help: write `Empty {}`" trait_fix)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
+   NOT errors MATCHES "^error: Trait types cannot be marked 'pub'" OR trait_fix LESS 0)
+    message(FATAL_ERROR "trait visibility did not reject/fix (${status}):\n${errors}")
 endif()
 
 set(native_alias "${TEST_DIR}/native-type-alias.brf")
@@ -381,7 +406,7 @@ endif()
 set(recursive "${TEST_DIR}/recursive-lookup.brf")
 set(blocked "${TEST_DIR}/recursive-lookup-output")
 file(REMOVE "${blocked}")
-file(WRITE "${recursive}" "P {}\r\nf(p: P, b: bool) { if b { ret p }\r\n  g(p, b) }\r\ng(p: P, b: bool) {\r\n  f(p, b).missing\r\n}\r\nmain() {}\r\n")
+file(WRITE "${recursive}" "P { unit: () }\r\nf(p: P, b: bool) { if b { ret p }\r\n  g(p, b) }\r\ng(p: P, b: bool) {\r\n  f(p, b).missing\r\n}\r\nmain() {}\r\n")
 string(REPEAT "~" 14 tail)
 set(expected "error: Unknown struct field.\n  --> ${recursive}:5:3\n  |\n5 |   f(p, b).missing\n  |   ^${tail}\n")
 foreach(command IN ITEMS emit-c run build)

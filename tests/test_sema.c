@@ -323,31 +323,32 @@ int main(void) {
             "This type is unknown or not implemented yet.");
   }
   TEST("unsupported generic headers do not resolve as ordinary callees") {
-    const char *prefix =
-        "P {}\nimpl P { make(value: int) {}\nread(p: P, n: int) {} }\n"
-        "f(value: shrt) {}\ncheck(value: int) {}\n";
+    const char *prefix = "P { unit: () }\nimpl P { make(value: int) "
+                         "{}\nread(p: P, n: int) {} }\n"
+                         "f(value: shrt) {}\ncheck(value: int) {}\n";
     struct {
       const char *body, *site;
-    } cases[] = {{"f[int]()", "f[int]()"},
-                 {"f[int](true)", "f[int](true)"},
-                 {"int[int](\"1\")", "int[int](\"1\")"},
-                 {"print[int](false)", "print[int](false)"},
-                 {"missing[int]()", "missing[int]()"},
-                 {"let f = 0\nf[int]()", "f[int]()"},
-                 {"let a = 1\nlet d = 2\ncheck(a[b, c](d))", "a[b, c](d)"},
-                 {"P.make[int]()", "P.make[int]()"},
-                 {"P.missing[int]()", "P.missing[int]()"},
-                 {"let p = P {}\np.read[int](true)", "p.read[int](true)"},
-                 {"let p = P {}\np.missing[int]()", "p.missing[int]()"},
-                 {"let p = 1\np.read[int]()", "p.read[int]()"},
-                 {"1 |> missing[int]()", "missing[int]()"},
-                 {"let f = 0\n1 |> f[int]()", "f[int]()"},
-                 {"P {} |> P.make[int]()", "P.make[int]()"},
-                 {"f[:ok[:inner[int]]](1)", "f[:ok[:inner[int]]](1)"},
-                 {"f[int]()?", "f[int]()"},
-                 {"f[int]()!", "f[int]()"},
-                 {"f[int]() |> { _ => () }", "f[int]()"},
-                 {"let value = f[int]()\nvalue.field", "f[int]()"}};
+    } cases[] = {
+        {"f[int]()", "f[int]()"},
+        {"f[int](true)", "f[int](true)"},
+        {"int[int](\"1\")", "int[int](\"1\")"},
+        {"print[int](false)", "print[int](false)"},
+        {"missing[int]()", "missing[int]()"},
+        {"let f = 0\nf[int]()", "f[int]()"},
+        {"let a = 1\nlet d = 2\ncheck(a[b, c](d))", "a[b, c](d)"},
+        {"P.make[int]()", "P.make[int]()"},
+        {"P.missing[int]()", "P.missing[int]()"},
+        {"let p = P { unit = () }\np.read[int](true)", "p.read[int](true)"},
+        {"let p = P { unit = () }\np.missing[int]()", "p.missing[int]()"},
+        {"let p = 1\np.read[int]()", "p.read[int]()"},
+        {"1 |> missing[int]()", "missing[int]()"},
+        {"let f = 0\n1 |> f[int]()", "f[int]()"},
+        {"P { unit = () } |> P.make[int]()", "P.make[int]()"},
+        {"f[:ok[:inner[int]]](1)", "f[:ok[:inner[int]]](1)"},
+        {"f[int]()?", "f[int]()"},
+        {"f[int]()!", "f[int]()"},
+        {"f[int]() |> { _ => () }", "f[int]()"},
+        {"let value = f[int]()\nvalue.field", "f[int]()"}};
     char code[2048], crlf[4096];
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       snprintf(code, sizeof(code), "%smain() {\n%s\n}", prefix, cases[i].body);
@@ -400,8 +401,9 @@ int main(void) {
     invalid(&a, "main() { let f = 0\nf() }",
             "A local binding is not callable.");
     invalid(&a, "main() { missing() }", "Unknown function.");
-    invalid(&a, "P {}\nmain() { P.missing() }", "Unknown associated function.");
-    invalid(&a, "P {}\nmain() { P {}.missing() }",
+    invalid(&a, "P { unit: () }\nmain() { P.missing() }",
+            "Unknown associated function.");
+    invalid(&a, "P { unit: () }\nmain() { P { unit = () }.missing() }",
             "Unknown method for this type.");
   }
   TEST("generic recovery still checks receiver, argument and surrounding "
@@ -413,7 +415,8 @@ int main(void) {
          "Unknown binding."},
         {"main() { missing.read[int]() }", "missing.read[int]()",
          "Unknown binding."},
-        {"P {}\nmake(n: int) { P {} }\nmain() { make(false).read[int]() }",
+        {"P { unit: () }\nmake(n: int) { P { unit = () } }\nmain() { "
+         "make(false).read[int]() }",
          "make(false).read[int]()", "Function argument has the wrong type."},
         {"main() { missing[int](if true { 1 } else { false }) }",
          "missing[int](if true { 1 } else { false })",
@@ -425,7 +428,8 @@ int main(void) {
         {"fail() -> :ok[int] | :bad { 1 }\nmain() { missing[int](fail()) }",
          "missing[int](fail())",
          "A call that can fail must be handled with ?, !, or a match."},
-        {"P {}\nmut(p: &P) {}\nf(p: P) { missing[int](mut(p)) }\nmain() {}",
+        {"P { unit: () }\nmut(p: &P) {}\nf(p: P) { missing[int](mut(p)) "
+         "}\nmain() {}",
          "missing[int](mut(p))",
          "A read-only value cannot be passed to an & parameter; "
          "take the parameter it comes from as &."},
@@ -763,7 +767,8 @@ int main(void) {
           snprintf(g, sizeof(g),
                    "g(p: %s,b: bool) { if b { ret f(p,b) }\n%s }\n",
                    cases[i].type, body);
-          snprintf(text, sizeof(text), "P {}\nWrong = :yes[str]\n%s%smain() {}",
+          snprintf(text, sizeof(text),
+                   "P { unit: () }\nWrong = :yes[str]\n%s%smain() {}",
                    order ? g : f, order ? f : g);
           const char *body_at = strstr(text, body);
           ASSERT_TRUE(body_at != NULL);

@@ -337,19 +337,21 @@ int main(void) {
       size_t returns, bodies;
     } cases[] = {
         {"f() -> :ok[int] | _ { false }", 0, 1},
-        {"f() -> :ok[A] | _ { B {} }", 0, 1},
+        {"f() -> :ok[A] | _ { B { unit = () } }", 0, 1},
         {"f() -> :ok[int] | _ { ret false }", 1, 0},
         {"f(b: bool) -> :ok[int] | _ { if b { ret false }\n1 }", 1, 0},
         {"f() -> :ok[int] | _ { :ok[false] }", 0, 1},
         {"f() -> :ok[int] | _ { ret :ok }", 1, 0},
         {"f(b: bool) -> :ok[int] | _ { if b { ret false }\n\"bad\" }", 1, 1},
         {"f() -> :ok[int] | _ { ret 1\nret false }", 1, 0},
-        {"f() -> :ok[A] | _ { B {} }\ng() { f()! }", 0, 1},
-        {"f() -> :ok[A] | _ { B {} }\ng() -> :ok[int] | _ { false }", 0, 2},
+        {"f() -> :ok[A] | _ { B { unit = () } }\ng() { f()! }", 0, 1},
+        {"f() -> :ok[A] | _ { B { unit = () } }\ng() -> :ok[int] | _ { false }",
+         0, 2},
     };
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
       char text[1024];
-      snprintf(text, sizeof(text), "A {}\nB {}\n%s\nmain() {}", cases[i].text);
+      snprintf(text, sizeof(text),
+               "A { unit: () }\nB { unit: () }\n%s\nmain() {}", cases[i].text);
       Result r = check(&a, text);
       for (int repeat = 0; repeat < 2; repeat++) {
         if (repeat) {
