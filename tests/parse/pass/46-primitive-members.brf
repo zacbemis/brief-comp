@@ -1,0 +1,18 @@
+// Primitive keywords name member functions, not ordinary declarations.
+Values {
+  unit: ()
+  pub str(value: int) -> str { str(value) }
+  int(value: int) -> int { int(value) }
+}
+Signatures {
+  str(value: int) -> str
+  int(value: int) -> int { value }
+}
+main() {
+  Values.str(Values.int(1))
+  models.Json.int(1)
+  make().str()
+  value |> Values.int()
+  Values.int[Other.Type](1)
+  Values.int.(0)
+}

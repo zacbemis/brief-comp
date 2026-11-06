@@ -226,6 +226,33 @@ if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
     message(FATAL_ERROR "collection escaped its scope boundary (${status}):\n${errors}")
 endif()
 
+set(primitive_member "${TEST_DIR}/primitive-member.brf")
+file(WRITE "${primitive_member}" "P { unit: ()\r\npub str(n: int) -> str { str(n) } }\r\nmain() { print(P.str(42)) }\r\n")
+execute_process(COMMAND "${BRIEF}" dump-tokens "${primitive_member}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
+   NOT output MATCHES "TOK_STR \"str\"")
+    message(FATAL_ERROR "member str changed its keyword token (${status}):\n${errors}")
+endif()
+execute_process(COMMAND "${BRIEF}" dump-ast "${primitive_member}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+string(FIND "${output}" "(fn pub str" member_at)
+string(FIND "${output}" "(field (name P) str)" call_at)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR member_at LESS 0 OR call_at LESS 0)
+    message(FATAL_ERROR "primitive member syntax rejected (${status}):\n${errors}\n${output}")
+endif()
+execute_process(COMMAND "${BRIEF}" emit-c "${primitive_member}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT output MATCHES "brm_1_P_str")
+    message(FATAL_ERROR "primitive member lost owned C name (${status}):\n${errors}")
+endif()
+file(WRITE "${primitive_member}" "main() { Json.str(1) }\r\n")
+execute_process(COMMAND "${BRIEF}" emit-c "${primitive_member}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT errors MATCHES "^error: Unknown binding")
+    message(FATAL_ERROR "JSON spelling invented an API (${status}):\n${errors}")
+endif()
+
 set(old_impl "${TEST_DIR}/old-impl.brf")
 file(WRITE "${old_impl}" "User { n: int }\r\nimpl User { read(u: User) { u.n } }\r\nmain() {}\r\n")
 execute_process(COMMAND "${BRIEF}" dump-tokens "${old_impl}"

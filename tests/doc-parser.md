@@ -3,9 +3,9 @@
 `test_doc_parser` reads the 13 language chapters in `docs/lang-*.txt`, not
 `docs/v0/`. The rationale file `lang-post-0-notes.txt` is not a language chapter.
 The manifest in `test_doc_parser.cmake` classifies all **239 code fences** and
-the two unfenced chapters. It runs **147 successful parses and five intentional
-syntax rejections**. The other **87 fences** are explicit listings, not passing
-parser tests: 17 await N1/N4/N5 syntax, 50 need later features, and 20 are
+the two unfenced chapters. It runs **148 successful parses and five intentional
+syntax rejections**. The other **86 fences** are explicit listings, not passing
+parser tests: 16 await N1/N4/N5 syntax, 50 need later features, and 20 are
 incomplete signatures/operator/context fragments. The overview and raw base
 sample have separate zero-fence listings.
 
@@ -48,7 +48,7 @@ accepted for the wrong error.
 | memory | 17 | 1 |
 | modules | 15 | 4 |
 | pipelines | 13 | 4 |
-| standard library | 0 | 1 |
+| standard library | 1 | 0 |
 | symbols | 11 | 4 |
 | syntax | 30 | 5 |
 | traits | 1 | 9 |
@@ -102,14 +102,20 @@ whole-source fragments. Symbols fence 9 still needs merged-symbol declarations.
 That increment had 150 checks and 89 fenced listings, plus two unfenced
 listings.
 
-Struct member placement adds two whole-fence checks: modules fence 19's
+Struct member placement added two whole-fence checks: modules fence 19's
 constructor declarations and fence 7's namespace/tag usage. They assert syntax,
 not modules, privacy, receiver inference or N2 contracts. Typed trait signatures
 and default bodies are retained without synthesizing bodies, but explicit
-`self`/`&self` and conformance headers remain pending. The standard-library
-listing now identifies its remaining keyword-named qualified JSON members;
-`Json.str` and `Json.int` do not parse yet. Counts are 152 checks and 87 fenced
-listings, plus two unfenced listings. No native chapter audit is completed.
+`self`/`&self` and conformance headers remain pending. That increment had 152
+checks and 87 fenced listings, plus two unfenced listings. The standard-library
+fence still needed primitive-spelled JSON member syntax at that point.
+
+Primitive-spelled function/expression members now promote the entire
+standard-library fence without extracting methods or replacing bodies.
+`Json.str` and `Json.int` parse, but no JSON/module APIs, receiver binding or
+inference are asserted. Ordinary names, type paths and primitive tokens are
+unchanged. Counts are 153 checks and 86 fenced listings, plus two unfenced
+listings. No native chapter audit is completed.
 
 ## Native acceptance gap
 

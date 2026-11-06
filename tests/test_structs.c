@@ -276,6 +276,50 @@ int main(void) {
     invalid(&a, "Ref = Item\nItem { n: int\nf() {}\nf() {} }\nmain() {}",
             "Duplicate function name");
   }
+  TEST("primitive member names keep owned targets separate from converters") {
+    Result r = check(
+        &a,
+        "Ref = P\nP { unit: ()\nstr(n: int) -> str { str(n) }\n"
+        "int(n: int) -> int { int(n) } }\nmain() { print(Ref.str(P.int(1))) }");
+    ASSERT_EQ_INT(0, r.errors.count);
+    ASSERT_TRUE(r.program->checked);
+    SemaSymbol *owned_str =
+        sema_method(r.program, &r.program->structs[0].type, "str");
+    SemaSymbol *owned_int =
+        sema_method(r.program, &r.program->structs[0].type, "int");
+    ASSERT_TRUE(owned_str && owned_int && owned_str != owned_int);
+    ASSERT_TRUE(owned_str->owner == &r.program->structs[0]);
+    ASSERT_EQ_INT(0, owned_str->builtin);
+    SemaExpr *builtin_str = r.program->functions[0].body->as.block.items[0];
+    SemaExpr *builtin_int = r.program->functions[1].body->as.block.items[0];
+    ASSERT_EQ_INT(SEMA_BUILTIN_STR, builtin_str->as.call.target->builtin);
+    ASSERT_EQ_INT(SEMA_BUILTIN_CONVERT, builtin_int->as.call.target->builtin);
+    ASSERT_TRUE(builtin_str->as.call.target != owned_str);
+    ASSERT_TRUE(builtin_int->as.call.target != owned_int);
+    SemaExpr *print = r.program->functions[2].body->as.block.items[0];
+    ASSERT_TRUE(print->as.call.args[0]->as.call.target == owned_str);
+    ASSERT_TRUE(print->as.call.args[0]->as.call.args[0]->as.call.target ==
+                owned_int);
+    invalid(&a, "P { unit: ()\nint() {}\nint() {} }\nmain() {}",
+            "Duplicate function name");
+    invalid(&a,
+            "P { unit: ()\nstr(n: int) -> str { str(n) } }\nmain() { "
+            "P.str(false) }",
+            "argument has the wrong type");
+    Result missing = check(&a, "main() { (1).str() }");
+    ASSERT_EQ_INT(1, missing.errors.count);
+    ASSERT_EQ_INT(0, strcmp("Unknown method for this type.",
+                            missing.errors.items[0]->message));
+    ASSERT_TRUE(!missing.errors.items[0]->notes && !missing.program->checked);
+    ASSERT_TRUE(ir_lower(&a, missing.program) == NULL);
+    Result unknown = check(&a, "main() { Json.str(1) }");
+    ASSERT_EQ_INT(1, unknown.errors.count);
+    ASSERT_TRUE(!unknown.program->checked);
+    Result trait =
+        check(&a, "T { str(n: Missing) -> Missing\nint() { missing() } }");
+    ASSERT_EQ_INT(1, trait.errors.count);
+    ASSERT_TRUE(!trait.program->resolved && !trait.program->checked);
+  }
   TEST("traits stop before unavailable type, member and main cascades") {
     const char *cases[] = {
         "Empty {}\n", ("Empty {}\nAlias = Empty\nf(n: Empty) { missing() }"),

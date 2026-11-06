@@ -444,6 +444,99 @@ int main(void) {
       }
     }
   }
+  TEST("primitive keywords name only function members and expression members") {
+    const char *names[] = {"bool", "int", "uint", "shrt", "ushrt", "lng",
+                           "ulng", "flt", "dbl",  "chr",  "str"};
+    for (size_t i = 0; i < sizeof(names) / sizeof(*names); i++) {
+      char text[512];
+      snprintf(text, sizeof(text),
+               "P { unit: ()\npub %s(value: %s) -> %s { value } }\nmain() { "
+               "P.%s(1) }\n",
+               names[i], names[i], names[i], names[i]);
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(0, v->diagnostics.count);
+      Decl *member = v->program->items[0]->as.structure.functions[0];
+      ASSERT_TRUE(member->name == intern(&v->names, names[i]));
+      ASSERT_EQ_INT(VISIBILITY_PUB, member->visibility);
+      Expr *call =
+          v->program->items[1]->as.function.body->as.block.items[0].as.expr;
+      ASSERT_EQ_INT(EXPR_FIELD, call->as.call.callee->kind);
+      ASSERT_TRUE(call->as.call.callee->as.field.name == member->name);
+      ASSERT_EQ_INT(TYPE_NAME, member->as.function.params[0].type->kind);
+      ASSERT_TRUE(member->as.function.params[0].type->as.name == member->name);
+      TokenArray filtered = newline_filter(&arena, v->raw);
+      size_t bytes = filtered.count * sizeof(Token);
+      Token *saved = arena_alloc(&arena, bytes);
+      memcpy(saved, filtered.items, bytes);
+      Diagnostics again;
+      diagnostics_init(&again, &arena);
+      Program *next = parse_program(&arena, &v->names, filtered, &again);
+      ASSERT_EQ_INT(0, again.count);
+      ASSERT_TRUE(!memcmp(saved, filtered.items, bytes));
+      ASSERT_EQ_INT(0, strcmp(dump(&arena, next), dump(&arena, v->program)));
+      snprintf(text, sizeof(text), "%s() {}", names[i]);
+      invalid(&arena, text, "Expected a declaration");
+      snprintf(text, sizeof(text), "P { %s: int }", names[i]);
+      invalid(&arena, text, "Expected a field name");
+      snprintf(text, sizeof(text), "main() { let %s = 1 }", names[i]);
+      invalid(&arena, text, "Expected a binding name");
+    }
+    expression_dump(&arena, "make().str(1).int[int](2)",
+                    "(call (field (call (field (call (name make)) str) (int "
+                    "1)) int) (types int) (int 2))");
+    program_dump(&arena, "T { str(n: int) -> str\nint(n: int) -> int { n } }",
+                 "(program (trait T (fn str (params (n int)) str none) (fn int "
+                 "(params (n int)) int (block (name n)))))\n");
+    const char *rejected[] = {"P { ret() {} }",     "P { Fn() {} }",
+                              "P { dub() {} }",     "main() { x.ret() }",
+                              "main() { x.dub() }", "A = P.int",
+                              "import P.int",       "E = P.int.:tag",
+                              "main() { :int }",    "f(int: int) {}"};
+    for (size_t i = 0; i < sizeof(rejected) / sizeof(*rejected); i++) {
+      Parsed *v = parse(&arena, rejected[i]);
+      ASSERT_TRUE(v->diagnostics.count > 0);
+    }
+    Parsed *colon = parse(&arena, "impl: int");
+    ASSERT_EQ_INT(1, colon->diagnostics.count);
+    ASSERT_EQ_INT(
+        0, strcmp("Expected '(' after function name (or '{' for a struct).",
+                  colon->diagnostics.items[0]->message));
+    ASSERT_TRUE(!colon->diagnostics.items[0]->fixes);
+    for (unsigned crlf = 0; crlf < 2; crlf++) {
+      const char *eol = crlf ? "\r\n" : "\n";
+      char text[512];
+      snprintf(text, sizeof(text),
+               "P {%sunit: ()%spub INT/* keep */(n: int): int { n }%s}%s", eol,
+               eol, eol, eol);
+      Parsed *v = parse(&arena, text);
+      ASSERT_EQ_INT(2, v->diagnostics.count);
+      char *fixed = apply_fixes(&arena, v);
+      ASSERT_TRUE(strstr(fixed, "pub int/* keep */(n: int) -> int") != NULL);
+      ASSERT_TRUE(strstr(fixed, crlf ? "{\r\nunit" : "{\nunit") != NULL);
+      Parsed *next = parse(&arena, fixed);
+      ASSERT_EQ_INT(0, next->diagnostics.count);
+      ASSERT_TRUE(!strcmp(
+          "INT", v->program->items[0]->as.structure.functions[0]->name));
+      const char *bad[] = {"Str() {}", "P { Int: int }",
+                           "main() { let Bool = true }", "P { Int() -> {} }"};
+      for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
+        Parsed *b = parse(&arena, bad[i]);
+        ASSERT_EQ_INT(1, b->diagnostics.count);
+        ASSERT_TRUE(!b->diagnostics.items[0]->fixes);
+      }
+      const char *prefix[] = {"ovr /* keep */", "ovr /* keep */ pub",
+                              "pub ovr /* keep */"};
+      for (size_t i = 0; i < sizeof(prefix) / sizeof(*prefix); i++) {
+        snprintf(text, sizeof(text),
+                 "P { unit: ()%s%s str(n: int) -> str { str(n) }%s}%s", eol,
+                 prefix[i], eol, eol);
+        Parsed *old = parse(&arena, text);
+        ASSERT_EQ_INT(1, old->diagnostics.count);
+        Parsed *new = parse(&arena, apply_fixes(&arena, old));
+        ASSERT_EQ_INT(0, new->diagnostics.count);
+      }
+    }
+  }
   TEST("empty type bodies are traits; unit fields still make structs") {
     program_dump(&arena,
                  "Empty {}\nCommented { /* keep */ }\nData { unit: () }\n",

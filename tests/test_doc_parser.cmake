@@ -86,7 +86,7 @@ fences(n4 "Inclusive range patterns" "14")
 end_chapter()
 
 chapter(lang-stdlib 1 3921a5588fe86b981ce638375b02d8a10a80d30539a6cfad0b2e11959e7c3ba4)
-fences(n1 "Keyword-named qualified JSON members (Json.str/Json.int); module APIs, receiver inference and outcomes also remain unsupported" "1")
+fences(top "Whole member declarations and primitive-spelled JSON call syntax only; module/library APIs, receiver inference and outcomes are not asserted" "1")
 end_chapter()
 
 chapter(lang-symbols 15 c558877977e6348d3c403ee4e8b62ab91b05f8674775d0070bf0bca4dd834bde)

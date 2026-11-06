@@ -177,14 +177,14 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (144 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases, empty-trait classification, qualified symbol syntax and struct-owned functions with ordinary `impl`; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
-| `tests/parse/pass/` (38) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
-| `tests/parse/fail/` (109) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
+| `tests/programs/` (146 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases, empty-trait classification, qualified symbol syntax and struct-owned functions with ordinary `impl`; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/parse/pass/` (39) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
+| `tests/parse/fail/` (110) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
 | Checker C tests (`test_sema`, `test_structs`, `test_symbols`, `test_errors`, `test_matching`, `test_conversions`) | About 1,300 lines of Brief inside C strings, checked for "no errors" or "an error containing ..." | Converted in place in N1, and in N2–N4 where meanings change. |
 | CLI tests (`test_cli*.cmake`, `test_cli_native.c`) | Exact diagnostic text, some quoting old syntax | Updated in N1 for messages that quote syntax. |
 | Document acceptance (13 v0 audits, now retired) | Scripts, bridges and registrations deleted in N1; records retained as historical evidence | Each new document's audit is written in the milestone that implements its rules (see "Milestones"), so document coverage returns chapter by chapter instead of all at the end. |
-| `test_doc_parser` | Reads 13 current chapters: 239 fences, 152 parser checks, 87 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
+| `test_doc_parser` | Reads 13 current chapters: 239 fences, 153 parser checks, 86 explicitly listed fences and two unfenced listings | Remaining syntax listings move to checks as their milestones land; parser checks do not replace native audits. |
 | `examples/*.brf` | Not run in CI | Converted in N1, and added to the program runner with their output as expectations, so the examples cannot rot again. |
 
 ### New test forms
@@ -244,6 +244,11 @@ but retain the native unsupported-trait barrier. Qualified symbols retain
 module paths but stop at an explicit native scope boundary. Remaining
 trait/receiver grammar, multi-payload checking/lowering and the old failure-tag
 conversion remain pending.
+
+Primitive keywords now name function members and dotted expression members,
+without broadening ordinary names or type paths. Context-specific casing fixes
+can produce primitive spellings only for function members. Builtin conversion
+lookup, receiver rules and native/module/API boundaries are unchanged.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -1608,6 +1613,55 @@ wrong-way calls, remaining casing/keywords, multi-payload checking/lowering,
 failure-tag conversion and replacement native audits. Qualified resolution is
 still bootstrap work. N2 outcomes, entry policy, IR/RC and runtime formatting
 rules are unchanged.
+
+### N1 increment: primitive-spelled function members
+
+The eleven primitive type keywords now name struct/trait functions and dotted
+expression members, including the documented `Json.str` and `Json.int` calls.
+They keep their keyword tokens and ordinary type meanings. Fields, bindings,
+parameters, tags, imports, type paths and top-level declarations do not acquire
+keyword names. Control keywords, `Fn` and retired `dub` are not widened. Existing
+AST function/field nodes and interning suffice; no new representation is added.
+
+Function-member casing fixes may now safely produce a primitive keyword, such
+as `INT` becoming `int`. Other roles retain their keyword-producing fix guards.
+Recovery keeps written names and does not rename references. Grouped
+casing/arrow edits preserve comments and LF/CRLF; immutable token reparsing is
+checked. Removed `ovr` prefixes retain their deletion hints before primitive
+member names, without admitting them as ordinary top-level declarations. The
+reviewed `impl: int` behavior is explicitly tested: it keeps the ordinary
+function-declaration error, not the old-block diagnostic or a guessed fix.
+
+`primitive-members.brf` executes all eleven spellings, canonical alias lookup,
+associated/explicit receiver calls and unchanged builtin conversions inside
+members. `errors/primitive-member-names.brf` tests context-specific fixes.
+`pass/46-primitive-members.brf`, one field-name rejection, focused parser/sema
+and CLI tests cover visibility, exact owned targets versus builtins, signature
+retention, postfix/generic/pipeline syntax, duplicates, bad arguments and unknown
+methods/modules. Traits still stop before dependent annotation/body errors.
+Inventory: 146 programs and 149 parser files (39 pass, 110 fail). No retained
+source or observation needs conversion in this slice.
+
+The whole standard-library fence now parses without extracting methods or
+stubbing bodies. Counts are 153 checks: 148 successful parses and five
+intentional syntax rejections, plus 86 fenced and two unfenced listings. Of the
+fenced listings, 16 await N1/N4/N5 syntax, 50 need later features and 20 are
+fragments. These checks do not bind `self`, infer receivers or install JSON APIs;
+an undeclared `Json.str` still produces the ordinary unknown-binding error.
+No replacement native chapter audit is complete.
+
+Validation: four fresh `-Werror` configurations pass: GCC/Clang Debug ASan/UBSan
+and GCC Release, 25/25 each; GCC Debug without sanitizers, 24/24. Pinned
+clang-format 23.1.3, `git diff --check` and edited-prose width checks pass. All
+334 retained sources preserve emission statuses, AST/C bytes and complete
+diagnostics, including all 97 previous C successes. All six examples preserve
+sanitized stdout/stderr/status. Reports:
+`build/validation/primitive-members.20261106T050442Z/` (ignored).
+
+N1 remains in progress: `self`/`&self`, receiver inference and wrong-way calls,
+remaining trait/conformance/casing/keyword grammar, multi-payload native
+support, failure-tag conversion and replacement native audits. N2 outcomes,
+entry policy, IR/RC and runtime formatting are unchanged.
 
 ## Risks
 

@@ -44,6 +44,11 @@ types, values and patterns. The final module name must start uppercase; tags
 still start lowercase. Shared `:ok` and `:none` never have a qualifier. Parsing
 does not load modules or resolve external tag identities.
 
+Primitive keywords also name function members and dotted expression members.
+They remain reserved for ordinary names, fields, imports and type paths.
+Member-only casing fixes can produce `int` or `str`; this does not rename
+references, add APIs or change builtin converters or receiver rules.
+
 - `01`–`14`: one topic each, from declarations to comments. Comments in
   `03-precedence.brf` and `09-generic-calls.brf` give the grouping the tree
   must show.
@@ -74,14 +79,16 @@ does not load modules or resolve external tag identities.
   multiline paths and ordinary bitwise-or separation.
 - `45`: interleaved fields/functions, visibility, typed trait signatures/default
   bodies and ordinary `impl` names, without receiver inference claims.
+- `46`: primitive-spelled struct/trait functions and dotted members, including
+  calls, pipelines, type arguments and indexing, without API/runtime claims.
 - `underscore-type-syntax`: promoted from the old parser rejection; semantic
   checking still rejects its bare partial return marker.
 
 ## `fail/`
 
-There are 109 rejection fixtures, including `old-impl-block.brf`,
-`struct-signature-without-body.brf`, `trait-signature-without-return.brf`,
-`qualified-shared-symbol.brf`,
+There are 110 rejection fixtures, including `primitive-field-name.brf`,
+`old-impl-block.brf`, `struct-signature-without-body.brf`,
+`trait-signature-without-return.brf`, `qualified-shared-symbol.brf`,
 `qualified-symbol-missing-name.brf` and `pub-trait.brf`,
 `typed-pattern-outside-payload.brf`, `typed-payload-missing-name.brf`,
 `typed-payload-missing-type.brf`, `old-symbol-union.brf`,

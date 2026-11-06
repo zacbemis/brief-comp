@@ -148,15 +148,29 @@ static int expect_identifier(Parser *p, const char *message) {
   error(p, message);
   return 0;
 }
+// Primitive keywords remain reserved except as function member names or
+// expression members after '.'. Do not widen ordinary names or type paths.
+static int primitive_member_name(TokenType type) {
+  return type >= TOK_BOOL && type <= TOK_STR;
+}
+static int expect_member_name(Parser *p, const char *message) {
+  if (primitive_member_name(peek(p).type)) {
+    take(p);
+    return 1;
+  }
+  return expect_identifier(p, message);
+}
 // Checks a declared name or tag once its construct's syntax is complete, so
 // broken syntax keeps its primary error alone. `mark` is the diagnostic count
 // when the name was read: the error is placed there, before any errors from
 // later source. Returns a safe correction, but callers decide whether recovery
 // renames the AST node (legacy aliases do). No use-site lookup or reference
 // rewriting happens here.
-static const char *check_name_case(Parser *p, Token token, size_t mark,
-                                   TokenType wanted, const char *message) {
-  if (token.type == wanted)
+static const char *check_name_case_inner(Parser *p, Token token, size_t mark,
+                                         TokenType wanted, const char *message,
+                                         int primitive_member) {
+  if (token.type == wanted ||
+      (primitive_member && primitive_member_name(token.type)))
     return NULL;
   Diagnostic *d = error_at(p, token.span, message);
   diagnostics_move_last(p->diagnostics, mark);
@@ -187,16 +201,22 @@ static const char *check_name_case(Parser *p, Token token, size_t mark,
     }
   }
   fixed[count] = 0;
-  // Ask the lexer instead of maintaining a second keyword list. In particular,
-  // Int/Not/True and self/sym/fn must not receive edits that create keywords.
+  // Ask the lexer instead of maintaining a second keyword list. Ordinary
+  // names must not become keywords; function members may name primitives.
   SourceFile *candidate = source_create(p->arena, "<name fix>", fixed, count);
   Lexer lexer;
   lexer_init(&lexer, candidate, NULL);
   Token checked = lexer_next_token(&lexer);
-  if (checked.type != wanted || checked.length != count)
+  if ((checked.type != wanted &&
+       !(primitive_member && primitive_member_name(checked.type))) ||
+      checked.length != count)
     return NULL;
   diagnostic_fix(p->diagnostics, d, token.span, fixed);
   return fixed;
+}
+static const char *check_name_case(Parser *p, Token token, size_t mark,
+                                   TokenType wanted, const char *message) {
+  return check_name_case_inner(p, token, mark, wanted, message, 0);
 }
 // ':' and '!' stay separate tokens; only an adjacent pair spells :!.
 // Recovery moves the bang before trivia, preserving comments and line endings.
@@ -1191,13 +1211,15 @@ static int member_function_head(Parser *p) {
     return 0;
   Token name = p->tokens.items[i];
   TokenType next = p->tokens.items[i + 1].type;
-  if (token_is_identifier(name.type) && next == TOK_LPAREN)
+  if ((token_is_identifier(name.type) || primitive_member_name(name.type)) &&
+      next == TOK_LPAREN)
     return 1;
   return name.type == TOK_LOWER_NAME &&
          ((name.length == 3 && !memcmp(name.start, "ovr", 3)) ||
           (name.length == 4 && !memcmp(name.start, "impl", 4)) ||
           (name.length == 5 && !memcmp(name.start, "trait", 5))) &&
-         (next == TOK_PUB || token_is_name(next));
+         (next == TOK_PUB || token_is_name(next) ||
+          primitive_member_name(next));
 }
 static Decl *declaration(Parser *p, int in_member) {
   Token start = peek(p);
@@ -1268,7 +1290,8 @@ static Decl *declaration(Parser *p, int in_member) {
   }
   if (prefix.type == TOK_LOWER_NAME && prefix.length == 3 &&
       !memcmp(prefix.start, "ovr", 3) &&
-      (next == TOK_PUB || token_is_name(next))) {
+      (next == TOK_PUB || token_is_name(next) ||
+       (in_member && primitive_member_name(next)))) {
     remove_modifier(
         p,
         error_at(
@@ -1336,10 +1359,12 @@ static Decl *declaration(Parser *p, int in_member) {
     error(p, top_level_statement_message);
     return NULL;
   }
-  if (!expect_identifier(
-          p, in_member ? "Expected a function declaration."
-                       : "Expected a declaration (function, struct, or named "
-                         "type)."))
+  if (in_member) {
+    if (!expect_member_name(p, "Expected a function declaration."))
+      return NULL;
+  } else if (!expect_identifier(
+                 p,
+                 "Expected a declaration (function, struct, or named type)."))
     return NULL;
   Token declared = p->previous;
   size_t mark = p->diagnostics->count;
@@ -1449,8 +1474,9 @@ static Decl *declaration(Parser *p, int in_member) {
     return NULL;
   }
   d->span = through(start.span, p->previous.span);
-  check_name_case(p, declared, mark, TOK_LOWER_NAME,
-                  "Function names must start with a lowercase letter.");
+  check_name_case_inner(p, declared, mark, TOK_LOWER_NAME,
+                        "Function names must start with a lowercase letter.",
+                        in_member);
   return d;
 }
 
@@ -2127,7 +2153,8 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
         continue;
       }
       if (match(p, TOK_PERIOD)) {
-        if (!expect_identifier(p, "Expected a field or method name after '.'."))
+        if (!expect_member_name(p,
+                                "Expected a field or method name after '.'."))
           return NULL;
         Expr *e =
             new_expr(p, EXPR_FIELD, through(left->span, p->previous.span));

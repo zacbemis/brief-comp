@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **144 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **146 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -477,10 +477,18 @@ behavior; alias-targeted functions now live on the canonical struct. The new
 mutation permissions and an ordinary function named `impl`.
 `errors/old-impl-blocks.brf` requires rejection without an unsafe relocation
 fix. Typed trait signatures/default bodies still hit the unsupported-trait
-barrier. The inventory is 144 files. Native rejection lines and expectations
+barrier. The inventory was 144 files. Native rejection lines and expectations
 remain unchanged except the declaration message no longer lists retired `impl`
 syntax. Receiver inference, `self`/`&self`, wrong-way rules and N2 behavior
 remain pending.
+
+Primitive-spelled members use the existing owned function representation.
+`primitive-members.brf` executes all eleven primitive spellings, associated and
+explicit receiver calls, alias lookup and ordinary builtin conversions in
+member bodies. `errors/primitive-member-names.brf` permits a casing fix to a
+primitive only for a member function; ordinary function/binding guards remain.
+The inventory is now 146 files. No prior source or expectation is rewritten,
+and JSON/module APIs, receiver inference and N2 behavior are not added.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

@@ -1,0 +1,32 @@
+Values {
+  unit: ()
+  pub bool(value: bool) -> bool { not value }
+  int(value: int) -> int { int(value) + 1 }
+  uint(value: uint) -> uint { value }
+  shrt(value: shrt) -> shrt { value }
+  ushrt(value: ushrt) -> ushrt { value }
+  lng(value: lng) -> lng { value }
+  ulng(value: ulng) -> ulng { value }
+  flt(value: flt) -> flt { value }
+  dbl(value: dbl) -> dbl { value }
+  chr(value: chr) -> chr { value }
+  str(value: int) -> str { str(value) }
+}
+Ref = Values
+Box {
+  value: int
+  str(box: Box) -> str { str(box.value) }
+}
+main() {
+  print(str(Values.bool(false))) // expect: true
+  print(Ref.str(Values.int(41))) // expect: 42
+  print(str(Values.uint(uint(2)))) // expect: 2
+  print(str(Values.shrt(shrt(3)))) // expect: 3
+  print(str(Values.ushrt(ushrt(4)))) // expect: 4
+  print(str(Values.lng(lng(5)))) // expect: 5
+  print(str(Values.ulng(ulng(6)))) // expect: 6
+  print(str(Values.flt(flt(1.25)))) // expect: 1.25
+  print(str(Values.dbl(dbl(2.5)))) // expect: 2.5
+  print(str(Values.chr('a') == 'a')) // expect: true
+  print((Box { value = 7 }).str()) // expect: 7
+}

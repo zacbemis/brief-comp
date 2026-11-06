@@ -1,0 +1,5 @@
+// parse-error: line 4
+// Why: Primitive keywords name function members, not fields or bindings.
+Values {
+  int: int
+}

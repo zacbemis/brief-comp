@@ -1,0 +1,8 @@
+P {
+  unit: ()
+  pub Int(value: int) -> int { value } // error: Function names must start with a lowercase letter. // fix: pub int(value: int) -> int { value }
+}
+Str() {} // error: Function names must start with a lowercase letter.
+main() {
+  let Bool = true // error: Binding names must start with a lowercase letter.
+}
