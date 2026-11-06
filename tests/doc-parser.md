@@ -12,6 +12,9 @@ sample have separate zero-fence listings.
 The separate [current functions native audit](doc-functions-n1.md) checks six
 complete function fences and eight independent prose programs. Its 21 listings
 are not native acceptance; it does not promote or change this parser inventory.
+The [types native audit](doc-types-n1.md) independently checks eight complete
+statement fences and twelve prose programs, with 20 explicit native listings.
+Those body wrappers likewise leave the parser checks/listings unchanged.
 The shared whole-fence reader now preserves mixed LF/CRLF bytes, with CRLF,
 UTF-8 and semicolon integrity checked by the native manifest guards.
 

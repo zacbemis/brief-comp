@@ -259,6 +259,10 @@ A first bounded current-functions native audit is active: six complete fences
 cases and 21 explicit listings. No API stand-ins or incomplete bodies are added
 to a fence. This does not complete function/API acceptance, the other N1 native
 chapter audits or N1 itself; parser counts and N2 policy remain unchanged.
+A scoped types native audit now checks eight unchanged fences, adds twelve
+independent prose programs and lists twenty context/later-feature fences.
+Syntax, modules, the raw base sample and remaining casing/keyword review are
+still pending; no N2/N4/N5 semantics are introduced by either audit.
 
 Primitive keywords now name function members and dotted expression members,
 without broadening ordinary names or type paths. Context-specific casing fixes
@@ -2415,6 +2419,73 @@ listing is promoted there. A scoped functions native audit is now active, but
 audits and keyword/casing review are pending. N1 stays in progress. The reviewed
 `:!blank`/neutral `:empty` split, multi-`:ok` boundary, unsupported trait/module
 and matching scopes, outcome/entry behavior and runtime formatting are unchanged.
+
+### N1 increment: scoped current-types native audit
+
+`test_doc_types_n1.cmake` classifies all 28 fences in `docs/lang-types.txt`,
+guarded by the current document hash. Six whole statement fences execute with
+only an enclosing entry point and trailing observers: default numeric types,
+integer-division statements, concatenation, sharing, escaped newline and
+character/UTF-8 literals. The complete overflow fence reaches its first shrt
+panic, checked for message, source line and status 1; its later uint decrement
+is not extracted or claimed reached. One complete rejection fence checks all
+three explicit-conversion errors, with exact messages and original lines 2, 4
+and 7 mapped to generated lines 3, 5 and 8. Every quoted byte remains intact.
+
+The other 20 fences stay explicit context/later-feature listings. Missing
+User/collection APIs, numeric inputs, duplicate alternatives, tuple/Fn forms,
+planned `same`, interpolation and index/unfilled-array examples receive no
+stand-ins or replacement bodies. Unsupported syntax or unknown-name rejection
+does not prove their documented errors. Bare expression statements execute
+unchanged; their values are checked separately, not by extracting expressions.
+The character observer uses equality and numeric conversion, not an invented
+`str(chr)` implementation or UTF-8 length API.
+
+Twelve independent prose programs cover contextual/direct/pipeline literals,
+typed widening, integer-to-float conversion, owned invalid text with a zero
+byte, narrowing/fractional failure, signed zero/infinity/NaN, signed division
+and remainder, power, same-width right shift, owned-string sharing/ordering,
+real struct content equality, cycle-capable equality rejection and literal
+range rejection. Separate programs exercise uint underflow, signed-minimum
+division and division/remainder by zero. There are 20 cases in total: 17 native
+executions (five expected panics) and three compiler-rejection programs. Prose
+does not complete a context-dependent fence or implement the planned identity
+API. Cross-width shifts, interpolation and N2/N3 policy remain deferred.
+
+The shared native harness adds byte-preserving body wrappers. Diagnostic
+expectations remain outside quoted code; multiple exact messages and lines are
+stored independently so semicolons do not split a message. Checking validates
+ordered primary records, counts, status 1, no C, frame-adjusted locations,
+unexpected fixes and sanitizer reports. Existing function-fence generation and
+expectations are unchanged. The compiler-free manifest positive now verifies
+both wrapper forms, mixed LF/CRLF, UTF-8, semicolons and multi-error offsets.
+Its twelve negative guards include malformed message/line pairs, invalid source
+lines and listed-as-body attempts. The actual three-error fence independently
+exercises a semicolon-bearing compiler message.
+
+Both audits share normal/sanitized registration without changing their paths
+or support gate. Types sources and reports are generated under
+`build/tests/current-doc-types/` and its `_sanitized` counterpart. The existing
+functions audit still passes unchanged. No production compiler, IR/RC, runtime,
+tracked Brief fixture or frozen document changes. The reviewed `:!blank` versus
+neutral `:empty` split and the multi-`:ok` ABI boundary are untouched.
+
+Validation preserves all 372 retained complete CLI results and 112 prior C
+outputs: the earlier 358/104 plus the committed functions audit's 14/8. The 20
+new cases preserve baseline compiler results, including 17 byte-identical C
+outputs. The baseline compiler passes the whole new audit normally and with
+sanitizers. Independent byte checks cover all eight whole-fence body wrappers.
+All six examples preserve sanitized stdout/stderr/status. Four fresh `-Werror`
+configurations pass: GCC/Clang Debug ASan/UBSan and GCC Release, 31/31 each;
+GCC Debug without sanitizers, 28/28. Pinned clang-format 23.1.3, diff/prose
+checks, unchanged plan design/table and the 23-ending CRLF fixture pass.
+Evidence stays under `build/validation/types-native.20261106T185048Z/` (ignored).
+
+Inventories stay 156 native fixtures, 155 parser files (41 pass, 114 fail), 239
+language fences and 162 parser checks. Functions and types have scoped native
+audits, not full API acceptance; the types audit still lists 20 fences. Syntax,
+modules, the raw base sample and remaining casing/keyword review remain pending.
+N1 stays in progress, with no changes to outcomes, entry policy or formatting.
 
 ## Risks
 

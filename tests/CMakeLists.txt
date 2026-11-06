@@ -83,37 +83,41 @@ add_test(NAME test_doc_parser_manifest
         -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_parser_manifest.cmake)
 set_tests_properties(test_doc_parser_manifest PROPERTIES LABELS doc-parser TIMEOUT 15)
 
-# Current functions audit: unchanged whole fences plus entry observers, with
-# separate prose programs and explicit listings (never v0 adapters/API mocks).
-set(function_audit_modes normal)
-if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
-    list(APPEND function_audit_modes sanitized)
-endif()
-foreach(mode IN LISTS function_audit_modes)
-    set(suffix "")
-    set(debug OFF)
-    if(mode STREQUAL "sanitized")
-        set(suffix "_sanitized")
-        set(debug ON)
+# Current native audits: unchanged whole fences with only entry/observer
+# context, separate prose programs and explicit listings (no v0/API mocks).
+function(add_current_native_audit chapter)
+    set(modes normal)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
+        list(APPEND modes sanitized)
     endif()
-    add_test(NAME test_doc_functions_n1${suffix}
-        COMMAND ${CMAKE_COMMAND}
-            -DBRIEF=$<TARGET_FILE:brief>
-            -DRUNNER=$<TARGET_FILE:run_programs>
-            -DCC=${CMAKE_C_COMPILER}
-            -DROOT=${CMAKE_SOURCE_DIR}
-            -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/current-doc-functions${suffix}
-            -DDEBUG=${debug}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_functions_n1.cmake)
-    set_tests_properties(test_doc_functions_n1${suffix} PROPERTIES
-        LABELS "doc-native;doc-functions" TIMEOUT 180)
-endforeach()
+    foreach(mode IN LISTS modes)
+        set(suffix "")
+        set(debug OFF)
+        if(mode STREQUAL "sanitized")
+            set(suffix "_sanitized")
+            set(debug ON)
+        endif()
+        add_test(NAME test_doc_${chapter}_n1${suffix}
+            COMMAND ${CMAKE_COMMAND}
+                -DBRIEF=$<TARGET_FILE:brief>
+                -DRUNNER=$<TARGET_FILE:run_programs>
+                -DCC=${CMAKE_C_COMPILER}
+                -DROOT=${CMAKE_SOURCE_DIR}
+                -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/current-doc-${chapter}${suffix}
+                -DDEBUG=${debug}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_${chapter}_n1.cmake)
+        set_tests_properties(test_doc_${chapter}_n1${suffix} PROPERTIES
+            LABELS "doc-native;doc-${chapter}" TIMEOUT 180)
+    endforeach()
+endfunction()
+add_current_native_audit(functions)
+add_current_native_audit(types)
 add_test(NAME test_doc_native_manifest
     COMMAND ${CMAKE_COMMAND}
         -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/doc-native-manifest-fixtures
         -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_native_manifest.cmake)
 set_tests_properties(test_doc_native_manifest PROPERTIES
-    LABELS "doc-native;doc-functions" TIMEOUT 30)
+    LABELS "doc-native;doc-functions;doc-types" TIMEOUT 30)
 
 # Run alone with `ctest -L parse-examples`, or skip with `-LE parse-examples`.
 add_test(NAME test_parse_examples
