@@ -970,8 +970,119 @@ int main(void) {
     ASSERT_TRUE(sema_tag(p, p->module, "okay") != sema_tag(p, other, "okay"));
     ASSERT_TRUE(sema_tag(p, p->module, "noneThing") !=
                 sema_tag(p, other, "noneThing"));
-    // Reserving :none's meaning/payload is a semantic change for N2, not N0.
-    valid(&a, "main() { :none[7] }");
+    // N2 reserves :none for absence, not a data-bearing constructor.
+    invalid(&a, "main() { :none[7] }", "':none' cannot carry a payload.");
+  }
+  TEST(
+      "none has zero semantic positions, including in canonical constructors") {
+    Result r = valid(&a, "Empty = :none\nAgain = :none[]\n"
+                         "Maybe = :some[int] | Empty\n"
+                         "main() { let value: Maybe = :none[]\n"
+                         "value |> { :none[] => ()\n:some[x] => () } }");
+    SemaProgram *p = r.program;
+    SemaTag *none = sema_tag(p, p->module, "none");
+    const SemaType *empty = r.program->aliases[0].type;
+    ASSERT_TRUE(empty == r.program->aliases[1].type);
+    ASSERT_TRUE(empty == sema_symbol_type(p, none, NULL));
+    ASSERT_EQ_INT(0, sema_variant(empty, none)->payload_count);
+    ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, none->kind);
+    ASSERT_TRUE(!none->module);
+    const SemaType *payloads[] = {&p->types[SEMA_UNIT], &p->types[SEMA_INT],
+                                  &p->types[SEMA_STR]};
+    SemaTag *other = sema_tag(p, p->module, "other");
+    size_t sets = p->symbol_set_count;
+    for (size_t count = 1; count <= 3; count++) {
+      SemaVariant variants[] = {{other, NULL, 0}, {none, payloads, count}};
+      SemaVariant saved[2];
+      memcpy(saved, variants, sizeof(saved));
+      ASSERT_TRUE(sema_symbol_set(p, variants, 2) == NULL);
+      ASSERT_TRUE(sema_symbol_set(p, variants + 1, 1) == NULL);
+      ASSERT_EQ_INT(sets, p->symbol_set_count);
+      ASSERT_TRUE(!memcmp(saved, variants, sizeof(saved)));
+    }
+    for (size_t i = 0; i < 3; i++)
+      ASSERT_TRUE(sema_symbol_type(p, none, payloads[i]) == NULL);
+    ASSERT_EQ_INT(sets, p->symbol_set_count);
+    // Only the shared reserved tag changes, not similarly named data tags.
+    ASSERT_TRUE(sema_symbol_type(p, sema_tag(p, p->module, "noneThing"),
+                                 &p->types[SEMA_UNIT]) != NULL);
+  }
+  TEST("none payload rejection is primary, exact and source preserving") {
+    const char *cases[] = {
+        "A = :none[int]\nmain() {}",
+        "A = :none[()]\nmain() {}",
+        "A = :none[int, str]\nmain() {}",
+        "A = :none[Missing]\nmain() {}",
+        "A = :none[A]\nmain() {}",
+        "A = B\nB = :none[A]\nmain() {}",
+        "A = :outer[:none[Missing]]\nmain() {}",
+        "Holder { field: :none[int] }\nmain() {}",
+        "f(x: :none[int]) {}\nmain() {}",
+        "f() -> :none[int] {}\nmain() {}",
+        "f() -> :ok[int] | :none[int] | _ { 1 }\nmain() {}",
+        "main() { let value: :none[int] = :none }",
+        "main() { :none[7] }",
+        "main() { :none[()] }",
+        "main() { :none[unknown, missing()] }",
+        "main() { :outer[:none[missing()]] }",
+        "main() { ret\n:none[missing()] }",
+        "main() { :none |> { :none[x] => missing(x) } }",
+        "main() { :none |> { :none[_] => missing() } }",
+        "main() { :none |> { :none[()] => missing() } }",
+        "main() { :none |> { :none[x, y] => missing(x, y) } }",
+        "main() { :none |> { :none[x: Missing] => missing(x) } }"};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++)
+      for (unsigned crlf = 0; crlf < 2; crlf++) {
+        char text[512];
+        size_t length = 0;
+        for (const char *s = cases[i]; *s; s++) {
+          if (crlf && *s == '\n')
+            text[length++] = '\r';
+          text[length++] = *s;
+        }
+        text[length] = 0;
+        const char *at = strstr(text, ":none[");
+        ASSERT_TRUE(at != NULL);
+        if (!at)
+          continue;
+        for (unsigned repeat = 0; repeat < 2; repeat++) {
+          Result r = check(&a, text);
+          if (r.errors.count != 1)
+            diagnostics_print(&r.errors, stderr);
+          ASSERT_EQ_INT(1, r.errors.count);
+          ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+          ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+          ASSERT_EQ_INT(length, r.program->module->length);
+          ASSERT_TRUE(!memcmp(text, r.program->module->text, length));
+          if (r.errors.count) {
+            Diagnostic *d = r.errors.items[0];
+            ASSERT_EQ_INT(
+                0, strcmp("':none' cannot carry a payload.", d->message));
+            ASSERT_EQ_INT((size_t)(at - text), d->span.start);
+            ASSERT_EQ_INT(d->span.start + 5, d->span.end);
+            ASSERT_TRUE(!d->fixes && !d->notes);
+          }
+        }
+      }
+  }
+  TEST("none payload rules do not bypass unsupported enclosing scopes") {
+    const char *sources[] = {
+        "A = Db.:bad[:none[Missing]]\nmain() {}",
+        "main() { Arr[int] { :none[missing()] } }",
+        "main() { :other |> { :outer[x: :none[Missing]] => x } }",
+        "main() { :!none }"};
+    const char *messages[] = {
+        "Module-qualified symbols are not implemented yet.",
+        "Collection literals are not implemented yet.",
+        "Typed symbol payload patterns are not implemented yet.",
+        "':ok' and ':none' are neutral symbols and cannot use ':!'."};
+    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
+      Result r = invalid(&a, sources[i], messages[i]);
+      ASSERT_EQ_INT(1, r.errors.count);
+      ASSERT_TRUE(!r.program->resolved);
+      if (r.errors.count)
+        ASSERT_TRUE(!r.errors.items[0]->fixes);
+    }
   }
   TEST("intentional neutral source/converter tags retain N1 module metadata") {
     Result r =

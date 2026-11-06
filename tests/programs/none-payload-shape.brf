@@ -1,0 +1,24 @@
+// expect: equal
+// expect: none
+// expect: 7
+// expect: unit data
+Empty = :none
+Same = :none[]
+Maybe = :some[int] | Empty
+choose(found: bool) -> Maybe {
+  if found { :some[7] } else { :none[] }
+}
+main() {
+  let first: Empty = :none
+  let second: Same = :none[]
+  if first == second { print("equal") }
+  choose(false) |> {
+    :none[] => print("none")
+    :some[value] => print(str(value))
+  }
+  choose(true) |> {
+    :none => print("none")
+    :some[value] => print(str(value))
+  }
+  :noneThing[()] |> { :noneThing[_] => print("unit data") }
+}

@@ -324,7 +324,8 @@ SemaTag *sema_declare_tag(SemaProgram *program, const SourceFile *module,
                           const char *name, SemaTagKind kind, Span span,
                           Diagnostics *errors);
 const SemaVariant *sema_variant(const SemaType *type, const SemaTag *tag);
-// Interns a set; NULL indicates conflicting payloads. No empty sets are made.
+// Interns a set; NULL rejects conflicting/malformed schemas or a :none payload.
+// No empty sets are made.
 const SemaType *sema_symbol_set(SemaProgram *program,
                                 const SemaVariant *variants, size_t count);
 const SemaType *sema_symbol_union(SemaProgram *program, const SemaType *a,

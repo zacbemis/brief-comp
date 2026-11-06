@@ -519,6 +519,47 @@ foreach(command dump-ast emit-c)
     endif()
 endforeach()
 
+# :none keeps its zero-position syntax. Payload rejection is semantic, and
+# must precede unavailable payload names/bodies without a destructive fix.
+set(none_payloads "${TEST_DIR}/none-payloads.brf")
+file(WRITE "${none_payloads}" "Bad = :none[Missing]\r\nmain() {\r\n  :none[missing()]\r\n  :none |> { :none[x: Missing] => absent(x) }\r\n}\r\n")
+file(SHA256 "${none_payloads}" none_hash)
+execute_process(COMMAND "${BRIEF}" dump-ast "${none_payloads}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
+   NOT output MATCHES "^\\(program" OR NOT output MATCHES "Missing" OR
+   NOT output MATCHES "missing" OR NOT output MATCHES "absent")
+    message(FATAL_ERROR "none payload syntax was lost (${status}):\n${errors}\n${output}")
+endif()
+set(none_output "${TEST_DIR}/none-payload-output")
+file(REMOVE "${none_output}")
+foreach(command IN ITEMS emit-c build run)
+    set(arguments "${none_payloads}")
+    if(command STREQUAL "build")
+        list(APPEND arguments -o "${none_output}")
+    endif()
+    execute_process(COMMAND "${BRIEF}" "${command}" ${arguments}
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    string(REGEX MATCHALL "(^|\n)error: ':none' cannot carry a payload\\." found "${errors}")
+    list(LENGTH found found)
+    string(REGEX MATCHALL "(^|\n)error:" all_errors "${errors}")
+    list(LENGTH all_errors all_errors)
+    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT found EQUAL 3 OR
+       NOT all_errors EQUAL 3 OR
+       EXISTS "${none_output}" OR errors MATCHES "Unknown|not implemented|help:|AddressSanitizer|runtime error:")
+        message(FATAL_ERROR "none payload escaped rejection (${command}, ${status}):\n${errors}\n${output}")
+    endif()
+    foreach(line IN ITEMS 1 3 4)
+        if(NOT errors MATCHES ":${line}:[0-9]+\n")
+            message(FATAL_ERROR "none payload lost its source line: ${errors}")
+        endif()
+    endforeach()
+    file(SHA256 "${none_payloads}" after_hash)
+    if(NOT after_hash STREQUAL none_hash)
+        message(FATAL_ERROR "none payload rejection changed source bytes")
+    endif()
+endforeach()
+
 set(old_union "${TEST_DIR}/old-union.brf")
 file(WRITE "${old_union}" "E = Sym<:a,:b>\r\nmain() {}\r\n")
 foreach(command dump-ast emit-c)

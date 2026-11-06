@@ -1,6 +1,6 @@
 # Document acceptance status
 
-**N1 is complete for its milestone scope; N2 has not started.** The
+**N1 is complete for its milestone scope; N2 is in progress.** The
 [final review](next-version-n1-review.md) checks all three completion criteria.
 First-version native document audits and all spelling bridges have been retired
 as required by `docs/plans/next-version.txt`. Executable scripts and CTest
@@ -76,7 +76,13 @@ Listed cases return with their actual dependencies, not rewritten v0 scaffolds.
 Current module-name grammar and reserved-mod behavior are covered; external
 filename/discovery rules stay with the bootstrap module loader.
 
-Remaining milestones (none advanced by this review):
+N2's first slice rejects nonempty `:none` payload lists in types, values and
+patterns, including `()`. Empty `:none[]` remains the payload-less form. These
+unit/native regressions do not promote a fence or complete a N2 chapter audit.
+Outcome classification, propagation, exact returns, implicit endings and entry
+policy/formatting still await their N2 slices.
+
+Remaining milestone work:
 
 - **N2:** symbols and errors sections 1–5 and 7–12.
 - **N3:** error handling section 6, pipelines and memory.

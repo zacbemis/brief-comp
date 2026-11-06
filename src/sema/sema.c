@@ -85,6 +85,17 @@ static SemaTag *tag(Resolver *r, const char *name, SymbolKind kind, Span span) {
                                                : SEMA_TAG_NEUTRAL,
                           span, r->errors);
 }
+static int none_payload(const char *name, SymbolKind kind, size_t count) {
+  return kind == SYMBOL_NEUTRAL && count && !strcmp(name, "none");
+}
+static int reject_none_payload(Resolver *r, const char *name, SymbolKind kind,
+                               size_t count, Span span) {
+  if (!none_payload(name, kind, count))
+    return 0;
+  // Dropping payload syntax could drop effects or change a pattern's meaning.
+  diagnostics_error(r->errors, span, "':none' cannot carry a payload.");
+  return 1;
+}
 static const SemaType *type(Resolver *r, const Type *syntax) {
   if (!syntax)
     return &r->program->types[SEMA_UNKNOWN];
@@ -121,6 +132,12 @@ static const SemaType *type(Resolver *r, const Type *syntax) {
           diagnostics_error(
               r->errors, entry.span,
               "Module-qualified symbols are not implemented yet.");
+          valid = 0;
+          continue;
+        }
+        if (reject_none_payload(r, entry.tag, entry.kind, entry.count,
+                                entry.tag_span.file ? entry.tag_span
+                                                    : entry.span)) {
           valid = 0;
           continue;
         }
@@ -195,8 +212,9 @@ static void alias_dependencies(Resolver *r, const Type *syntax,
     for (size_t i = 0; i < syntax->as.union_type.count; i++) {
       UnionEntry entry = syntax->as.union_type.items[i];
       if (entry.module ||
-          (entry.tag && !strcmp(entry.tag, "ok") && entry.count > 1))
-        continue; // Unavailable payloads create no local alias edges.
+          (entry.tag && !strcmp(entry.tag, "ok") && entry.count > 1) ||
+          (entry.tag && none_payload(entry.tag, entry.kind, entry.count)))
+        continue; // Unavailable/invalid payloads create no local alias edges.
       if (entry.type)
         alias_dependencies(r, entry.type, head);
       for (size_t j = 0; j < entry.count; j++)
@@ -693,6 +711,14 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
           a->invalid = 1;
           a->body = unsupported(
               r, p->span, "Multiple ':ok' payloads are not implemented yet.");
+        } else if (p->kind == PAT_SYMBOL &&
+                   reject_none_payload(r, p->as.symbol.tag, p->as.symbol.kind,
+                                       p->as.symbol.count,
+                                       p->as.symbol.tag_span.file
+                                           ? p->as.symbol.tag_span
+                                           : p->span)) {
+          a->invalid = 1;
+          a->body = node(r, SEMA_EXPR_ERROR, p->span);
         } else if (typed) {
           a->invalid = 1;
           a->body = unsupported(
@@ -768,6 +794,10 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     if (s->as.symbol.count > 1 && !strcmp(s->as.symbol.tag, "ok"))
       return unsupported(r, s->span,
                          "Multiple ':ok' payloads are not implemented yet.");
+    if (reject_none_payload(
+            r, s->as.symbol.tag, s->as.symbol.kind, s->as.symbol.count,
+            s->as.symbol.tag_span.file ? s->as.symbol.tag_span : s->span))
+      return node(r, SEMA_EXPR_ERROR, s->span);
     e = node(r, SEMA_EXPR_SYMBOL, s->span);
     e->as.symbol.tag =
         tag(r, s->as.symbol.tag, s->as.symbol.kind,

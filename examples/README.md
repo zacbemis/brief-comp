@@ -27,8 +27,9 @@ ctest --test-dir build -L native-examples --output-on-failure
 
 This is independent example coverage, not acceptance of the mixed raw reference
 sheet in `docs/lang-ex-base.txt`.
-The [N1 review](../tests/next-version-n1-review.md) is complete; N2/N3 semantics
-are unchanged.
+The [N1 review](../tests/next-version-n1-review.md) is complete. N2's first
+reserved-:none-payload slice changes none of the sources or their observations;
+outcome handling and entry behavior remain unchanged.
 
 | Program | What it does | Language features it shows |
 |---|---|---|

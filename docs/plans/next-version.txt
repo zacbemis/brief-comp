@@ -1,6 +1,6 @@
 # Plan: Moving the Compiler to the Next-Version Language
 
-> **Status: N0 and N1 complete; N2 not started.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
+> **Status: N0 and N1 complete; N2 in progress.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
 
 ## Goal
 
@@ -216,8 +216,9 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 ## Implementation progress
 
 N0 and N1 are complete for their milestone scope. The final N1 review is in
-`tests/next-version-n1-review.md`; N2 has not started. This does not complete the
-next-version language or claim native acceptance of listed APIs/fragments.
+`tests/next-version-n1-review.md`. N2 has begun with the reserved :none payload
+invariant below. This does not complete the next-version language or claim
+native acceptance of listed APIs/fragments.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -285,7 +286,7 @@ now preserves the entire unfenced mixed sheet as one unaccepted listing; six
 complete independent examples run in normal/sanitized CI with pinned source
 hashes and committed output/status expectations. All five N1 audit entry points
 exist, and final completeness review closes N1 against its three criteria.
-No N2/N4/N5 policy is introduced.
+N1 introduced no N2/N4/N5 policy.
 
 Primitive keywords now name function members and dotted expression members,
 without broadening ordinary names or type paths. Context-specific casing fixes
@@ -319,6 +320,21 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
 - [x] N0 (3): neutral tag kinds and module identity.
+
+### N2 (in progress): reserved :none payload shape
+
+- [x] :none has zero payload positions in source and canonical semantic sets.
+- [ ] Error-kind outcome classification, intrinsic conversion error kinds,
+  no-error postfix rejection and error-only propagation/extraction.
+- [ ] Exact returns and only-:ok normalization without implicit call wrapping.
+- [ ] :none endings and the payload-less :ok/:none ambiguity diagnostic.
+- [ ] Entry status by active error kind and the new diagnostic formatter.
+- [ ] Scoped symbols/errors native audits for N2's available rules.
+
+The first N2 slice implements only the reserved neutral :none shape. Its native
+and unit regressions are not acceptance of the later outcome or optional-ending
+rules. The detailed slice and changed-expectation inventory follow the N1
+historical records below.
 
 ### Historical implementation checkpoints
 
@@ -2750,6 +2766,72 @@ stay unchanged. The native inventory's Today cell now reflects completed N1
 receiver/call grammar. Historical progress remains historical. N2 is not started;
 kind-based outcomes, handling, entry/formatting, N4/N5 and bootstrap boundaries
 are unchanged. Stop for review before advancing another milestone.
+
+### N2 increment: :none cannot carry a payload
+
+Starting from reviewed N1 commit 17714e2, this bounded slice reserves :none for
+absence, as specified by lang-symbols and lang-errors section 10. Both :none
+and :none[] have zero semantic positions and retain their canonical identity.
+Any nonempty payload list, including one () slot, reports exactly
+`':none' cannot carry a payload.` at the original :none tag span, without a fix.
+There is no guessed replacement tag or deletion of potentially effectful code.
+
+Resolution checks type entries, values and top-level symbol patterns before
+resolving invalid payload names/bodies. Invalid :none payloads add no alias
+dependency edges, so a spurious cycle cannot hide this primary error. Canonical
+set construction also returns NULL for a nonempty shared :none schema without
+interning a partial set or mutating the caller's arrays. Valid zero-position
+forms, neutral kind/module identity and other tags' unit payloads are unchanged.
+Enclosing unavailable module/collection/typed-pattern scopes still take priority;
+this does not implement those features or error-kind outcome handling.
+
+Changed existing expectations (complete list for review):
+
+1. `tests/test_symbols.c`, "ok and none are shared by every module without eager
+   allocation": `main() { :none[7] }` was valid and emitted C.
+   It now has one `':none' cannot carry a payload.` diagnostic, source line 1,
+   column 10, on the unchanged :none span. It has no fix, is unresolved/unchecked
+   and cannot lower or emit C. This is the plan's reserved-payload rule, not a
+   change in optional handling or entry status. No other existing expectation
+   changes; prior output/panic/status/message/error-line and fix markers stay.
+
+New regressions have no prior committed expectations: 22 invalid source forms,
+in LF/CRLF and repeat resolution, pin the exact message/span, one primary error,
+no fixes, source immutability and blocked lowering. They include aliases and
+forward cycles, nested payloads, fields, parameters, return/local annotations,
+partial returns, unreachable values, unit/wildcard/multiple/typed pattern slots
+and unavailable payload names/bodies. Constructor tests reject one through three
+positions and preserve set counts, arrays and the valid zero-position identity.
+Four scope/kind controls retain their earlier boundaries.
+
+New `none-payload-shape.brf` checks zero-position aliases/construction/matching,
+optional data and an unrelated unit payload: stdout is equal/none/7/unit data,
+empty stderr and exit 0. It emits identical C and has identical sanitized
+observations under the saved baseline compiler. New `errors/none-payloads.brf`
+requires all 17 source-located rejection diagnostics, with no fix. A new CRLF CLI
+case still dumps its complete AST but rejects emit-c/build/run with exactly
+three primary errors on original lines 1/3/4, no executable and unchanged bytes.
+These are independently authored native regressions, not document fences.
+
+Validation: all 438 retained complete CLI comparisons and 150 previous C outputs
+are identical. The old none[7] AST/source stays identical while its semantic
+acceptance changes as listed above. All six original examples preserve sanitized
+stdout/stderr/status and their CI goldens are untouched. Fresh -Werror GCC Debug
+ASan/UBSan, Clang Debug ASan/UBSan and GCC Release suites pass 37/37 each;
+unsanitized GCC Debug passes 31/31. The first new span test incorrectly assumed
+tag metadata excluded the colon; its expected span was corrected to the existing
+five-byte :none convention, not by changing source or diagnostics. Formatter
+23.1.3, diff/prose/design and the 23-ending CRLF checks pass. Evidence remains
+ignored under `build/validation/n2-none.20261106T204802Z/`.
+
+Current native inventory is 158 fixtures; parser files remain 155, language
+fences 239 and parser checks 162, with 77 fenced and two unfenced listings. The
+pre-progress design/test table remains the N1 baseline. No document fence is
+promoted, no source or expectation in existing Brief fixtures/examples changes,
+and no IR/RC, runtime, entry policy, formatting, N3 handling or N4/N5 changes.
+The top status keeps its reviewed single-line form, changing only status words;
+all pre-progress design/table text is unchanged. N1 stays complete, N2 stays in
+progress, and the remaining N2 checklist is deliberately open. Stop for review.
 
 ## Risks
 

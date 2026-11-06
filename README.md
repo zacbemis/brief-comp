@@ -129,8 +129,12 @@ potentially effectful receiver evaluation is never discarded by a fix.
 Pipelines prefer actual self methods, then visible module functions; an
 associated function does not masquerade as a method. Fixtures, examples and
 embedded native sources use the new forms. N1 is complete for its milestone
-scope; see [the final review](tests/next-version-n1-review.md). N2 has not
-started.
+scope; see [the final review](tests/next-version-n1-review.md).
+
+N2 begins with the reserved neutral `:none` payload rule: `:none` and `:none[]`
+stay valid, but any payload, including `()`, is rejected without a guessed fix.
+Kind-based outcome handling, propagation, exact returns, entry status and the
+new formatter remain pending; existing behavior is unchanged for those rules.
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and

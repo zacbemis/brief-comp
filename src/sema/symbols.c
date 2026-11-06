@@ -277,7 +277,9 @@ const SemaType *sema_symbol_set(SemaProgram *p, const SemaVariant *variants,
   if (!count)
     return NULL;
   for (size_t i = 0; i < count; i++) {
-    if (variants[i].payload_count && !variants[i].payloads)
+    if (variants[i].payload_count &&
+        (!variants[i].payloads ||
+         (!variants[i].tag->module && !strcmp(variants[i].tag->name, "none"))))
       return NULL;
     for (size_t j = 0; j < variants[i].payload_count; j++)
       if (!variants[i].payloads[j])

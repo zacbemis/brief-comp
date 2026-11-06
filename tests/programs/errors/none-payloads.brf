@@ -1,0 +1,19 @@
+WithValue = :none[int] // error: ':none' cannot carry a payload.
+WithUnit = :none[()] // error: ':none' cannot carry a payload.
+WithMany = :none[int, str] // error: ':none' cannot carry a payload.
+MissingType = :none[Missing] // error: ':none' cannot carry a payload.
+Cycle = :none[Cycle] // error: ':none' cannot carry a payload.
+Holder { value: :none[int] } // error: ':none' cannot carry a payload.
+take(value: :none[int]) {} // error: ':none' cannot carry a payload.
+result() -> :none[int] {} // error: ':none' cannot carry a payload.
+main() {
+  :none[7] // error: ':none' cannot carry a payload.
+  :none[()] // error: ':none' cannot carry a payload.
+  :none[unknown, missing()] // error: ':none' cannot carry a payload.
+  :outer[:none[missing()]] // error: ':none' cannot carry a payload.
+  :none |> { :none[x] => missing(x) } // error: ':none' cannot carry a payload.
+  :none |> { :none[_] => missing() } // error: ':none' cannot carry a payload.
+  :none |> { :none[()] => missing() } // error: ':none' cannot carry a payload.
+  :none |> { :none[x, y] => missing(x, y) } // error: ':none' cannot carry a payload.
+  :none |> { :none[x: Missing] => missing(x) } // error: ':none' cannot carry a payload.
+}
