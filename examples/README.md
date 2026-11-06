@@ -5,7 +5,10 @@ updates as they are implemented: `not`, `dbl`, `->` returns, keyword-free
 aliases, `=` literal fields and functions inside struct bodies. Methods infer
 readonly receivers from `self`, or write `&self` for mutation. Associated
 functions remain type-qualified; ordinary owner-typed parameters are not
-implicit receivers. Each program runs on its own:
+implicit receivers. Unambiguous failure tags use `:!name` in types, values and
+patterns. Shared `:ok` and optional `:none` stay neutral. Outcome handling and
+runtime spelling still follow the first version until N2; these are source
+spelling changes, not an outcome-policy switch. Each program runs on its own:
 
 ```sh
 ./build/brief run examples/calendar.brf

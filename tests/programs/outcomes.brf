@@ -14,20 +14,20 @@ double(n: int) -> int { n * 2 }
 done() -> :ok[()] { () }
 text() -> :ok[str] { :ok["te" + "xt"] }
 data() -> :ok[:found[str] | :empty] { :ok[:found["x" + "y"]] }
-read(n: int) -> :ok[str] | :bad[int] {
-  if n == 0 { ret :bad[n] }
+read(n: int) -> :ok[str] | :!bad[int] {
+  if n == 0 { ret :!bad[n] }
   if n == 1 { :ok["one"] } else { "two" }
 }
-append(s: str) -> :ok[str] | :empty {
-  if s == "" { ret :empty }
+append(s: str) -> :ok[str] | :!blank {
+  if s == "" { ret :!blank }
   s + "!"
 }
 f(n: int) {
-  if n == 0 { ret :first }
+  if n == 0 { ret :!first }
   g(n - 1)?
 }
 g(n: int) {
-  if n == 0 { ret :second }
+  if n == 0 { ret :!second }
   if n == 1 { ret 0.5 }
   f(n - 1)?
 }
@@ -41,12 +41,12 @@ main() {
   for i in 0..3 {
     read(i) |> {
       :ok[value] => print(value)
-      :bad[n] => print("bad: " + str(n))
+      :!bad[n] => print("bad: " + str(n))
     }
   }
   f(1) |> { :ok[_] => ()
-    :first => print("wrong")
-    :second => print("second") }
+    :!first => print("wrong")
+    :!second => print("second") }
   print(str(f(2)!))
   data() |> { :ok[inner] => inner |> { :found[s] => print(s)
     :empty => () } }

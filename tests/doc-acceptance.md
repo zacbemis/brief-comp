@@ -93,6 +93,13 @@ explicit boundary of the first-version success ABI. Parser counts do not
 change, and native fixtures are not replacement whole-chapter audits. No fence
 is promoted and no replacement native chapter audit is complete.
 
+Five examples and fourteen native fixtures now spell unambiguous failure tags
+with `:!`. Full-source AST checks guard those kinds without changing native
+observations or claiming a document audit. Optional `:none` stays neutral, and
+`outcomes.brf`'s mixed `:empty` was split into data `:empty` and failure
+`:!blank`. Embedded C-test source conversion remains explicitly deferred. No
+document fence is promoted, and N1 stays in progress.
+
 ## N1 spelling bridges
 
 The early `not`, `dbl` and return-header spelling bridges are deleted. References

@@ -10,9 +10,9 @@ wrap(h: Holder) {
   Node { text = str(count) }
 }
 replace(h: &Holder) { h.text = "changed" }
-first(value: :ok[int] | :invalid[str], ignored: ()) { value |> {
+first(value: :ok[int] | :!invalid[str], ignored: ()) { value |> {
   :ok[n] => str(n)
-  :invalid[original] => original
+  :!invalid[original] => original
 } }
 main() {
   var total = 0
@@ -21,7 +21,7 @@ main() {
     wrap(h) |> {
       :ok[node] => { total += 1
         if i % 4 == 1 { continue } }
-      rest => rest |> { :invalid[original] => {
+      rest => rest |> { :!invalid[original] => {
         if original == "" { print("wrong") }
         continue
       } }

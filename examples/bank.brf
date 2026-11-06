@@ -5,8 +5,8 @@
 // functions it calls, and callers must handle every case.
 
 Kind = :checking | :savings
-BankError = :noAccount[int] | :badAmount[lng] | :frozen[int] |
-  :insufficient[Shortfall] | :sameAccount
+BankError = :!noAccount[int] | :!badAmount[lng] | :!frozen[int] |
+  :!insufficient[Shortfall] | :!sameAccount
 
 Shortfall {
   id: int
@@ -40,19 +40,19 @@ Account {
   }
 
   deposit(&self, amount: lng, label: str) ->
-    :ok | :badAmount[lng] | :frozen[int] {
-    if amount <= 0 { ret :badAmount[amount] }
-    if self.frozen { ret :frozen[self.id] }
+    :ok | :!badAmount[lng] | :!frozen[int] {
+    if amount <= 0 { ret :!badAmount[amount] }
+    if self.frozen { ret :!frozen[self.id] }
     self.record(label, amount)
   }
 
-  // The withdrawal's error set is inferred: :badAmount, :frozen and
-  // :insufficient, from the returns below.
+  // The withdrawal's error set is inferred: :!badAmount, :!frozen and
+  // :!insufficient, from the returns below.
   withdraw(&self, amount: lng, label: str) {
-    if amount <= 0 { ret :badAmount[amount] }
-    if self.frozen { ret :frozen[self.id] }
+    if amount <= 0 { ret :!badAmount[amount] }
+    if self.frozen { ret :!frozen[self.id] }
     if amount > self.balance {
-      ret :insufficient[Shortfall { id = self.id, needed = amount - self.balance }]
+      ret :!insufficient[Shortfall { id = self.id, needed = amount - self.balance }]
     }
     self.record(label, -amount)
   }
@@ -86,11 +86,11 @@ Bank {
   }
 
   // Taking the bank as & makes the account it returns writable.
-  find(&self, id: int) -> :ok[Account] | :noAccount[int] {
+  find(&self, id: int) -> :ok[Account] | :!noAccount[int] {
     var cursor = self.accounts
     while true {
       let node = cursor |> {
-        :none => ret :noAccount[id]
+        :none => ret :!noAccount[id]
         :more[node] => node
       }
       if node.account.id == id { ret node.account }
@@ -101,10 +101,10 @@ Bank {
   // Checks everything before moving money, so a failed transfer changes
   // nothing. The return type is inferred from every ? and ret.
   transfer(&self, from: int, to: int, amount: lng) {
-    if from == to { ret :sameAccount }
+    if from == to { ret :!sameAccount }
     let source = self.find(from)?
     let target = self.find(to)?
-    if target.frozen { ret :frozen[to] }
+    if target.frozen { ret :!frozen[to] }
     source.withdraw(amount, "transfer to #" + str(to))?
     target.deposit(amount, "transfer from #" + str(from))?
   }
@@ -191,11 +191,11 @@ statement(account: Account) {
 
 explain(e: BankError) -> str {
   e |> {
-    :noAccount[id] => "there is no account #" + str(id)
-    :badAmount[a] => money(a) + " is not a positive amount"
-    :frozen[id] => "account #" + str(id) + " is frozen"
-    :insufficient[s] => "account #" + str(s.id) + " is short by " + money(s.needed)
-    :sameAccount => "an account cannot transfer to itself"
+    :!noAccount[id] => "there is no account #" + str(id)
+    :!badAmount[a] => money(a) + " is not a positive amount"
+    :!frozen[id] => "account #" + str(id) + " is frozen"
+    :!insufficient[s] => "account #" + str(s.id) + " is short by " + money(s.needed)
+    :!sameAccount => "an account cannot transfer to itself"
   }
 }
 
@@ -207,7 +207,7 @@ attempt(bank: &Bank, from: int, to: int, amount: lng) {
   }
 }
 
-main() -> :ok | :badAmount[lng] | :frozen[int] {
+main() -> :ok | :!badAmount[lng] | :!frozen[int] {
   let bank = Bank.new("Brief Savings & Loan")
   let ada = bank.open("Ada", :checking)
   let ada2 = bank.open("Ada", :savings)

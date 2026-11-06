@@ -198,7 +198,7 @@ derive(e: Expr) -> Expr {
   }
 }
 
-eval(e: Expr, at: dbl) -> :ok[dbl] | :divideByZero {
+eval(e: Expr, at: dbl) -> :ok[dbl] | :!divideByZero {
   e |> {
     :num[v] => v
     :x => at
@@ -207,12 +207,12 @@ eval(e: Expr, at: dbl) -> :ok[dbl] | :divideByZero {
     :mul[p] => eval(p.left, at)? * eval(p.right, at)?
     :div[p] => {
       let divisor = eval(p.right, at)?
-      if divisor == 0 { ret :divideByZero }
+      if divisor == 0 { ret :!divideByZero }
       eval(p.left, at)? / divisor
     }
     :pow[p] => {
       let base = eval(p.base, at)?
-      if base == 0 and p.exponent < 0 { ret :divideByZero }
+      if base == 0 and p.exponent < 0 { ret :!divideByZero }
       base ** dbl(p.exponent)
     }
     :neg[u] => -eval(u.value, at)?
@@ -222,18 +222,18 @@ eval(e: Expr, at: dbl) -> :ok[dbl] | :divideByZero {
 absolute(v: dbl) -> dbl { if v < 0 { -v } else { v } }
 
 newton(f: Expr, guess: dbl) ->
-  :ok[dbl] | :divideByZero | :flatSlope[dbl] | :noConvergence {
+  :ok[dbl] | :!divideByZero | :!flatSlope[dbl] | :!noConvergence {
   let slope = simplify(derive(f))
   var at = guess
   for i in 0..60 {
     let height = eval(f, at)?
     let tilt = eval(slope, at)?
-    if tilt == 0 { ret :flatSlope[at] }
+    if tilt == 0 { ret :!flatSlope[at] }
     let next = at - height / tilt
     if absolute(next - at) < 0.000000000001 { ret next }
     at = next
   }
-  :noConvergence
+  :!noConvergence
 }
 
 // ---- Demonstration ------------------------------------------------------
@@ -251,7 +251,7 @@ study(name: str, f: Expr) {
     eval(simple, at) |> {
       // Adding zero turns IEEE negative zero into zero for display.
       :ok[v] => print("  f(" + str(at) + ") = " + str(v + 0))
-      :divideByZero => print("  f(" + str(at) + ") divides by zero")
+      :!divideByZero => print("  f(" + str(at) + ") divides by zero")
     }
   }
 }
@@ -259,10 +259,10 @@ study(name: str, f: Expr) {
 solve(name: str, f: Expr, guess: dbl) {
   newton(f, guess) |> {
     :ok[root] => print(name + " from " + str(guess) + ": x = " + str(root))
-    :divideByZero => print(name + " from " + str(guess) + ": division by zero")
-    :flatSlope[at] => print(name + " from " + str(guess) +
+    :!divideByZero => print(name + " from " + str(guess) + ": division by zero")
+    :!flatSlope[at] => print(name + " from " + str(guess) +
       ": the slope is flat at x = " + str(at))
-    :noConvergence => print(name + " from " + str(guess) + ": no convergence")
+    :!noConvergence => print(name + " from " + str(guess) + ": no convergence")
   }
 }
 

@@ -33,7 +33,7 @@
 // expect: recursive
 // expect: 32000
 recursiveConversion() {
-  if true { ret :bad }
+  if true { ret :!bad }
   int(recursiveForward()?)?
 }
 recursiveForward() { recursiveConversion()? }
@@ -55,20 +55,20 @@ main() {
   let integer = 16777217
   print(str(flt(integer)))
   int(0.5) |> { :ok[_] => print("wrong")
-    :overflow => print("fraction") }
+    :!overflow => print("fraction") }
   let negative = -1
   uint(negative) |> { :ok[_] => print("wrong")
-    :overflow => print("negative") }
+    :!overflow => print("negative") }
   print(str(flt(-0.0)!))
   print(str(flt("1.000000059604644830901776231257827021181583404541015625")!))
   int("bad\0" + "text") |> { :ok[_] => print("wrong")
-    :invalid[original] => print(original) }
+    :!invalid[original] => print(original) }
   let big: ulng = 18446744073709551615
   lng(big) |> { :ok[_] => print("wrong")
-    :overflow => print("wide") }
+    :!overflow => print("wide") }
   let minimum: lng = -9223372036854775808
   ulng(minimum) |> { :ok[_] => print("wrong")
-    :overflow => print("minimum") }
+    :!overflow => print("minimum") }
   let exact: ulng = 9007199254740992
   print(str(ulng(dbl(exact)!)!))
   let inexact: lng = 9007199254740993
@@ -83,7 +83,7 @@ main() {
   print(str(uint(-0)))
   let tooBig = dbl("3.5e38")!
   flt(tooBig) |> { :ok[_] => print("wrong")
-    :overflow => print("range") }
+    :!overflow => print("range") }
   let tiny = dbl("-1e-300")!
   print(str(flt(tiny)!))
   let edge = dbl("3.402823466385289e38")!
@@ -94,6 +94,6 @@ main() {
   print(str(dbl("-1.25E+2")! == -125.0))
   print(str(dbl("1E-2")! == 0.01))
   recursiveForward() |> { :ok[_] => print("wrong")
-    :bad => print("recursive") }
+    :!bad => print("recursive") }
   print(str(shortCycle(7, false)))
 }

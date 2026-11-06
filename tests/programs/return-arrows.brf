@@ -12,7 +12,7 @@ effect(value: int) -> () {
   99
 }
 choose(fail: bool) -> :ok[int] | _ {
-  if fail { ret :bad }
+  if fail { ret :!bad }
   7
 }
 main() -> () {
@@ -23,11 +23,11 @@ main() -> () {
   effect(value) // expect: 6
   choose(false) |> {
     :ok[n] => print(str(n)) // expect: 7
-    :bad => print("wrong")
+    :!bad => print("wrong")
   }
   choose(true) |> {
     :ok[_] => print("wrong")
-    :bad => print("bad") // expect: bad
+    :!bad => print("bad") // expect: bad
   }
   print("f(): int") // expect: f(): int
   123

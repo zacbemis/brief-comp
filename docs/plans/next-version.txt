@@ -244,8 +244,11 @@ fields. Functions now live inside struct bodies, preserving explicit receivers;
 separate `impl` blocks reject. Typed trait signatures and default bodies parse
 but retain the native unsupported-trait barrier. Qualified symbols retain
 module paths but stop at an explicit native scope boundary. Remaining
-bootstrap trait/module support and the old failure-tag conversion remain
-pending.
+bootstrap trait/module support and remaining failure-tag source conversion
+remain pending. Five examples and fourteen native fixtures now spell their
+unambiguous failures with `:!`, without changing runtime behavior. Shared
+`:ok`/`:none` stay neutral; mixed data/failure `:empty` and embedded C-test
+sources remain for explicit later review.
 
 Primitive keywords now name function members and dotted expression members,
 without broadening ordinary names or type paths. Context-specific casing fixes
@@ -2151,6 +2154,72 @@ and replacement audits remain, with the explicit multi-`:ok` boundary above.
 Native traits/modules and merged typed/refutable matching remain bootstrap
 scope. N2 outcome classification, propagation, entry status and runtime spelling
 are unchanged.
+
+### N1 increment: failure-tag spelling in examples and native fixtures
+
+Five examples and fourteen checked-in native fixtures now spell unambiguous
+failures with `:!` in types, values and patterns. This includes inferred
+failures, composed aliases, ownership/propagation cases and explicit numeric
+converter-failure patterns. All written occurrences of each migrated name keep
+one kind within their module. No tag is renamed, no references are relocated,
+and neutral symbols remain part of the accepted grammar. The compiler, IR/RC
+and runtime implementation are untouched.
+
+The selection was reviewed against existing checked symbol outcomes and
+canonical sets, including handled converter results that do not escape a
+function. Optional/shared `:none` is not converted merely because the
+first-version checker puts it beside `:ok`. `life.brf` stays unchanged, and
+`symbolic.brf` keeps its neutral optional branches while spelling evaluation
+failures as errors. Expected stdout/stderr/panic text keeps first-version
+formatting; entry status and handling rules do not become kind-based until N2.
+
+One mixed case needed a decision: `outcomes.brf` used `:empty` both inside an
+ordinary-data success payload and as `append`'s failure. In review, `append` was
+given its own error tag, `:!blank`, so `:empty` stays neutral data; the failure
+path is never taken, so no expectation changes. `:bad`, `:first` and `:second` in
+that module are converted. Embedded C-test strings and deliberately rejected
+old-syntax sources are not claimed converted. Implicit converter tags without a
+written source spelling are not assigned new semantics by this source-only
+increment. N1's remaining conversion work is explicit, not hidden by changing N2
+rules.
+
+A new `test_failure_spelling` CTest, labelled `source-spelling`, parses twenty
+complete native/example sources and checks type/value/pattern AST kinds. It
+requires every migrated occurrence to be error-kind, rejects mixed neutral
+spellings, protects neutral shared/optional tags and guards the
+`:empty`/`:found` data cases. It does not extract document snippets or synthesize
+helper bodies. Running this guard against the baseline sources fails as
+expected, so it cannot pass vacuously. Native program expectations remain
+independent execution/diagnostic checks; these AST checks are not a replacement
+chapter audit.
+
+The source diff is exactly 139 bang insertions after existing colons: 136 token
+spellings and three explanatory comment spellings. Review then renamed `append`'s
+two `:empty` failure spellings in `outcomes.brf` to `:!blank`. All other bytes,
+line counts/endings and expectation-marker text are preserved. Nineteen retained
+AST dumps change only for the intended spellings. All 358 retained source
+statuses, primary diagnostic messages and error lines are unchanged. Of those,
+339 complete CLI results are identical; two migrated rejection files naturally
+show changed source excerpts/underline columns. All 104 prior C successes are
+byte-identical apart from `outcomes.brf`, whose separate `:!blank` tag adds a
+symbol set without changing its output; this includes all six examples, which
+also retain sanitized stdout/stderr/status. Program fixtures, including panic and
+entry cases, keep their old observations.
+
+Four fresh `-Werror` configurations pass: GCC/Clang Debug ASan/UBSan and GCC
+Release, 26/26 each; GCC Debug without sanitizers, 25/25. Pinned clang-format
+23.1.3, diff/prose checks and the 23-ending CRLF fixture pass. The plan's design
+and inventory table are unchanged. Reports and temporary inspection/proposal
+aids stay in `build/validation/failure-spelling.20261106T171007Z/` (ignored);
+no migration tool or spelling bridge is shipped.
+
+Counts stay 156 native fixtures, 155 parser files (41 pass, 114 fail), 239
+fences and 162 document-parser checks. No fence is promoted and no native
+chapter audit is completed. N1 remains in progress: embedded C/parser source
+conversion, the mixed tag case, remaining casing/keywords and replacement
+audits remain. Multi-`:ok`, native traits/modules and typed/refutable matching
+retain their documented boundaries. N2 outcomes, propagation, entry policy and
+runtime formatting remain unchanged.
 
 ## Risks
 

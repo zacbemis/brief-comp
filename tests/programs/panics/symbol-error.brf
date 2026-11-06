@@ -1,7 +1,7 @@
 // expect: before
 // panic: panic: :bad("heap")
 // panic: symbol-error.brf:7
-fail() -> :ok[int] | :bad[str] { :bad["he" + "ap"] }
+fail() -> :ok[int] | :!bad[str] { :!bad["he" + "ap"] }
 main() {
   print("before")
   fail()!

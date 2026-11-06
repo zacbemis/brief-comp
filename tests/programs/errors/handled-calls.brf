@@ -1,4 +1,4 @@
-Result = :ok[int] | :bad
+Result = :ok[int] | :!bad
 f() -> Result { 1 }
 take(r: Result) {}
 unhandled() {
@@ -8,7 +8,7 @@ unhandled() {
   :outer[f()] // error: A call that can fail must be handled with ?, !, or a match.
   ret f() // error: A call that can fail must be handled with ?, !, or a match.
 }
-TextResult = :ok[str] | :bad
+TextResult = :ok[str] | :!bad
 readName() -> TextResult { "owned" + " name" }
 consumeName(name: str, age: int) {}
 getters() {
@@ -19,14 +19,14 @@ getters() {
 }
 P { number: int
   read() -> int { self.number } }
-readObject() -> :ok[P] | :bad { P { number = 1 } }
+readObject() -> :ok[P] | :!bad { P { number = 1 } }
 projection() {
   let value = readObject() // error: A call that can fail must be handled with ?, !, or a match.
   value.number
   value.read()
 }
 recursiveConversion() {
-  if true { ret :bad }
+  if true { ret :!bad }
   int(recursiveForward())? // error: A call that can fail must be handled with ?, !, or a match.
 }
 recursiveForward() { recursiveConversion()? }

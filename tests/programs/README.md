@@ -551,5 +551,16 @@ explicit single-result success boundary and suppresses unavailable internals.
 These four additions bring the inventory to 156 files. Existing zero/one
 observations and N2 behavior are unchanged. No native chapter audit is complete.
 
+Unambiguous written failure tags in fourteen native fixtures now use `:!`,
+including inferred failures and explicit converter-failure patterns. Source
+names, outputs, panics, statuses, error lines and all expectation markers are
+preserved; runtime formatting still uses the first-version spelling. A new
+`source-spelling` CTest checks kinds across twenty full native/example sources,
+including five converted examples and the unchanged optional `life.brf`.
+`outcomes.brf` used `:empty` both as nested data and as `append`'s failure;
+review gave `append` its own `:!blank` tag, so `:empty` stays neutral data.
+Embedded C-test sources remain a later source-conversion increment. Fixture
+inventory stays 156, and no native chapter audit or N2 rule is completed.
+
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

@@ -1,15 +1,15 @@
-f() -> :ok[int] | :bad { :bad }
+f() -> :ok[int] | :!bad { :!bad }
 plain() -> int {
   f()? // error: Propagated variants are not in the written return type.
 }
-wrong() -> :ok[str] | :bad { // error: Function body does not match the written return type.
+wrong() -> :ok[str] | :!bad { // error: Function body does not match the written return type.
   f()?
 }
 missingOk() {
   :data? // error: ? and ! require a symbol outcome with an :ok variant.
 }
 wrongReturn() -> :ok[int] {
-  ret :bad // error: Return value does not match the written return type.
+  ret :!bad // error: Return value does not match the written return type.
 }
 partial() -> :data | _ { :data } // error: A partial return type must declare :ok.
 main() {}

@@ -1,7 +1,7 @@
-Conflict = :bad[int] | :bad[str] // error: Symbol tag has conflicting payload types.
+Conflict = :!bad[int] | :!bad[str] // error: Symbol tag has conflicting payload types.
 Included = int | :included // error: A symbol-set inclusion requires a symbol set.
 Partial = :data | _ // error: Partial symbol sets are only allowed as function return types.
-Outcome = :ok | :bad
+Outcome = :ok | :!bad
 Text = :value[str]
 
 missing(x: :a | :b) {

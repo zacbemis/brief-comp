@@ -2,7 +2,7 @@
 // days, Easter Sunday and a printed month grid. Dates use the proleptic
 // Gregorian calendar, counting days from 0001-01-01 (a Monday).
 
-DateError = :badYear[int] | :badMonth[int] | :badDay[int]
+DateError = :!badYear[int] | :!badMonth[int] | :!badDay[int]
 
 Date {
   year: int
@@ -11,9 +11,9 @@ Date {
 
 
   new(year: int, month: int, day: int) -> :ok[Date] | DateError {
-    if year < 1 or year > 9999 { ret :badYear[year] }
-    if month < 1 or month > 12 { ret :badMonth[month] }
-    if day < 1 or day > daysIn(year, month) { ret :badDay[day] }
+    if year < 1 or year > 9999 { ret :!badYear[year] }
+    if month < 1 or month > 12 { ret :!badMonth[month] }
+    if day < 1 or day > daysIn(year, month) { ret :!badDay[day] }
     Date { year = year, month = month, day = day }
   }
 
@@ -143,9 +143,9 @@ easter(year: int) -> Date {
 
 explain(e: DateError) -> str {
   e |> {
-    :badYear[y] => "year " + str(y) + " is outside 1-9999"
-    :badMonth[m] => "month " + str(m) + " is outside 1-12"
-    :badDay[d] => "day " + str(d) + " does not exist in that month"
+    :!badYear[y] => "year " + str(y) + " is outside 1-9999"
+    :!badMonth[m] => "month " + str(m) + " is outside 1-12"
+    :!badDay[d] => "day " + str(d) + " does not exist in that month"
   }
 }
 

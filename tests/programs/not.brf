@@ -3,8 +3,8 @@ touch(counter: &Counter) -> bool {
   counter.hits++
   true
 }
-fallible(flag: bool) -> :ok[bool] | :bad {
-  if not flag { ret :bad }
+fallible(flag: bool) -> :ok[bool] | :!bad {
+  if not flag { ret :!bad }
   flag
 }
 notifier() -> bool { true }

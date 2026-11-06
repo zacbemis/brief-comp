@@ -92,6 +92,14 @@ add_test(NAME test_parse_examples
 )
 set_tests_properties(test_parse_examples PROPERTIES LABELS parse-examples)
 
+add_test(NAME test_failure_spelling
+    COMMAND ${CMAKE_COMMAND}
+        -DBRIEF=$<TARGET_FILE:brief>
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/test_failure_spelling.cmake
+)
+set_tests_properties(test_failure_spelling PROPERTIES LABELS source-spelling TIMEOUT 30)
+
 add_test(NAME test_cli_ast
     COMMAND ${CMAKE_COMMAND}
         -DBRIEF=$<TARGET_FILE:brief>

@@ -79,8 +79,8 @@ Fraction {
 
 
   // Always stored in lowest terms with a positive denominator.
-  new(top: lng, bottom: lng) -> :ok[Fraction] | :zeroDenominator {
-    if bottom == 0 { ret :zeroDenominator }
+  new(top: lng, bottom: lng) -> :ok[Fraction] | :!zeroDenominator {
+    if bottom == 0 { ret :!zeroDenominator }
     let sign: lng = if bottom < 0 { -1 } else { 1 }
     let g = gcd(top, bottom)
     let common = if g == 0 { 1 } else { g }
@@ -93,7 +93,7 @@ Fraction {
 
   times(b: Fraction) -> Fraction { Fraction.new(self.top * b.top, self.bottom * b.bottom)! }
 
-  over(b: Fraction) -> :ok[Fraction] | :zeroDenominator {
+  over(b: Fraction) -> :ok[Fraction] | :!zeroDenominator {
     Fraction.new(self.top * b.bottom, self.bottom * b.top)?
   }
 
@@ -104,14 +104,14 @@ Fraction {
   // Greedy expansion into distinct unit fractions, e.g. 4/13 = 1/4 + 1/18 + 1/468.
   // Denominators can grow very fast; arithmetic overflow would panic, so the
   // expansion stops with what it has found before a step would overflow.
-  egyptian() -> :ok[str] | :tooLarge[str] {
+  egyptian() -> :ok[str] | :!tooLarge[str] {
     var top = self.top
     var bottom = self.bottom
     var text = ""
     while top > 0 {
       let unit = (bottom + top - 1) / top // ceiling of bottom / top
       if unit > 9223372036854775807 / bottom or unit > 9223372036854775807 / top {
-        ret :tooLarge[text]
+        ret :!tooLarge[text]
       }
       text += (if text == "" { "" } else { " + " }) + "1/" + str(unit)
       top = top * unit - bottom
@@ -129,17 +129,17 @@ Fraction {
 
 // n! without overflow: stops with :overflow before the multiplication that
 // would exceed lng, instead of panicking.
-factorial(n: lng) -> :ok[lng] | :overflow[lng] {
+factorial(n: lng) -> :ok[lng] | :!overflow[lng] {
   var result: lng = 1
   for k in 2..n + 1 {
-    if result > 9223372036854775807 / k { ret :overflow[k] }
+    if result > 9223372036854775807 / k { ret :!overflow[k] }
     result = result * k
   }
   result
 }
 
-roman(n: int) -> :ok[str] | :outOfRange[int] {
-  if n < 1 or n > 3999 { ret :outOfRange[n] }
+roman(n: int) -> :ok[str] | :!outOfRange[int] {
+  if n < 1 or n > 3999 { ret :!outOfRange[n] }
   var rest = n
   var text = ""
   for i in 0..13 {
@@ -193,8 +193,8 @@ digit(d: ulng) -> str {
   }
 }
 
-inBase(n: ulng, base: ulng) -> :ok[str] | :badBase[ulng] {
-  if base < 2 or base > 16 { ret :badBase[base] }
+inBase(n: ulng, base: ulng) -> :ok[str] | :!badBase[ulng] {
+  if base < 2 or base > 16 { ret :!badBase[base] }
   if n == 0 { ret "0" }
   var rest = n
   var text = ""
@@ -231,7 +231,7 @@ collatzSteps(start: lng) -> int {
 expand(f: Fraction) {
   f.egyptian() |> {
     :ok[text] => print(f.label() + " = " + text)
-    :tooLarge[partial] => print(f.label() + " = " + partial +
+    :!tooLarge[partial] => print(f.label() + " = " + partial +
       " + ... (the next step overflows lng)")
   }
 }
@@ -271,7 +271,7 @@ main() {
   print("1/2 * 1/3 = " + half.times(third).label())
   half.over(Fraction.new(0, 5)!) |> {
     :ok[f] => print("1/2 / 0 = " + f.label())
-    :zeroDenominator => print("1/2 / 0 has a zero denominator")
+    :!zeroDenominator => print("1/2 / 0 has a zero denominator")
   }
   expand(Fraction.new(4, 13)!)
   expand(Fraction.new(7, 15)!)
@@ -282,7 +282,7 @@ main() {
   for n in 19..22 {
     factorial(lng(n)) |> {
       :ok[value] => print(str(n) + "! = " + str(value))
-      :overflow[k] => print(str(n) + "! overflows lng when multiplying by " + str(k))
+      :!overflow[k] => print(str(n) + "! overflows lng when multiplying by " + str(k))
     }
   }
 
@@ -298,7 +298,7 @@ main() {
     }
     roman(value) |> {
       :ok[text] => print(str(value) + " = " + text)
-      :outOfRange[v] => print(str(v) + " cannot be written in Roman numerals")
+      :!outOfRange[v] => print(str(v) + " cannot be written in Roman numerals")
     }
   }
   print("255 in base 2 = " + inBase(255, 2)!)
@@ -306,7 +306,7 @@ main() {
   print("18446744073709551615 in base 7 = " + inBase(18446744073709551615, 7)!)
   inBase(10, 20) |> {
     :ok[text] => print(text)
-    :badBase[b] => print("base " + str(b) + " is not supported")
+    :!badBase[b] => print("base " + str(b) + " is not supported")
   }
 
   print("")

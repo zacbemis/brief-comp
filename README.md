@@ -145,11 +145,18 @@ require lowercase names, with safe casing fixes. Symbol tags also require
 lowercase names in types, values and patterns. `:!name` records an error tag; a
 name cannot have both neutral and error kinds in one module. `:!` must be
 adjacent. This is N1 metadata only: outcomes, entry status and runtime
-formatting retain first-version rules until N2. `trait` and `ovr` are ordinary
-names, not declaration/modifier keywords. Native conformance remains pending.
-In patterns, lowercase names bind and uppercase names denote symbol sets,
-without lookup-based reclassification. Typed symbol payload
-bindings such as `:!notFound[path: str]` retain their annotations in the AST.
+formatting retain first-version rules until N2.
+
+Unambiguous failure tags in five examples and fourteen native program fixtures
+now use `:!` throughout their annotations, values and patterns. Optional
+`:none` stays neutral. `outcomes.brf`'s `append` now fails with its own
+`:!blank`, so `:empty` stays data. Embedded C-test spellings remain for later
+review; expected runtime text is not changed.
+
+`trait` and `ovr` are ordinary names, not declaration/modifier keywords. Native
+conformance remains pending. In patterns, lowercase names bind and uppercase
+names denote symbol sets, without lookup-based reclassification. Typed symbol
+payload bindings such as `:!notFound[path: str]` retain annotations in the AST.
 Native compilation explicitly rejects them until merged-symbol matching exists.
 Whole-value typed arms are not added. Module-selection declarations such as
 `import models.User` parse, but compilation stops with `Imports are not

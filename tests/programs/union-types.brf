@@ -9,7 +9,7 @@ show(value: Sym) -> str {
   }
 }
 read(fail: bool) -> :ok[int] | _ {
-  if fail { ret :bad }
+  if fail { ret :!bad }
   7
 }
 main() -> () {
@@ -18,6 +18,6 @@ main() -> () {
   print(show(:last)) // expect: last
   print(str(1 | 2)) // expect: 3
   read(false) |> { :ok[n] => print(str(n))
-    :bad => print("wrong") } // expect: 7
+    :!bad => print("wrong") } // expect: 7
   :outer[:left] |> { :outer[inner] => inner |> { :left => print("nested") } } // expect: nested
 }
