@@ -148,7 +148,7 @@ int main(int argc, char **argv) {
   }
   TEST("merged output keeps stdout before entry errors and all panic headers") {
     // The fourth program intentionally returns neutral data, not a failure.
-    // Printed runtime prefixes remain first-version text until N2.
+    // Formatter spelling is separate from the kind-based entry status.
     const char *texts[] = {
         "f() -> :ok | :!bad[str] { :!bad[\"he\" + \"ap\"] }\n"
         "main() { print(\"before\")\nf()? }\n",
@@ -187,6 +187,85 @@ int main(int argc, char **argv) {
           ASSERT_TRUE(
               bytes_contains(r.out, i == 1 ? TEST_BYTES("ordered.brf:3\n")
                                            : TEST_BYTES("ordered.brf:2\n")));
+      }
+  }
+  TEST("entry status follows the active top-level kind, not ok or payloads") {
+    struct {
+      const char *text;
+      int status;
+      const char *error;
+    } cases[] = {
+        {"main() { print(\"before\")\n:!failed }", 1, "error: :failed\n"},
+        {"main() -> :ready[str] | :!failed[str] { print(\"before\")\n"
+         "if true { :ready[\"he\" + \"ap\"] } else { :!failed[\"bad\"] } }",
+         0, ""},
+        {"main() -> :ready[str] | :!failed[str] { print(\"before\")\n"
+         "if false { :ready[\"data\"] } else { :!failed[\"he\" + \"ap\"] } }",
+         1, "error: :failed(\"heap\")\n"},
+        {"main() -> :ok | :idle | :!failed { print(\"before\")\n:idle }", 0,
+         ""},
+        {"main() -> :ok | :idle[str] { print(\"before\")\n:idle[\"he\" + "
+         "\"ap\"] }",
+         0, ""},
+        {"main() -> :ok[str] | :none { print(\"before\")\n:none }", 0, ""},
+        {"main() { print(\"before\")\n:box[:!hidden[\"he\" + \"ap\"]] }", 0,
+         ""},
+        {"Box { value: :!hidden[str] }\nmain() { print(\"before\")\n"
+         "Box { value = :!hidden[\"he\" + \"ap\"] } }",
+         0, ""},
+        {"main() -> :ok[:!hidden[str]] { print(\"before\")\n"
+         ":ok[:!hidden[\"he\" + \"ap\"]] }",
+         1, "error: :hidden(\"heap\")\n"},
+        {"main() -> :error[str] | :!healthy[str] { print(\"before\")\n"
+         ":error[\"he\" + \"ap\"] }",
+         0, ""},
+        {"main() -> :error[str] | :!healthy[str] { print(\"before\")\n"
+         ":!healthy[\"he\" + \"ap\"] }",
+         1, "error: :healthy(\"heap\")\n"},
+        {"main() { print(\"before\")\n:!failed[(), \"he\" + \"ap\", "
+         ":note[\"nested\"]] }",
+         1, "error: :failed((), \"heap\", :note(\"nested\"))\n"}};
+    char *input = test_path(&a, root, "entry-kinds.brf");
+    char *binary = test_path(&a, root, "entry-kinds");
+    for (int debug = 0; debug < (argc == 5 ? 2 : 1); debug++)
+      for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+        TestBytes text = {(const unsigned char *)cases[i].text,
+                          strlen(cases[i].text)};
+        ASSERT_TRUE(test_write_file(input, text));
+        call(&c,
+             (const char *[]){"build", input, "-o", binary,
+                              debug ? "--debug" : NULL, NULL},
+             0, NULL, 0);
+        ProcessOptions options = {.cwd = root, .timeout_ms = 10000};
+        ProcessResult r =
+            process_run(&a, (const char *[]){binary, NULL}, &options);
+        ASSERT_TRUE(r.ok);
+        ASSERT_EQ_INT(cases[i].status, r.status);
+        ASSERT_TRUE(bytes_equal(TEST_BYTES("before\n"), r.out));
+        TestBytes error = {(const unsigned char *)cases[i].error,
+                           strlen(cases[i].error)};
+        ASSERT_TRUE(bytes_equal(error, r.err));
+        ASSERT_TRUE(!sanitizer_report(r.err));
+        // Observe the combined stream independently to pin flush order.
+        options.merge_stderr = 1;
+        r = process_run(&a, (const char *[]){binary, NULL}, &options);
+        ASSERT_TRUE(r.ok);
+        ASSERT_EQ_INT(cases[i].status, r.status);
+        ASSERT_EQ_INT(0, r.err.length);
+        ASSERT_EQ_INT(7 + error.length, r.out.length);
+        if (r.out.length == 7 + error.length) {
+          ASSERT_TRUE(!memcmp(r.out.data, "before\n", 7));
+          ASSERT_TRUE(!memcmp(r.out.data + 7, error.data, error.length));
+        }
+        ASSERT_TRUE(bytes_equal(text, read_file(&a, input)));
+        if (i == 0) {
+          r = call(
+              &c,
+              (const char *[]){"run", input, debug ? "--debug" : NULL, NULL}, 1,
+              NULL, 0);
+          ASSERT_TRUE(bytes_equal(TEST_BYTES("before\n"), r.out));
+          ASSERT_TRUE(bytes_equal(error, r.err));
+        }
       }
   }
   TEST("shared diagnostic payloads have a total traversal budget and release "

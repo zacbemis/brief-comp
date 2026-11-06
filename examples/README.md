@@ -28,8 +28,9 @@ ctest --test-dir build -L native-examples --output-on-failure
 This is independent example coverage, not acceptance of the mixed raw reference
 sheet in `docs/lang-ex-base.txt`.
 The [N1 review](../tests/next-version-n1-review.md) is complete. N2's reserved
-:none-payload and intrinsic conversion-kind slices change none of these sources
-or their observations; outcome handling and entry behavior remain unchanged.
+:none-payload, intrinsic conversion-kind and entry-kind slices change none of
+these sources or their observations. The entry rule now follows active kind;
+call handling, propagation and formatter spelling remain unchanged.
 
 | Program | What it does | Language features it shows |
 |---|---|---|

@@ -81,9 +81,10 @@ patterns, including `()`. Empty `:none[]` remains the payload-less form. These
 unit/native regressions do not promote a fence or complete a N2 chapter audit.
 The next slice gives fallible converters local intrinsic error kinds and rejects
 collisions with explicit neutral data declarations, without reserving the names
-for infallible casts or supplying APIs to a fence. Outcome classification,
-propagation, exact returns, implicit endings and entry policy/formatting still
-await their N2 slices.
+for infallible casts or supplying APIs to a fence. Entry status now follows
+the actual top-level returned tag's kind, with unchanged release/flush and
+formatting behavior. Outcome classification, propagation, exact returns,
+implicit endings and the new formatter still await their N2 slices.
 
 Remaining milestone work:
 
@@ -92,10 +93,11 @@ Remaining milestone work:
 - **N4/N5:** add bindings/loops and interpolation fences to their chapter audits.
 - **N6:** overview, traits, collections and standard library scope inventories.
 
-N1's `:!name` syntax/kind checks are not the N2 native audit. Entry status,
-propagation, outcome classification, `:ok` equivalence and runtime formatting
-still use the first-version rules. The explicit N1 error-only entry fixture
-exits 0 until N2 changes and reviews that expectation. Bracketed payload lists
+N1's `:!name` syntax/kind checks are not the N2 native audit. Propagation,
+outcome classification, `:ok` equivalence and runtime formatting still use the
+first-version rules. The original error-only entry fixture now exits 1 and
+prints its error; this is the sole existing fixture expectation changed by the
+entry-kind slice. Bracketed payload lists
 compile with positional data/failure payloads, preserving zero/one behavior.
 Multiple `:ok` positions still stop at the single-result success boundary.
 Union types and ordinary `Sym` names also preserve first-version outcome rules.

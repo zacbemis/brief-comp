@@ -769,16 +769,32 @@ int emit_c(FILE *out, const IrProgram *p) {
     fputc(')', out);
   fputs(";\n", out);
   if (symbol) {
-    const SemaVariant *ok = sema_ok(p->entry_outcome);
-    // Data-only sets are ordinary results; only a fallible outcome is an error.
-    if (ok && p->entry_outcome->symbols->count > 1) {
-      fprintf(
-          out,
-          "  if (result.tag != %zu) {\n    size_t brt_format_budget = 1024;\n"
-          "    (void)fflush(stdout); fputs(\"error: \", stderr);\n"
-          "    brt_sym_%zu_write(stderr, result, 0, &brt_format_budget);\n"
-          "    fputc('\\n', stderr); status = 1;\n  }\n",
-          p->ok->id, entry->symbols->id);
+    int has_error = 0;
+    for (size_t i = 0; i < entry->symbols->count; i++)
+      has_error |= entry->symbols->variants[i].tag->kind == SEMA_TAG_ERROR;
+    if (has_error) {
+      // Classify the actual ABI result, not the legacy outer :ok schema.
+      // IDs are global and may be sparse: table size follows this set only.
+      fputs("  static const struct { uint32_t tag; _Bool error; } "
+            "brt_entry_kinds[] = {\n",
+            out);
+      for (size_t i = 0; i < entry->symbols->count; i++) {
+        const SemaTag *tag = entry->symbols->variants[i].tag;
+        fprintf(out, "    {%zu, %d},\n", tag->id, tag->kind == SEMA_TAG_ERROR);
+      }
+      fputs("  };\n"
+            "  for (size_t i = 0; i < sizeof(brt_entry_kinds) / "
+            "sizeof(brt_entry_kinds[0]); i++) {\n"
+            "    if (result.tag == brt_entry_kinds[i].tag) {\n"
+            "      status = brt_entry_kinds[i].error; break;\n"
+            "    }\n  }\n",
+            out);
+      fprintf(out,
+              "  if (status) {\n    size_t brt_format_budget = 1024;\n"
+              "    (void)fflush(stdout); fputs(\"error: \", stderr);\n"
+              "    brt_sym_%zu_write(stderr, result, 0, &brt_format_budget);\n"
+              "    fputc('\\n', stderr);\n  }\n",
+              entry->symbols->id);
     }
     fputs("  ", out);
     ref_prefix(out, entry, 0);

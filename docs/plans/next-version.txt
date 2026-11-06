@@ -217,8 +217,9 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 
 N0 and N1 are complete for their milestone scope. The final N1 review is in
 `tests/next-version-n1-review.md`. N2 has begun with the reserved :none payload
-invariant and intrinsic conversion error kinds below. This does not complete
-the next-version language or claim native acceptance of listed APIs/fragments.
+invariant, intrinsic conversion error kinds and kind-based entry status below.
+This does not complete the next-version language or claim native acceptance of
+listed APIs/fragments.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -329,13 +330,15 @@ typed/refutable matching and module/trait boundaries remain unsupported.
   error-only propagation/extraction.
 - [ ] Exact returns and only-:ok normalization without implicit call wrapping.
 - [ ] :none endings and the payload-less :ok/:none ambiguity diagnostic.
-- [ ] Entry status by active error kind and the new diagnostic formatter.
+- [x] Entry status by the actual returned symbol's active error kind.
+- [ ] New diagnostic formatter spelling.
 - [ ] Scoped symbols/errors native audits for N2's available rules.
 
-The first N2 slices implement the reserved neutral :none shape and intrinsic
-conversion error kinds. Their native/unit regressions are not acceptance of
-later outcome or optional-ending rules. Detailed slices and changed-expectation
-inventories follow the N1 historical records below.
+The first N2 slices implement the reserved neutral :none shape, intrinsic
+conversion error kinds and entry status by active kind. Their native/unit
+regressions are not acceptance of later outcome, optional-ending or formatting
+rules. Detailed slices and changed-expectation inventories follow the N1
+historical records below.
 
 ### Historical implementation checkpoints
 
@@ -2907,6 +2910,86 @@ single-line status remain unchanged. IR/RC, emission/runtime, outcome extraction
 call handling, entry policy/formatting, N3 and N4/N5 are unchanged. Infallible
 postfix handling remains the old rule until its own reviewed N2 slice. N2 remains
 in progress; stop for review before switching the outcome consumers.
+
+### N2 increment: entry status follows the active error kind
+
+Reviewed base 09394eb. Main now checks its actual returned symbol's kind, not
+whether the legacy full outcome contains :ok or whether the active tag differs
+from :ok. A top-level error is printed, released and exits 1; neutral data,
+including :none and non-ok tags in a set containing :ok, is discarded with
+exit 0. Scalars, unit and struct results retain their existing discard/release
+behavior. Errors nested inside a neutral payload or a struct are not themselves
+the top-level result. The existing only-:ok ABI envelope is already erased, so
+an error exposed by that ABI is classified as the actual result, not hidden by
+its old outer :ok schema. This does not add source-level type normalization.
+
+For an actual entry symbol set containing errors, emitted C has a local const
+per-set table of global tag IDs and error flags. Neutral-only sets need no table.
+The table is bounded by set size rather than maximum global ID, and lookup does
+not assume dense IDs, :ok's presence or special tag names. Existing emitted
+functions/helpers and source mappings stay byte-identical; only the entry
+wrapper changes. Formatting still uses the old spelling, depth/budget and
+payload traversal. Stdout is flushed before error output, the result is released
+once afterward, and brt_finish plus the final stdout flush are unchanged.
+
+Changed existing expectations (complete list for review):
+
+1. `tests/programs/error-tag-main-n1.brf`: exit 0/empty stderr becomes exit 1
+   with exactly `error: :failure` plus newline on stderr. Stdout stays empty.
+   The historical fixture name is retained, its comment records the N2 switch,
+   and its main body stays on original line 3; only expectation/comment text
+   changes. This is the documented active-error entry rule, not a formatting
+   change. No other existing output/panic/status/message/error-line/fix marker
+   changes, and no existing C-test runtime assertion is weakened or rewritten.
+
+New fixture observations under the saved baseline and current compilers:
+
+| New fixture | Baseline | Current |
+|---|---|---|
+| main-neutral-ok-n2 | Exit 1, error: :degraded("heap") | Exit 0, empty stderr |
+| main-none-n2 | Exit 1, error: :none | Exit 0, empty stderr |
+| main-error-payloads-n2 | Exit 0, empty stderr | Exit 1, error: :failed((), "heap", :note("nested")) |
+| main-mixed-kind-n2 | Exit 0, empty stderr | Exit 1, error: :blocked |
+
+Only the payload fixture prints stdout (before plus newline), unchanged in both
+runs. These new programs had no prior committed expectations. They exercise
+owned neutral data with :ok, explicit optional absence, positional/unit/owned
+error payloads and a mixed set with no :ok. No contextual fence is completed.
+
+Twelve separately authored CLI programs test both active sides of mixed sets,
+neutral-only sets with :ok, neutral/error names that contradict their English
+meaning, nested errors in neutral/struct values, an error exposed by the existing
+only-:ok ABI and bare/multiple-payload errors. Every program prints before plus
+newline; normal/sanitized builds check exact split streams, independently merged
+flush order, exit status, source immutability and owner cleanup. Run also
+propagates the bare-error status. Their actual C-authored source strings were
+captured intact and compared against the baseline, not reconstructed as partial
+fragments. A codegen unit models sparse global IDs through UINT32_MAX without
+changing canonical order; repeated emission is identical and bounded. Its emitted
+standalone C passes strict GCC/Clang, normal and ASan/UBSan, with the expected
+error status/text and no owner diagnostics.
+
+Validation: fresh -Werror GCC Debug ASan/UBSan, Clang Debug ASan/UBSan and GCC
+Release suites pass 37/37 each; unsanitized GCC Debug passes 31/31. Focused
+compile/native-driver/program checks pass 3/3. All 443 retained CLI sources keep
+identical ASTs, compile statuses and diagnostics. Of 152 prior C outputs,
+137 are fully identical and 15 differ only after the entry marker; all function,
+formatter, ownership and source-map bytes before it match. Independent sanitized
+baseline/current runs compare 139 prior executable sources, including all six
+examples and prior runnable chapter cases: only the explicitly listed old
+error-only fixture changes behavior. The four new fixtures and twelve captured
+CLI cases also have checked baseline/current observations. Formatter 23.1.3,
+diff/prose/design and the 23-ending CRLF checks pass. Ignored evidence is under
+`build/validation/n2-entry-kinds.20261106T213232Z/`.
+
+Current native inventory is 164 fixtures; parser counts remain 155 files, 239
+fences, 162 checks, 77 fenced and two unfenced listings. No document fence is
+promoted, missing API/type/body is supplied or v0 reader restored. The reviewed
+single-line status and pre-progress design/table are untouched. Semantic checker,
+IR/RC and runtime sources are unchanged; formatter logic/text is unchanged.
+Kind-based call handling, postfix extraction/propagation, exact returns, optional
+endings, N2 native chapter audits and remaining formatter work stay open.
+N1 remains complete, N2 remains in progress; stop for review.
 
 ## Risks
 

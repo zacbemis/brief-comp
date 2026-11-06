@@ -136,8 +136,11 @@ stay valid, but any payload, including `()`, is rejected without a guessed fix.
 Fallible converters now declare local error-kind `:!invalid[str]`/`:!overflow`
 tags. Explicit neutral declarations of those names conflict at a fallible call,
 with a declaration note and no guessed fix; ordinary data and infallible casts
-remain valid. Kind-based outcome handling, propagation, exact returns, entry
-status and the new formatter remain pending.
+remain valid. Entry status now follows the actual top-level returned tag's
+kind: errors print/release and exit 1; neutral tags (including `:none`) exit 0.
+Nested errors alone do not fail an enclosing neutral value or struct. Existing
+formatter text is unchanged. Kind-based call handling, propagation, exact
+returns, optional endings and the new formatter remain pending.
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and
@@ -155,8 +158,8 @@ Struct names start uppercase; functions, fields, parameters, bindings and loops
 require lowercase names, with safe casing fixes. Symbol tags also require
 lowercase names in types, values and patterns. `:!name` records an error tag; a
 name cannot have both neutral and error kinds in one module. `:!` must be
-adjacent. This is N1 metadata only: outcomes, entry status and runtime
-formatting retain first-version rules until N2.
+adjacent. Kinds now also control entry status. Outcome handling and runtime
+formatting still await their N2 switches.
 
 Unambiguous failure tags in five examples and fourteen native program fixtures
 now use `:!` throughout their annotations, values and patterns. Optional

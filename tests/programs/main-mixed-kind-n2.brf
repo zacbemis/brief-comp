@@ -1,0 +1,5 @@
+// stderr: error: :blocked
+// exit: 1
+main() -> :ready | :!blocked {
+  if false { :ready } else { :!blocked }
+}

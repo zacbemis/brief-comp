@@ -302,6 +302,54 @@ int main(void) {
     if (emitted[0] && emitted[1])
       ASSERT_EQ_INT(0, strcmp(emitted[0], emitted[1]));
   }
+  TEST("entry kind tables are sparse, bounded and deterministic") {
+    Checked c = resolve(&a,
+                        "Unused = :gap\n"
+                        "main() -> :neutral | :!failed { :!failed }",
+                        "entry-kinds.brf");
+    sema_check(c.program, &c.errors);
+    ASSERT_EQ_INT(0, c.errors.count);
+    IrProgram *p = ir_lower(&a, c.program);
+    ASSERT_TRUE(p != NULL);
+    if (p) {
+      ir_insert_rc(&a, p);
+      // Model a sparse global ID space without allocating billions of tags.
+      // The last canonical variant stays last; source/types are not rechecked.
+      SemaTag *failed = sema_tag(c.program, c.program->module, "failed");
+      failed->id = UINT32_MAX;
+      c.program->tag_count = UINT32_MAX;
+      char *emitted[2] = {NULL, NULL};
+      for (size_t i = 0; i < 2; i++) {
+        FILE *out = tmpfile();
+        ASSERT_TRUE(out != NULL);
+        if (!out)
+          continue;
+        ASSERT_TRUE(emit_c(out, p));
+        ASSERT_EQ_INT(0, fflush(out));
+        long size = ftell(out);
+        ASSERT_TRUE(size > 0 && size < 1000000);
+        if (size > 0 && size < 1000000) {
+          emitted[i] = arena_calloc(&a, (size_t)size + 1, 1);
+          rewind(out);
+          ASSERT_EQ_INT((size_t)size, fread(emitted[i], 1, (size_t)size, out));
+          const char *entry = strstr(emitted[i], "#line 1 \"<brief entry>\"");
+          ASSERT_TRUE(entry != NULL);
+          if (entry) {
+            ASSERT_TRUE(strstr(entry, "brt_entry_kinds[] = {\n    {3, 0},\n    "
+                                      "{4294967295, 1},\n  };") != NULL);
+            ASSERT_TRUE(strstr(entry, "result.tag == brt_entry_kinds[i].tag") !=
+                        NULL);
+            ASSERT_TRUE(strstr(entry, "status = brt_entry_kinds[i].error") !=
+                        NULL);
+            ASSERT_TRUE(strstr(entry, "result.tag != 1") == NULL);
+          }
+        }
+        fclose(out);
+      }
+      if (emitted[0] && emitted[1])
+        ASSERT_EQ_INT(0, strcmp(emitted[0], emitted[1]));
+    }
+  }
   TEST("emitted C is self-contained, mangled, and source-mapped") {
     Checked c = resolve(&a, "main() { auto() }\nauto() { print(\"Hi\") }",
                         "quote\"and\\slash.brf");

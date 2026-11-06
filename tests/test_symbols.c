@@ -948,7 +948,7 @@ int main(void) {
     ASSERT_EQ_INT(0, again.count);
     ASSERT_EQ_INT(id, failed->id);
     ASSERT_EQ_INT(SEMA_TAG_ERROR, failed->kind);
-    valid(&a, "main() { :!failure }"); // N2 will change entry status, not N1.
+    valid(&a, "main() { :!failure }"); // Valid source; N2 entry status is 1.
     invalid(&a, "A = :bad\nB = :!bad\nmain() {}", "both neutral and error");
     invalid(&a, "A = :!bad\nB = :bad\nmain() {}", "both neutral and error");
     invalid(&a, "main() { :!bad |> { :bad => () } }", "both neutral and error");

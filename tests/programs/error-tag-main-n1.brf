@@ -1,3 +1,4 @@
-// N1 records the kind but retains the old entry policy; N2 changes this to failure.
-// exit: 0
+// N1 recorded kind only; N2 now treats the active error as entry failure.
+// exit: 1
 main() { :!failure }
+// stderr: error: :failure

@@ -1,0 +1,2 @@
+// Optional absence is neutral; implicit endings are a separate N2 rule.
+main() -> :ok[str] | :none { :none }

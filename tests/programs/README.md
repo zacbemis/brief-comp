@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **160 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **164 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -9,9 +9,15 @@ The reserved neutral `:none` accepts no payload positions: `:none` and `:none[]`
 are equivalent, while even `:none[()]` is an error. Other tags keep unit slots.
 The next slice adds `conversion-data-tags.brf` and
 `errors/conversion-kind-conflicts.brf`: fallible converters use error-kind tags,
-while neutral data names remain valid beside infallible casts. All existing
-fixture expectations are unchanged. Outcome classification, propagation, exact
-returns, implicit endings and entry/formatting are pending.
+while neutral data names remain valid beside infallible casts. Those slices
+preserved all existing fixture observations.
+
+The entry-kind slice now fails only for an active top-level error, not for a
+neutral alternative beside :ok. The historical `error-tag-main-n1.brf` changes
+from exit 0/empty stderr to exit 1 with `error: :failure` plus newline. Four new
+main-*-n2 fixtures cover neutral/optional and owned/mixed error entries. Other
+existing observations are unchanged. Call handling, propagation, exact returns,
+implicit endings and the new formatter are pending.
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside
@@ -395,12 +401,12 @@ ownership is implemented. The inventory was then 117 files.
 N1 records `:!name` error kinds, requiring one kind per module/name. The new
 `error-tag-kinds.brf` observes heap/unit payloads, error-tag matching, equality
 and literal text under the still-current outcome rules. `error-tag-main-n1.brf`
-intentionally exits 0: kind-based entry failure belongs to N2, not this metadata
-slice. Payload delimiters and runtime formatting were also unchanged in that
-increment. Three rejection fixtures cover kind conflicts with source notes,
-shared neutral `:ok`/`:none`, and adjacency fixes that preserve trivia. Existing
-failure tags remain neutral until their source conversion. The inventory was
-then 122 files.
+intentionally exited 0 in that N1 slice; the current N2 entry rule instead
+requires exit 1 and its error text. Payload delimiters and runtime formatting
+were also unchanged in that increment. Three rejection fixtures cover kind
+conflicts with source notes, shared neutral `:ok`/`:none`, and adjacency fixes
+that preserve trivia. Existing failure tags remain neutral until their source
+conversion. The inventory was then 122 files.
 
 N1 now uses `[...]` for payloads in type entries, values and patterns, and all
 existing native sources keep their output/status/panic markers. The entry/panic

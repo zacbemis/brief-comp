@@ -1,0 +1,2 @@
+// Neutral data does not fail just because :ok is another alternative.
+main() -> :ok | :degraded[str] { :degraded["he" + "ap"] }
