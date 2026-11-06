@@ -86,6 +86,14 @@ static void equal(FILE *out, const SemaType *type, const char *a,
   else
     fprintf(out, "%s == %s", a, b);
 }
+static void payload_name(char *out, size_t size, const char *value,
+                         const SemaVariant *variant, size_t position) {
+  if (variant->payload_count == 1)
+    snprintf(out, size, "%s.payload.v%zu", value, variant->tag->id);
+  else
+    snprintf(out, size, "%s.payload.v%zu.p%zu", value, variant->tag->id,
+             position);
+}
 static void symbol_declarations(FILE *out, const IrProgram *p) {
   for (size_t set = 0; set < p->symbol_set_count; set++) {
     const SemaSymSet *s = p->symbol_sets[set];
@@ -94,12 +102,28 @@ static void symbol_declarations(FILE *out, const IrProgram *p) {
         "typedef struct {\n  uint32_t tag;\n  union {\n    uint8_t empty;\n");
     for (size_t i = 0; i < s->count; i++) {
       const SemaVariant *v = &s->variants[i];
-      const SemaType *payload = sema_single_payload(v);
-      if (!payload || payload->kind == SEMA_UNIT)
-        continue;
-      fputs("    ", out);
-      ctype(out, payload);
-      fprintf(out, " v%zu;\n", v->tag->id);
+      if (v->payload_count <= 1) {
+        const SemaType *payload = sema_single_payload(v);
+        if (!payload || payload->kind == SEMA_UNIT)
+          continue;
+        fputs("    ", out);
+        ctype(out, payload);
+        fprintf(out, " v%zu;\n", v->tag->id);
+      } else {
+        fputs("    struct {\n", out);
+        size_t fields = 0;
+        for (size_t j = 0; j < v->payload_count; j++) {
+          if (v->payloads[j]->kind == SEMA_UNIT)
+            continue;
+          fputs("      ", out);
+          ctype(out, v->payloads[j]);
+          fprintf(out, " p%zu;\n", j);
+          fields++;
+        }
+        if (!fields)
+          fputs("      uint8_t empty;\n", out);
+        fprintf(out, "    } v%zu;\n", v->tag->id);
+      }
     }
     fprintf(out, "  } payload;\n} bry_%zu;\n", s->id);
     fprintf(out, "void brt_sym_%zu_retain(bry_%zu);\n", s->id, s->id);
@@ -121,12 +145,23 @@ static void symbol_helpers(FILE *out, const IrProgram *p) {
               s->id, retain ? "retain" : "release", s->id);
       for (size_t i = 0; i < s->count; i++) {
         const SemaVariant *v = &s->variants[i];
-        const SemaType *payload = sema_single_payload(v);
-        if (!sema_reference(payload))
-          continue;
-        fprintf(out, "  case %zu: ", v->tag->id);
-        ref_prefix(out, payload, retain);
-        fprintf(out, "value.payload.v%zu); break;\n", v->tag->id);
+        int started = 0;
+        for (size_t j = 0; j < v->payload_count; j++) {
+          const SemaType *payload = v->payloads[j];
+          if (!sema_reference(payload))
+            continue;
+          if (!started)
+            fprintf(out, "  case %zu: ", v->tag->id);
+          else
+            fputc(' ', out);
+          char value[128];
+          payload_name(value, sizeof(value), "value", v, j);
+          ref_prefix(out, payload, retain);
+          fprintf(out, "%s);", value);
+          started = 1;
+        }
+        if (started)
+          fputs(" break;\n", out);
       }
       fputs("  default: break;\n  }\n}\n", out);
     }
@@ -138,16 +173,20 @@ static void symbol_helpers(FILE *out, const IrProgram *p) {
             s->id, s->id, s->id);
     for (size_t i = 0; i < s->count; i++) {
       const SemaVariant *v = &s->variants[i];
-      const SemaType *payload = sema_single_payload(v);
       fprintf(out, "  case %zu: return ", v->tag->id);
-      if (!payload || payload->kind == SEMA_UNIT)
-        fputs("1", out);
-      else {
-        char a[96], b[96];
-        snprintf(a, sizeof(a), "a.payload.v%zu", v->tag->id);
-        snprintf(b, sizeof(b), "b.payload.v%zu", v->tag->id);
-        equal(out, payload, a, b);
+      size_t values = 0;
+      for (size_t j = 0; j < v->payload_count; j++) {
+        if (v->payloads[j]->kind == SEMA_UNIT)
+          continue;
+        if (values++)
+          fputs(" && ", out);
+        char a[128], b[128];
+        payload_name(a, sizeof(a), "a", v, j);
+        payload_name(b, sizeof(b), "b", v, j);
+        equal(out, v->payloads[j], a, b);
       }
+      if (!values)
+        fputs("1", out);
       fputs(";\n", out);
     }
     fputs("  default: return 1;\n  }\n}\n", out);
@@ -241,12 +280,15 @@ static void formatters(FILE *out, const IrProgram *p) {
       const SemaVariant *v = &s->variants[i];
       fprintf(out, "  case %zu: fputs(\":%s\", out);", v->tag->id,
               v->tag->name);
-      const SemaType *payload = sema_single_payload(v);
-      if (payload) {
+      if (v->payload_count) {
         fputs(" fputc('(', out); ", out);
-        char value[96];
-        snprintf(value, sizeof(value), "value.payload.v%zu", v->tag->id);
-        write_value(out, payload, value);
+        for (size_t j = 0; j < v->payload_count; j++) {
+          if (j)
+            fputs("; fputs(\", \", out); ", out);
+          char value[128];
+          payload_name(value, sizeof(value), "value", v, j);
+          write_value(out, v->payloads[j], value);
+        }
         fputs("; fputc(')', out);", out);
       }
       fputs(" break;\n", out);
@@ -387,8 +429,39 @@ int emit_c(FILE *out, const IrProgram *p) {
     return 0;
   for (size_t i = 0; i < p->symbol_set_count; i++)
     for (size_t j = 0; j < p->symbol_sets[i]->count; j++)
-      if (p->symbol_sets[i]->variants[j].payload_count > 1)
+      if (p->symbol_sets[i]->variants[j].tag == p->ok &&
+          p->symbol_sets[i]->variants[j].payload_count > 1)
         return 0;
+  // Validate positional instructions before publishing any C. Canonical
+  // schemas define both arity and semantic indices (unit slots included).
+  for (size_t i = 0; i < p->count; i++) {
+    const IrFunction *f = &p->functions[i];
+    for (size_t j = 0; j < f->count; j++) {
+      const IrInstruction *in = &f->instructions[j];
+      if (in->op == IR_SYMBOL) {
+        const SemaVariant *v = sema_variant(in->type, in->tag);
+        if (!v || v->payload_count != in->as.symbol.count ||
+            (in->as.symbol.count && !in->as.symbol.args))
+          return 0;
+        for (size_t k = 0; k < v->payload_count; k++) {
+          size_t arg = in->as.symbol.args[k];
+          if (v->payloads[k]->kind == SEMA_UNIT) {
+            if (arg != IR_NO_VALUE)
+              return 0;
+          } else if (arg >= f->temporaries ||
+                     f->temporary_types[arg] != v->payloads[k])
+            return 0;
+        }
+      } else if (in->op == IR_SYMBOL_PAYLOAD) {
+        if (in->a >= f->temporaries || in->result >= f->temporaries)
+          return 0;
+        const SemaVariant *v = sema_variant(f->temporary_types[in->a], in->tag);
+        if (!v || in->position >= v->payload_count ||
+            v->payloads[in->position] != f->temporary_types[in->result])
+          return 0;
+      }
+    }
+  }
   fputs("/* Generated by Brief. Self-contained C11; link with -lm. */\n", out);
   fwrite(brief_runtime_text, 1, sizeof(brief_runtime_text) - 1, out);
   fputc('\n', out);
@@ -542,13 +615,20 @@ int emit_c(FILE *out, const IrProgram *p) {
         fprintf(out, "  brt_tmp_%zu->brt_field_%zu = brt_tmp_%zu;\n", in->a,
                 in->field->id, in->b);
         break;
-      case IR_SYMBOL:
+      case IR_SYMBOL: {
         fprintf(out, "  brt_tmp_%zu = (bry_%zu){.tag = %zu};\n", in->result,
                 in->type->symbols->id, in->tag->id);
-        if (in->a != IR_NO_VALUE)
-          fprintf(out, "  brt_tmp_%zu.payload.v%zu = brt_tmp_%zu;\n",
-                  in->result, in->tag->id, in->a);
+        const SemaVariant *v = sema_variant(in->type, in->tag);
+        char base[64], field[128];
+        snprintf(base, sizeof(base), "brt_tmp_%zu", in->result);
+        for (size_t j = 0; j < in->as.symbol.count; j++) {
+          if (in->as.symbol.args[j] == IR_NO_VALUE)
+            continue;
+          payload_name(field, sizeof(field), base, v, j);
+          fprintf(out, "  %s = brt_tmp_%zu;\n", field, in->as.symbol.args[j]);
+        }
         break;
+      }
       case IR_SYMBOL_CAST: {
         fprintf(out,
                 "  brt_tmp_%zu = (bry_%zu){.tag = brt_tmp_%zu.tag};\n"
@@ -557,13 +637,26 @@ int emit_c(FILE *out, const IrProgram *p) {
         const SemaType *source = f->temporary_types[in->a];
         for (size_t k = 0; k < in->type->symbols->count; k++) {
           const SemaVariant *v = &in->type->symbols->variants[k];
-          const SemaType *payload = sema_single_payload(v);
-          if (payload && payload->kind != SEMA_UNIT &&
-              sema_variant(source, v->tag))
-            fprintf(out,
-                    "  case %zu: brt_tmp_%zu.payload.v%zu = "
-                    "brt_tmp_%zu.payload.v%zu; break;\n",
-                    v->tag->id, in->result, v->tag->id, in->a, v->tag->id);
+          if (!sema_variant(source, v->tag))
+            continue;
+          int started = 0;
+          char a[64], b[64], to[128], from[128];
+          snprintf(a, sizeof(a), "brt_tmp_%zu", in->result);
+          snprintf(b, sizeof(b), "brt_tmp_%zu", in->a);
+          for (size_t j = 0; j < v->payload_count; j++) {
+            if (v->payloads[j]->kind == SEMA_UNIT)
+              continue;
+            if (!started)
+              fprintf(out, "  case %zu: ", v->tag->id);
+            else
+              fputc(' ', out);
+            payload_name(to, sizeof(to), a, v, j);
+            payload_name(from, sizeof(from), b, v, j);
+            fprintf(out, "%s = %s;", to, from);
+            started = 1;
+          }
+          if (started)
+            fputs(" break;\n", out);
         }
         fputs("  default: break;\n  }\n", out);
         break;
@@ -571,10 +664,14 @@ int emit_c(FILE *out, const IrProgram *p) {
       case IR_SYMBOL_TAG:
         fprintf(out, "  brt_tmp_%zu = brt_tmp_%zu.tag;\n", in->result, in->a);
         break;
-      case IR_SYMBOL_PAYLOAD:
-        fprintf(out, "  brt_tmp_%zu = brt_tmp_%zu.payload.v%zu;\n", in->result,
-                in->a, in->tag->id);
+      case IR_SYMBOL_PAYLOAD: {
+        const SemaVariant *v = sema_variant(f->temporary_types[in->a], in->tag);
+        char base[64], value[128];
+        snprintf(base, sizeof(base), "brt_tmp_%zu", in->a);
+        payload_name(value, sizeof(value), base, v, in->position);
+        fprintf(out, "  brt_tmp_%zu = %s;\n", in->result, value);
         break;
+      }
       case IR_RETAIN:
         fputs("  brt_locate(__FILE__, __LINE__); ", out);
         ref_prefix(out, f->temporary_types[in->a], 1);

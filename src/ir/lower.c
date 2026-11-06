@@ -1,5 +1,4 @@
 #include "ir/ir.h"
-#include "sema/flow.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -99,6 +98,21 @@ static size_t binary(Lower *l, BinaryOp op, const SemaType *type,
   emit(l, in);
   return result;
 }
+static size_t pack(Lower *l, const SemaType *type, SemaTag *tag,
+                   const size_t *args, size_t count, Span span) {
+  size_t result = temporary(l, type);
+  IrInstruction in = {.op = IR_SYMBOL,
+                      .span = span,
+                      .type = type,
+                      .result = result,
+                      .tag = tag};
+  in.as.symbol.count = count;
+  in.as.symbol.args = arena_calloc(l->arena, count, sizeof(*args));
+  if (count)
+    memcpy(in.as.symbol.args, args, count * sizeof(*args));
+  emit(l, in);
+  return result;
+}
 static size_t convert(Lower *l, size_t value, const SemaType *target,
                       Span span) {
   if (!target)
@@ -109,14 +123,8 @@ static size_t convert(Lower *l, size_t value, const SemaType *target,
   if (source == target)
     return value;
   if (target->kind == SEMA_SYM && source->kind != SEMA_SYM) {
-    size_t result = temporary(l, target);
-    emit(l, (IrInstruction){.op = IR_SYMBOL,
-                            .span = span,
-                            .type = target,
-                            .result = result,
-                            .a = value,
-                            .tag = l->program->ok});
-    return result;
+    const SemaVariant *ok = sema_ok(target);
+    return pack(l, target, l->program->ok, &value, ok->payload_count, span);
   }
   const SemaVariant *success = sema_ok(source);
   if (success && source->symbols->count == 1 &&
@@ -190,20 +198,18 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
     return load(l, NULL, object, e->as.field.field, e->span);
   }
   case SEMA_EXPR_SYMBOL: {
-    size_t payload =
-        e->as.symbol.count ? lower(l, e->as.symbol.payloads[0]) : IR_NO_VALUE;
-    if (l->returned)
-      return IR_NO_VALUE;
+    size_t count = e->as.symbol.count;
+    size_t *args = arena_calloc(l->arena, count, sizeof(*args));
+    // A return may prevent the symbol type from ever being constructed.
     const SemaVariant *variant = sema_variant(e->type, e->as.symbol.tag);
-    payload = convert(l, payload, sema_single_payload(variant), e->span);
-    size_t result = temporary(l, e->type);
-    emit(l, (IrInstruction){.op = IR_SYMBOL,
-                            .span = e->span,
-                            .type = e->type,
-                            .result = result,
-                            .a = payload,
-                            .tag = e->as.symbol.tag});
-    return result;
+    for (size_t i = 0; i < count; i++) {
+      args[i] = lower(l, e->as.symbol.payloads[i]);
+      if (l->returned)
+        return IR_NO_VALUE;
+      args[i] =
+          convert(l, args[i], variant ? variant->payloads[i] : NULL, e->span);
+    }
+    return pack(l, e->type, e->as.symbol.tag, args, count, e->span);
   }
   case SEMA_EXPR_STRUCT: {
     SemaStruct *s = e->as.structure.type;
@@ -483,12 +489,14 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
                                 .a = test,
                                 .label = next});
       }
-      SemaVar *binding = a->kind == PAT_SYMBOL
-                             ? (a->payload_count && a->payload_bindings
-                                    ? a->payload_bindings[0]
-                                    : NULL)
-                             : a->binding;
-      if (binding) {
+      size_t bindings = a->kind == PAT_SYMBOL ? a->payload_count : 1;
+      for (size_t position = 0; position < bindings; position++) {
+        SemaVar *binding =
+            a->kind == PAT_SYMBOL
+                ? (a->payload_bindings ? a->payload_bindings[position] : NULL)
+                : a->binding;
+        if (!binding)
+          continue;
         size_t bound = input;
         if (tag != IR_NO_VALUE && a->kind == PAT_SYMBOL) {
           bound = temporary(l, binding->type);
@@ -497,6 +505,7 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
                                     .span = a->span,
                                     .result = bound,
                                     .a = input,
+                                    .position = position,
                                     .tag = a->tag});
         }
         store(l, binding, IR_NO_VALUE, NULL, bound, a->span);
@@ -643,15 +652,11 @@ static size_t lower(Lower *l, const SemaExpr *e) {
   size_t value = lower_raw(l, &raw);
   if (l->returned || !e->adapt)
     return value;
-  size_t result = temporary(l, e->type);
   if (e->adapt == 1)
-    emit(l, (IrInstruction){.op = IR_SYMBOL,
-                            .span = e->span,
-                            .type = e->type,
-                            .result = result,
-                            .a = value,
-                            .tag = l->program->ok});
-  else if (result != IR_NO_VALUE)
+    return pack(l, e->type, l->program->ok, &value,
+                sema_ok(e->type)->payload_count, e->span);
+  size_t result = temporary(l, e->type);
+  if (result != IR_NO_VALUE)
     emit(l, (IrInstruction){.op = IR_SYMBOL_PAYLOAD,
                             .span = e->span,
                             .result = result,
@@ -701,47 +706,15 @@ static void used_symbol_sets(Arena *arena, const SemaProgram *program,
     if (used[s->id])
       p->symbol_sets[p->symbol_set_count++] = s;
 }
-// Reuse the structured walker: even dead or non-returning payload syntax
-// must not slip through merely because it never interns a positional type.
-static int native_join(SemaFlow *flow, void *into, const void *from,
-                       SemaExpr *at) {
-  (void)flow;
-  (void)into;
-  (void)from;
-  (void)at;
-  return 0;
-}
-static SemaFlowValue native_enter(SemaFlow *flow, SemaExpr *e, void *state) {
-  (void)state;
-  if (!flow->probe && e->kind == SEMA_EXPR_SYMBOL && e->as.symbol.count > 1)
-    *(int *)flow->context = 1;
-  return 0;
-}
-static void native_arm(SemaFlow *flow, SemaArm *arm, void *state,
-                       SemaFlowValue input) {
-  (void)state;
-  (void)input;
-  if (!flow->probe && arm->payload_count > 1)
-    *(int *)flow->context = 1;
-}
 IrProgram *ir_lower(Arena *arena, const SemaProgram *program) {
   if (!program->checked)
     return NULL;
-  // Semantic types, values and patterns understand positions before the ABI
-  // and ownership pass do. Never lower an incomplete representation, including
-  // nested lists or trees assembled through the sema API.
+  // First-version implicit success/extraction still has one result slot.
+  // Data and failure variants have a fully positional native representation.
   for (const SemaSymSet *s = program->symbol_sets; s; s = s->next)
     for (size_t i = 0; i < s->count; i++)
-      if (s->variants[i].payload_count > 1)
+      if (s->variants[i].tag == program->ok && s->variants[i].payload_count > 1)
         return NULL;
-  SemaFlowAnalysis native = {
-      .join = native_join, .enter = native_enter, .arm = native_arm};
-  int incomplete = 0;
-  for (size_t i = 0; i < program->count; i++)
-    sema_flow_run(arena, &native, &incomplete, program->functions[i].body,
-                  NULL);
-  if (incomplete)
-    return NULL;
   IrProgram *p = arena_calloc(arena, 1, sizeof(*p));
   p->count = program->count;
   p->entry = program->entry->id;

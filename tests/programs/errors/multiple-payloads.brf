@@ -1,8 +1,8 @@
-Bad = :many[Missing, Other] // error: Multiple symbol payloads are not implemented yet.
-values() {
-  :tuple[unknown, absent()] // error: Multiple symbol payloads are not implemented yet.
+Bad = :many[int, str]
+main() {
+  let invalid: Bad = :many[1] // error: Binding value does not match its annotation.
 }
-patterns() {
-  1 |> { :tuple[a, b] => missing(a, b) } // error: Multiple symbol payloads are not implemented yet.
+f(value: Bad) {
+  value |> { :many[a, b, c] => () } // error: Symbol pattern has the wrong payload shape.
 }
-main() {}
+g() -> Bad { :many[1, true] } // error: Function body does not match the written return type.

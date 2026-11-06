@@ -1,4 +1,4 @@
-// Syntax coverage only: multiple payloads cannot yet compile natively.
+// Syntax coverage: includes unavailable APIs, collections and refutable patterns.
 Data = :!pair[int, str,] | :empty[] | :unit[()] | :nested[:inside[int]]
 main() {
   :!pair[1, "two",]

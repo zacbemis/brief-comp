@@ -68,8 +68,8 @@ and inferred-type comments are preserved, not interpreted as module loading or
 qualified-tag grammar. Remaining listings now state their actual blockers:
 member/receiver grammar, N4/N5, lambdas, qualified symbols or incomplete/mixed
 contexts. Standalone signatures, ellipsis bodies, pattern arms and unsupported
-mixed contexts are not extracted or stubbed into tests. Native multi-payload
-support, typed/refutable matching and N2/N3 semantics remain separate gaps.
+mixed contexts are not extracted or stubbed into tests. That union increment
+did not add native multi-payload support, typed/refutable matching or N2/N3.
 
 Typed payload binding syntax now parses, but the sole current-document example
 is still inside symbols fence 10's signature/ellipsis/interpolation fragment. It
@@ -134,8 +134,8 @@ self expression nodes without native binding/inference or default dispatch.
 Modules fence 4 still needs interpolation and moves to N5 instead of passing
 as a plain string. Counts are 162 checks and 77 fenced listings, plus two
 unfenced listings. No current listing is blocked only by N1 parser syntax, but
-multi-payload support, remaining rules and replacement audits still leave N1
-in progress. No native chapter audit is completed.
+remaining rules and replacement audits still leave N1 in progress. No native
+chapter audit is completed.
 
 Native struct receivers now bind a canonical owner parameter, use existing
 permissions/ownership and infer method-ness syntactically before return probes.
@@ -148,6 +148,11 @@ fixes such as `Date.label(d)` to `d.label()`. Source migration preserves native
 observations, but does not turn modules fence 5's parser-only call expressions
 into a native contract audit. Parser counts are unchanged. No missing receiver,
 helper body or speculative module API is synthesized.
+
+Native data/failure payload lists now support positional packing, projection
+and ownership, with multiple `:ok` positions still explicitly unsupported.
+This changes no parser counts or fence classifications. The full shape listing
+still depends on its external helper, so it is not a completed native audit.
 
 ## Native acceptance gap
 

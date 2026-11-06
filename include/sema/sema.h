@@ -298,8 +298,8 @@ const SemaType *sema_conversion(SemaProgram *program, const SemaType *source,
 int sema_reference(const SemaType *type);
 const SemaVariant *sema_ok(const SemaType *type);
 int sema_payloads_equal(const SemaVariant *a, const SemaVariant *b);
-// Native success/extraction still has zero/one position. Data checking uses
-// positional arrays; native lowering stays gated until ABI/RC support exists.
+// Zero/one access for success-result semantics and preserved scalar layouts.
+// Positional data uses arrays; never collapse several values to the first.
 const SemaType *sema_single_payload(const SemaVariant *variant);
 // Zero/one constructor; sema_symbol_set accepts and owns positional lists.
 const SemaType *sema_symbol_type(SemaProgram *program, SemaTag *tag,

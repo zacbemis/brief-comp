@@ -23,7 +23,7 @@ typedef enum {
   IR_DROP_TEMP,
   IR_DROP_VAR,
   IR_DROP_FIELD,
-  IR_SYMBOL,      // Pack tag/payload a, then pin through the ownership pass.
+  IR_SYMBOL,      // Pack tag/ordered arguments, then pin through RC.
   IR_SYMBOL_CAST, // Repack a symbol set without changing its global tag.
   IR_SYMBOL_TAG,
   IR_SYMBOL_PAYLOAD,
@@ -39,6 +39,7 @@ typedef struct {
   // COPY writes result from a; RETURN uses a (or IR_NO_VALUE). Field operations
   // use object temporary a and field metadata; FIELD_STORE stores b.
   size_t result, a, b, label;
+  size_t position; // IR_SYMBOL_PAYLOAD: semantic index, including unit slots.
   SemaField *field;
   SemaTag *tag;
   union {
@@ -56,6 +57,10 @@ typedef struct {
       size_t function, count;
       size_t *args; // Unit arguments have no representation; effects remain.
     } call; // NEW uses type->structure and declaration-ordered field args.
+    struct {
+      size_t count;
+      size_t *args; // Unit positions use IR_NO_VALUE; their effects remain.
+    } symbol;       // IR_SYMBOL; all arguments remain owned through packing.
     const SemaType *conversion; // IR_CONVERT target number type.
     UnaryOp unary;
     BinaryOp binary;

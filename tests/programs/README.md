@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **152 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **156 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for the current parser inventory and gap.
 
@@ -523,21 +523,33 @@ and the native chapter-audit gap are unchanged.
 
 Positional payload types now have canonical owned arrays in the semantic
 interner. Independent C tests cover arity, order, late-position conflicts,
-array lifetime, coverage, equatability and read-only reachability. This does not
-enable native multiple payloads: existing type/value/pattern rejections and
-zero/one-payload observations stay unchanged, and lowering/emission reject
-incomplete positional representations. Fixture inventory remains 152 files;
-no native chapter audit or N2 rule is added.
+array lifetime, coverage, equatability and read-only reachability. That type
+increment did not enable native multiple payloads: source rejections remained,
+and lowering/emission rejected incomplete positional representations. Its
+inventory was 152 files; no native chapter audit or N2 rule was added.
 
 Semantic payload values and arm bindings now retain ordered positions too.
 C tests exercise per-position literal/nested-union context, binder types and
 wildcards, repeated/recursive inference, 512 positions and conservative
 read-only aggregation. Shared-flow tests observe evaluation order, unit slots
-and inactive later syntax after a return. These internal semantic trees do not
-bypass source acceptance: native multi-payload type/value/pattern barriers
-remain, and IR preflight rejects even non-returning positional values that
-never create a positional type. Fixture counts and native observations remain
-unchanged; native layout, extraction and ownership are the next integration.
+and inactive later syntax after a return. That semantic increment retained
+native source barriers, and IR preflight rejected even non-returning values
+that never created a positional type. Its fixture counts and native
+observations were unchanged; native layout/ownership were the next integration.
+
+Native positional packing, projection, casts and generated reference helpers
+now support data/failure payload lists. `positional-payloads.brf` observes
+unit-slot evaluation order, returned owned strings, recursive inference, group
+matches, widening, equality, duplicate object owners, argument snapshots,
+struct-indirected links, loop cleanup and first-version failure propagation.
+Its panic companion retains the existing formatter spelling, extended to
+comma-separated positions. `errors/positional-permissions.brf` checks mutation,
+mutable calls and field storage without upgrading access. The former general
+unsupported fixture now checks arity/types; a later alias payload's unknown
+type is diagnosed directly. `errors/multiple-ok-payloads.brf` preserves the
+explicit single-result success boundary and suppresses unavailable internals.
+These four additions bring the inventory to 156 files. Existing zero/one
+observations and N2 behavior are unchanged. No native chapter audit is complete.
 
 These are compilation/execution tests for the current subset, not the much
 broader syntax-only examples in `tests/parse/` and the doc parser manifest.

@@ -1,0 +1,4 @@
+// panic: panic: :bad("owned text", 7, ())
+// panic: positional-payloads.brf:4
+f() -> :ok[()] | :!bad[str, int, ()] { :!bad["owned" + " text", 7, ()] }
+main() { f()! }

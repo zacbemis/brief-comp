@@ -177,7 +177,7 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 
 | Tests | Today | Change |
 |---|---|---|
-| `tests/programs/` (152 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (zero/one native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases, empty-trait classification, qualified symbol syntax and struct-owned functions with ordinary `impl`; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
+| `tests/programs/` (156 fixtures, including rejection and panic cases) | `not`, `dbl`, `->` returns, keyword-free aliases, `=` literal fields, type/member visibility, `.()` indices, bracketed type arguments, declaration/tag/pattern roles and ordinary `trait`/`ovr` names, imports, typed collection literals, error-tag kinds, bracketed payload lists (positional data/failure native), union types, ordinary `Sym`/`Self` names, scope-only typed payload binders and transparent native aliases, empty-trait classification, qualified symbol syntax and struct-owned functions with ordinary `impl`; other declaration/type grammar still first-version, `// expect:`, `// error:` and other markers | Converted in N1, with expectations unchanged. Changed where N2–N4 change their meaning; the places are found by those milestones' new errors. |
 | `tests/parse/pass/` (41) | Must parse | Converted in N1. The generated stress files (`30`–`34`) are regenerated in the new syntax. `09-generic-calls.brf` is rewritten for `[...]`, since the comparison ambiguity it tests is gone. |
 | `tests/parse/fail/` (114) | One syntax rule each, with a `// Why:` line | Rewritten by hand in N1: each file is checked against its `Why`, translated where the rule still exists, and deleted with a note where it does not (such as generic-call ambiguity). `later-*` files whose syntax now parses move to `pass/` or become not-implemented cases. New files are added for every old-syntax rejection. |
 | Lexer, newline and parser C tests | Token lists and AST dumps | Updated by hand in N1, because the tokens and the tree change. |
@@ -229,10 +229,12 @@ with an explicit not-implemented compilation barrier and no file loading. Typed
 `Arr`/`Vec` literals parse but remain unimplemented at native compilation. Error
 tags use adjacent `:!name`; kinds and conflict source locations are retained,
 without switching outcomes or formatting. Bracketed payload lists parse in
-types, values and patterns; zero/one payload preserves native behavior, while
-several positions report not implemented. Union types now use `|` in every type
-context; old `Sym<...>` wrappers reject. Typed payload binders keep annotations,
-with explicit native rejection until merged-symbol matching exists. Implicit
+types, values and patterns. Native data/failure payloads now support all
+positions while preserving zero/one behavior. Multiple `:ok` positions remain
+an explicit boundary of the first-version single-result success ABI. Union types
+now use `|` in every type context; old `Sym<...>` wrappers reject. Typed payload
+binders keep annotations, with explicit native rejection until merged-symbol
+matching exists. Implicit
 owner-type `Self` has been replaced by concrete names, with ordinary declarations
 named `Self` taking precedence over legacy recovery. Type aliases transparently
 reuse all existing native types, including primitives, unit and structs, with
@@ -242,8 +244,8 @@ fields. Functions now live inside struct bodies, preserving explicit receivers;
 separate `impl` blocks reject. Typed trait signatures and default bodies parse
 but retain the native unsupported-trait barrier. Qualified symbols retain
 module paths but stop at an explicit native scope boundary. Remaining
-trait/receiver grammar, multi-payload checking/lowering and the old failure-tag
-conversion remain pending.
+bootstrap trait/module support and the old failure-tag conversion remain
+pending.
 
 Primitive keywords now name function members and dotted expression members,
 without broadening ordinary names or type paths. Context-specific casing fixes
@@ -269,8 +271,10 @@ Canonical semantic symbol variants now own ordered payload-type arrays.
 Interning, subset checks, union conflicts, equatability and reference
 reachability account for every position. Semantic values and arm bindings also
 retain positional arrays, with per-position context, coverage and shared flow.
-This is pre-ABI groundwork, not native acceptance: type/value/pattern scope
-barriers remain, and lowering/emission reject incomplete representations.
+Native data/failure packing, projection, casts and reference traversal now
+support every position, and source barriers are removed for those payloads.
+Malformed positional IR still rejects before any C is published. Multi-`:ok`,
+typed/refutable matching and module/trait boundaries remain; N1 is in progress.
 
 - [x] N0 (1): structured diagnostic fix-its and printed `help:` previews.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
@@ -2064,6 +2068,89 @@ packing/projection, casts, ownership and runtime traversal before removing the
 source barriers. N1 remains in progress, also awaiting remaining casing and
 keywords, failure-tag source conversion and replacement native audits. Native
 traits/modules and typed/refutable payload matching remain unavailable.
+
+### N1 increment: native positional payload packing and ownership
+
+Native data and failure variants now accept several payload positions in
+annotations, values and untyped binding/wildcard patterns. Resolution visits
+all payload types and alias dependencies, including later positions, so forward
+aliases work and cycles still require a struct indirection. Qualified tags,
+traits/imports/conformance and typed/refutable matching remain unsupported;
+multiple-position refutable patterns stop before dependent arm-body errors.
+The first-version implicit-success ABI still has one result slot: multi-`:ok`
+annotations, constructors and patterns report an explicit unsupported boundary
+without resolving unavailable internals. No tuple result is invented and N2
+outcome/entry policy is not switched.
+
+`IR_SYMBOL` now carries its complete ordered argument list. Projection records
+a semantic position, including unit slots that have no C representation.
+Lowering evaluates payload expressions left to right, preserves argument
+snapshots and unit effects, and stops correctly on returns/breaks/continues.
+Pattern bindings project their own positions and retain independent scope
+cleanup. The old general positional preflight is removed; the multi-`:ok`
+representation guard remains. Malformed constructor arity/arguments or
+projection indices/types are rejected before emission writes any C.
+
+Generated multi-position variants use per-position fields inside their tag's
+union member. All-unit lists have a dummy byte, not an invalid empty C struct;
+unit positions remain part of semantic arity. Existing zero/one layout and
+field names are unchanged. Widening/narrowing copies individual positions,
+not incompatible anonymous C structs. Equality and formatting visit every
+position. Formatting extends the first-version parenthesized spelling with
+commas, including units; it does not change existing tag prefixes or switch to
+N2's bracketed runtime spelling.
+
+The existing independent RC pass still owns temporary slots and pins packed
+symbols/projections. Generated retain/release helpers now visit every active
+reference position, including repeated pointers and nested symbols. Earlier
+payload temporaries stay alive through later evaluation, and scope cleanup
+handles early exits, returned binders, loop replacement and unused wildcards.
+No new runtime object type or collector is introduced.
+
+`positional-payloads.brf` observes evaluation order, unit slots, owned strings
+escaping arm scopes, recursive inference, groups, widening, equality, aliased
+object positions, argument snapshots, struct-indirected links, loop cleanup and
+first-version failure propagation. Its panic companion checks all formatted
+positions under the existing spelling. `errors/positional-permissions.brf`
+rejects mutation, mutable calls and field storage through read-only payloads.
+`errors/multiple-ok-payloads.brf` retains one scope diagnostic per unsupported
+context without cascades. Inventory: 156 native fixtures, four more than the
+previous slice. Existing semantic-tree tests now require owned IR and C rather
+than a temporary unsupported boundary, including the 512-position unit case.
+Native tests cover later alias dependencies and typed/refutable scope guards;
+CLI checks execute positional payloads with CRLF and preserve old-syntax fixes.
+
+The old `errors/multiple-payloads.brf` scope fixture now checks real arity/type
+failures, with intentional expectations on lines 3, 6 and 8. The later payload
+in `errors/type-aliases.brf` now reports its unknown type directly on line 9,
+rather than a generic unsupported-list error. Those are feature-driven error
+changes, not dropped observations. Parser fixture 39's comment now accurately
+lists its remaining blockers. No parser fixtures or document fences are moved.
+
+Four fresh `-Werror` configurations pass: GCC/Clang Debug ASan/UBSan and GCC
+Release, 25/25 each; GCC Debug without sanitizers, 24/24. All retained 354 source
+statuses are unchanged; 350 complete CLI results remain identical. The four
+intentional differences are the two rejection fixtures above, parser fixture
+39's newly exposed dependency errors and fixture 41's typed-pattern diagnostic
+replacing the old generic multi-payload boundary. All 102 prior C successes
+remain byte-identical, including all six examples; the examples also preserve
+sanitized stdout/stderr/status.
+
+Additional retained checks compile/run 512 owned positions with unit slots,
+widening/narrowing, equality and final-position projection under sanitizers.
+Payload break/continue cleanup passes sanitized execution, and a non-returning
+payload with earlier owned text emits C. Pinned clang-format 23.1.3, diff/prose
+checks, the 23-ending CRLF fixture and reviewed call-form whitespace fix pass.
+Reports: `build/validation/payload-native.20261106T093039Z/` (ignored).
+
+The plan design is unchanged; only native inventory count/status is updated in
+the test table. Parser counts remain 155 files (41 pass, 114 fail); documents
+remain 239 fences and 162 parser checks. No native chapter audit is complete.
+N1 remains in progress: remaining casing/keywords, failure-tag source conversion
+and replacement audits remain, with the explicit multi-`:ok` boundary above.
+Native traits/modules and merged typed/refutable matching remain bootstrap
+scope. N2 outcome classification, propagation, entry status and runtime spelling
+are unchanged.
 
 ## Risks
 

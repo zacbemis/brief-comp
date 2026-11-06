@@ -1,0 +1,76 @@
+Pair = :pair[str, (), str] | :none
+Narrow = :pair[str, (), str]
+Holder { pair: Pair }
+Obj { n: int }
+Payload = :objects[Obj, Obj, str] | :none
+order(n: int) -> str { print(str(n))
+  "s" + str(n) }
+unit() { print("unit") }
+make() -> Pair { :pair[order(1), unit(), order(2)] }
+escape() -> str {
+  make() |> { :pair[a, _, b] => ret a + b
+    :none => ret "none" }
+}
+choose(b: bool) -> Payload {
+  if b { :objects[Obj { n = 5 }, Obj { n = 7 }, "heap" + " text"] }
+  else { :none }
+}
+recursive(n: int) {
+  if n == 0 { ret :pair["left" + "!", (), "right" + "!"] }
+  mutual(n - 1)
+}
+mutual(n: int) { recursive(n) }
+fail(b: bool) -> :ok[int] | :!bad[str, int, ()] {
+  if b { ret :!bad["owned" + " error", 7, ()] }
+  42
+}
+propagate(b: bool) { fail(b)? }
+Link = :end | :next[(), Node, int]
+Node { link: Link }
+leave() -> str {
+  :discard["owned" + " first", if true { ret "left" } else { ret "left" }]
+}
+main() {
+  print(escape()) // expect: 1
+  // expect: unit
+  // expect: 2
+  // expect: s1s2
+  let value = recursive(2)
+  let h = Holder { pair = value }
+  h.pair |> { Narrow => print("group")
+    :none => print("wrong") } // expect: group
+  print(str(value == :pair["left!", (), "right!"])) // expect: true
+  print(str(value == :pair["left!", (), "different"])) // expect: false
+  var payload = choose(true)
+  payload |> { :objects[a, b, s] => print(str(a.n + b.n) + s)
+    :none => print("wrong") } // expect: 12heap text
+  payload = choose(false)
+  for i in 0..50 {
+    payload = choose(true)
+    payload |> { :objects[a, _, _] => a.n += i
+      :none => () }
+    if i > 10 { continue }
+  }
+  payload = :none
+  let obj = Obj { n = 9 }
+  :objects[obj, obj, "shared"] |> { :objects[a, b, _] => {
+    a.n += 1
+    print(str(b.n))
+  } } // expect: 10
+  var text = "old" + " text"
+  let snapshots = :pair[text, (), if true { text = "new" + " text"
+    text } else { text }]
+  snapshots |> { :pair[a, _, b] => print(a + "|" + b) } // expect: old text|new text
+  print(leave()) // expect: left
+  let leaf = Node { link = :end }
+  let branch = Node { link = :next[(), leaf, 7] }
+  branch.link |> { :next[_, node, n] => node.link |> {
+    :end => print("true" + str(n))
+    :next[_, _, _] => () }
+    :end => () } // expect: true7
+  propagate(true) |> { :ok[_] => print("wrong")
+    :!bad[s, n, _] => print(s + str(n)) } // expect: owned error7
+  print(str(propagate(false)!)) // expect: 42
+  :units[unit(), unit()] |> { :units[a, b] => () } // expect: unit
+  // expect: unit
+}

@@ -489,14 +489,21 @@ if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
    NOT output MATCHES "symbol many" OR NOT output MATCHES "tag many")
     message(FATAL_ERROR "payload lists did not retain syntax (${status}):\n${errors}\n${output}")
 endif()
+file(WRITE "${payloads}" "E = :ok[Missing, Other]\r\nmain() { :ok[unknown, absent()]\r\n  1 |> { :ok[a, b] => missing(a, b) }\r\n}\r\n")
 execute_process(COMMAND "${BRIEF}" emit-c "${payloads}"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 string(REGEX MATCHALL "(^|\n)error:" payload_errors "${errors}")
 list(LENGTH payload_errors payload_errors)
 if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT payload_errors EQUAL 3 OR
-   NOT errors MATCHES "^error: Multiple symbol payloads are not implemented yet\\." OR
+   NOT errors MATCHES "^error: Multiple ':ok' payloads are not implemented yet\\." OR
    errors MATCHES "Unknown|require a symbol input|help:")
     message(FATAL_ERROR "multiple payloads escaped scope or cascaded (${status}):\n${errors}")
+endif()
+file(WRITE "${payloads}" "E = :many[int, str]\r\nmain() { let value: E = :many[41, \"x\"]\r\nvalue |> { :many[n, s] => print(s + str(n + 1)) } }\r\n")
+execute_process(COMMAND "${BRIEF}" run --debug "${payloads}"
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT status EQUAL 0 OR NOT output STREQUAL "x42\n" OR NOT errors STREQUAL "")
+    message(FATAL_ERROR "positional native payload failed (${status}):\n${errors}")
 endif()
 file(WRITE "${payloads}" "E = :typed(int)\r\nmain() { :value(1)\r\n  1 |> { :some(x) => x }\r\n}\r\n")
 foreach(command dump-ast emit-c)

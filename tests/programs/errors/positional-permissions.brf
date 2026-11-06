@@ -1,0 +1,11 @@
+P { n: int }
+Holder { value: :pair[(), P] }
+mutate(value: &:pair[(), P]) {}
+f(p: P) {
+  let pair = :pair[(), p]
+  pair |> { :pair[_, item] => item.n = 2 } // error: Cannot mutate through an ordinary parameter; use &.
+  mutate(pair) // error: A read-only value cannot be passed to an & parameter; take the parameter it comes from as &.
+  let holder = Holder { value = :pair[(), P { n = 0 }] }
+  holder.value = pair // error: A read-only value cannot be stored in a field; take the parameter it comes from as &.
+}
+main() {}

@@ -1,0 +1,7 @@
+Bad = :ok[Missing, Other] // error: Multiple ':ok' payloads are not implemented yet.
+main() {
+  :ok[unknown, absent()] // error: Multiple ':ok' payloads are not implemented yet.
+}
+f() {
+  1 |> { :ok[a, b] => missing(a, b) } // error: Multiple ':ok' payloads are not implemented yet.
+}

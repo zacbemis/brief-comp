@@ -30,12 +30,13 @@ N1's `:!name` syntax/kind checks are not the N2 native audit. Entry status,
 propagation, outcome classification, `:ok` equivalence and runtime formatting
 still use the first-version rules. The explicit N1 error-only entry fixture
 exits 0 until N2 changes and reviews that expectation. Bracketed payload lists
-now parse; zero/one payload preserves native behavior, while multiple payloads
-still block compilation. Union types and ordinary `Sym` names also preserve
-first-version outcome rules. Type-context and whole-fence parser checks do not
-complete a native audit. Typed symbol payload binders now retain annotations
-for parser checks, but compilation still reports that typed matching is not
-implemented. No native/API acceptance follows from that syntax support.
+compile with positional data/failure payloads, preserving zero/one behavior.
+Multiple `:ok` positions still stop at the single-result success boundary.
+Union types and ordinary `Sym` names also preserve first-version outcome rules.
+Type-context and whole-fence parser checks do not complete a native audit.
+Typed symbol payload binders retain annotations for parser checks, but native
+compilation still reports that typed matching is not implemented. No native/API
+acceptance follows from that syntax support.
 Ordinary `Self` names and concrete owner-type spelling also do not complete the
 remaining member/receiver grammar or any replacement chapter audit.
 Native aliases now reuse existing primitive/unit/struct/symbol types, with
@@ -84,12 +85,13 @@ actual self methods before visible module functions. This does not complete a
 replacement chapter audit or add trait/module resolution. Remaining N1 rules,
 source conversions for those rules and replacement audits keep N1 incomplete.
 
-Canonical positional payload types, semantic values and arm bindings are now
-tested independently below the native boundary. Parser lists with multiple
-positions still do not compile: native layout, extraction and ownership must
-support all positions before that boundary is removed. Semantic-tree tests are
-not source acceptance, and no document fence is promoted. No replacement
-native chapter audit is complete.
+Native data/failure payload lists now compile with positional packing,
+projection, casts and ownership. Four new fixtures bring the native inventory
+to 156; source coverage includes arity/type errors, permissions, evaluation
+order, owned values and panic formatting. Multiple `:ok` positions remain an
+explicit boundary of the first-version success ABI. Parser counts do not
+change, and native fixtures are not replacement whole-chapter audits. No fence
+is promoted and no replacement native chapter audit is complete.
 
 ## N1 spelling bridges
 

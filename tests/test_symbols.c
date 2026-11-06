@@ -68,7 +68,25 @@ static Result invalid(Arena *a, const char *text, const char *message) {
   ASSERT_TRUE(ir_lower(a, r.program) == NULL);
   return r;
 }
-// Build internal semantic trees below the still-closed native source gate.
+static IrProgram *owned_ir(Arena *a, SemaProgram *p) {
+  ASSERT_TRUE(p->checked);
+  IrProgram *ir = ir_lower(a, p);
+  ASSERT_TRUE(ir != NULL);
+  if (!ir)
+    return NULL;
+  ir_insert_rc(a, ir);
+  FILE *out = tmpfile();
+  ASSERT_TRUE(out != NULL);
+  if (out) {
+    ASSERT_TRUE(emit_c(out, ir));
+    fclose(out);
+  }
+  size_t count = ir->functions[0].count;
+  ir_insert_rc(a, ir);
+  ASSERT_EQ_INT(count, ir->functions[0].count);
+  return ir;
+}
+// Build internal semantic trees for independent checking and lowering tests.
 static SemaExpr *copy_expr(Arena *a, const SemaExpr *source) {
   SemaExpr *copy = arena_alloc(a, sizeof(*copy));
   *copy = *source;
@@ -427,8 +445,7 @@ int main(void) {
       items[1] = type;
     }
   }
-  TEST("native lowering and emission refuse positional types before ABI "
-       "support") {
+  TEST("native lowering and emission retain unused positional type metadata") {
     SemaProgram *p = valid(&a, "main() {}").program;
     IrProgram *ir = ir_lower(&a, p);
     ASSERT_TRUE(ir != NULL);
@@ -436,15 +453,15 @@ int main(void) {
     const SemaType *items[] = {&p->types[SEMA_STR], &p->types[SEMA_INT]};
     SemaVariant v = {sema_tag(p, p->module, "pending"), items, 2};
     const SemaType *type = sema_symbol_set(p, &v, 1);
-    ASSERT_TRUE(ir_lower(&a, p) == NULL);
+    ASSERT_TRUE(ir_lower(&a, p) != NULL);
     const SemaSymSet *sets[] = {type->symbols};
     ir->symbol_sets = sets;
     ir->symbol_set_count = 1;
     FILE *out = tmpfile();
     ASSERT_TRUE(out != NULL);
     if (out) {
-      ASSERT_TRUE(!emit_c(out, ir));
-      ASSERT_EQ_INT(0, ftell(out));
+      ASSERT_TRUE(emit_c(out, ir));
+      ASSERT_TRUE(ftell(out) > 0);
       fclose(out);
     }
   }
@@ -475,7 +492,7 @@ int main(void) {
       if (errors.count)
         diagnostics_print(&errors, stderr);
       ASSERT_EQ_INT(0, errors.count);
-      ASSERT_TRUE(p->checked && ir_lower(&a, p) == NULL);
+      ASSERT_TRUE(owned_ir(&a, p) != NULL);
       ASSERT_TRUE(row->type == f->written_type);
       ASSERT_TRUE(items[0]->type == types[0] && items[1]->type == types[1]);
       ASSERT_TRUE(items[1]->real == (double)(float)0.1);
@@ -524,7 +541,7 @@ int main(void) {
       ASSERT_TRUE(first->type == types[0] && last->type == types[2]);
       ASSERT_TRUE(first->id != last->id && !last->mutable);
       ASSERT_TRUE(f->symbol.return_type == types[2]);
-      ASSERT_TRUE(p->checked && ir_lower(&a, p) == NULL);
+      ASSERT_TRUE(owned_ir(&a, p) != NULL);
     }
     // A malformed arm must clear every binder, not retain probe-time types.
     arm->payload_count = 2;
@@ -602,7 +619,7 @@ int main(void) {
       for (const SemaSymSet *s = p->symbol_sets; s; s = s->next)
         for (size_t i = 0; i < s->count; i++)
           ASSERT_TRUE(s->variants[i].payload_count <= 1);
-      ASSERT_TRUE(p->checked && ir_lower(&a, p) == NULL);
+      ASSERT_TRUE(owned_ir(&a, p) != NULL);
     }
   }
   TEST("positional values survive recursive return probes without losing "
@@ -632,7 +649,7 @@ int main(void) {
         ASSERT_TRUE(v->payloads[0] == &p->types[SEMA_INT] &&
                     v->payloads[1] == &p->types[SEMA_INT]);
       }
-      ASSERT_TRUE(p->checked && ir_lower(&a, p) == NULL);
+      ASSERT_TRUE(owned_ir(&a, p) != NULL);
     }
   }
   TEST("wide semantic values and wildcard arms preserve the final unit slot") {
@@ -674,22 +691,36 @@ int main(void) {
       ASSERT_TRUE(last->type == types[WIDTH - 1] &&
                   g->symbol.return_type == types[WIDTH - 1]);
       ASSERT_EQ_INT(WIDTH, sema_variant(type, v.tag)->payload_count);
-      ASSERT_TRUE(p->checked && ir_lower(&a, p) == NULL);
+      ASSERT_TRUE(owned_ir(&a, p) != NULL);
     }
   }
-  TEST("native preflight also rejects positional wildcard arms without a multi "
-       "type") {
+  TEST("malformed positional IR is rejected before any C is published") {
     SemaProgram *p =
-        valid(&a,
-              "f(value: :row[int]) { value |> { :row[_] => 0 } }\nmain() {}")
+        valid(&a, "main() { :pair[1, \"x\"] |> { :pair[a, b] => print(b) } }")
             .program;
-    SemaExpr *match =
-        p->functions[0].body->as.block.items[0]->as.block.items[1];
-    match->as.match.arms[0].payload_count = 2;
-    for (const SemaSymSet *s = p->symbol_sets; s; s = s->next)
-      for (size_t i = 0; i < s->count; i++)
-        ASSERT_TRUE(s->variants[i].payload_count <= 1);
-    ASSERT_TRUE(p->checked && ir_lower(&a, p) == NULL);
+    IrProgram *ir = owned_ir(&a, p);
+    if (ir)
+      for (size_t i = 0; i < ir->functions[0].count; i++) {
+        IrInstruction *in = &ir->functions[0].instructions[i];
+        if (in->op != IR_SYMBOL && in->op != IR_SYMBOL_PAYLOAD)
+          continue;
+        size_t saved = in->op == IR_SYMBOL ? in->as.symbol.count : in->position;
+        if (in->op == IR_SYMBOL)
+          in->as.symbol.count = 1;
+        else
+          in->position = 2;
+        FILE *out = tmpfile();
+        ASSERT_TRUE(out != NULL);
+        if (out) {
+          ASSERT_TRUE(!emit_c(out, ir));
+          ASSERT_EQ_INT(0, ftell(out));
+          fclose(out);
+        }
+        if (in->op == IR_SYMBOL)
+          in->as.symbol.count = saved;
+        else
+          in->position = saved;
+      }
   }
   TEST("multiple implicit success positions keep their explicit internal "
        "boundary") {
@@ -788,25 +819,24 @@ int main(void) {
     ASSERT_TRUE(sema_variant(before, implicit)->tag == implicit);
     ASSERT_TRUE(sema_ok(before) == NULL && sema_failures(p, before) == NULL);
   }
-  TEST("payload lists preserve zero versus unit; several positions stay "
-       "scoped") {
+  TEST("payload lists preserve zero/unit; only multi-ok remains scoped") {
     valid(&a,
           "Empty = :empty[]\nItem = :item[int,]\n"
           "main() { let e: Empty = :empty[]\ne |> { :empty[] => () }\n"
           ":unit[()] |> { :unit[_] => () }\n:item[1,] |> { :item[x,] => x } }");
     invalid(&a, "main() { let value: :empty[] = :empty[()] }",
             "does not match");
-    const char *cases[] = {"E = :many[Missing, Other]\nmain() {}",
-                           "main() { :many[unknown, missing()] }",
-                           "main() { 1 |> { :many[a, b] => unknown(a, b) } }"};
+    const char *cases[] = {"E = :ok[Missing, Other]\nmain() {}",
+                           "main() { :ok[unknown, missing()] }",
+                           "main() { 1 |> { :ok[a, b] => unknown(a, b) } }"};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
       Result r = check(&a, cases[i]);
       ASSERT_EQ_INT(1, r.errors.count);
       ASSERT_TRUE(!r.program->checked && !r.program->resolved);
       if (r.errors.count)
-        ASSERT_EQ_INT(
-            0, strcmp("Multiple symbol payloads are not implemented yet.",
-                      r.errors.items[0]->message));
+        ASSERT_EQ_INT(0,
+                      strcmp("Multiple ':ok' payloads are not implemented yet.",
+                             r.errors.items[0]->message));
     }
   }
   TEST(
@@ -833,9 +863,31 @@ int main(void) {
         check(&a, "main() { 1 |> { :pair[x: Missing, y: Other] => f(x, y) } }");
     ASSERT_EQ_INT(1, many.errors.count);
     if (many.errors.count)
-      ASSERT_EQ_INT(0,
-                    strcmp("Multiple symbol payloads are not implemented yet.",
-                           many.errors.items[0]->message));
+      ASSERT_EQ_INT(
+          0, strcmp("Typed symbol payload patterns are not implemented yet.",
+                    many.errors.items[0]->message));
+  }
+  TEST("late payload aliases are resolved and cycles still need a struct") {
+    valid(&a, "A = :pair[int, B]\nB = :leaf[str]\n"
+              "main() { let a: A = :pair[1, :leaf[\"value\"]]\n"
+              "a |> { :pair[_, b] => b |> { :leaf[s] => print(s) } } }");
+    invalid(&a, "A = :pair[int, A]\nmain() {}", "struct indirection");
+    invalid(&a, "A = :pair[int, B]\nB = :other[(), A]\nmain() {}",
+            "struct indirection");
+    invalid(&a, "A = :pair[int, Missing]\nmain() {}", "type is unknown");
+    const char *cases[] = {
+        "main() { :pair[1, 2] |> { :pair[a, 2] => missing(a) } }",
+        "main() { :pair[1, 2] |> { :pair[a, :nested[x]] => missing(a) } }"};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+      Result r = check(&a, cases[i]);
+      ASSERT_EQ_INT(1, r.errors.count);
+      if (r.errors.count)
+        ASSERT_EQ_INT(
+            0,
+            strcmp("Refutable symbol payload patterns are not implemented yet.",
+                   r.errors.items[0]->message));
+      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+    }
   }
   TEST("qualified symbols stop before unavailable payloads and arm bodies") {
     const char *cases[] = {

@@ -22,9 +22,11 @@ select module paths at top level, with uppercase final module names; compilation
 still reports them as unimplemented. Symbol/type/member grammar and broader
 module casing remain pending. Error tags use adjacent `:!name` in the existing
 type/value/pattern contexts. Payload lists use brackets, including empty lists,
-trailing commas and several positional values/patterns. Native compilation still
-supports at most one payload. Union types use `|` in type positions, including
-payloads and type arguments, without changing bitwise or in expressions. `Sym`
+trailing commas and several positional values/patterns. Native data/failure
+payloads support several positions; multiple `:ok` positions remain unsupported
+by the first-version success ABI. Union types use `|` in type positions,
+including payloads and type arguments, without changing bitwise or in
+expressions. `Sym`
 is ordinary; old `Sym<...>` wrappers reject. A bare `_` parses as a type marker,
 but checking restricts it to partial return unions with a written `:ok`. Typed
 payload bindings (`:tag[name: Type]`) preserve annotations and require

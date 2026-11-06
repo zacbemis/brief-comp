@@ -82,15 +82,15 @@ Array annotations use `Arr[Type]`, not sized postfix `Type[size]`. Generics and
 collections remain unimplemented. Typed `Arr[Type] { ... }` and `Vec[Type] { ...
 }` literals parse, but emission reports that collection literals are not
 implemented. Symbol payloads use `[...]` in types, values and patterns, with
-paired fixes for old parentheses. Lists parse with zero or more positions;
-native compilation supports zero or one, and rejects multiple payloads as not
-implemented. Canonical semantic variants now own ordered payload-type arrays;
-interning, subset checks and union conflicts compare every position. Semantic
-values and pattern bindings also retain ordered positions, with per-position
-context and shared flow/permission checking. This is pre-ABI groundwork, not
-native multi-payload acceptance. Native layout, extraction and ownership still
-require zero or one position; source barriers and lowering/emission guards
-prevent partial support from emitting C. Types now use
+paired fixes for old parentheses. Native data and failure tags support zero or
+more positional payloads, including unit slots, nested unions and owned values.
+Canonical types, values and bindings retain every position; context, coverage,
+flow and permissions apply independently of physical layout. Native packing,
+projection, casts, equality, formatting and reference traversal visit all
+positions. Existing zero/one layouts and observations are unchanged. Multiple
+`:ok` positions still report not implemented: the first-version implicit
+success ABI has one result slot, and no tuple semantics are invented. Outcomes,
+entry policy and runtime spelling stay first-version until N2. Types now use
 `:a | NamedUnion | :!bad[Type]`, including nested payload unions and partial
 return markers. `Sym` is an ordinary name; `Sym<...>` rejects with safe
 unwrap/separator fixes. `Self` is also an ordinary uppercase name, not an
