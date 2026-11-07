@@ -98,7 +98,7 @@ int main(void) {
     invalid(&a, "main() {}\nprint() {}", "reserved");
   }
   TEST("unsupported features are rejected rather than ignored") {
-    invalid(&a, "main() { :nope? }", "require a symbol outcome");
+    invalid(&a, "main() { :nope? }", "it has no error tags");
     invalid(&a, "main() { const a = \"x\" }", "const bindings");
     invalid(&a, "main(x: str) {}", "cannot have parameters");
     invalid(&a, "main() {}\nf(x: &int) {}", "Mutable borrow");

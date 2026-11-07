@@ -811,14 +811,13 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     const SemaType *input = check(c, value, NULL, OUTCOME);
     flow = value->flow;
     int errors = sema_has_errors(input);
-    const SemaVariant *success =
-        errors ? sema_single_success(input) : sema_ok(input);
+    const SemaVariant *success = errors ? sema_single_success(input) : NULL;
     int terminal = sema_only_errors(input);
-    if (!success && !errors) {
+    if (!errors) {
       if (!special(input))
         error(c, e->span,
-              "? and ! require a symbol outcome with an :ok variant.");
-      // An inferred SCC can expose its errors before its success anchor.
+              "? and ! cannot handle this value: it has no error tags.");
+      // A provisional SCC symbol set can acquire error tags on a later probe.
       // Do not permanently poison callers while that set is still growing.
       result = c->probe && input->kind == SEMA_SYM ? t(c, SEMA_UNKNOWN)
                : special(input)                    ? input
@@ -836,9 +835,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
                : !success ? sema_kind_part(c->p, input, SEMA_TAG_NEUTRAL)
                : payload  ? payload
                           : t(c, SEMA_UNIT);
-      // Preserve the legacy no-error boundary until its rejection slice.
-      e->failures = errors ? sema_kind_part(c->p, input, SEMA_TAG_ERROR)
-                           : sema_failures(c->p, input);
+      e->failures = sema_kind_part(c->p, input, SEMA_TAG_ERROR);
       if (e->kind == SEMA_EXPR_TRY && e->failures) {
         flow = sequence(flow, terminal ? SEMA_RETURN : SEMA_NEXT | SEMA_RETURN);
         if (c->function->written && !return_fits(c, e->failures))

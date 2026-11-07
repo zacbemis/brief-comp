@@ -81,7 +81,7 @@ seen(history: History, board: ulng) -> :ok[int] | :none {
   if history.board == board { ret history.generation }
   history.older |> {
     :none => :none
-    :more[older] => seen(older, board)?
+    :more[older] => seen(older, board)
   }
 }
 

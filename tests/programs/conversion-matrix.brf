@@ -1,53 +1,53 @@
 // expect: ok
 fromShrt(x: shrt) {
-  shrt(x)!
+  shrt(x)
   ushrt(x)!
-  int(x)!
+  int(x)
   uint(x)!
-  lng(x)!
+  lng(x)
   ulng(x)!
-  flt(x)!
-  dbl(x)!
+  flt(x)
+  dbl(x)
 }
 fromUshrt(x: ushrt) {
   shrt(x)!
-  ushrt(x)!
-  int(x)!
-  uint(x)!
-  lng(x)!
-  ulng(x)!
-  flt(x)!
-  dbl(x)!
+  ushrt(x)
+  int(x)
+  uint(x)
+  lng(x)
+  ulng(x)
+  flt(x)
+  dbl(x)
 }
 fromInt(x: int) {
   shrt(x)!
   ushrt(x)!
-  int(x)!
+  int(x)
   uint(x)!
-  lng(x)!
+  lng(x)
   ulng(x)!
-  flt(x)!
-  dbl(x)!
+  flt(x)
+  dbl(x)
 }
 fromUint(x: uint) {
   shrt(x)!
   ushrt(x)!
   int(x)!
-  uint(x)!
-  lng(x)!
-  ulng(x)!
-  flt(x)!
-  dbl(x)!
+  uint(x)
+  lng(x)
+  ulng(x)
+  flt(x)
+  dbl(x)
 }
 fromLng(x: lng) {
   shrt(x)!
   ushrt(x)!
   int(x)!
   uint(x)!
-  lng(x)!
+  lng(x)
   ulng(x)!
-  flt(x)!
-  dbl(x)!
+  flt(x)
+  dbl(x)
 }
 fromUlng(x: ulng) {
   shrt(x)!
@@ -55,9 +55,9 @@ fromUlng(x: ulng) {
   int(x)!
   uint(x)!
   lng(x)!
-  ulng(x)!
-  flt(x)!
-  dbl(x)!
+  ulng(x)
+  flt(x)
+  dbl(x)
 }
 fromFlt(x: flt) {
   shrt(x)!
@@ -66,8 +66,8 @@ fromFlt(x: flt) {
   uint(x)!
   lng(x)!
   ulng(x)!
-  flt(x)!
-  dbl(x)!
+  flt(x)
+  dbl(x)
 }
 fromDub(x: dbl) {
   shrt(x)!
@@ -77,7 +77,7 @@ fromDub(x: dbl) {
   lng(x)!
   ulng(x)!
   flt(x)!
-  dbl(x)!
+  dbl(x)
 }
 fromStr(x: str) {
   shrt(x)!

@@ -51,8 +51,15 @@ int main(void) {
     for (size_t i = 0; i < 8; i++)
       for (size_t j = 0; j < 8; j++) {
         char source[256];
-        snprintf(source, sizeof(source), "f(x: %s) { %s(x)! }\nmain() {}",
-                 names[i], names[j]);
+        if (infallible[i][j])
+          for (unsigned panic = 0; panic < 2; panic++) {
+            snprintf(source, sizeof(source), "f(x: %s) { %s(x)%c }\nmain() {}",
+                     names[i], names[j], panic ? '!' : '?');
+            SemaProgram *bad = check(&a, source, "it has no error tags");
+            ASSERT_TRUE(ir_lower(&a, bad) == NULL);
+          }
+        snprintf(source, sizeof(source), "f(x: %s) { %s(x)%s }\nmain() {}",
+                 names[i], names[j], infallible[i][j] ? "" : "!");
         SemaProgram *p = check(&a, source, NULL);
         const SemaType *from = &p->types[SEMA_SHRT + i],
                        *to = &p->types[SEMA_SHRT + j];
@@ -194,7 +201,8 @@ int main(void) {
     for (size_t i = 0; i < sizeof(expected) / sizeof(*expected); i++)
       ASSERT_EQ_INT(expected[i],
                     literal_types->functions[i].symbol.return_type->kind);
-    check(&a, "f() { int(f())? }\nmain() {}", NULL);
+    check(&a, "f() { int(f())? }\nmain() {}", "it has no error tags");
+    check(&a, "f() { int(f()) }\nmain() {}", NULL);
     check(&a, "main() { \"12\" |> int()? |> lng() |> str() |> print() }", NULL);
   }
   TEST("recursive conversions require direct handling of their input call") {
@@ -217,15 +225,12 @@ int main(void) {
     for (size_t i = 0; i < 2; i++)
       for (size_t j = 0; j < 2; j++) {
         SemaSymbol *s = &programs[i]->functions[j].symbol;
-        const SemaVariant *ok = sema_ok(s->outcome_type);
-        ASSERT_TRUE(ok != NULL);
+        ASSERT_TRUE(sema_only_errors(s->outcome_type));
+        ASSERT_EQ_INT(1, s->outcome_type->symbols->count);
+        ASSERT_TRUE(sema_ok(s->outcome_type) == NULL);
         ASSERT_EQ_INT(SEMA_TAG_ERROR,
                       sema_tag(programs[i], programs[i]->module, "bad")->kind);
-        if (ok) {
-          ASSERT_EQ_INT(2, s->outcome_type->symbols->count);
-          ASSERT_TRUE(sema_single_payload(ok) == &programs[i]->types[SEMA_INT]);
-          ASSERT_TRUE(s->return_type == s->outcome_type);
-        }
+        ASSERT_TRUE(s->return_type == s->outcome_type);
       }
     diagnostics_init(&again, &a);
     sema_check(good, &again);

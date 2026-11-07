@@ -51,7 +51,7 @@ main() {
   print(str(ushrt("65535")!))
   print(str(shrt("32767")!))
   print(str(uint("4294967295")!))
-  print(str(flt(16777216)!))
+  print(str(flt(16777216)))
   let integer = 16777217
   print(str(flt(integer)))
   int(0.5) |> { :ok[_] => print("wrong")
@@ -59,7 +59,7 @@ main() {
   let negative = -1
   uint(negative) |> { :ok[_] => print("wrong")
     :!overflow => print("negative") }
-  print(str(flt(-0.0)!))
+  print(str(flt(-0.0)))
   print(str(flt("1.000000059604644830901776231257827021181583404541015625")!))
   int("bad\0" + "text") |> { :ok[_] => print("wrong")
     :!invalid[original] => print(original) }
@@ -70,7 +70,7 @@ main() {
   ulng(minimum) |> { :ok[_] => print("wrong")
     :!overflow => print("minimum") }
   let exact: ulng = 9007199254740992
-  print(str(ulng(dbl(exact)!)!))
+  print(str(ulng(dbl(exact))!))
   let inexact: lng = 9007199254740993
   print(str(dbl(inexact)))
   let decimal = 0.1
@@ -93,7 +93,6 @@ main() {
   print(str(flt("1e+2")! == 100.0))
   print(str(dbl("-1.25E+2")! == -125.0))
   print(str(dbl("1E-2")! == 0.01))
-  recursiveForward() |> { :ok[_] => print("wrong")
-    :!bad => print("recursive") }
+  recursiveForward() |> { :!bad => print("recursive") }
   print(str(shortCycle(7, false)))
 }

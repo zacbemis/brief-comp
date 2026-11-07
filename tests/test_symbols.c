@@ -1146,9 +1146,9 @@ int main(void) {
          "Number(s)", ":invalid"},
         {"Bad = :invalid[str]\nf(s: str) { ret 1\nint(s)? }\nmain() {}",
          "int(s)", ":invalid"},
-        {"Bad = :overflow\nf(n: lng) { if n == 0 { ret 1 }\nint(g(n)?)? }\n"
-         "g(n: lng) { if n == 0 { ret lng(1) }\nlng(f(n)?) }\nmain() {}",
-         "int(g(n)?)", ":overflow"}};
+        {"Bad = :overflow\nf(n: lng) { if n == 0 { ret 1 }\nint(g(n))? }\n"
+         "g(n: lng) { if n == 0 { ret lng(1) }\nlng(f(n)) }\nmain() {}",
+         "int(g(n))", ":overflow"}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++)
       for (unsigned crlf = 0; crlf < 2; crlf++) {
         char source[1024];
@@ -2140,6 +2140,103 @@ int main(void) {
               "take(value: Health) {}\n"
               "main() { health()\nlet h = health()\ntake(h)\ntake(health())\n"
               "find()\nlet missing = find()\nnested()\nobject() }");
+  }
+  TEST("no-error postfixes reject without inventing propagation or a fix") {
+    const char *required =
+        "? and ! cannot handle this value: it has no error tags.";
+    struct {
+      const char *setup, *operand;
+    } cases[] = {
+        {"", "1"},
+        {"", "true"},
+        {"", "()"},
+        {"", "(\"owned\" + \" text\")"},
+        {"", ":adult"},
+        {"", ":none"},
+        {"", ":ok"},
+        {"", ":ok[7]"},
+        {"", ":box[:!hidden]"},
+        {"Box { value: :!hidden }\n", "(Box { value = :!hidden })"},
+        {"f() -> int { 7 }\n", "f()"},
+        {"f() -> :ok[str] { :ok[\"owned\"] }\n", "f()"},
+        {"f() -> :ok { :ok }\n", "f()"},
+        {"Data = :adult | :senior\nf() -> Data { :adult }\n", "f()"},
+        {"Data = :ok | :degraded\nf() -> Data { :degraded }\n", "f()"},
+        {"Maybe = :ok[str] | :none\nf() -> Maybe { :none }\n", "f()"},
+        {"Maybe = :ok[str] | :none\nf() -> Maybe { \"owned\" }\n", "f()"},
+        {"f() -> :box[:!hidden] { :box[:!hidden] }\n", "f()"},
+        {"", "lng(1)"},
+        {"", "int('a')"},
+        {"", "(1 |> flt())"},
+        {"f() -> :ok[int] | :!bad { 7 }\n", "f()!"},
+        {"f() -> :adult | :senior | :!bad { :adult }\n", "f()!"},
+        {"f() -> :ok[str] | :none | :!bad { :none }\n", "f()!"},
+        {"f() -> :ok[str] | :none { :none }\n"
+         "g(value: :ok[str] | :none) { value }\n",
+         "(f() |> g())"},
+        {"f() { ret 0\n", "1"}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++)
+      for (unsigned panic = 0; panic < 2; panic++)
+        for (unsigned crlf = 0; crlf < 2; crlf++) {
+          char lf[1024], source[2048];
+          int unreachable = i == sizeof(cases) / sizeof(*cases) - 1;
+          snprintf(lf, sizeof(lf), "%s%s%s%c\nprint(\"after\") }%s",
+                   cases[i].setup, unreachable ? "" : "main() { ",
+                   cases[i].operand, panic ? '!' : '?',
+                   unreachable ? "\nmain() {}" : "");
+          size_t length = 0;
+          for (const char *s = lf; *s; s++) {
+            if (crlf && *s == '\n')
+              source[length++] = '\r';
+            source[length++] = *s;
+          }
+          source[length] = 0;
+          Result r = check(&a, source);
+          SemaExpr *postfix =
+              r.program->functions[unreachable ? 0 : r.program->count - 1]
+                  .body->as.block.items[unreachable ? 1 : 0];
+          for (unsigned repeat = 0; repeat < 3; repeat++) {
+            if (repeat) {
+              diagnostics_init(&r.errors, &a);
+              sema_check(r.program, &r.errors);
+            }
+            if (r.errors.count != 1)
+              diagnostics_print(&r.errors, stderr);
+            ASSERT_EQ_INT(1, r.errors.count);
+            ASSERT_TRUE(r.program->resolved && !r.program->checked);
+            ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+            ASSERT_TRUE(!memcmp(source, r.program->module->text, length));
+            ASSERT_TRUE(!postfix->failures);
+            ASSERT_EQ_INT(SEMA_ERROR, postfix->type->kind);
+            if (r.errors.count == 1) {
+              Diagnostic *d = r.errors.items[0];
+              ASSERT_EQ_INT(0, strcmp(required, d->message));
+              ASSERT_EQ_INT(postfix->span.start, d->span.start);
+              ASSERT_EQ_INT(postfix->span.end, d->span.end);
+              ASSERT_TRUE(!d->fixes && !d->notes);
+            }
+          }
+        }
+    // A prior error/unknown/never operand must not acquire a second primary.
+    Result r = invalid(&a, "main() { missing()! }", "Unknown function");
+    ASSERT_EQ_INT(1, r.errors.count);
+    r = invalid(&a, "main() { missing? }", "Unknown binding");
+    ASSERT_EQ_INT(1, r.errors.count);
+    r = invalid(&a, "main() { 1?! }", required);
+    ASSERT_EQ_INT(1, r.errors.count);
+    r = invalid(&a, "main() { 1?\nmissing() }", required);
+    ASSERT_EQ_INT(2, r.errors.count);
+    r = invalid(
+        &a,
+        "Bad = :overflow\nf(n: lng) { if n == 0 { ret 1 }\nint(g(n)?)? }\n"
+        "g(n: lng) { if n == 0 { ret lng(1) }\nlng(f(n)?) }\nmain() {}",
+        required);
+    ASSERT_EQ_INT(2, r.errors.count);
+    for (size_t i = 0; i < r.errors.count; i++) {
+      ASSERT_EQ_INT(0, strcmp(required, r.errors.items[i]->message));
+      ASSERT_TRUE(!r.errors.items[i]->fixes && !r.errors.items[i]->notes);
+    }
+    valid(&a, "f() -> :!bad { :!bad }\nmain() { f()!? }");
   }
   TEST("outcome handling extends data symbols without changing their rules") {
     valid(&a, "main() { :ok[1] }");

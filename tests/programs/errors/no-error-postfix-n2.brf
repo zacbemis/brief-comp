@@ -1,0 +1,29 @@
+Health = :ok | :degraded | :down
+Maybe = :ok[str] | :none
+Data = :adult | :senior
+Nested = :box[:!hidden]
+Box { value: Nested }
+plain() -> int { 7 }
+only() -> :ok[str] { :ok["text"] }
+health() -> Health { :degraded }
+find() -> Maybe { :none }
+classify() -> Data { :adult }
+nested() -> Nested { :box[:!hidden] }
+main() {
+  1? // error: ? and ! cannot handle this value: it has no error tags.
+  true! // error: ? and ! cannot handle this value: it has no error tags.
+  ()? // error: ? and ! cannot handle this value: it has no error tags.
+  :ok! // error: ? and ! cannot handle this value: it has no error tags.
+  :none? // error: ? and ! cannot handle this value: it has no error tags.
+  plain()! // error: ? and ! cannot handle this value: it has no error tags.
+  only()? // error: ? and ! cannot handle this value: it has no error tags.
+  health()! // error: ? and ! cannot handle this value: it has no error tags.
+  find()? // error: ? and ! cannot handle this value: it has no error tags.
+  classify()! // error: ? and ! cannot handle this value: it has no error tags.
+  nested()? // error: ? and ! cannot handle this value: it has no error tags.
+  (Box { value = nested() })! // error: ? and ! cannot handle this value: it has no error tags.
+  let result = find()
+  result! // error: ? and ! cannot handle this value: it has no error tags.
+  1 |> lng()? // error: ? and ! cannot handle this value: it has no error tags.
+  print("still checked")
+}

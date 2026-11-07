@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **179 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **180 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for parser coverage and gaps.
 
@@ -45,8 +45,15 @@ method hints and distinct success tags with equal payload types. The main,
 panics and errors/mixed-postfix-n2 fixtures cover propagation, panic and exact
 rejections. No prior fixture marker or observation changes. Several positions in
 a sole success still require matching instead of invented tuple extraction.
-No-error postfixes and singleton-:ok envelopes retain their remaining legacy
-behavior until their own slices.
+Singleton-:ok envelopes retain their remaining legacy behavior until the
+exact-return slice.
+
+No-error postfixes now reject plain, neutral-only, optional and nested-error
+values, even when :ok is present. `errors/no-error-postfix-n2.brf` checks
+fourteen independent sites. Existing conversion-matrix, numeric-conversions
+and outcomes sources drop redundant postfixes; numeric-conversions also drops
+an unreachable phantom-success arm. Runtime markers remain unchanged. See the
+[complete expectation inventory](../next-version-n2-no-error.md).
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

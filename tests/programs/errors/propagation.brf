@@ -6,7 +6,7 @@ wrong() -> :ok[str] | :!bad { // error: Function body does not match the written
   f()?
 }
 missingOk() {
-  :data? // error: ? and ! require a symbol outcome with an :ok variant.
+  :data? // error: ? and ! cannot handle this value: it has no error tags.
 }
 wrongReturn() -> :ok[int] {
   ret :!bad // error: Return value does not match the written return type.

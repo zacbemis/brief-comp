@@ -741,9 +741,11 @@ int main(void) {
          "f(p,b) |> { \"x\" => p\n_ => p }", "Unreachable match arm.",
          "\"x\" => p\n_", 3},
         {":yes[shrt] | :no", "f(p,b)!", "f(p,b) |> { _ => p }",
-         "? and ! require a symbol outcome with an :ok variant.", "f(p,b)!", 0},
+         "? and ! cannot handle this value: it has no error tags.", "f(p,b)!",
+         0},
         {":yes[shrt] | :no", "f(p,b)?", "f(p,b) |> { _ => p }",
-         "? and ! require a symbol outcome with an :ok variant.", "f(p,b)?", 0},
+         "? and ! cannot handle this value: it has no error tags.", "f(p,b)?",
+         0},
         {"bool", "~f(p,b)", "not f(p,b)",
          "This unary operator requires numbers (bitwise not requires "
          "integers).",

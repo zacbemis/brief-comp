@@ -19,7 +19,7 @@ static Result check(Arena *a, const char *text) {
   r.program = sema_resolve(a, ast, &r.errors);
   sema_check(r.program, &r.errors);
   // Explicit failures and implicit converter tags have error kind. Shared
-  // :none remains neutral; no-error postfix rejection still awaits N2.
+  // :none remains neutral.
   for (const SemaSymSet *set = r.program->symbol_sets; set; set = set->next) {
     if (!sema_ok(&set->type))
       continue;
@@ -98,11 +98,19 @@ int main(void) {
   arena_init(&a);
   TEST("success-only functions retain their plain ABI and support symbol "
        "handlers") {
-    Result r = valid(&a, "double(n: int) -> int { n * 2 }\n"
-                         "only() -> :ok[str] { :ok[\"a\" + \"b\"] }\n"
-                         "main() { let n = double(2) + 1\n"
-                         "double(n) |> { :ok[value] => print(str(value)) }\n"
-                         "only() |> print()\nprint(only()!)\nprint(only()?) }");
+    Result r = invalid(&a,
+                       "double(n: int) -> int { n * 2 }\n"
+                       "only() -> :ok[str] { :ok[\"a\" + \"b\"] }\n"
+                       "main() { let n = double(2) + 1\n"
+                       "double(n) |> { :ok[value] => print(str(value)) }\n"
+                       "only() |> print()\nprint(only()!)\nprint(only()?) }",
+                       "it has no error tags");
+    ASSERT_EQ_INT(2, r.errors.count);
+    valid(&a, "double(n: int) -> int { n * 2 }\n"
+              "only() -> :ok[str] { :ok[\"a\" + \"b\"] }\n"
+              "main() { let n = double(2) + 1\n"
+              "double(n) |> { :ok[value] => print(str(value)) }\n"
+              "only() |> print()\nprint(only())\nprint(only()) }");
     ASSERT_EQ_INT(SEMA_INT, r.program->functions[0].symbol.return_type->kind);
     ASSERT_TRUE(sema_ok(r.program->functions[0].symbol.outcome_type) != NULL);
     ASSERT_EQ_INT(SEMA_STR, r.program->functions[1].symbol.return_type->kind);
@@ -116,8 +124,8 @@ int main(void) {
           "Data = :a | :b\n"
           "f() -> :ok[Data] { :ok[:a] }\n"
           "main() { f() |> { :ok[data] => data |> { :a => ()\n:b => () } } }");
-    invalid(&a, "main() { 1? }", "require a symbol outcome");
-    invalid(&a, "main() { :data! }", "require a symbol outcome");
+    invalid(&a, "main() { 1? }", "it has no error tags");
+    invalid(&a, "main() { :data! }", "it has no error tags");
     invalid(&a, "f() {}\nmain() { f() |> { :ok[x] => x } }", "payload shape");
   }
   TEST("error-only postfixes terminate in every enclosing value position") {
@@ -213,11 +221,10 @@ int main(void) {
         ASSERT_TRUE(!r.errors.items[0]->fixes && !r.errors.items[0]->notes);
       }
     }
-    // Non-errors keep their prior boundary until their own reviewed slice.
-    invalid(&a, "main() { :none? }", "require a symbol outcome with an :ok");
-    invalid(&a, "main() { :box[:!bad]! }",
-            "require a symbol outcome with an :ok");
-    valid(&a, "f() -> :ok[int] { :ok[1] }\nmain() { f()! }");
+    invalid(&a, "main() { :none? }", "it has no error tags");
+    invalid(&a, "main() { :box[:!bad]! }", "it has no error tags");
+    invalid(&a, "f() -> :ok[int] { :ok[1] }\nmain() { f()! }",
+            "it has no error tags");
   }
   TEST("typed errors propagate and panic, with explicit or implicit success") {
     valid(&a,
@@ -444,19 +451,19 @@ int main(void) {
   TEST("written return mismatches do not become partial-set collisions") {
     struct {
       const char *text;
-      size_t returns, bodies;
+      size_t returns, bodies, postfixes;
     } cases[] = {
-        {"f() -> :ok[int] | _ { false }", 0, 1},
-        {"f() -> :ok[A] | _ { B { unit = () } }", 0, 1},
-        {"f() -> :ok[int] | _ { ret false }", 1, 0},
-        {"f(b: bool) -> :ok[int] | _ { if b { ret false }\n1 }", 1, 0},
-        {"f() -> :ok[int] | _ { :ok[false] }", 0, 1},
-        {"f() -> :ok[int] | _ { ret :ok }", 1, 0},
-        {"f(b: bool) -> :ok[int] | _ { if b { ret false }\n\"bad\" }", 1, 1},
-        {"f() -> :ok[int] | _ { ret 1\nret false }", 1, 0},
-        {"f() -> :ok[A] | _ { B { unit = () } }\ng() { f()! }", 0, 1},
+        {"f() -> :ok[int] | _ { false }", 0, 1, 0},
+        {"f() -> :ok[A] | _ { B { unit = () } }", 0, 1, 0},
+        {"f() -> :ok[int] | _ { ret false }", 1, 0, 0},
+        {"f(b: bool) -> :ok[int] | _ { if b { ret false }\n1 }", 1, 0, 0},
+        {"f() -> :ok[int] | _ { :ok[false] }", 0, 1, 0},
+        {"f() -> :ok[int] | _ { ret :ok }", 1, 0, 0},
+        {"f(b: bool) -> :ok[int] | _ { if b { ret false }\n\"bad\" }", 1, 1, 0},
+        {"f() -> :ok[int] | _ { ret 1\nret false }", 1, 0, 0},
+        {"f() -> :ok[A] | _ { B { unit = () } }\ng() { f()! }", 0, 1, 1},
         {"f() -> :ok[A] | _ { B { unit = () } }\ng() -> :ok[int] | _ { false }",
-         0, 2},
+         0, 2, 0},
     };
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
       char text[1024];
@@ -468,8 +475,9 @@ int main(void) {
           diagnostics_init(&r.errors, &a);
           sema_check(r.program, &r.errors);
         }
-        ASSERT_EQ_INT(cases[i].returns + cases[i].bodies, r.errors.count);
-        size_t returns = 0, bodies = 0;
+        ASSERT_EQ_INT(cases[i].returns + cases[i].bodies + cases[i].postfixes,
+                      r.errors.count);
+        size_t returns = 0, bodies = 0, postfixes = 0;
         for (size_t j = 0; j < r.errors.count; j++) {
           returns +=
               strcmp(r.errors.items[j]->message,
@@ -479,9 +487,13 @@ int main(void) {
               strcmp(r.errors.items[j]->message,
                      "Function body does not match the written return type.") ==
               0;
+          postfixes += strcmp(r.errors.items[j]->message,
+                              "? and ! cannot handle this value: it has no "
+                              "error tags.") == 0;
         }
         ASSERT_EQ_INT(cases[i].returns, returns);
         ASSERT_EQ_INT(cases[i].bodies, bodies);
+        ASSERT_EQ_INT(cases[i].postfixes, postfixes);
         ASSERT_TRUE(!r.program->functions[0].inference_conflict);
         ASSERT_TRUE(!r.program->checked);
         ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
