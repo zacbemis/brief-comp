@@ -168,7 +168,7 @@ The loop, join and fixed-point machinery in `permissions.c` (`Loop`, `Header`, `
 - **Implicit `:ok`.** The extraction paths for an only-`:ok` result are removed, because such results are now plain values.
 - **`:none` endings** lower like the existing implicit `:ok` ending.
 - **`main`'s result.** A per-set table generated in the emitted C marks which tags are errors. `main` exits 1 when its active tag is one of them.
-- **The entry formatter** in `runtime/brief_runtime.c` prints tags as `:!name["payload"]`, with `[]` around payloads and several payloads separated by commas.
+- **The entry formatter** in `runtime/brief_runtime.c` prints tags as `:!name["payload"]`, with `[]` around payloads and several payloads separated by commas; struct fields print as `name = value`.
 - **Emitted C names** do not change, and the output stays deterministic.
 
 ## Tests
@@ -3447,6 +3447,24 @@ Clang Debug ASan/UBSan suites pass 38/38 each; formatter and diff checks pass.
 Optional endings/ambiguity and scoped symbols/errors audits remain. N3 delayed
 handling and returned-call acceptance are unchanged. Stop uncommitted for
 review; this is not N2 closure or the milestone-closing matrix.
+
+### N2 increment: struct diagnostics use literal field spelling
+
+The shared generated struct writer now prints `name = value` in entry errors
+and panics, including structs nested in symbol payloads. Changed existing
+expectations: main-error-object.brf's stderr uses = for code, count, marker,
+ready, real, empty and detail; main-symbol-format-n2.brf's stderr uses = for
+Box.detail and Box.marker. The shared-budget CLI assertion extends its prefix
+from `error: :!bad[Node {` to `error: :!bad[Node { left = `. No goldens
+or .expect files change. Literal `Pair { first: 1 }` text is unchanged.
+
+Two new ordered-stream CLI cases cover nested struct entry errors and panics,
+unit fields and quoted text whose colons must stay literal. Default GCC Debug
+and fresh -Werror Clang Debug ASan/UBSan suites pass 38/38 each; formatter and
+diff checks pass. Baseline differences are confined to generated field labels
+and the two stderr fixtures; see `tests/next-version-n2-struct-format.md`.
+Stop uncommitted for review. The next slice is :none endings and the
+payload-less :ok/:none ambiguity; N2 audits and N3 handling remain pending.
 
 ## Risks
 

@@ -165,6 +165,14 @@ int main(int argc, char **argv) {
         ":none => print(\"none\") } }\n",
         "f() -> :created[str] | :!early | :updated[()] | :!bad[str] { "
         ":!bad[\"he\" + \"ap\"] }\n"
+        "main() { print(\"before\")\nf()! }\n",
+        "Box { n: int\nunit: () }\n"
+        "f() -> :!bad[:note[Box], str] { :!bad[:note[Box { n = 1, "
+        "unit = () }], \"Box { n: 2 }\"] }\n"
+        "main() { print(\"before\")\nf()? }\n",
+        "Box { n: int\nunit: () }\n"
+        "f() -> :!bad[:note[Box], str] { :!bad[:note[Box { n = 1, "
+        "unit = () }], \"Box { n: 2 }\"] }\n"
         "main() { print(\"before\")\nf()! }\n"};
     TestBytes prefixes[] = {
         TEST_BYTES("before\nerror: :!bad[\"heap\"]\n"),
@@ -174,7 +182,11 @@ int main(int argc, char **argv) {
         TEST_BYTES("before\nerror: :!bad[\"heap\"]\n"),
         TEST_BYTES("before\npanic: :!bad[\"heap\"]\n  --> "),
         TEST_BYTES("before\nnone\n"),
-        TEST_BYTES("before\npanic: :!bad[\"heap\"]\n  --> ")};
+        TEST_BYTES("before\npanic: :!bad[\"heap\"]\n  --> "),
+        TEST_BYTES("before\nerror: :!bad[:note[Box { n = 1, unit = () }], "
+                   "\"Box { n: 2 }\"]\n"),
+        TEST_BYTES("before\npanic: :!bad[:note[Box { n = 1, unit = () }], "
+                   "\"Box { n: 2 }\"]\n  --> ")};
     char *input = test_path(&a, root, "ordered.brf");
     char *binary = test_path(&a, root, "ordered");
     for (int debug = 0; debug < (argc == 5 ? 2 : 1); debug++)
@@ -195,11 +207,12 @@ int main(int argc, char **argv) {
         ASSERT_TRUE(!sanitizer_report(r.out));
         ASSERT_TRUE(r.out.length >= prefixes[i].length &&
                     !memcmp(r.out.data, prefixes[i].data, prefixes[i].length));
-        if (i == 0 || i == 3 || i == 4 || i == 6)
+        if (i == 0 || i == 3 || i == 4 || i == 6 || i == 8)
           ASSERT_TRUE(bytes_equal(r.out, prefixes[i]));
         else
           ASSERT_TRUE(
-              bytes_contains(r.out, i == 1 || i == 5 || i == 7
+              bytes_contains(r.out, i == 9 ? TEST_BYTES("ordered.brf:5\n")
+                                    : i == 1 || i == 5 || i == 7
                                         ? TEST_BYTES("ordered.brf:3\n")
                                         : TEST_BYTES("ordered.brf:2\n")));
       }
@@ -305,7 +318,8 @@ int main(int argc, char **argv) {
           NULL, 0);
       ASSERT_EQ_INT(0, r.out.length);
       ASSERT_TRUE(r.err.length < 65536);
-      ASSERT_TRUE(bytes_contains(r.err, TEST_BYTES("error: :!bad[Node {")));
+      ASSERT_TRUE(
+          bytes_contains(r.err, TEST_BYTES("error: :!bad[Node { left = ")));
       ASSERT_TRUE(bytes_contains(r.err, TEST_BYTES("...")));
       ASSERT_TRUE(!bytes_contains(r.err, TEST_BYTES("debug:")));
     }

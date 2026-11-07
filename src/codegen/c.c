@@ -258,7 +258,7 @@ static void formatters(FILE *out, const IrProgram *p) {
       const SemaField *f = &s->fields[j];
       fprintf(out,
               "  if (!*budget) { fputs(\"%s... }\", out); return; }\n"
-              "  --*budget; fputs(\"%s%s: \", out); ",
+              "  --*budget; fputs(\"%s%s = \", out); ",
               j ? ", " : " ", j ? ", " : " ", f->name);
       char value[96];
       snprintf(value, sizeof(value), "value->brt_field_%zu", j);

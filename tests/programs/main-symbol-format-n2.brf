@@ -1,4 +1,4 @@
-// stderr: error: :!report[:empty, :unit[()], :pair[7, "ab"], Box { detail: :note[:!detail["owned"]], marker: '\\0' }, "literal :fake(x) [y]"]
+// stderr: error: :!report[:empty, :unit[()], :pair[7, "ab"], Box { detail = :note[:!detail["owned"]], marker = '\\0' }, "literal :fake(x) [y]"]
 // exit: 1
 Empty = :empty
 Unit = :unit[()]
