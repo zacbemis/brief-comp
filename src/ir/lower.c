@@ -439,6 +439,10 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
   case SEMA_EXPR_RETURN: {
     size_t value = e->as.value ? lower(l, e->as.value) : IR_NO_VALUE;
     if (!l->returned) {
+      if (e->none_ending) {
+        const SemaVariant *none = sema_none(l->function->return_type);
+        value = pack(l, l->function->return_type, none->tag, NULL, 0, e->span);
+      }
       value = convert(l, value, l->function->return_type, e->span);
       cleanup(l, NULL, value, e->span);
       emit(l, (IrInstruction){.op = IR_RETURN, .span = e->span, .a = value});
@@ -687,7 +691,11 @@ static size_t lower(Lower *l, const SemaExpr *e) {
   if (e->raw_type)
     raw.type = e->raw_type;
   size_t value = lower_raw(l, &raw);
-  if (l->returned || !e->adapt)
+  if (l->returned)
+    return value;
+  if (e->none_ending)
+    return pack(l, e->type, sema_none(e->type)->tag, NULL, 0, e->span);
+  if (!e->adapt)
     return value;
   const SemaVariant *ok = sema_ok(e->type);
   if (ok->payload_count)

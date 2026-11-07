@@ -86,6 +86,24 @@ const SemaVariant *sema_ok(const SemaType *type) {
     return &type->symbols->variants[0];
   return NULL;
 }
+const SemaVariant *sema_none(const SemaType *type) {
+  if (type && type->kind == SEMA_SYM)
+    for (size_t i = 0; i < type->symbols->count; i++) {
+      const SemaVariant *v = &type->symbols->variants[i];
+      if (!v->tag->module && !strcmp(v->tag->name, "none"))
+        return v;
+    }
+  return NULL;
+}
+int sema_ambiguous_endings(const SemaVariant *variants, size_t count) {
+  int ok = 0, none = 0;
+  for (size_t i = 0; i < count; i++)
+    if (!variants[i].tag->module) {
+      ok |= !variants[i].payload_count && !strcmp(variants[i].tag->name, "ok");
+      none |= !strcmp(variants[i].tag->name, "none");
+    }
+  return ok && none;
+}
 int sema_has_errors(const SemaType *type) {
   if (type && type->kind == SEMA_SYM)
     for (size_t i = 0; i < type->symbols->count; i++)
@@ -248,6 +266,8 @@ static void set_table_insert(SemaSymSet **table, size_t capacity,
 // and payload arrays, so callers may pass scratch or stack-owned lists.
 static const SemaType *intern_set(SemaProgram *p, const SemaVariant *sorted,
                                   size_t n) {
+  if (sema_ambiguous_endings(sorted, n))
+    return NULL;
   if (n == 1 && sorted[0].tag == p->ok && sorted[0].payload_count <= 1)
     return sorted[0].payload_count ? sorted[0].payloads[0]
                                    : &p->types[SEMA_UNIT];

@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **182 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **185 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for parser coverage and gaps.
 
@@ -61,6 +61,14 @@ contextual return wrapping, normalized catch-alls and partial inference;
 `errors/exact-returns-n2.brf` pins fifteen rejections. The three obsolete
 wrapper matches in outcomes.brf now match ordinary values. Runtime markers are
 unchanged; see [the slice notes](../next-version-n2-exact-returns.md).
+
+Valueless returns and tails now produce :none when the result includes it.
+`none-endings-n2.brf` covers written/inferred/partial results, ownership, branch
+and loop endings, unit payloads and error-kind postfix handling of optionals.
+`main-none-ending-n2.brf` checks a successful entry with an owned local. The
+errors/none-endings-n2 fixture pins eleven ambiguity diagnostics: payload-less
+:ok and :none cannot coexist in a union. Details and the changed canonical-mask
+expectations are in [the slice notes](../next-version-n2-none-endings.md).
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

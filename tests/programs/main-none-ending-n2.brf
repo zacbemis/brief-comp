@@ -1,0 +1,5 @@
+// expect: owner
+main() -> :none {
+  let text = "ow" + "ner"
+  print(text)
+}

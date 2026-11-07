@@ -156,7 +156,8 @@ struct SemaExpr {
   SemaExprKind kind;
   Span span;
   const SemaType *type, *raw_type, *failures;
-  int adapt; // Packs :ok only into a contextual union containing :ok.
+  int adapt;       // Packs :ok only into a contextual union containing :ok.
+  int none_ending; // A valueless return position constructs :none.
   unsigned flow;
   int reachable;
   int returns;      // No fallthrough (including break/continue).
@@ -301,6 +302,9 @@ const SemaType *sema_conversion(SemaProgram *program, const SemaType *source,
 // Includes value-represented symbols: their active payload needs ARC handling.
 int sema_reference(const SemaType *type);
 const SemaVariant *sema_ok(const SemaType *type);
+const SemaVariant *sema_none(const SemaType *type);
+// A payload-less :ok and :none make valueless endings ambiguous.
+int sema_ambiguous_endings(const SemaVariant *variants, size_t count);
 // Shallow native result classification: no traversal into payloads or fields.
 int sema_has_errors(const SemaType *type);
 // Nonempty symbol set with no possible non-error alternative.

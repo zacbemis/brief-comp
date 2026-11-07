@@ -1,0 +1,72 @@
+// expect: found 1
+// expect: none
+// expect: none
+// expect: owned
+// expect: none
+// expect: tail
+// expect: none
+// expect: missing
+// expect: missing
+// expect: 4294967296
+// expect: unit
+// expect: absent
+// expect: non-ok
+// expect: empty
+// expect: continued
+Box { text: str }
+Maybe = :ok[Box] | :none
+never() -> Maybe { while true {} }
+find(n: int) -> Maybe {
+  let local = "owned" + " local"
+  for i in 0..n {
+    if i == 1 { ret Box { text = "found " + str(i) } }
+  }
+}
+show(value: Maybe) {
+  value |> { :ok[box] => print(box.text)
+    :none => print("none") }
+}
+inferred(n: int) {
+  if n == 0 { ret }
+  if n == 1 { ret Box { text = "own" + "ed" } }
+  if n == 2 { ret :none }
+  print("tail")
+}
+partial(n: int) -> :ok[lng] | _ {
+  if n == 0 { ret }
+  if n == 1 { ret :none }
+  4294967296
+}
+showNumber(n: int) {
+  partial(n) |> { :ok[value] => print(str(value))
+    :none => print("missing") }
+}
+nonOk() -> :found[Box] | :none {}
+unitValue(present: bool) -> :ok[()] | :none {
+  if present { ret :ok[()] }
+}
+maybeError(n: int) -> :ok[str] | :none | :!bad {
+  if n == 0 { ret :!bad }
+  if n == 1 { ret "present" }
+}
+forwardEmpty() -> :ok[str] | :none | :!bad { maybeError(2)? }
+main() {
+  show(find(2))
+  show(find(0))
+  show(inferred(0))
+  show(inferred(1))
+  show(inferred(2))
+  show(inferred(3))
+  showNumber(0)
+  showNumber(1)
+  showNumber(2)
+  unitValue(true) |> { :ok[_] => print("unit")
+    :none => print("wrong") }
+  unitValue(false) |> { :ok[_] => print("wrong")
+    :none => print("absent") }
+  nonOk() |> { :found[box] => print(box.text)
+    :none => print("non-ok") }
+  forwardEmpty()? |> { :ok[text] => print(text)
+    :none => print("empty") }
+  print("continued")
+}

@@ -13,6 +13,8 @@ typedef struct {
   int probe, defaults, reachable, saw_return;
   const SemaType *candidate, *expected, *failures;
   size_t speculative_errors, speculative_conflicts;
+  int empty_return;
+  Span empty_span;
 } Checker;
 static const SemaType *t(Checker *c, SemaTypeKind k) { return &c->p->types[k]; }
 static int unknown(const SemaType *a) { return !a || a->kind == SEMA_UNKNOWN; }
@@ -186,6 +188,11 @@ static void wrong_call(Checker *c, SemaExpr *call, SemaSymbol *s, int on_type) {
     diagnostic_fix(c->errors, d, value->name_span, owner->name);
   }
 }
+static int ambiguous_pair(const SemaType *a, const SemaType *b) {
+  const SemaVariant *aok = sema_ok(a), *bok = sema_ok(b);
+  return (aok && !aok->payload_count && sema_none(b)) ||
+         (bok && !bok->payload_count && sema_none(a));
+}
 static const SemaType *join(Checker *c, const SemaType *a, const SemaType *b,
                             Span span, const char *message) {
   if (a->kind == SEMA_NEVER || unknown(a))
@@ -198,6 +205,11 @@ static const SemaType *join(Checker *c, const SemaType *a, const SemaType *b,
     const SemaType *set = sema_symbol_union(c->p, a, b);
     if (set)
       return set;
+    if (ambiguous_pair(a, b)) {
+      error(c, span,
+            "A union cannot contain both payload-less ':ok' and ':none'.");
+      return t(c, SEMA_ERROR);
+    }
     message = "Symbol tag has conflicting payload types.";
   }
   if (a->kind != SEMA_ERROR && b->kind != SEMA_ERROR) {
@@ -213,13 +225,40 @@ static const SemaType *join(Checker *c, const SemaType *a, const SemaType *b,
 static const SemaType *success_type(Checker *c, const SemaVariant *ok) {
   return ok && ok->payload_count ? sema_single_payload(ok) : t(c, SEMA_UNIT);
 }
+static const SemaType *none_context(Checker *c, const SemaType *expected) {
+  if (sema_none(expected))
+    return expected;
+  if (sema_none(c->expected))
+    return c->expected;
+  if (sema_none(c->candidate))
+    return c->candidate;
+  return sema_none(c->function->symbol.outcome_type)
+             ? c->function->symbol.outcome_type
+             : NULL;
+}
+static const SemaType *none_value(Checker *c, const SemaType *context) {
+  const SemaVariant *none = sema_none(context);
+  return sema_symbol_set(c->p, none, 1);
+}
+static void empty_return(Checker *c, Span span) {
+  if (!c->empty_return)
+    c->empty_span = span;
+  c->empty_return = 1;
+}
 static const SemaType *return_join(Checker *c, const SemaType *a,
                                    const SemaType *b, Span span,
                                    const char *message) {
+  if (c->function->partial && ambiguous_pair(a, b)) {
+    error(c, c->function->syntax->as.function.return_type->span,
+          "A union cannot contain both payload-less ':ok' and ':none'.");
+    return t(c, SEMA_ERROR);
+  }
   if (!special(a) && !special(b) &&
       ((a->kind == SEMA_SYM) != (b->kind == SEMA_SYM))) {
     const SemaType *symbols = a->kind == SEMA_SYM ? a : b;
     const SemaType *value = a->kind == SEMA_SYM ? b : a;
+    if (value->kind == SEMA_UNIT && sema_none(symbols) && !c->function->partial)
+      return symbols;
     size_t count = symbols->symbols->count;
     SemaVariant *variants =
         arena_calloc(c->p->arena, count + 1, sizeof(*variants));
@@ -233,6 +272,11 @@ static const SemaType *return_join(Checker *c, const SemaType *a,
       const SemaType *result = sema_symbol_set(c->p, variants, count + 1);
       if (result)
         return result;
+      if (sema_ambiguous_endings(variants, count + 1)) {
+        error(c, c->function->syntax->as.function.return_type->span,
+              "A union cannot contain both payload-less ':ok' and ':none'.");
+        return t(c, SEMA_ERROR);
+      }
     }
     message = "Symbol tag has conflicting payload types.";
   }
@@ -518,7 +562,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   unsigned flow = SEMA_NEXT;
   int reachable = c->reachable;
   e->reachable = reachable;
-  e->adapt = 0;
+  e->adapt = e->none_ending = 0;
   e->failures = NULL;
   switch (e->kind) {
   case SEMA_EXPR_UNIT:
@@ -661,6 +705,16 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     if (e->as.value) {
       value = check(c, e->as.value, c->expected, TAIL);
       flow = e->as.value->flow;
+    } else {
+      const SemaType *context = none_context(c, c->expected);
+      if (context) {
+        value = none_value(c, context);
+        e->none_ending = 1;
+      } else if (c->probe && (!c->function->written || c->function->partial)) {
+        if (reachable)
+          empty_return(c, e->span);
+        value = t(c, SEMA_UNKNOWN);
+      }
     }
     if (flow & SEMA_NEXT) {
       value = checked_return(
@@ -1077,13 +1131,30 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     result = t(c, SEMA_ERROR);
   }
   e->raw_type = e->returns ? t(c, SEMA_NEVER) : result;
-  const SemaVariant *ok = sema_ok(expected);
   int explicit_ok = e->kind == SEMA_EXPR_SYMBOL && e->as.symbol.tag == c->p->ok;
+  const SemaType *context = use == TAIL ? none_context(c, expected) : NULL;
+  if (!e->returns && result->kind == SEMA_UNIT && context &&
+      !(explicit_ok && sema_ok(context))) {
+    result = none_value(c, context);
+    e->none_ending = 1;
+  }
+  const SemaType *wrap = explicit_ok && context ? context : expected;
+  const SemaVariant *ok = sema_ok(wrap);
   if (!e->returns && !special(result) && ok && ok->payload_count <= 1 &&
-      (use == TAIL || explicit_ok) && !sema_assignable(result, expected) &&
+      (use == TAIL || explicit_ok) &&
+      !(c->probe && !c->function->written && result->kind == SEMA_UNIT) &&
+      !sema_assignable(result, wrap) &&
       sema_assignable(result, success_type(c, ok))) {
-    result = expected;
+    result = wrap;
     e->adapt = 1;
+  }
+  // Decide inferred valueless paths only after seeing every reachable return.
+  // A later :none makes an earlier empty return absence, not an implicit :ok.
+  if (c->probe && !e->returns && use == TAIL && result->kind == SEMA_UNIT &&
+      (!c->function->written || c->function->partial)) {
+    if (reachable)
+      empty_return(c, e->span);
+    result = t(c, SEMA_UNKNOWN);
   }
   // A locally diagnosed error result is not a return-type anchor. Poisoning
   // an SCC with it can erase the types/context needed to report the primary
@@ -1131,6 +1202,24 @@ static const SemaType *check_function(SemaProgram *p, SemaFunction *f,
   if (c.failures)
     result = return_join(&c, result, c.failures, f->body->span,
                          "Symbol tag has conflicting payload types.");
+  if (c.empty_return) {
+    const SemaType *context = none_context(&c, result);
+    const SemaType *empty =
+        context ? none_value(&c, context) : &p->types[SEMA_UNIT];
+    // Another function in the SCC can reveal :none on a later probe.
+    const SemaVariant *ok = sema_ok(result);
+    int wait = !f->written && !context &&
+               ((!special(result) && result->kind != SEMA_SYM &&
+                 result->kind != SEMA_UNIT) ||
+                (ok && ok->payload_count));
+    if (!wait) {
+      empty = checked_return(
+          &c, empty, c.empty_span,
+          "Return value does not match the written return type.");
+      result = return_join(&c, result, empty, c.empty_span,
+                           "Incompatible return types.");
+    }
+  }
   if (f->written && !f->partial)
     return f->written_type;
   if (f->partial)
@@ -1174,15 +1263,28 @@ void sema_check(SemaProgram *p, Diagnostics *errors) {
         for (size_t i = head[component]; i != SIZE_MAX; i = next[i]) {
           SemaFunction *f = &p->functions[i];
           const SemaType *inferred = check_function(p, f, errors, 1, defaults);
-          // Symbol sets grow monotonically; one tag cannot change payload
-          // type. Other concrete types still have the M3 finite lattice.
+          // Concrete payload anchors grow monotonically. Valueless success
+          // edges stay provisional until the component's absence is known.
           const SemaType *old = f->symbol.outcome_type;
           if ((!f->written || f->partial) && old->kind != SEMA_ERROR &&
               !unknown(inferred) && inferred != old) {
+            const SemaType *previous = old;
+            if (!f->written) {
+              const SemaVariant *ok = sema_ok(old),
+                                *next_ok = sema_ok(inferred);
+              // Valueless edges are provisional, not fixed payload anchors.
+              // They can become :none after another SCC member resolves.
+              if (old->kind == SEMA_UNIT)
+                previous = &p->types[SEMA_UNKNOWN];
+              else if (ok && !ok->payload_count &&
+                       (!next_ok || next_ok->payload_count))
+                previous = sema_symbol_set(p, old->symbols->variants + 1,
+                                           old->symbols->count - 1);
+            }
             const SemaType *merged = inferred;
-            if (!unknown(old)) {
+            if (!unknown(previous)) {
               Checker merge = {.p = p, .function = f, .probe = 1};
-              merged = return_join(&merge, old, inferred, f->symbol.span,
+              merged = return_join(&merge, previous, inferred, f->symbol.span,
                                    "Incompatible return types.");
             }
             f->symbol.outcome_type = merged;

@@ -152,7 +152,9 @@ because the value has no top-level error tags, including optional, plain and
 only-`:ok` values. Singleton `:ok[T]` now normalizes to `T`, and `:ok` to `()`
 in every type position. Calls return their canonical type, without wrappers
 invented for matches or annotations. Return unions containing `:ok` still wrap
-plain success values. Optional endings and their ambiguity check remain pending.
+plain success values. A result containing `:none` uses it for valueless endings;
+a union containing both payload-less `:ok` and `:none` is rejected. Scoped
+native audits remain pending.
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and

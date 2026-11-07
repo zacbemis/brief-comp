@@ -1845,6 +1845,10 @@ int main(void) {
                                                        : 0};
           }
         const SemaType *type = sema_symbol_set(p, variants, count);
+        if ((mask & 3) == 3) {
+          ASSERT_TRUE(type == NULL);
+          continue;
+        }
         ASSERT_TRUE(type != NULL);
         if (mask == 1) {
           ASSERT_TRUE(type == &p->types[SEMA_UNIT]);

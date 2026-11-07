@@ -332,7 +332,7 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 - [x] Mixed outcomes: scalar/unit extraction and tagged success remainders.
 - [x] No-error postfix rejection.
 - [x] Exact returns and only-:ok normalization without implicit call wrapping.
-- [ ] :none endings and the payload-less :ok/:none ambiguity diagnostic.
+- [x] :none endings and the payload-less :ok/:none ambiguity diagnostic.
 - [x] Entry status by the actual returned symbol's active error kind.
 - [x] Symbol diagnostic spelling for entry errors, panics and nested values.
 - [ ] Scoped symbols/errors native audits for N2's available rules.
@@ -340,11 +340,10 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 The N2 slices implement the reserved neutral :none shape, intrinsic conversion
 error kinds, entry status by active kind, symbol diagnostic spelling, mandatory
 call handling, error-only/mixed postfixes, no-error postfix rejection, exact
-returns and only-:ok normalization. Their native/unit regressions are not
-acceptance of optional-ending rules. A sole success with several payload
-positions still requires matching rather than an invented tuple result.
-Detailed slices and changed-expectation inventories follow the N1 historical
-records below.
+returns, only-:ok normalization and optional endings/ambiguity. Scoped native
+audits remain pending. A sole success with several payload positions still
+requires matching rather than an invented tuple result. Detailed slices and
+changed-expectation inventories follow the N1 historical records below.
 
 ### Historical implementation checkpoints
 
@@ -3465,6 +3464,26 @@ diff checks pass. Baseline differences are confined to generated field labels
 and the two stderr fixtures; see `tests/next-version-n2-struct-format.md`.
 Stop uncommitted for review. The next slice is :none endings and the
 payload-less :ok/:none ambiguity; N2 audits and N3 handling remain pending.
+
+### N2 increment: :none endings and unambiguous absence
+
+Valueless returns/tails now produce :none when the function's result includes
+it, including inferred and partial results. Provisional unit success edges
+wait for the SCC's absence anchors; :ok[()] | :none remains valid. Canonical
+construction and source types reject unions containing payload-less :ok and
+:none, with one type diagnostic and no guessed fix. Changed existing
+expectations: the 64 canonical kind-mask inputs in `test_symbols.c` containing
+both tags now require NULL rather than a symbol set. No other existing
+assertion, fixture marker, golden or .expect changes.
+
+New unit/native tests cover ending shapes, ownership/cleanup, inferred return
+order, recursive anchors, type positions, ambiguity and the unit-payload
+control. Default GCC Debug and fresh -Werror Clang Debug ASan/UBSan suites pass
+39/39 each; formatter and diff checks pass. Retained CLI/runtime observations
+are unchanged; the two bank C outputs only renumber three symbol-set IDs. See
+`tests/next-version-n2-none-endings.md` for evidence and expectations.
+Stop uncommitted for review. Scoped symbols/errors audits remain before N2
+closure; N3 handling is unchanged.
 
 ## Risks
 

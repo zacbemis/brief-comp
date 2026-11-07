@@ -1,0 +1,19 @@
+Bad = :ok | :none // error: A union cannot contain both payload-less ':ok' and ':none'.
+Reversed = :none[] | :ok[] // error: A union cannot contain both payload-less ':ok' and ':none'.
+Nested = :outer[:ok | :none] // error: A union cannot contain both payload-less ':ok' and ':none'.
+Health = :ok | :idle
+Absent = :none | :missing
+Included = Health | Absent // error: A union cannot contain both payload-less ':ok' and ':none'.
+Holder { value: :ok | :none } // error: A union cannot contain both payload-less ':ok' and ':none'.
+parameter(value: :ok | :none) {} // error: A union cannot contain both payload-less ':ok' and ':none'.
+written() -> :ok | :none { :none } // error: A union cannot contain both payload-less ':ok' and ':none'.
+partial() -> :ok | _ { :none } // error: A union cannot contain both payload-less ':ok' and ':none'.
+health() -> Health { :idle }
+inferred(b: bool) { // error: A union cannot contain both payload-less ':ok' and ':none'.
+  if b { ret health() }
+  :none
+}
+namedPartial() -> Health | _ { :none } // error: A union cannot contain both payload-less ':ok' and ':none'.
+main() {
+  let value: :ok | :none = :none // error: A union cannot contain both payload-less ':ok' and ':none'.
+}

@@ -212,6 +212,12 @@ static const SemaType *resolve_type(Resolver *r, const Type *syntax,
         if (written_ok && parts[i][j].tag == r->program->ok)
           *written_ok = &parts[i][j];
       }
+    if (sema_ambiguous_endings(variants, count)) {
+      diagnostics_error(r->errors, syntax->span,
+                        "A union cannot contain both payload-less ':ok' and "
+                        "':none'.");
+      return &r->program->types[SEMA_ERROR];
+    }
     const SemaType *result = sema_symbol_set(r->program, variants, count);
     if (!result)
       diagnostics_error(r->errors, syntax->span,
