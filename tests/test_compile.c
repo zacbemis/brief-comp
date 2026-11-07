@@ -350,6 +350,47 @@ int main(void) {
         ASSERT_EQ_INT(0, strcmp(emitted[0], emitted[1]));
     }
   }
+  TEST("mixed postfix membership handles sparse maximum error IDs") {
+    Checked c =
+        resolve(&a,
+                "Early = :!first\nSuccess = :created[int] | :updated[int]\n"
+                "Late = :!last\nOutcome = Early | Success | Late\n"
+                "f() -> Outcome { :!last }\nmain() { f()! }",
+                "postfix-sparse.brf");
+    sema_check(c.program, &c.errors);
+    ASSERT_EQ_INT(0, c.errors.count);
+    // Keep canonical ordering, but move the last tag before lowering so
+    // both symbol construction and the numeric membership test use its ID.
+    SemaTag *last = sema_tag(c.program, c.program->module, "last");
+    last->id = UINT32_MAX;
+    c.program->tag_count = UINT32_MAX;
+    IrProgram *p = ir_lower(&a, c.program);
+    ASSERT_TRUE(p != NULL);
+    if (p) {
+      size_t maximum = 0, equality = 0, joined = 0;
+      IrFunction *main = &p->functions[p->entry];
+      for (size_t i = 0; i < main->count; i++) {
+        const IrInstruction *in = &main->instructions[i];
+        maximum +=
+            in->op == IR_CONSTANT && in->as.constant.integer == UINT32_MAX;
+        equality += in->op == IR_BINARY && in->as.binary == BINARY_EQ;
+        joined += in->op == IR_BINARY && in->as.binary == BINARY_BIT_OR;
+      }
+      ASSERT_EQ_INT(1, maximum);
+      ASSERT_EQ_INT(2, equality);
+      ASSERT_EQ_INT(1, joined);
+      ir_insert_rc(&a, p);
+      FILE *out = tmpfile();
+      ASSERT_TRUE(out != NULL);
+      if (out) {
+        ASSERT_TRUE(emit_c(out, p));
+        ASSERT_EQ_INT(0, fflush(out));
+        long size = ftell(out);
+        ASSERT_TRUE(size > 0 && size < 1000000);
+        fclose(out);
+      }
+    }
+  }
   TEST("emitted C is self-contained, mangled, and source-mapped") {
     Checked c = resolve(&a, "main() { auto() }\nauto() { print(\"Hi\") }",
                         "quote\"and\\slash.brf");

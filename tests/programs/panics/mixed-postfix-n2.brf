@@ -1,0 +1,14 @@
+// expect: before
+// expect: unit
+// panic: panic: :!late["heap", ()]
+// panic: mixed-postfix-n2.brf:12
+Early = :!early
+Success = :created[str] | :updated[str] | :none
+Late = :!late[str, ()]
+Result = Early | Success | Late
+stamp() { print("unit") }
+source() -> Result { :!late["he" + "ap", stamp()] }
+main() { print("before")
+  source()!
+  print("unreachable")
+}

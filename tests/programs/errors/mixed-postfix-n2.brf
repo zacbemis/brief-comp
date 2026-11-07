@@ -1,0 +1,10 @@
+Error = :!failed
+pair() -> :created[int, str] | Error { :created[7, "owned"] }
+lookup() -> :ok[str] | :none | Error { :none }
+missing() -> :ok[str] | :none {
+  lookup()? // error: Propagated variants are not in the written return type.
+}
+main() {
+  pair()? // error: Extracting several success payloads is not implemented yet.
+  pair()! // error: Extracting several success payloads is not implemented yet.
+}

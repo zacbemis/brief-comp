@@ -218,9 +218,9 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 N0 and N1 are complete for their milestone scope. The final N1 review is in
 `tests/next-version-n1-review.md`. N2 has begun with the reserved :none payload
 invariant, intrinsic conversion error kinds, kind-based entry status, symbol
-diagnostic spelling, mandatory call handling and error-only postfixes below. This
-does not complete the next-version language or claim native acceptance of listed
-APIs/fragments.
+diagnostic spelling, mandatory call handling and error-only/mixed postfixes
+below. This does not complete the next-version language or claim native
+acceptance of listed APIs/fragments.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -329,7 +329,8 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 - [x] Intrinsic conversion error kinds and neutral-kind collision diagnostics.
 - [x] Mandatory call handling by top-level error kind in the actual ABI result.
 - [x] Error-only postfix operands always propagate/panic, without a success edge.
-- [ ] No-error postfix rejection and general error-kind propagation/extraction.
+- [x] Mixed outcomes: scalar/unit extraction and tagged success remainders.
+- [ ] No-error postfix rejection.
 - [ ] Exact returns and only-:ok normalization without implicit call wrapping.
 - [ ] :none endings and the payload-less :ok/:none ambiguity diagnostic.
 - [x] Entry status by the actual returned symbol's active error kind.
@@ -338,10 +339,11 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 
 The first N2 slices implement the reserved neutral :none shape, intrinsic
 conversion error kinds, entry status by active kind, symbol diagnostic spelling,
-mandatory call handling and error-only postfixes. Their native/unit regressions
-are not acceptance of general extraction, no-error postfix rejection,
-exact-return or optional-ending rules. Detailed slices and changed-expectation
-inventories follow the N1 historical records below.
+mandatory call handling and error-only/mixed postfixes. Their native/unit
+regressions are not acceptance of no-error postfix rejection, exact-return or
+optional-ending rules. A sole success with several payload positions still
+requires matching rather than an invented tuple result. Detailed slices and
+changed-expectation inventories follow the N1 historical records below.
 
 ### Historical implementation checkpoints
 
@@ -3293,6 +3295,109 @@ classifications are unchanged. No quoted fence is extracted, supplied with
 stand-ins or promoted to native acceptance; no current/frozen language document
 or v0 reader changes. Code generation, runtime and independent RC sources are
 untouched. N1 stays complete, N2 stays in progress; stop uncommitted for review.
+
+### N2 increment: mixed postfixes remove only error-kind alternatives
+
+Reviewed base: `c799acb`, the error-only postfix slice, committed unchanged. This
+consumer slice handles checked outcomes with non-error alternatives: ? and !
+remove only error-kind tags. One surviving tag yields its sole payload or unit;
+several survivors preserve their narrower tagged union. Equal payload types do
+not erase tag identity. :none stays a success alternative and is never propagated
+or panicked on merely because it is not :ok.
+
+`sema_single_success` finds a sole neutral variant; `sema_kind_part` selects a
+canonical top-level kind subset through the existing symbol constructor. Empty or
+non-symbol subsets return NULL, a whole selection returns the original type, and
+every payload position/type/module identity is preserved. Selection does not
+alter caller arrays, canonical variants or tag metadata. Postfix checking and
+hints use these helpers only when the checked input contains errors. The
+propagated set contains exactly errors, not neutral data beside :ok.
+
+Lowering tests membership in the error subset, then reuses the existing panic or
+propagation/cleanup path. A single survivor projects that actual tag's slot, not
+an assumed :ok. Multiple survivors use IR_SYMBOL_CAST without payload projection.
+When :ok is the sole neutral alternative, the equivalent original non-ok test and
+emitted bytes are retained. Error-only handling remains the previous
+unconditional path. Existing independent RC, code generation, runtime,
+flush/status policy, diagnostics, escaping and source maps are unchanged.
+
+No-error postfix rejection remains pending: the legacy no-error branch and
+sema_failures characterization are intentionally retained. Singleton-:ok
+wrapping/extraction, exact returns, optional endings and N3 delayed/linear
+handling are not changed. Extracting several payload positions from a sole
+success is explicitly unsupported, including two unit-only positions: no first
+slot, physical-layout guess or tuple is invented. The existing multiple-:ok
+barrier keeps its exact diagnostic; a non-ok survivor reports
+`Extracting several success payloads is not implemented yet.` Such data remains
+fully matchable; several surviving tags retain all their positional schemas.
+
+Changed existing expectations: none. No existing Brief source, fixture marker,
+diagnostic expectation, runtime observation or golden is rewritten. All prior
+checks pass unchanged. The neutral :ok/:bad legacy-helper assertion remains, with
+comments clarifying its no-error scope. The six existing merged-stream cases
+retain their inputs, output assertions, locations and statuses.
+
+New complete native expectations (not replacements for that unchanged set):
+
+| Input | Observation | Rule exercised |
+| --- | --- | --- |
+| mixed-postfix-n2.brf | Seventeen exact stdout lines, empty stderr, exit 0 | Three successes, two interleaved errors, owned positional payloads, unit effects, error-only propagation and local cleanup. |
+| mixed-postfix-none-n2.brf | after?/text/after?/none/after!, empty stderr, exit 0 | :none survives ? and ! beside :ok and errors; continuation is evaluated. |
+| mixed-postfix-single-n2.brf | Ten exact stdout lines, empty stderr, exit 0 | Non-ok string/struct extraction, method hints, zero/unit-position successes and sole :none success. |
+| mixed-postfix-tags-n2.brf | created/updated/inner/data/matched pair, empty stderr, exit 0 | Same-payload tags stay distinct, inner errors are not recursively consumed, names do not imply kind and multi-position matching remains valid. |
+| main-mixed-postfix-n2.brf | before/source; error: :!early["heap"], exit 1 | Only errors propagate to entry; error payload and local-owner cleanup are preserved. |
+| panics/mixed-postfix-n2.brf | before/unit; panic: :!late["heap", ()] at line 12, exit 1 | Membership includes the later error ID, preserving evaluation, spelling and location. |
+| errors/mixed-postfix-n2.brf | Three exact primaries, no executable | A missing written error and two unsupported multi-position success extractions reject without a guessed fix. |
+
+The 248 independent kind/subset masks now judge both selected partitions and the
+sole-success pointer using bit masks, not the implementation's classification.
+They check canonical identity, every payload schema, empty/non-symbol controls,
+immutable caller/canonical arrays and stable interner/tag counts on repeat
+queries. Forty complete semantic programs cover ten success shapes, both
+operators and LF/CRLF, each checked three times for types, exact error subsets,
+flow and immutable bytes. They inspect the actual success projection or narrow
+cast and run ordinary RC/emission. Additional cases cover method hints,
+written-return contracts and unit-only multi-position rejection. Four complete
+permission programs preserve readonly failures and their writable counterparts
+for both scalar extraction and narrowed, matched unions. The first added
+permission-positive controls used &value instead of the accepted value: &Outcome
+parameter spelling and were rejected by the parser. Only those authored controls
+were corrected; grammar, permission rules and production diagnostics were not
+changed to force acceptance.
+
+Two new C-authored CLI cases check a continuing :none and the later of two
+interleaved errors, normally and sanitized, with exact merged ordering and panic
+location. A separate sparse-ID unit moves the last error to UINT32_MAX before
+lowering; it requires two equality tests and their OR, not a dense table or an
+:ok assumption. The actual complete captured sparse source is emitted and run
+independently with strict GCC/Clang, normally and sanitized.
+
+Validation: four fresh -Werror configurations pass: GCC Debug ASan/UBSan, Clang
+Debug ASan/UBSan and GCC Release each 37/37; unsanitized GCC Debug 31/31. All 455
+retained complete CLI sources keep identical ASTs, statuses and diagnostics. All
+163 prior emitted C outputs are byte-identical; no normalization is needed. All
+150 prior sanitized executable comparisons retain exact status, stdout/stderr and
+cleanup, including all six examples and their committed goldens. Captures
+preserve all 1,625 old C-test source_create records; only 49 new symbol-test
+records and one compile-test record are added. All 1,479 unique old raw programs
+retain complete CLI/C observations. These raw source comparisons supplement the C
+suites' direct AST/API checks.
+
+Six whole positive fixtures, both actual new C-authored CLI sources and the
+sparse program pass strict GCC/Clang normal/sanitized compile/runtime checks,
+36/36. The seven new fixture ASTs are unchanged from the baseline. The negative
+fixture pins its three exact messages and no fix; build/run reject before a
+missing CC and publish no executable. The two new merged sources are captured as
+assembled whole programs; the six old ones retain identical observations. No
+complete quoted document source is extracted or supplied with stand-ins.
+
+Formatter 23.1.3, diff/prose/whole-paragraph/design/status and the 23-ending CRLF
+checks pass. Ignored evidence is under
+`build/validation/n2-mixed-postfix.20261106T235412Z/`. Native inventory is 179
+fixtures; parser/document inventories and fence classifications are unchanged. No
+current/frozen language document or v0 reader changes. RC, runtime, code
+generation, flow and permission sources are untouched. N1 stays complete, N2
+stays in progress; stop uncommitted for review before another consumer slice.
 
 ## Risks
 

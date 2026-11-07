@@ -1,0 +1,37 @@
+// expect: text
+// expect: heap
+// expect: text
+// expect: heap
+// expect: object
+// expect: empty
+// expect: after zero
+// expect: unit
+// expect: after unit
+// expect: after none
+Box { value: str
+  read() -> str { self.value }
+}
+stamp() { print("unit") }
+text() -> :created[str] | :!failed {
+  print("text")
+  :created["he" + "ap"]
+}
+object() -> :made[Box] | :!failed {
+  :made[Box { value = "object" }]
+}
+empty() -> :idle | :!failed { print("empty")
+  :idle
+}
+unit() -> :ready[()] | :!failed { :ready[stamp()] }
+optional() -> :none | :!failed { :none }
+main() {
+  print(text()!)
+  print(text()?)
+  print(object()!.read())
+  empty()!
+  print("after zero")
+  unit()?
+  print("after unit")
+  optional()!
+  print("after none")
+}

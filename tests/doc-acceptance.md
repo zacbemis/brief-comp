@@ -84,10 +84,12 @@ tag's top-level kind. Entry/panic symbol diagnostics now use `:!` for errors and
 `[...]` for nonempty payloads, including nested symbols. Escaping, limits,
 release/flush and panic locations are unchanged. Mandatory call handling now
 uses top-level error kinds in the actual ABI result; neutral-only optional/data
-calls are ordinary values. Error-only postfixes always propagate or panic,
-without a success edge. These unit/native regressions do not promote a fence,
-supply APIs or complete a N2 chapter audit. General success extraction, no-error
-postfix rejection, exact returns and implicit endings await their N2 slices.
+calls are ordinary values. Postfixes on checked outcomes remove only error tags,
+extracting a sole payload/unit or preserving a narrower success union.
+Error-only operands have no success edge. These unit/native regressions do not
+promote a fence, supply APIs or complete a N2 chapter audit. No-error postfix
+rejection, exact returns, singleton-`:ok` normalization and implicit endings
+await their N2 slices.
 
 Remaining milestone work:
 
@@ -96,21 +98,21 @@ Remaining milestone work:
 - **N4/N5:** add bindings/loops and interpolation fences to their chapter audits.
 - **N6:** overview, traits, collections and standard library scope inventories.
 
-N1's syntax/kind checks are not the N2 native audit. General success extraction
-and `:ok` equivalence still use first-version rules. The original error-only
-entry fixture now exits 1 and prints its error; its text now uses the new symbol
+N1's syntax/kind checks are not the N2 native audit. No-error postfixes and
+singleton-`:ok` equivalence retain legacy rules. The original error-only entry
+fixture now exits 1 and prints its error; its text now uses the new symbol
 spelling. The formatter slice changes nine existing stderr/panic markers, not
 statuses or error locations; the plan lists every expectation. The call-kind
 slice changes no existing expectation. Error-only postfix support changes the
-three listed semantic/CLI expectations, without completing other postfix or
-exact-return rules. Bracketed payload lists compile with positional data/failure
-payloads, preserving zero/one behavior. Multiple `:ok` positions still stop at
-the single-result success boundary. Union types and ordinary `Sym` names retain
-the remaining first-version adaptations. Type-context and whole-fence parser
-checks do not complete a native audit. Typed symbol payload binders retain
-annotations for parser checks, but native compilation still reports typed
-matching as unimplemented. No native/API acceptance follows from that syntax
-support.
+three listed semantic/CLI expectations; the mixed-postfix slice changes none.
+Bracketed payload lists compile with positional data/failure payloads. When
+several success tags survive, their full positional schemas stay tagged. A sole
+success with multiple positions still requires a match, rather than tuple
+extraction. Union types and ordinary `Sym` names retain the remaining
+first-version adaptations. Type-context and whole-fence parser checks do not
+complete a native audit. Typed symbol payload binders retain annotations for
+parser checks, but native compilation still reports typed matching as
+unimplemented. No native/API acceptance follows from that syntax support.
 
 ## Historical grammar checkpoints
 

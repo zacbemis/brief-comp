@@ -1,0 +1,25 @@
+// expect: created
+// expect: updated
+// expect: inner
+// expect: data
+// expect: matched pair
+Choice = :created[str] | :updated[str] | :!broken[str]
+choose(b: bool) -> Choice {
+  if b { ret :created["created"] }
+  :updated["updated"]
+}
+wrap() -> :wrapped[:!inner[str]] | :!outer {
+  :wrapped[:!inner["inner"]]
+}
+named() -> :invalid[str] | :!healthy { :invalid["data"] }
+pair() -> :paired[int, str] | :!broken[str] { :paired[7, "matched pair"] }
+main() {
+  choose(true)? |> { :created[text] => print(text)
+                    :updated[text] => print(text) }
+  choose(false)! |> { :created[text] => print(text)
+                     :updated[text] => print(text) }
+  wrap()! |> { :!inner[text] => print(text) }
+  print(named()!)
+  pair() |> { :paired[n, text] => print(text)
+              :!broken[text] => print(text) }
+}

@@ -159,6 +159,12 @@ int main(int argc, char **argv) {
         "f() -> :!bad[str] { :!bad[\"he\" + \"ap\"] }\n"
         "main() { print(\"before\")\nf()? }\n",
         "f() -> :!bad[str] { :!bad[\"he\" + \"ap\"] }\n"
+        "main() { print(\"before\")\nf()! }\n",
+        "f() -> :ok[str] | :none | :!bad[str] { :none }\n"
+        "main() { print(\"before\")\nf()! |> { :ok[text] => print(text)\n"
+        ":none => print(\"none\") } }\n",
+        "f() -> :created[str] | :!early | :updated[()] | :!bad[str] { "
+        ":!bad[\"he\" + \"ap\"] }\n"
         "main() { print(\"before\")\nf()! }\n"};
     TestBytes prefixes[] = {
         TEST_BYTES("before\nerror: :!bad[\"heap\"]\n"),
@@ -166,6 +172,8 @@ int main(int argc, char **argv) {
         TEST_BYTES("before\npanic: integer overflow\n  --> "),
         TEST_BYTES("before\n"),
         TEST_BYTES("before\nerror: :!bad[\"heap\"]\n"),
+        TEST_BYTES("before\npanic: :!bad[\"heap\"]\n  --> "),
+        TEST_BYTES("before\nnone\n"),
         TEST_BYTES("before\npanic: :!bad[\"heap\"]\n  --> ")};
     char *input = test_path(&a, root, "ordered.brf");
     char *binary = test_path(&a, root, "ordered");
@@ -182,17 +190,18 @@ int main(int argc, char **argv) {
         ProcessResult r =
             process_run(&a, (const char *[]){binary, NULL}, &options);
         ASSERT_TRUE(r.ok);
-        ASSERT_EQ_INT(i == 3 ? 0 : 1, r.status);
+        ASSERT_EQ_INT(i == 3 || i == 6 ? 0 : 1, r.status);
         ASSERT_EQ_INT(0, r.err.length);
         ASSERT_TRUE(!sanitizer_report(r.out));
         ASSERT_TRUE(r.out.length >= prefixes[i].length &&
                     !memcmp(r.out.data, prefixes[i].data, prefixes[i].length));
-        if (i == 0 || i == 3 || i == 4)
+        if (i == 0 || i == 3 || i == 4 || i == 6)
           ASSERT_TRUE(bytes_equal(r.out, prefixes[i]));
         else
-          ASSERT_TRUE(bytes_contains(
-              r.out, i == 1 || i == 5 ? TEST_BYTES("ordered.brf:3\n")
-                                      : TEST_BYTES("ordered.brf:2\n")));
+          ASSERT_TRUE(
+              bytes_contains(r.out, i == 1 || i == 5 || i == 7
+                                        ? TEST_BYTES("ordered.brf:3\n")
+                                        : TEST_BYTES("ordered.brf:2\n")));
       }
   }
   TEST("entry status follows the active top-level kind, not ok or payloads") {

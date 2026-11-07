@@ -378,16 +378,37 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
       l->returned = 1;
       return IR_NO_VALUE;
     }
+    const SemaVariant *variant = sema_has_errors(e->as.value->type)
+                                     ? sema_single_success(e->as.value->type)
+                                     : sema_ok(e->as.value->type);
     if (e->failures) {
       size_t tag = temporary(l, &l->program->types[SEMA_UINT]);
       emit(l, (IrInstruction){.op = IR_SYMBOL_TAG,
                               .span = e->span,
                               .result = tag,
                               .a = input});
-      size_t ok = constant(l, &l->program->types[SEMA_UINT], l->program->ok->id,
-                           0, 0, e->span);
-      size_t failed = binary(l, BINARY_NE, &l->program->types[SEMA_UINT],
-                             &l->program->types[SEMA_BOOL], tag, ok, e->span);
+      size_t failed = IR_NO_VALUE;
+      if (variant && variant->tag == l->program->ok) {
+        // For outcomes, a sole neutral :ok makes all other tags errors.
+        // Preserve the old test, also kept by the legacy no-error branch.
+        size_t ok = constant(l, &l->program->types[SEMA_UINT],
+                             l->program->ok->id, 0, 0, e->span);
+        failed = binary(l, BINARY_NE, &l->program->types[SEMA_UINT],
+                        &l->program->types[SEMA_BOOL], tag, ok, e->span);
+      } else {
+        for (size_t i = 0; i < e->failures->symbols->count; i++) {
+          size_t id = constant(l, &l->program->types[SEMA_UINT],
+                               e->failures->symbols->variants[i].tag->id, 0, 0,
+                               e->span);
+          size_t one = binary(l, BINARY_EQ, &l->program->types[SEMA_UINT],
+                              &l->program->types[SEMA_BOOL], tag, id, e->span);
+          failed =
+              failed == IR_NO_VALUE
+                  ? one
+                  : binary(l, BINARY_BIT_OR, &l->program->types[SEMA_BOOL],
+                           &l->program->types[SEMA_BOOL], failed, one, e->span);
+        }
+      }
       size_t success = l->function->labels++;
       emit(l, (IrInstruction){.op = IR_BRANCH_FALSE,
                               .span = e->span,
@@ -408,13 +429,15 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
       l->owned = saved;
       label(l, success, e->span);
     }
+    if (!variant)
+      return convert(l, input, e->type, e->span);
     size_t result = temporary(l, e->type);
     if (result != IR_NO_VALUE)
       emit(l, (IrInstruction){.op = IR_SYMBOL_PAYLOAD,
                               .span = e->span,
                               .result = result,
                               .a = input,
-                              .tag = l->program->ok});
+                              .tag = variant->tag});
     return result;
   }
   case SEMA_EXPR_RETURN: {

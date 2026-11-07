@@ -1,0 +1,25 @@
+// expect: after?
+// expect: text
+// expect: after?
+// expect: none
+// expect: after!
+Result = :ok[str] | :none | :!failed[str]
+source(choice: int) -> Result {
+  if choice == 0 { ret :ok["te" + "xt"] }
+  if choice == 1 { ret :none }
+  :!failed["error"]
+}
+step(choice: int) -> Result {
+  let value = source(choice)?
+  print("after?")
+  value
+}
+main() {
+  for i in 0..2 {
+    step(i) |> { :ok[text] => print(text)
+                 :none => print("none")
+                 :!failed[text] => print(text) }
+  }
+  source(1)! |> { :ok[text] => print(text)
+                 :none => print("after!") }
+}

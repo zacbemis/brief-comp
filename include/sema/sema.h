@@ -303,6 +303,11 @@ const SemaVariant *sema_ok(const SemaType *type);
 int sema_has_errors(const SemaType *type);
 // Nonempty symbol set with no possible non-error alternative.
 int sema_only_errors(const SemaType *type);
+// Sole non-error variant, or NULL for zero/several; ignores payload arity.
+const SemaVariant *sema_single_success(const SemaType *type);
+// Kind-selected subset of a canonical symbol type; NULL for empty/non-symbol.
+const SemaType *sema_kind_part(SemaProgram *program, const SemaType *type,
+                               SemaTagKind kind);
 int sema_payloads_equal(const SemaVariant *a, const SemaVariant *b);
 // Zero/one access for success-result semantics and preserved scalar layouts.
 // Positional data uses arrays; never collapse several values to the first.

@@ -101,6 +101,17 @@ int sema_only_errors(const SemaType *type) {
       return 0;
   return 1;
 }
+const SemaVariant *sema_single_success(const SemaType *type) {
+  const SemaVariant *result = NULL;
+  if (type && type->kind == SEMA_SYM)
+    for (size_t i = 0; i < type->symbols->count; i++)
+      if (type->symbols->variants[i].tag->kind == SEMA_TAG_NEUTRAL) {
+        if (result)
+          return NULL;
+        result = &type->symbols->variants[i];
+      }
+  return result;
+}
 int sema_payloads_equal(const SemaVariant *a, const SemaVariant *b) {
   if (a->payload_count != b->payload_count)
     return 0;
@@ -319,6 +330,26 @@ const SemaType *sema_symbol_set(SemaProgram *p, const SemaVariant *variants,
       copy[n++] = copy[i];
   }
   return intern_set(p, copy, n);
+}
+const SemaType *sema_kind_part(SemaProgram *p, const SemaType *type,
+                               SemaTagKind kind) {
+  if (!type || type->kind != SEMA_SYM)
+    return NULL;
+  const SemaSymSet *set = type->symbols;
+  size_t count = 0;
+  for (size_t i = 0; i < set->count; i++)
+    count += set->variants[i].tag->kind == kind;
+  if (!count)
+    return NULL;
+  if (count == set->count)
+    return type;
+  SemaVariant *part = scratch(p, count);
+  size_t n = 0;
+  for (size_t i = 0; i < set->count; i++)
+    if (set->variants[i].tag->kind == kind)
+      part[n++] = set->variants[i];
+  // Selecting canonical variants preserves order, arity and every payload.
+  return sema_symbol_set(p, part, count);
 }
 const SemaType *sema_symbol_union(SemaProgram *p, const SemaType *a,
                                   const SemaType *b) {

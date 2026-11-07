@@ -1,0 +1,18 @@
+// expect: before
+// expect: source
+// stderr: error: :!early["heap"]
+// exit: 1
+Early = :!early[str]
+Success = :created[str] | :updated[str]
+Late = :!late[()]
+Result = Early | Success | Late
+Box { text: str }
+source() -> Result { print("source")
+  :!early["he" + "ap"]
+}
+main() {
+  let held = Box { text = "held" + " owner" }
+  print("before")
+  let value = source()?
+  print("unreachable")
+}

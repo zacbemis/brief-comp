@@ -263,9 +263,11 @@ static const SemaType *hint(SemaExpr *e) {
   case SEMA_EXPR_TRY:
   case SEMA_EXPR_PANIC: {
     const SemaType *input = hint(e->as.value);
-    const SemaVariant *ok = sema_ok(input);
-    const SemaType *payload =
-        ok && ok->payload_count <= 1 ? sema_single_payload(ok) : NULL;
+    const SemaVariant *success =
+        sema_has_errors(input) ? sema_single_success(input) : sema_ok(input);
+    const SemaType *payload = success && success->payload_count <= 1
+                                  ? sema_single_payload(success)
+                                  : NULL;
     return payload ? payload : e->type;
   }
   case SEMA_EXPR_FIELD: {
@@ -808,9 +810,11 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     SemaExpr *value = e->as.value;
     const SemaType *input = check(c, value, NULL, OUTCOME);
     flow = value->flow;
-    const SemaVariant *ok = sema_ok(input);
+    int errors = sema_has_errors(input);
+    const SemaVariant *success =
+        errors ? sema_single_success(input) : sema_ok(input);
     int terminal = sema_only_errors(input);
-    if (!ok && !terminal) {
+    if (!success && !errors) {
       if (!special(input))
         error(c, e->span,
               "? and ! require a symbol outcome with an :ok variant.");
@@ -819,15 +823,22 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       result = c->probe && input->kind == SEMA_SYM ? t(c, SEMA_UNKNOWN)
                : special(input)                    ? input
                                                    : t(c, SEMA_ERROR);
-    } else if (ok && ok->payload_count > 1) {
-      error(c, e->span, "Multiple ':ok' payloads are not implemented yet.");
+    } else if (success && success->payload_count > 1) {
+      error(
+          c, e->span,
+          success->tag == c->p->ok
+              ? "Multiple ':ok' payloads are not implemented yet."
+              : "Extracting several success payloads is not implemented yet.");
       result = t(c, SEMA_ERROR);
     } else {
-      const SemaType *payload = sema_single_payload(ok);
-      result = terminal  ? t(c, SEMA_NEVER)
-               : payload ? payload
-                         : t(c, SEMA_UNIT);
-      e->failures = terminal ? input : sema_failures(c->p, input);
+      const SemaType *payload = sema_single_payload(success);
+      result = terminal   ? t(c, SEMA_NEVER)
+               : !success ? sema_kind_part(c->p, input, SEMA_TAG_NEUTRAL)
+               : payload  ? payload
+                          : t(c, SEMA_UNIT);
+      // Preserve the legacy no-error boundary until its rejection slice.
+      e->failures = errors ? sema_kind_part(c->p, input, SEMA_TAG_ERROR)
+                           : sema_failures(c->p, input);
       if (e->kind == SEMA_EXPR_TRY && e->failures) {
         flow = sequence(flow, terminal ? SEMA_RETURN : SEMA_NEXT | SEMA_RETURN);
         if (c->function->written && !return_fits(c, e->failures))

@@ -1,0 +1,53 @@
+// expect: source
+// expect: unit
+// expect: continued
+// expect: heap
+// expect: nested
+// expect: source
+// expect: continued
+// expect: same
+// expect: source
+// expect: continued
+// expect: none
+// expect: source
+// expect: unit
+// expect: bad
+// expect: source
+// expect: unit
+// expect: late
+Detail = :note[str]
+Early = :!early[str, ()]
+Created = :created[str, (), Detail]
+Late = :!late[()]
+Updated = :updated[str]
+Result = Early | Created | Late | Updated | :none
+Box { text: str }
+stamp() { print("unit") }
+source(choice: int) -> Result {
+  print("source")
+  if choice == 0 { ret :created["he" + "ap", stamp(), :note["nested"]] }
+  if choice == 1 { ret :updated["same"] }
+  if choice == 2 { ret :none }
+  if choice == 3 { ret :!early["bad", stamp()] }
+  :!late[stamp()]
+}
+step(choice: int) -> Result {
+  let held = Box { text = "held" + " owner" }
+  let value = source(choice)?
+  print("continued")
+  value
+}
+main() {
+  for i in 0..5 {
+    step(i) |> {
+      :created[text, _, detail] => {
+        print(text)
+        detail |> { :note[nested] => print(nested) }
+      }
+      :updated[text] => print(text)
+      :none => print("none")
+      :!early[text, _] => print(text)
+      :!late[_] => print("late")
+    }
+  }
+}
