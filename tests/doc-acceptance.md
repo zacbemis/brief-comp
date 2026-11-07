@@ -1,6 +1,6 @@
 # Document acceptance status
 
-**N1 and N2 are complete for their milestone scope; N3 has not started.** The
+**N1 and N2 are complete for their milestone scope; N3 is in progress.** The
 [N1 final review](next-version-n1-review.md) checks its three completion
 criteria; the [N2 closure review](next-version-n2-review.md) records kind-based
 outcomes and its scoped audits.
@@ -104,6 +104,12 @@ fences stay with N3. No missing APIs, stand-in types, split fences or scope
 relocations are supplied. Run them with `-L doc-symbols` / `-L doc-errors`.
 N2 closes with the full four-configuration matrix and no changed existing
 expectation in this audit slice; it is not full chapter/API acceptance.
+
+N3's first slice accepts unchanged outcome returns in tail/ret positions,
+including value-producing branch tails and final pipeline stages. Existing
+non-return handling and written result contracts remain enforced. This does not
+promote section 6 fences, admit delayed bindings or complete an N3 native audit;
+see [the slice notes](next-version-n3-returned-outcomes.md).
 
 Remaining milestone work:
 

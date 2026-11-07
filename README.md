@@ -154,7 +154,14 @@ in every type position. Calls return their canonical type, without wrappers
 invented for matches or annotations. Return unions containing `:ok` still wrap
 plain success values. A result containing `:none` uses it for valueless endings;
 a union containing both payload-less `:ok` and `:none` is rejected. See the
-[N2 closure review](tests/next-version-n2-review.md); N3 handling is pending.
+[N2 closure review](tests/next-version-n2-review.md) for its bounded scope.
+
+N3 now accepts complete outcomes returned in tail and `ret` positions, including
+value-producing branches and final pipeline calls. Written results must include
+the returned errors; an outcome is not implicitly wrapped as nested success.
+Binding initializers and other non-return calls still require immediate
+handling. Delayed/linear bindings and N3's native audits remain pending; see
+[the first slice notes](tests/next-version-n3-returned-outcomes.md).
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and

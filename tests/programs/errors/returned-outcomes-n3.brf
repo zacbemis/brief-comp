@@ -1,0 +1,20 @@
+Result = :ok[int] | :!bad
+source() -> Result { 7 }
+plain() -> int { source() } // error: Function body does not match the written return type.
+early() -> int { ret source() } // error: Return value does not match the written return type.
+partial() -> :ok[str] | _ { source() } // error: Function body does not match the written return type.
+Inner = :!inner[str]
+Outer = :ok[Inner] | :!outer
+inner() -> Inner { :!inner["owned"] }
+nested() -> Outer { inner() } // error: Function body does not match the written return type.
+nestedEarly() -> Outer { ret inner() } // error: Return value does not match the written return type.
+take(value: Result) {}
+Box { value: Result }
+main() {
+  source() // error: A call that can fail must be handled with ?, !, or a match.
+  let pending = source() // error: A call that can fail must be handled with ?, !, or a match.
+  take(source()) // error: A call that can fail must be handled with ?, !, or a match.
+  :payload[source()] // error: A call that can fail must be handled with ?, !, or a match.
+  Box { value = source() } // error: A call that can fail must be handled with ?, !, or a match.
+  source() |> take() // error: A call that can fail must be handled with ?, !, or a match.
+}

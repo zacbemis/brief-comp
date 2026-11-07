@@ -2036,7 +2036,7 @@ int main(void) {
       valid(&a, text);
     }
   }
-  TEST("error-only calls require handling in every call position and form") {
+  TEST("error-only calls are handled immediately or returned unchanged") {
     const char *prefix =
         "Error = :!problem[str]\n"
         "fail() -> Error { :!problem[\"owned\"] }\n"
@@ -2069,7 +2069,8 @@ int main(void) {
           source[length++] = *s;
         }
         source[length] = 0;
-        Result r = check(&a, source);
+        int returned = i == 0 || i == 5 || i >= 8;
+        Result r = returned ? valid(&a, source) : check(&a, source);
         const char *site = strstr(strstr(source, "main() {"), bodies[i]);
         ASSERT_TRUE(site != NULL);
         for (unsigned repeat = 0; repeat < 3; repeat++) {
@@ -2077,11 +2078,14 @@ int main(void) {
             diagnostics_init(&r.errors, &a);
             sema_check(r.program, &r.errors);
           }
-          if (r.errors.count != 1)
+          if (r.errors.count != (size_t)!returned)
             diagnostics_print(&r.errors, stderr);
-          ASSERT_EQ_INT(1, r.errors.count);
-          ASSERT_TRUE(r.program->resolved && !r.program->checked);
-          ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
+          ASSERT_EQ_INT(!returned, r.errors.count);
+          ASSERT_TRUE(r.program->resolved);
+          ASSERT_EQ_INT(returned, r.program->checked);
+          ASSERT_EQ_INT(returned, ir_lower(&a, r.program) != NULL);
+          if (returned)
+            ASSERT_TRUE(sema_only_errors(r.program->entry->return_type));
           ASSERT_TRUE(!memcmp(source, r.program->module->text, length));
           if (r.errors.count) {
             Diagnostic *d = r.errors.items[0];
@@ -2101,9 +2105,9 @@ int main(void) {
         sema_only_errors(boundary.program->functions[1].symbol.return_type));
     ASSERT_TRUE(!sema_ok(boundary.program->functions[1].symbol.outcome_type));
     boundary =
-        invalid(&a, "f() -> :ok[:!problem] { :ok[:!problem] }\nmain() { f() }",
-                required);
-    ASSERT_EQ_INT(1, boundary.errors.count);
+        valid(&a, "f() -> :ok[:!problem] { :ok[:!problem] }\nmain() { f() }");
+    ASSERT_TRUE(
+        sema_only_errors(boundary.program->functions[1].symbol.return_type));
   }
   TEST("kind-based call diagnostics survive SCC inference and recovery") {
     const char *source =
@@ -2116,26 +2120,25 @@ int main(void) {
         diagnostics_init(&r.errors, &a);
         sema_check(r.program, &r.errors);
       }
-      if (r.errors.count != 1)
-        diagnostics_print(&r.errors, stderr);
-      ASSERT_EQ_INT(1, r.errors.count);
-      ASSERT_TRUE(r.program->resolved && !r.program->checked);
-      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
-      for (size_t i = 0; i < r.program->count; i++)
-        ASSERT_TRUE(!r.program->functions[i].inference_conflict);
       if (r.errors.count)
-        ASSERT_EQ_INT(
-            0,
-            strcmp(
-                "A call that can fail must be handled with ?, !, or a match.",
-                r.errors.items[0]->message));
+        diagnostics_print(&r.errors, stderr);
+      ASSERT_EQ_INT(0, r.errors.count);
+      ASSERT_TRUE(r.program->resolved && r.program->checked);
+      ASSERT_TRUE(ir_lower(&a, r.program) != NULL);
+      for (size_t i = 0; i < r.program->count; i++) {
+        ASSERT_TRUE(!r.program->functions[i].inference_conflict);
+        ASSERT_TRUE(
+            sema_only_errors(r.program->functions[i].symbol.return_type));
+      }
     }
     valid(&a, "Health = :ok | :degraded\n"
               "f(b: bool) -> Health { if b { ret :ok }\ng(true) }\n"
               "g(b: bool) -> Health { f(b) }\nmain() { f(false) }");
     r = check(&a, "fail() -> :!problem { :!problem }\n"
                   "main() { missing()\nfail() }");
-    ASSERT_EQ_INT(2, r.errors.count);
+    ASSERT_EQ_INT(1, r.errors.count);
+    if (r.errors.count)
+      ASSERT_EQ_INT(0, strcmp("Unknown function.", r.errors.items[0]->message));
     ASSERT_TRUE(!r.program->checked && ir_lower(&a, r.program) == NULL);
   }
   TEST("neutral-only results including ok and none are ordinary call values") {

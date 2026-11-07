@@ -1,6 +1,6 @@
 # Plan: Moving the Compiler to the Next-Version Language
 
-> **Status: N0, N1 and N2 complete; N3 not started.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
+> **Status: N0, N1 and N2 complete; N3 in progress.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
 
 ## Goal
 
@@ -220,7 +220,8 @@ N0, N1 and N2 are complete for their milestone scope. Final reviews are in
 kind-based outcomes, postfixes, exact results, optional endings, entry/diagnostic
 rules and scoped symbols/errors native audits are complete. This does not
 complete the next-version language or claim native acceptance of listed
-APIs/fragments. N3 has not started.
+APIs/fragments. N3 begins with unchanged outcome returns; delayed/linear
+bindings and its scoped native audits remain.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -346,6 +347,20 @@ splitting fragments; section 6 remains N3. The full four-configuration -Werror
 matrix passes. A sole success with several payload positions still requires
 matching rather than an invented tuple result. Detailed slices and reviewed
 expectation inventories follow the N1 historical records below.
+
+### N3 (in progress)
+
+- [x] Return outcomes unchanged in TAIL/ret positions, including branch tails,
+  written/inferred/partial results and recursive inference.
+- [ ] Admit outcome bindings with flow-based pending/handled states; check
+  straight-line consumption, second handling and forbidden transfer uses.
+- [ ] Check path joins and every scope exit, including early ret/break/continue,
+  with one primary per invalid shape and useful source notes.
+- [ ] Check loop back edges, outer-binding consumption, nesting and recovery
+  using the shared flow framework, with permissions behavior unchanged.
+- [ ] Extend the errors audit for section 6 and add scoped pipelines/memory
+  native audits without extracted fragments or stand-in APIs/types.
+- [ ] Close N3 with its expectation review and full four-configuration matrix.
 
 ### Historical implementation checkpoints
 
@@ -3506,6 +3521,40 @@ Pinned formatter, diff/prose and protected-plan checks pass. See
 `tests/doc-symbols-n2.md`, `tests/doc-errors-n2.md` and the short closure review
 `tests/next-version-n2-review.md` for scope, expectations and evidence. N2 is
 complete for its milestone scope; N3 and full API acceptance are not claimed.
+
+### N3 increment: return complete outcomes unchanged
+
+Reviewed base 9559a4d. TAIL/ret calls now return their complete canonical result,
+including value-producing branch/match tails and final pipeline calls. Written
+contracts still check every returned tag; inferred/partial/SCC results accumulate
+errors without a success envelope. Implicit wrapping cannot hide an outcome
+inside :ok; explicit nested construction remains available. Bindings and other
+non-return contexts still require immediate handling; flow/permissions and IR/RC
+are unchanged. Delayed/linear bindings and N3's audits remain open.
+
+Changed expectations: test_errors accepts main's f()/ret f(), written/partial
+source(), effect(), one-/two-anchor a/b and the a/b/source chain. Its unit/scalar
+match now reports a payload conflict; plain ret source() reports a return-type
+error. The incompatible-return and read-only cases each lose only their tail
+handling error; both(source(), source()) loses only the outer error (3 to 2).
+Test_symbols accepts fail(), ret fail(), source.fail(), Source.create() and
+source |> fail() in LF/CRLF, the normalized error wrapper and recursive main
+call; missing()/fail() keeps only the unknown-function error (2 to 1). Converter
+tails shrt(x), flt(d), int(2.5), int("1") and test_structs' int("1") now accept.
+Ret markers at handled-calls.brf:9 and call-kind-errors-n2.brf:23 are removed;
+other messages/lines stay. The original CRLF CLI tail call now emits C, while a
+separate discarded-call control preserves rejection before CC. No existing
+runtime marker, panic location, golden or .expect changes. The full inventory
+is in `tests/next-version-n3-returned-outcomes.md`.
+
+Seven new unit groups and four fixtures cover return contexts, schema identity,
+owned/borrowed cleanup, entry kinds, recursive order, remaining rejection sites
+and refusal to nest returned errors implicitly. Default GCC Debug and fresh
+-Werror Clang Debug ASan/UBSan pass 44/44 each. All retained ASTs and previously
+successful C outputs match a fresh HEAD baseline; only the 32 listed rejected
+source observations change. All 249 prior sanitized executable observations
+match. Strict GCC/Clang normal/sanitized native runs pass 12/12; eleven new
+negative sites stop before CC. Formatter, diff/prose and protected sections pass.
 
 ## Risks
 

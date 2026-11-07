@@ -1,0 +1,7 @@
+source() -> :ok[str] | :!bad { "owned " + "success" }
+forward() { ret source() }
+main() {
+  print("before")
+  forward()
+}
+// expect: before

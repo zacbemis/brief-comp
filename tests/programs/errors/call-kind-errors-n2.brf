@@ -20,5 +20,5 @@ main() {
   Source.create() // error: A call that can fail must be handled with ?, !, or a match.
   source |> fail() // error: A call that can fail must be handled with ?, !, or a match.
   wrapped() // error: A call that can fail must be handled with ?, !, or a match.
-  ret fail() // error: A call that can fail must be handled with ?, !, or a match.
+  ret fail() // N3: returning the complete outcome counts as handling.
 }

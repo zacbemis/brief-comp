@@ -1,0 +1,15 @@
+Box { text: str }
+source() -> :ok[Box] | :!bad[Box] {
+  :!bad[Box { text = "owned " + "failure" }]
+}
+forward() {
+  let local = Box { text = "local " + "owner" }
+  source()
+}
+main() {
+  print("before")
+  forward()
+}
+// expect: before
+// stderr: error: :!bad[Box { text = "owned failure" }]
+// exit: 1

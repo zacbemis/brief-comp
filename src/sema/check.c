@@ -290,7 +290,8 @@ static int return_fits(Checker *c, const SemaType *actual) {
   if (!c->function->partial) {
     wok = sema_ok(wanted);
     return sema_assignable(actual, wanted) ||
-           (wok && sema_assignable(actual, success_type(c, wok)));
+           (wok && !sema_has_errors(actual) &&
+            sema_assignable(actual, success_type(c, wok)));
   }
   if (actual->kind != SEMA_SYM)
     return wok && sema_assignable(actual, success_type(c, wok));
@@ -847,8 +848,11 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       }
       result = outcome;
     }
+    // Returning a call handles its complete result, not only its errors.
+    // TAIL reaches ret values and value-producing branch/block endings; it
+    // never reaches arguments, payloads or other discarded statements.
     // Payload/field errors do not make an enclosing data tag fail.
-    if (sema_has_errors(result) && !e->as.call.handled) {
+    if (sema_has_errors(result) && !e->as.call.handled && use != TAIL) {
       error(c, e->span,
             "A call that can fail must be handled with ?, !, or a match.");
       // A forbidden outcome cannot provide a usable value or return candidate.
@@ -1140,8 +1144,11 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   }
   const SemaType *wrap = explicit_ok && context ? context : expected;
   const SemaVariant *ok = sema_ok(wrap);
+  // An outcome returned as-is must fit the outer result, not become a
+  // successful nested outcome. Only explicit :ok construction can do that.
   if (!e->returns && !special(result) && ok && ok->payload_count <= 1 &&
       (use == TAIL || explicit_ok) &&
+      (explicit_ok || !sema_has_errors(result)) &&
       !(c->probe && !c->function->written && result->kind == SEMA_UNIT) &&
       !sema_assignable(result, wrap) &&
       sema_assignable(result, success_type(c, ok))) {

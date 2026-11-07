@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **185 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **189 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for parser coverage and gaps.
 
@@ -69,6 +69,18 @@ and loop endings, unit payloads and error-kind postfix handling of optionals.
 errors/none-endings-n2 fixture pins eleven ambiguity diagnostics: payload-less
 :ok and :none cannot coexist in a union. Details and the changed canonical-mask
 expectations are in [the slice notes](../next-version-n2-none-endings.md).
+
+N3's first slice adds `returned-outcomes-n3.brf`: written, inferred, partial,
+branch, match, pipeline and recursive forwarding return complete outcomes,
+including unit/optional/non-:ok/error-only results. Owned locals, struct
+payloads and borrowed aliases retain normal cleanup. The returned-outcome and
+returned-success main fixtures check both active entry kinds. The new
+errors/returned-outcomes-n3 fixture pins eleven exact handling/return-contract
+diagnostics, including refusal to nest an error outcome implicitly as success.
+Only two existing ret markers change: errors/handled-calls.brf:9 and
+errors/call-kind-errors-n2.brf:23. Other messages, source lines, runtime markers
+and example goldens are unchanged; see
+[the complete slice inventory](../next-version-n3-returned-outcomes.md).
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

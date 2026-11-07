@@ -1140,7 +1140,7 @@ int main(void) {
     invalid(&a, "main() { str(()) }", "expects a number or bool");
     invalid(&a, "main() { str(\"x\") }", "expects a number or bool");
     invalid(&a, "main() { str('x') }", "expects a number or bool");
-    invalid(&a, "main() { int(\"1\") }", "must be handled");
+    valid(&a, "main() { int(\"1\") }");
     invalid(&a, "main() { int(true) }", "expects a number, chr or str");
     invalid(&a, "A { unit: () }\nmain() { str(A { unit = () }) }",
             "expects a number or bool");

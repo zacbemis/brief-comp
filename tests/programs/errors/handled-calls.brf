@@ -6,7 +6,7 @@ unhandled() {
   let x = f() // error: A call that can fail must be handled with ?, !, or a match.
   take(f()) // error: A call that can fail must be handled with ?, !, or a match.
   :outer[f()] // error: A call that can fail must be handled with ?, !, or a match.
-  ret f() // error: A call that can fail must be handled with ?, !, or a match.
+  ret f() // N3: returning the complete outcome counts as handling.
 }
 TextResult = :ok[str] | :!bad
 readName() -> TextResult { "owned" + " name" }

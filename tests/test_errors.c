@@ -252,14 +252,14 @@ int main(void) {
             "body does not match");
     invalid(&a, "f() -> :ok[int] { ret :!bad }\nmain() {}", "Return value");
   }
-  TEST("fallible calls must be handled at the call, in every position") {
+  TEST("fallible calls are handled immediately or returned unchanged") {
     const char *prefix = "f() -> :ok[int] | :!bad { 1 }\n";
     char text[4096];
 #define CASE(body)                                                             \
   (snprintf(text, sizeof(text), "%smain() { %s }", prefix, body), text)
-    invalid(&a, CASE("f()"), "must be handled");
+    valid(&a, CASE("f()"));
     invalid(&a, CASE("let x = f()"), "must be handled");
-    invalid(&a, CASE("ret f()"), "must be handled");
+    valid(&a, CASE("ret f()"));
     invalid(&a, CASE("print(str(f()))"), "must be handled");
     invalid(&a, CASE(":ok[f()]"), "must be handled");
     invalid(&a, CASE("f() |> str()"), "must be handled");
@@ -270,7 +270,7 @@ int main(void) {
     invalid(&a,
             "f() -> :ok[int] | :!bad { 1 }\nmain() { true |> { true => "
             "()\nfalse => f() } }",
-            "must be handled");
+            "Symbol tag has conflicting payload types.");
   }
   TEST("unhandled outcomes do not become usable binding or argument types") {
     const char *prefix =
@@ -284,45 +284,61 @@ int main(void) {
         "takeData(value: Result) {}\n";
     struct {
       const char *bad, *good;
+      enum { CALL_REJECT, RETURN_REJECT, RETURNS } result;
     } cases[] = {
         {"f() { let value = source()\ntake(value, true) }",
-         "f() { let value = source()!\ntake(value, true) }"},
-        {"f() { take(source(), true) }", "f() { take(source()!, true) }"},
-        {"f() { take((source()), true) }", "f() { take((source())!, true) }"},
+         "f() { let value = source()!\ntake(value, true) }", CALL_REJECT},
+        {"f() { take(source(), true) }", "f() { take(source()!, true) }",
+         CALL_REJECT},
+        {"f() { take((source()), true) }", "f() { take((source())!, true) }",
+         CALL_REJECT},
         {"f() { let value: int = source()\ntake(value, true) }",
-         "f() { let value: int = source()!\ntake(value, true) }"},
+         "f() { let value: int = source()!\ntake(value, true) }", CALL_REJECT},
         {"f() { let value = object()\nvalue.value }",
-         "f() { let value = object()!\nvalue.value }"},
-        {"f() { object().value }", "f() { object()!.value }"},
-        {"f() { object().read() }", "f() { object()!.read() }"},
-        {"f() { print(text()) }", "f() { print(text()!) }"},
-        {"f() { str(source()) }", "f() { str(source()!) }"},
-        {"f() { int(source()) }", "f() { int(source()!) }"},
-        {"f() { source() |> str() }", "f() { source()! |> str() }"},
-        {"f() { :outer[source()] }", "f() { :outer[source()!] }"},
+         "f() { let value = object()!\nvalue.value }", CALL_REJECT},
+        {"f() { object().value }", "f() { object()!.value }", CALL_REJECT},
+        {"f() { object().read() }", "f() { object()!.read() }", CALL_REJECT},
+        {"f() { print(text()) }", "f() { print(text()!) }", CALL_REJECT},
+        {"f() { str(source()) }", "f() { str(source()!) }", CALL_REJECT},
+        {"f() { int(source()) }", "f() { int(source()!) }", CALL_REJECT},
+        {"f() { source() |> str() }", "f() { source()! |> str() }",
+         CALL_REJECT},
+        {"f() { :outer[source()] }", "f() { :outer[source()!] }", CALL_REJECT},
         {"f() { takeData(source()) }",
-         "f() { takeData(source() |> { other => other }) }"},
+         "f() { takeData(source() |> { other => other }) }", CALL_REJECT},
         {"f() { let value = source()\nvalue? }",
-         "f() { let value = source() |> { other => other }\nvalue? }"},
+         "f() { let value = source() |> { other => other }\nvalue? }",
+         CALL_REJECT},
         {"f() { let value = source()\nvalue! }",
-         "f() { let value = source() |> { other => other }\nvalue! }"},
+         "f() { let value = source() |> { other => other }\nvalue! }",
+         CALL_REJECT},
         {"f() { let value = source()\nvalue |> { :ok[n] => take(n, true)\n"
          ":!bad => () } }",
          "f() { let value = source() |> { other => other }\n"
-         "value |> { :ok[n] => take(n, true)\n:!bad => () } }"},
-        {"f() -> int { ret source() }", "f() -> int { ret source()! }"},
-        {"f() -> Result { source() }", "f() -> Result { source()? }"},
+         "value |> { :ok[n] => take(n, true)\n:!bad => () } }",
+         CALL_REJECT},
+        {"f() -> int { ret source() }", "f() -> int { ret source()! }",
+         RETURN_REJECT},
+        {"f() -> Result { source() }", "f() -> Result { source()? }", RETURNS},
         {"f() -> :ok[int] | _ { source() }",
-         "f() -> :ok[int] | _ { source()? }"},
-        {"f() { effect() }", "f() { effect()! }"},
+         "f() -> :ok[int] | _ { source()? }", RETURNS},
+        {"f() { effect() }", "f() { effect()! }", RETURNS},
         {"f() { ret 0\nlet value = source()\ntake(value, true) }",
-         "f() { ret 0\nlet value = source()!\ntake(value, true) }"},
+         "f() { ret 0\nlet value = source()!\ntake(value, true) }",
+         CALL_REJECT},
         {"f() { let value = flt(\"1\")\ntakeFloat(value) }",
-         "f() { let value = flt(\"1\")!\ntakeFloat(value) }"}};
+         "f() { let value = flt(\"1\")!\ntakeFloat(value) }", CALL_REJECT}};
     char code[4096];
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       snprintf(code, sizeof(code), "%s%s\nmain() {}", prefix, cases[i].bad);
-      handling_errors(&a, code, 1, NULL, 0);
+      if (cases[i].result == RETURNS)
+        valid(&a, code);
+      else if (cases[i].result == RETURN_REJECT)
+        handling_errors(&a, code, 0,
+                        "Return value does not match the written return type.",
+                        1);
+      else
+        handling_errors(&a, code, 1, NULL, 0);
       snprintf(code, sizeof(code), "%s%s\nmain() {}", prefix, cases[i].good);
       valid(&a, code);
     }
@@ -381,12 +397,12 @@ int main(void) {
         {"f() -> :ok[int] | _ { source()\nfalse }",
          "Function body does not match the written return type.", 1},
         {"f(flag: bool) { if flag { ret 1 }\nif flag { ret true }\nsource() }",
-         "Incompatible return types.", 1},
+         "Incompatible return types.", 0},
         {"f() { take(source(), missing) }", "Unknown binding.", 1},
         {"f(value: P) { writable(value) }",
          "A read-only value cannot be passed to an & parameter; take the "
          "parameter it comes from as &.",
-         1}};
+         0}};
     char code[4096];
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       snprintf(code, sizeof(code), "%s%s\nmain() {}", prefix, cases[i].body);
@@ -395,28 +411,21 @@ int main(void) {
     snprintf(code, sizeof(code), "%s%s", prefix,
              "both(a: int, b: int) -> :ok | :!other { :ok }\n"
              "f() { both(source(), source()) }\nmain() {}");
-    handling_errors(&a, code, 3, NULL, 0);
+    handling_errors(&a, code, 2, NULL, 0);
     handling_errors(&a,
                     "data() -> :left | :right { :left }\n"
                     "take(value: int) {}\nf() { take(data()) }\nmain() {}",
                     0, "Function argument has the wrong type.", 1);
-    // Deferring, rather than poisoning, probe results keeps the anchored
-    // component fallible so its illegal recursive calls cannot disappear.
-    handling_errors(
-        &a,
-        "a(n: int) { if n == 0 { ret :!bad }\nif n == 1 { ret 1 }\nb(n) }\n"
-        "b(n: int) { a(n) }\nmain() {}",
-        1, NULL, 0);
-    handling_errors(
-        &a,
-        "a(n: int) { if n == 0 { ret :!bad }\nif n == 1 { ret 1 }\nb(n) }\n"
-        "b(n: int) { if n == 0 { ret :!bad }\nif n == 1 { ret 1 }\na(n) }\n"
-        "main() {}",
-        2, NULL, 0);
-    handling_errors(&a,
-                    "a() { b() }\nb() { source() }\n"
-                    "source() -> :ok[int] | :!bad { 1 }\nmain() {}",
-                    1, NULL, 0);
+    // Returned recursive calls retain the anchored component's errors.
+    valid(&a,
+          "a(n: int) { if n == 0 { ret :!bad }\nif n == 1 { ret 1 }\nb(n) }\n"
+          "b(n: int) { a(n) }\nmain() {}");
+    valid(&a,
+          "a(n: int) { if n == 0 { ret :!bad }\nif n == 1 { ret 1 }\nb(n) }\n"
+          "b(n: int) { if n == 0 { ret :!bad }\nif n == 1 { ret 1 }\na(n) }\n"
+          "main() {}");
+    valid(&a, "a() { b() }\nb() { source() }\n"
+              "source() -> :ok[int] | :!bad { 1 }\nmain() {}");
   }
   TEST("return inference accumulates errors and narrows handled variants") {
     Result r =

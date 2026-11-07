@@ -176,15 +176,15 @@ int main(void) {
   TEST(
       "typed sources retain their domain; literal arguments adopt the target") {
     check(&a, "main() { shrt(1)\nflt(16777217)\n lng(4294967296) }", NULL);
-    check(&a, "main() { let x = 1\nshrt(x) }", "must be handled");
-    check(&a, "main() { let d = 0.1\nflt(d) }", "must be handled");
+    check(&a, "main() { let x = 1\nshrt(x) }", NULL);
+    check(&a, "main() { let d = 0.1\nflt(d) }", NULL);
     check(&a, "main() { shrt(70000) }", "outside the range");
     check(&a, "main() { 70000 |> shrt() }", "outside the range");
     check(&a, "main() { uint(-1) }", "outside the range");
     check(&a, "main() { uint(-0) }", NULL);
-    check(&a, "main() { int(2.5) }", "must be handled");
+    check(&a, "main() { int(2.5) }", NULL);
     check(&a, "main() { let x = 1\nlng(1 + x)\nlng(x + 1) }", NULL);
-    check(&a, "main() { int(\"1\") }", "must be handled");
+    check(&a, "main() { int(\"1\") }", NULL);
     check(&a, "main() { int() }", "exactly one");
     check(&a, "main() { int(1, 2) }", "exactly one");
     check(&a, "main() { int(true) }", "number, chr or str");

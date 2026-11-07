@@ -1,0 +1,114 @@
+Result = :ok[str] | :!bad[str]
+Large = Result | :!other[int]
+Box { text: str }
+State { calls: int }
+source(state: &State, fail: bool) -> Result {
+  state.calls += 1
+  if fail { ret :!bad["owned " + "failure"] }
+  "owned " + "success"
+}
+tail(state: &State, fail: bool) -> Result {
+  let local = Box { text = "local " + "owner" }
+  source(state, fail)
+}
+early(state: &State, fail: bool) -> Large {
+  let local = Box { text = "early " + "owner" }
+  ret source(state, fail)
+}
+inferred(state: &State, fail: bool) { source(state, fail) }
+partial(state: &State, fail: bool) -> :ok[str] | _ {
+  source(state, fail)
+}
+branch(state: &State, fail: bool) {
+  if fail { source(state, true) } else { source(state, false) }
+}
+matched(state: &State, fail: bool) {
+  fail |> { true => source(state, true)
+            false => source(state, false) }
+}
+piped(state: &State, fail: bool) { state |> source(fail) }
+recursive(state: &State, n: int, fail: bool) {
+  if n == 0 { ret source(state, fail) }
+  peer(state, n - 1, fail)
+}
+peer(state: &State, n: int, fail: bool) { recursive(state, n, fail) }
+maybe(none: bool) -> :ok[str] | :none | :!missing {
+  if none { ret :none }
+  "present"
+}
+forwardMaybe(none: bool) { maybe(none) }
+unit() -> :ok | :!io { print("unit effect") }
+forwardUnit() { ret unit() }
+created() -> :created[int] | :updated[int] | :!conflict { :updated[9] }
+forwardCreated() { created() }
+only() -> :!stopped[str, int] { :!stopped["owned " + "error", 3] }
+forwardOnly() { ret only() }
+object() -> :ok[Box] | :!missing { Box { text = "owned " + "object" } }
+forwardObject() { object() }
+borrowed(box: Box) -> :ok[Box] | :!missing { box }
+forwardBorrowed(box: Box) -> :ok[Box] | :!missing | :!extra {
+  let local = "local " + "owner"
+  ret borrowed(box)
+}
+main() {
+  var state = State { calls = 0 }
+  tail(state, false) |> { :ok[text] => print(text)
+                         :!bad[why] => print(why) }
+  tail(state, true) |> { :ok[text] => print(text)
+                        :!bad[why] => print(why) }
+  early(state, true) |> { :ok[text] => print(text)
+                         :!bad[why] => print(why)
+                         :!other[n] => print(str(n)) }
+  print(inferred(state, false)!)
+  partial(state, true) |> { :ok[text] => print(text)
+                           :!bad[why] => print(why) }
+  print(branch(state, false)!)
+  branch(state, true) |> { :ok[text] => print(text)
+                          :!bad[why] => print(why) }
+  print(matched(state, false)!)
+  matched(state, true) |> { :ok[text] => print(text)
+                           :!bad[why] => print(why) }
+  print(piped(state, false)!)
+  print(recursive(state, 3, false)!)
+  recursive(state, 2, true) |> { :ok[text] => print(text)
+                                :!bad[why] => print(why) }
+  print(str(state.calls))
+  forwardMaybe(true) |> { :ok[text] => print(text)
+                          :none => print("none")
+                          :!missing => print("missing") }
+  forwardMaybe(false) |> { :ok[text] => print(text)
+                           :none => print("none")
+                           :!missing => print("missing") }
+  forwardUnit()!
+  forwardCreated() |> { :created[id] => print(str(id))
+                         :updated[id] => print(str(id))
+                         :!conflict => print("conflict") }
+  forwardOnly() |> { :!stopped[text, number] => { print(text)
+                                                print(str(number)) } }
+  print(forwardObject()!.text)
+  var original = Box { text = "borrowed " + "owner" }
+  let alias = forwardBorrowed(original)!
+  alias.text = "shared"
+  print(original.text)
+}
+// expect: owned success
+// expect: owned failure
+// expect: owned failure
+// expect: owned success
+// expect: owned failure
+// expect: owned success
+// expect: owned failure
+// expect: owned success
+// expect: owned failure
+// expect: owned success
+// expect: owned success
+// expect: owned failure
+// expect: 12
+// expect: none
+// expect: present
+// expect: unit effect
+// expect: 9
+// expect: owned error
+// expect: 3
+// expect: owned object
+// expect: shared
