@@ -88,6 +88,10 @@ set_tests_properties(test_doc_parser_manifest PROPERTIES LABELS doc-parser TIMEO
 # Current native audits: unchanged whole fences with only entry/observer
 # context, separate prose programs and explicit listings (no v0/API mocks).
 function(add_current_native_audit chapter)
+    set(milestone n1)
+    if(ARGC GREATER 1)
+        set(milestone "${ARGV1}")
+    endif()
     set(modes normal)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
         list(APPEND modes sanitized)
@@ -99,7 +103,7 @@ function(add_current_native_audit chapter)
             set(suffix "_sanitized")
             set(debug ON)
         endif()
-        add_test(NAME test_doc_${chapter}_n1${suffix}
+        add_test(NAME test_doc_${chapter}_${milestone}${suffix}
             COMMAND ${CMAKE_COMMAND}
                 -DBRIEF=$<TARGET_FILE:brief>
                 -DRUNNER=$<TARGET_FILE:run_programs>
@@ -107,12 +111,12 @@ function(add_current_native_audit chapter)
                 -DROOT=${CMAKE_SOURCE_DIR}
                 -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/current-doc-${chapter}${suffix}
                 -DDEBUG=${debug}
-                -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_${chapter}_n1.cmake)
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_${chapter}_${milestone}.cmake)
         set(labels "doc-native;doc-${chapter}")
         if(chapter STREQUAL "base")
             list(APPEND labels native-examples)
         endif()
-        set_tests_properties(test_doc_${chapter}_n1${suffix} PROPERTIES
+        set_tests_properties(test_doc_${chapter}_${milestone}${suffix} PROPERTIES
             LABELS "${labels}" TIMEOUT 180)
     endforeach()
 endfunction()
@@ -121,12 +125,14 @@ add_current_native_audit(types)
 add_current_native_audit(syntax)
 add_current_native_audit(modules)
 add_current_native_audit(base)
+add_current_native_audit(symbols n2)
+add_current_native_audit(errors n2)
 add_test(NAME test_doc_native_manifest
     COMMAND ${CMAKE_COMMAND}
         -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/doc-native-manifest-fixtures
         -P ${CMAKE_CURRENT_SOURCE_DIR}/test_doc_native_manifest.cmake)
 set_tests_properties(test_doc_native_manifest PROPERTIES
-    LABELS "doc-native;doc-functions;doc-types;doc-syntax;doc-modules;doc-base;native-examples" TIMEOUT 30)
+    LABELS "doc-native;doc-functions;doc-types;doc-syntax;doc-modules;doc-base;doc-symbols;doc-errors;native-examples" TIMEOUT 30)
 
 # Run alone with `ctest -L parse-examples`, or skip with `-LE parse-examples`.
 add_test(NAME test_parse_examples

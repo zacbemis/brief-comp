@@ -1,6 +1,6 @@
 # Plan: Moving the Compiler to the Next-Version Language
 
-> **Status: N0 and N1 complete; N2 in progress.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
+> **Status: N0, N1 and N2 complete; N3 not started.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
 
 ## Goal
 
@@ -215,12 +215,12 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 
 ## Implementation progress
 
-N0 and N1 are complete for their milestone scope. The final N1 review is in
-`tests/next-version-n1-review.md`. N2 has begun with the reserved :none payload
-invariant, intrinsic conversion error kinds, kind-based entry status, symbol
-diagnostic spelling, mandatory call handling and error-only/mixed postfixes
-below. This does not complete the next-version language or claim native
-acceptance of listed APIs/fragments.
+N0, N1 and N2 are complete for their milestone scope. Final reviews are in
+`tests/next-version-n1-review.md` and `tests/next-version-n2-review.md`. N2's
+kind-based outcomes, postfixes, exact results, optional endings, entry/diagnostic
+rules and scoped symbols/errors native audits are complete. This does not
+complete the next-version language or claim native acceptance of listed
+APIs/fragments. N3 has not started.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -323,7 +323,7 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 - [x] N0 (2): shared flow framework and unchanged permissions analysis.
 - [x] N0 (3): neutral tag kinds and module identity.
 
-### N2 (in progress)
+### N2 (complete)
 
 - [x] :none has zero payload positions in source and canonical semantic sets.
 - [x] Intrinsic conversion error kinds and neutral-kind collision diagnostics.
@@ -335,15 +335,17 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 - [x] :none endings and the payload-less :ok/:none ambiguity diagnostic.
 - [x] Entry status by the actual returned symbol's active error kind.
 - [x] Symbol diagnostic spelling for entry errors, panics and nested values.
-- [ ] Scoped symbols/errors native audits for N2's available rules.
+- [x] Scoped symbols/errors native audits for N2's available rules.
 
 The N2 slices implement the reserved neutral :none shape, intrinsic conversion
 error kinds, entry status by active kind, symbol diagnostic spelling, mandatory
 call handling, error-only/mixed postfixes, no-error postfix rejection, exact
 returns, only-:ok normalization and optional endings/ambiguity. Scoped native
-audits remain pending. A sole success with several payload positions still
-requires matching rather than an invented tuple result. Detailed slices and
-changed-expectation inventories follow the N1 historical records below.
+audits classify all 53 symbols/errors fences without supplying missing APIs or
+splitting fragments; section 6 remains N3. The full four-configuration -Werror
+matrix passes. A sole success with several payload positions still requires
+matching rather than an invented tuple result. Detailed slices and reviewed
+expectation inventories follow the N1 historical records below.
 
 ### Historical implementation checkpoints
 
@@ -3484,6 +3486,26 @@ are unchanged; the two bank C outputs only renumber three symbol-set IDs. See
 `tests/next-version-n2-none-endings.md` for evidence and expectations.
 Stop uncommitted for review. Scoped symbols/errors audits remain before N2
 closure; N3 handling is unchanged.
+
+### N2 closure: scoped symbols/errors native audits
+
+Reviewed base c02b91b, committed unchanged. Both audits use doc_native.cmake
+without helper changes: all 53 fences are classified, two local aliases execute
+unchanged, 51 remain explicit listings and 32 independent prose programs check
+available rules. No missing API/type/body, extracted fragment, scope relocation
+or stand-in is supplied. Errors section 6's six fences remain N3 listings.
+Changed existing expectations: none. Existing fixtures, markers, goldens,
+.expect files, N1 generated sources and parser classifications are unchanged.
+
+Default build/ and fresh -Werror GCC/Clang Debug ASan/UBSan and GCC Release
+suites pass 43/43 each; fresh unsanitized GCC Debug passes 35/35. All 4,710
+retained CLI observations and 205 sanitized executable observations match a
+fresh archived-HEAD baseline. Strict GCC/Clang normal/sanitized checks pass 88
+native runs. Twelve negative programs reject all 16 exact sites before CC.
+Pinned formatter, diff/prose and protected-plan checks pass. See
+`tests/doc-symbols-n2.md`, `tests/doc-errors-n2.md` and the short closure review
+`tests/next-version-n2-review.md` for scope, expectations and evidence. N2 is
+complete for its milestone scope; N3 and full API acceptance are not claimed.
 
 ## Risks
 

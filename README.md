@@ -153,8 +153,8 @@ only-`:ok` values. Singleton `:ok[T]` now normalizes to `T`, and `:ok` to `()`
 in every type position. Calls return their canonical type, without wrappers
 invented for matches or annotations. Return unions containing `:ok` still wrap
 plain success values. A result containing `:none` uses it for valueless endings;
-a union containing both payload-less `:ok` and `:none` is rejected. Scoped
-native audits remain pending.
+a union containing both payload-less `:ok` and `:none` is rejected. See the
+[N2 closure review](tests/next-version-n2-review.md); N3 handling is pending.
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and
@@ -394,9 +394,15 @@ Panics terminate the process without unwinding owners.
   The [raw-base inventory](tests/doc-base-n1.md) preserves the whole mixed sheet
   as one unaccepted listing and runs six complete examples independently with
   pinned output/status expectations. Run those with `-L native-examples`.
-  Run all with `ctest --test-dir build -L doc-native --output-on-failure`, or
-  select `-L doc-functions`, `-L doc-types`, `-L doc-syntax` or
-  `-L doc-modules` / `-L doc-base`. Parser checks use `-L doc-parser`.
+  N2 adds scoped [symbols](tests/doc-symbols-n2.md) and
+  [errors](tests/doc-errors-n2.md) audits: all 53 fences are classified, two
+  execute unchanged, 51 remain listings and 32 independent prose programs
+  exercise available rules. Errors section 6 stays with N3; no missing APIs or
+  extracted fragments are supplied. Run all with
+  `ctest --test-dir build -L doc-native --output-on-failure`, or select
+  `-L doc-functions`, `-L doc-types`, `-L doc-syntax`, `-L doc-modules`,
+  `-L doc-base`, `-L doc-symbols` or `-L doc-errors`. Parser checks use
+  `-L doc-parser`.
 - `tests/parse/`: 155 parser example files that must parse or be rejected
   on a stated line, run by `test_parse_examples` (CTest label
   `parse-examples`).
@@ -420,12 +426,9 @@ Wide and combining characters do not yet have special display-width handling.
 - [Symbols](docs/lang-symbols.txt)
 - [Errors and outcomes](docs/lang-errors.txt)
 - [First compiler plan](docs/plans/first-version.txt)
-- [Next-version compiler plan](docs/plans/next-version.txt) (N0 complete; N1
-  identifier tokens, `not`, `dbl`, `->` returns, keyword-free aliases and `=`
-  literal fields, single-file visibility, `.()` indexing and `Name[Type]`
-  arguments, declaration/tag/pattern roles, ordinary `trait`/`ovr` names and
-  import/typed-collection syntax and error-tag kinds implemented; full
-  syntax/native audits pending)
+- [Next-version compiler plan](docs/plans/next-version.txt) (N0–N2 complete for
+  their milestone scope; N3 handling, N4 bindings/loops, N5 interpolation and
+  N6 remaining inventories are pending; listed APIs are not native acceptance)
 - [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
 
 The overview links the remaining topic documents. Milestone 5 is complete for

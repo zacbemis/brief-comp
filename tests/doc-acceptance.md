@@ -1,7 +1,10 @@
 # Document acceptance status
 
-**N1 is complete for its milestone scope; N2 is in progress.** The
-[final review](next-version-n1-review.md) checks all three completion criteria.
+**N1 and N2 are complete for their milestone scope; N3 has not started.** The
+[N1 final review](next-version-n1-review.md) checks its three completion
+criteria; the [N2 closure review](next-version-n2-review.md) records kind-based
+outcomes and its scoped audits.
+
 First-version native document audits and all spelling bridges have been retired
 as required by `docs/plans/next-version.txt`. Executable scripts and CTest
 registrations are deleted; they are not maintained as a second syntax or
@@ -10,11 +13,12 @@ extended into a migration system. `docs/v0/` is untouched.
 The replacement [current-document parser inventory](doc-parser.md) reads all
 13 current chapters: 239 fences, 162 parser checks, 77 explicitly listed fences
 and two zero-fence listings. Parser checks are not native acceptance. The
-retirement left an intentional native document-coverage gap. The first scoped
+retirement left an intentional native document-coverage gap. The scoped
 syntax/functions/types/modules audits and raw-base inventory cover available
-N1 rules, not the later native/API requirements.
-Six complete independent examples now run in normal/sanitized CI too; program
-fixtures and independent C/compiler/native-driver tests remain active.
+N1 rules; the symbols/errors audits now cover available N2 rules, not later
+native/API requirements. Six complete independent examples run in
+normal/sanitized CI too; program fixtures and independent C/compiler/native
+driver tests remain active.
 
 ```sh
 ctest --test-dir build -L doc-parser --output-on-failure
@@ -86,30 +90,32 @@ release/flush and panic locations are unchanged. Mandatory call handling now
 uses top-level error kinds in the actual ABI result; neutral-only optional/data
 calls are ordinary values. Postfixes on checked outcomes remove only error tags,
 extracting a sole payload/unit or preserving a narrower success union.
-Error-only operands have no success edge. These unit/native regressions do not
-promote a fence, supply APIs or complete a N2 chapter audit. No-error postfix
-rejection, exact returns, singleton-`:ok` normalization and implicit endings
-await their N2 slices.
+Error-only operands have no success edge. No-error postfixes reject;
+singleton `:ok[T]`/`:ok` normalize to `T`/unit, and calls return their exact
+canonical type. Valueless endings use `:none` when it is in the result.
+Payload-less `:ok` and `:none` together reject; `:ok[()] | :none` remains valid.
+
+The [symbols native audit](doc-symbols-n2.md) classifies all 15 fences: one
+unchanged alias executes, 14 remain listings and eleven independent prose
+programs exercise available rules. The [errors native audit](doc-errors-n2.md)
+classifies all 38 fences: one unchanged alias executes, 37 remain listings and
+21 independent prose programs exercise sections 1–5 and 7–12. Section 6's six
+fences stay with N3. No missing APIs, stand-in types, split fences or scope
+relocations are supplied. Run them with `-L doc-symbols` / `-L doc-errors`.
+N2 closes with the full four-configuration matrix and no changed existing
+expectation in this audit slice; it is not full chapter/API acceptance.
 
 Remaining milestone work:
 
-- **N2:** symbols and errors sections 1–5 and 7–12.
 - **N3:** error handling section 6, pipelines and memory.
 - **N4/N5:** add bindings/loops and interpolation fences to their chapter audits.
 - **N6:** overview, traits, collections and standard library scope inventories.
 
-N1's syntax/kind checks are not the N2 native audit. No-error postfixes and
-singleton-`:ok` equivalence retain legacy rules. The original error-only entry
-fixture now exits 1 and prints its error; its text now uses the new symbol
-spelling. The formatter slice changes nine existing stderr/panic markers, not
-statuses or error locations; the plan lists every expectation. The call-kind
-slice changes no existing expectation. Error-only postfix support changes the
-three listed semantic/CLI expectations; the mixed-postfix slice changes none.
-Bracketed payload lists compile with positional data/failure payloads. When
-several success tags survive, their full positional schemas stay tagged. A sole
-success with multiple positions still requires a match, rather than tuple
-extraction. Union types and ordinary `Sym` names retain the remaining
-first-version adaptations. Type-context and whole-fence parser checks do not
+N1's syntax/kind checks are not the N2 native audits. The plan's individual N2
+increments inventory every reviewed expectation change; this closure adds none.
+When several success tags survive, their full positional schemas stay tagged.
+A sole success with multiple positions still requires a match, rather than
+invented tuple extraction. Type-context and whole-fence parser checks do not
 complete a native audit. Typed symbol payload binders retain annotations for
 parser checks, but native compilation still reports typed matching as
 unimplemented. No native/API acceptance follows from that syntax support.
