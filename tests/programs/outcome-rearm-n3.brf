@@ -1,0 +1,75 @@
+Box { text: str }
+Result = :ok[Box] | :!bad[str]
+State { calls: int }
+source(state: &State, n: int) -> Result {
+  state.calls += 1
+  if n < 0 { ret :!bad["bad " + str(n)] }
+  Box { text = "box " + str(n) }
+}
+forward(state: &State) -> Result {
+  var result = source(state, 1)
+  let first = result!
+  result = source(state, 2)
+  let second = result!
+  print(first.text)
+  print(second.text)
+  first.text = "old kept"
+  print(first.text)
+  result = source(state, -3)
+  result |> { :ok[box] => print(box.text)
+              :!bad[text] => print(text) }
+  result = source(state, 4)
+  ret result
+}
+rhsExit(state: &State, fail: bool) -> Result {
+  var result = source(state, 12)
+  result = result |> {
+    :ok[kept] => {
+      let alias = kept
+      if fail { ret :!bad["rhs exit"] } else { source(state, 13) }
+    }
+    :!bad[text] => ret :!bad[text]
+  }
+  result
+}
+main() {
+  var state = State { calls = 0 }
+  let returned = forward(state)
+  print(returned!.text)
+  var result = source(state, 5)
+  for n in 6..8 {
+    let current = result!
+    print(current.text)
+    result = source(state, n)
+  }
+  print(result!.text)
+  while state.calls < 9 {
+    result = source(state, state.calls + 1)
+    print(result!.text)
+  }
+  var flag = true
+  if flag { result = source(state, 10) }
+  else { result = source(state, 11) }
+  print(result!.text)
+  print(str(state.calls))
+  rhsExit(state, true) |> { :ok[box] => print(box.text)
+                            :!bad[text] => print(text) }
+  rhsExit(state, false) |> { :ok[box] => print(box.text)
+                             :!bad[text] => print(text) }
+  print(str(state.calls))
+}
+// expect: box 1
+// expect: box 2
+// expect: old kept
+// expect: bad -3
+// expect: box 4
+// expect: box 5
+// expect: box 6
+// expect: box 7
+// expect: box 8
+// expect: box 9
+// expect: box 10
+// expect: 10
+// expect: rhs exit
+// expect: box 13
+// expect: 13

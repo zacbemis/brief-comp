@@ -529,10 +529,14 @@ static const SemaType *lvalue(Checker *c, SemaExpr *e) {
     SemaExpr *target = e->as.binding.target;
     return check(c, target, NULL, VALUE);
   }
-  mutable(c, e->as.binding.variable, e->span);
-  return e->as.binding.variable &&
-                 (!e->as.binding.variable->outcome_binding || !c->reachable)
-             ? e->as.binding.variable->type
+  SemaVar *v = e->as.binding.variable;
+  mutable(c, v, e->span);
+  // Flow decides whether the old outcome was handled. A potential var rearm
+  // still needs ordinary assignment typing; it cannot change the slot's type.
+  int rearm = v && v->mutable && e->kind == SEMA_EXPR_ASSIGN &&
+              e->as.binding.op == ASSIGN_SET;
+  return v && (!v->outcome_binding || !c->reachable || rearm)
+             ? v->type
              : t(c, SEMA_ERROR);
 }
 static const SemaType *operand_type(Checker *c, SemaExpr *a, SemaExpr *b,

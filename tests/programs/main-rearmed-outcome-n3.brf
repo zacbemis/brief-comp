@@ -1,0 +1,16 @@
+Result = :ok[str] | :!bad[str]
+source(fail: bool) -> Result {
+  if fail { ret :!bad["owned " + "error"] }
+  "owned " + "success"
+}
+main() {
+  var result = source(false)
+  print(result!)
+  result = source(true)
+  print("after rearm")
+  result
+}
+// expect: owned success
+// expect: after rearm
+// stderr: error: :!bad["owned error"]
+// exit: 1

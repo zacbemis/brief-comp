@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **192 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **195 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for parser coverage and gaps.
 
@@ -92,6 +92,16 @@ or exits in handled-calls, call-kind-errors-n2 and returned-outcomes-n3. A split
 call shifts handled-calls' old wrong-argument diagnostic by one line; its later
 projection/converter locations shift too. All existing runtime markers remain
 unchanged. See [the exact inventory](../next-version-n3-outcome-bindings.md).
+
+The path/scope slice adds `outcome-rearm-n3.brf`,
+`main-rearmed-outcome-n3.brf` and `errors/outcome-paths-n3.brf`. A handled var
+can receive another outcome and must handle it again. Owned aliases survive
+slot replacement; branch and loop paths can rearm consistent states. Joins
+report one primary with an unhandled-path note rather than later read/exit
+errors. Fourteen negative sites pin joins, exits and invalid writes. The old
+outcome-bindings error fixture keeps eleven diagnostics: assignAfter's write
+error moves from line 32 to its pending exit on line 33. Runtime markers stay
+unchanged; see [the full inventory](../next-version-n3-joins-exits.md).
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

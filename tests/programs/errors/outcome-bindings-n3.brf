@@ -29,8 +29,8 @@ assign() { var result = source()
 }
 assignAfter() { var result = source()
   result!
-  result = :!bad["new"] // error: Outcome binding cannot be reassigned.
-}
+  result = :!bad["new"]
+} // error: Outcome binding is not handled before leaving its scope.
 early() { let result = source()
   ret // error: Outcome binding is not handled before leaving its scope.
 }

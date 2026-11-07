@@ -1,0 +1,55 @@
+Result = :ok[int] | :!bad[str]
+f(n: int) -> Result { n }
+boolSource() -> :ok[bool] | :!bad[str] { true }
+branch(flag: bool) { let r = f(1)
+  if flag { r! } // error: Outcome binding is handled on some paths but not others.
+}
+branches(flag: bool) { let r = f(1)
+  if flag { r! } else { () } // error: Outcome binding is handled on some paths but not others.
+  ()
+}
+matched(flag: bool) { let r = f(1)
+  flag |> { true => { r! } // error: Outcome binding is handled on some paths but not others.
+            false => { () } }
+  ()
+}
+loop(flag: bool) { let r = f(1)
+  while flag { r! } // error: Outcome binding is handled on some paths but not others.
+}
+logical(flag: bool) { let r = boolSource()
+  let b = flag and r! // error: Outcome binding is handled on some paths but not others.
+}
+mixedReset(flag: bool) { var r = f(1)
+  if flag { r! } // error: Outcome binding is handled on some paths but not others.
+  r = f(2)
+  r!
+}
+pending() { var r = f(1)
+  r = f(2) // error: Outcome binding cannot be reassigned.
+}
+immutable() { let r = f(1)
+  r!
+  r = f(2) // error: Outcome binding cannot be reassigned.
+}
+newPending() { var r = f(1)
+  r!
+  r = f(2)
+} // error: Outcome binding is not handled before leaving its scope.
+jumpBreak() { while true { let r = f(1)
+  break // error: Outcome binding is not handled before leaving its scope.
+} }
+jumpContinue() { for i in 0..2 { let r = f(i)
+  continue // error: Outcome binding is not handled before leaving its scope.
+} }
+early() { let r = f(1)
+  ret // error: Outcome binding is not handled before leaving its scope.
+}
+propagated() { let r = f(1)
+  f(2)? // error: Outcome binding is not handled before leaving its scope.
+  r!
+}
+wrongType() { var r = f(1)
+  r!
+  r = true // error: Assignment value has the wrong type.
+}
+main() {}

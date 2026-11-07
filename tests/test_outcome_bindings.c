@@ -58,8 +58,9 @@ static Result valid(Arena *a, const char *text) {
   }
   return r;
 }
-static void reject(Arena *a, const char *body, const char *message,
-                   const char *site) {
+static void reject_with_path(Arena *a, const char *body, const char *message,
+                             const char *site, const char *path_site,
+                             const char *path_message) {
   char lf[4096];
   snprintf(lf, sizeof(lf), "%smain() { %s }", source_prefix, body);
   for (unsigned crlf = 0; crlf < 2; crlf++) {
@@ -101,18 +102,34 @@ static void reject(Arena *a, const char *body, const char *message,
         if (at)
           ASSERT_EQ_INT((size_t)(at - text), d->span.start);
         ASSERT_TRUE(!d->fixes);
-        ASSERT_TRUE(d->notes && !d->notes->next);
-        if (d->notes) {
+        DiagnosticNote *note = d->notes;
+        if (path_site) {
+          ASSERT_TRUE(note != NULL);
+          if (note) {
+            const char *path = strstr(after ? after : scope, path_site);
+            ASSERT_TRUE(path != NULL);
+            ASSERT_EQ_INT(0, strcmp(path_message, note->message));
+            if (path)
+              ASSERT_EQ_INT((size_t)(path - text), note->span.start);
+            note = note->next;
+          }
+        }
+        ASSERT_TRUE(note && !note->next);
+        if (note) {
           ASSERT_EQ_INT(0, strcmp("The outcome binding is declared here.",
-                                  d->notes->message));
+                                  note->message));
           const char *decl = strstr(strstr(text, "main()"), "result =");
           ASSERT_TRUE(decl != NULL);
           if (decl)
-            ASSERT_EQ_INT((size_t)(decl - text) - 4, d->notes->span.start);
+            ASSERT_EQ_INT((size_t)(decl - text) - 4, note->span.start);
         }
       }
     }
   }
+}
+static void reject(Arena *a, const char *body, const char *message,
+                   const char *site) {
+  reject_with_path(a, body, message, site, NULL, NULL);
 }
 int main(void) {
   Arena a;
@@ -166,7 +183,10 @@ int main(void) {
     reject(&a, "let result = source()\nresult = :!bad[\"other\"]",
            "Outcome binding cannot be reassigned.", "result = :!bad");
     reject(&a, "var result = source()\nresult!\nresult = source()",
-           "Outcome binding cannot be reassigned.", "result = source() }");
+           "Outcome binding is not handled before leaving its scope.", NULL);
+    valid(&a, "Result = :ok[int] | :!bad[str]\nsource() -> Result { 7 }\n"
+              "main() { var result = source()\nresult!\nresult = "
+              "source()\nresult! }");
   }
   TEST("handlers consume once and second reads cannot reuse the binding") {
     const char *first[] = {"result?", "result!", "result |> { _ => () }"};
@@ -192,11 +212,14 @@ int main(void) {
     reject(&a, "let result = source()\nsource()?\nresult!",
            "Outcome binding is not handled before leaving its scope.",
            "source()?\n");
-    reject(&a, "let result = source()\nif true { result! }",
-           "Outcome binding is handled on some paths but not others.", NULL);
-    reject(&a, "let result = source()\nwhile true { result! }",
-           "Outcome binding is handled on some paths but not others.",
-           "result! }");
+    reject_with_path(
+        &a, "let result = source()\nif true { result! }",
+        "Outcome binding is handled on some paths but not others.", "if true",
+        "true {", "The outcome is still pending when this condition is false.");
+    reject_with_path(&a, "let result = source()\nwhile true { result! }",
+                     "Outcome binding is handled on some paths but not others.",
+                     "while true", "true {",
+                     "The outcome is still pending on entry to this loop.");
     valid(&a, "Result = :ok[int] | :!bad\nsource() -> Result { 7 }\n"
               "main() { let result = source()\nwhile false {}\nresult! }");
     valid(&a,

@@ -106,13 +106,14 @@ N2 closes with the full four-configuration matrix and no changed existing
 expectation in this audit slice; it is not full chapter/API acceptance.
 
 N3 accepts unchanged outcome returns in tail/ret positions, including
-value-producing branch tails and final pipeline stages. The next slice admits
-written let/var outcome bindings with flow-based pending/handled states and
-single consumption. Non-handler transfers and reuse reject; written result
-contracts remain enforced. Basic exit/mixed-state guards prevent silent loss,
-while richer path/join notes and broader loop/exit coverage remain. This does
-not promote section 6 fences or complete an N3 native audit; see the
-[binding slice notes](next-version-n3-outcome-bindings.md).
+value-producing branch tails and final pipeline stages. Written let/var outcome
+bindings have flow-based pending/handled states. A handled var can receive a
+new outcome and becomes pending again; other transfer and reuse rules remain.
+Inconsistent paths report once at their first join, with an unhandled-path
+note, and scope exits check departing obligations. Written result contracts
+remain enforced. Broader loop/recovery coverage remains; this does not promote
+section 6 fences or complete an N3 native audit. See the
+[join and scope notes](next-version-n3-joins-exits.md).
 
 Remaining milestone work:
 
