@@ -122,21 +122,15 @@ static size_t convert(Lower *l, size_t value, const SemaType *target,
                                : l->function->temporary_types[value];
   if (source == target)
     return value;
-  if (target->kind == SEMA_SYM && source->kind != SEMA_SYM) {
-    const SemaVariant *ok = sema_ok(target);
+  const SemaVariant *ok = sema_ok(target);
+  const SemaType *payload = ok && ok->payload_count
+                                ? sema_single_payload(ok)
+                                : &l->program->types[SEMA_UNIT];
+  if (ok && !sema_assignable(source, target) &&
+      sema_assignable(source, payload)) {
+    if (ok->payload_count)
+      value = convert(l, value, payload, span);
     return pack(l, target, l->program->ok, &value, ok->payload_count, span);
-  }
-  const SemaVariant *success = sema_ok(source);
-  if (success && source->symbols->count == 1 &&
-      (target->kind != SEMA_SYM || sema_single_payload(success) == target)) {
-    size_t result = temporary(l, target);
-    if (result != IR_NO_VALUE)
-      emit(l, (IrInstruction){.op = IR_SYMBOL_PAYLOAD,
-                              .span = span,
-                              .result = result,
-                              .a = value,
-                              .tag = l->program->ok});
-    return result;
   }
   // Ordinary contexts widen; guarded catch-alls and propagation also narrow.
   if (target->kind == SEMA_SYM) {
@@ -209,6 +203,8 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
       args[i] =
           convert(l, args[i], variant ? variant->payloads[i] : NULL, e->span);
     }
+    if (e->as.symbol.tag == l->program->ok)
+      return count ? convert(l, args[0], e->type, e->span) : IR_NO_VALUE;
     return pack(l, e->type, e->as.symbol.tag, args, count, e->span);
   }
   case SEMA_EXPR_STRUCT: {
@@ -485,10 +481,9 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
       if (!a->any && tag != IR_NO_VALUE) {
         next = l->function->labels++;
         size_t test = IR_NO_VALUE;
-        for (size_t j = 0; j < a->cases->symbols->count; j++) {
-          size_t id =
-              constant(l, &l->program->types[SEMA_UINT],
-                       a->cases->symbols->variants[j].tag->id, 0, 0, a->span);
+        for (size_t j = 0; j < a->case_count; j++) {
+          size_t id = constant(l, &l->program->types[SEMA_UINT],
+                               a->case_variants[j].tag->id, 0, 0, a->span);
           size_t one = binary(l, BINARY_EQ, &l->program->types[SEMA_UINT],
                               &l->program->types[SEMA_BOOL], tag, id, a->span);
           test =
@@ -537,7 +532,9 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
         if (!binding)
           continue;
         size_t bound = input;
-        if (tag != IR_NO_VALUE && a->kind == PAT_SYMBOL) {
+        int normalized_ok = a->kind == PAT_BIND && a->case_count == 1 &&
+                            a->case_variants[0].tag == l->program->ok;
+        if (tag != IR_NO_VALUE && (a->kind == PAT_SYMBOL || normalized_ok)) {
           bound = temporary(l, binding->type);
           if (bound != IR_NO_VALUE)
             emit(l, (IrInstruction){.op = IR_SYMBOL_PAYLOAD,
@@ -545,7 +542,8 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
                                     .result = bound,
                                     .a = input,
                                     .position = position,
-                                    .tag = a->tag});
+                                    .tag = normalized_ok ? l->program->ok
+                                                         : a->tag});
         }
         store(l, binding, IR_NO_VALUE, NULL, bound, a->span);
         if (sema_reference(binding->type))
@@ -691,17 +689,10 @@ static size_t lower(Lower *l, const SemaExpr *e) {
   size_t value = lower_raw(l, &raw);
   if (l->returned || !e->adapt)
     return value;
-  if (e->adapt == 1)
-    return pack(l, e->type, l->program->ok, &value,
-                sema_ok(e->type)->payload_count, e->span);
-  size_t result = temporary(l, e->type);
-  if (result != IR_NO_VALUE)
-    emit(l, (IrInstruction){.op = IR_SYMBOL_PAYLOAD,
-                            .span = e->span,
-                            .result = result,
-                            .a = value,
-                            .tag = l->program->ok});
-  return result;
+  const SemaVariant *ok = sema_ok(e->type);
+  if (ok->payload_count)
+    value = convert(l, value, sema_single_payload(ok), e->span);
+  return pack(l, e->type, l->program->ok, &value, ok->payload_count, e->span);
 }
 static void use_type(const SemaType *t, unsigned char *used,
                      const SemaSymSet **pending, size_t *count) {

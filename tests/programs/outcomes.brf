@@ -32,9 +32,9 @@ g(n: int) {
   f(n - 1)?
 }
 main() {
-  done() |> { :ok[_] => () }
+  done() |> { _ => () }
   print(str(double(2) + 1))
-  double(5) |> { :ok[value] => print(str(value)) }
+  double(5) |> { value => print(str(value)) }
   print(text())
   print(text())
   2 |> read()? |> append()! |> print()
@@ -48,8 +48,8 @@ main() {
     :!first => print("wrong")
     :!second => print("second") }
   print(str(f(2)!))
-  data() |> { :ok[inner] => inner |> { :found[s] => print(s)
-    :empty => () } }
+  data() |> { :found[s] => print(s)
+    :empty => () }
   let result = data()
   result |> { :found[s] => print(s)
     :empty => () }

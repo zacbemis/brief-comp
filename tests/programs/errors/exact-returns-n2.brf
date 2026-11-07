@@ -1,0 +1,33 @@
+Data = :red | :blue
+Maybe = :ok[int] | :none
+Box { value: int
+  read() -> int { self.value }
+}
+plain() -> int { 7 }
+inferred() { 7 }
+only() -> :ok[int] { :ok[7] }
+empty() -> :ok { :ok }
+data() -> :ok[Data] { :ok[:red] }
+double(n: int) -> int { n * 2 }
+take(value: Maybe) {}
+wrong() -> :ok[int] { :ok[true] } // error: Function body does not match the written return type.
+badUnit() -> :ok { :!bad } // error: An outcome cannot be discarded by a unit return.
+badUnitBranch() -> () { if true { :!bad } else { () } } // error: An outcome cannot be discarded by a unit return.
+wrongReturn() -> int {
+  ret :red // error: Return value does not match the written return type.
+}
+main() {
+  plain() |> { :ok[v] => () } // error: Symbol patterns require a symbol input.
+  inferred() |> { :ok[v] => () } // error: Symbol patterns require a symbol input.
+  only() |> { :ok[v] => () } // error: Symbol patterns require a symbol input.
+  empty() |> { :ok => () } // error: Symbol patterns require a symbol input.
+  data() |> { :ok[v] => () } // error: Symbol pattern tag is not in the input set.
+  int('a') |> { :ok[v] => () } // error: Symbol patterns require a symbol input.
+  7 |> double() |> { :ok[v] => () } // error: Symbol patterns require a symbol input.
+  let box = Box { value = 7 }
+  box.read() |> { :ok[v] => () } // error: Symbol patterns require a symbol input.
+  let maybe: Maybe = plain() // error: Binding value does not match its annotation.
+  take(plain()) // error: Function argument has the wrong type.
+  let value: :ok[int] = :ok[7]
+  value |> { :ok[v] => () } // error: Symbol patterns require a symbol input.
+}

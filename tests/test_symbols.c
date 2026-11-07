@@ -263,11 +263,10 @@ int main(void) {
     ASSERT_EQ_INT(sets, p->symbol_set_count);
     const SemaType *number = &p->types[SEMA_INT];
     SemaVariant ok = {p->ok, &number, 1};
-    ASSERT_TRUE(sema_result(p, sema_symbol_set(p, &ok, 1)) == number);
+    ASSERT_TRUE(sema_symbol_set(p, &ok, 1) == number);
     ok.payloads = same;
     ok.payload_count = 3;
-    ASSERT_TRUE(sema_result(p, sema_symbol_set(p, &ok, 1)) ==
-                &p->types[SEMA_ERROR]);
+    ASSERT_EQ_INT(3, sema_ok(sema_symbol_set(p, &ok, 1))->payload_count);
   }
   TEST("all positional schemas agree with an independent base-three oracle") {
     SemaProgram *p = valid(&a, "main() {}").program;
@@ -1847,6 +1846,12 @@ int main(void) {
           }
         const SemaType *type = sema_symbol_set(p, variants, count);
         ASSERT_TRUE(type != NULL);
+        if (mask == 1) {
+          ASSERT_TRUE(type == &p->types[SEMA_UNIT]);
+          ASSERT_TRUE(!sema_has_errors(type) && !sema_single_success(type));
+          ASSERT_TRUE(!sema_kind_part(p, type, SEMA_TAG_NEUTRAL));
+          continue;
+        }
         SemaVariant saved[5], canonical[5];
         memcpy(saved, variants, count * sizeof(*variants));
         memcpy(canonical, type->symbols->variants, count * sizeof(*canonical));
@@ -1891,7 +1896,7 @@ int main(void) {
     ASSERT_TRUE(!sema_has_errors(r.program->aliases[1].type));
     ASSERT_TRUE(!sema_has_errors(&r.program->structs[0].type));
     ASSERT_TRUE(
-        !sema_has_errors(sema_success(r.program, r.program->aliases[0].type)));
+        sema_has_errors(sema_success(r.program, r.program->aliases[0].type)));
   }
   TEST("mixed outcomes remove only error tags and preserve success schemas") {
     struct {

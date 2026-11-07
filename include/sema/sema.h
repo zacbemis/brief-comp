@@ -97,7 +97,7 @@ struct SemaSymbol {
   Visibility visibility; // Written visibility of user-defined functions.
   int builtin;
   SemaVar **params;
-  const SemaType *return_type, *outcome_type; // ABI type and full outcome set.
+  const SemaType *return_type, *outcome_type; // Same canonical result type.
   SemaStruct *owner; // NULL for a top-level function/builtin.
   // Syntactic self classification; NONE for associated functions.
   ReceiverKind receiver;
@@ -148,14 +148,15 @@ typedef struct {
   SemaVar **payload_bindings; // Positional; NULL array/entries are wildcards.
   size_t payload_count;
   const SemaType *set; // Named-set pattern, or narrowed catch-all binding type.
-  const SemaType *cases; // Useful symbol cases; shared with lowering.
+  const SemaType *cases;      // Normalized type of the useful symbol cases.
+  SemaVariant *case_variants; // Tag tests retain the pre-normalization cases.
+  size_t case_count;
 } SemaArm;
 struct SemaExpr {
   SemaExprKind kind;
   Span span;
   const SemaType *type, *raw_type, *failures;
-  int outcome; // A direct call (or its pipeline result) has implicit :ok.
-  int adapt;   // 1 packs implicit success, 2 extracts an only-:ok payload.
+  int adapt; // Packs :ok only into a contextual union containing :ok.
   unsigned flow;
   int reachable;
   int returns;      // No fallthrough (including break/continue).
@@ -252,6 +253,7 @@ typedef struct {
   size_t variable_count, variable_capacity;
   int written, partial;
   const SemaType *written_type;
+  const SemaVariant *written_ok; // Partial annotation before normalization.
   int inference_conflict; // An intrinsic conflict, not a propagated error type.
   int inference_reported; // A specific/fallback inference diagnostic was
                           // emitted.
@@ -316,7 +318,6 @@ const SemaType *sema_single_payload(const SemaVariant *variant);
 const SemaType *sema_symbol_type(SemaProgram *program, SemaTag *tag,
                                  const SemaType *payload);
 const SemaType *sema_success(SemaProgram *program, const SemaType *payload);
-const SemaType *sema_result(SemaProgram *program, const SemaType *type);
 const SemaType *sema_failures(SemaProgram *program, const SemaType *type);
 int sema_equatable(const SemaType *type);
 void sema_update_equatable(SemaProgram *program);

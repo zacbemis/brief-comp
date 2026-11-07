@@ -331,7 +331,7 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 - [x] Error-only postfix operands always propagate/panic, without a success edge.
 - [x] Mixed outcomes: scalar/unit extraction and tagged success remainders.
 - [x] No-error postfix rejection.
-- [ ] Exact returns and only-:ok normalization without implicit call wrapping.
+- [x] Exact returns and only-:ok normalization without implicit call wrapping.
 - [ ] :none endings and the payload-less :ok/:none ambiguity diagnostic.
 - [x] Entry status by the actual returned symbol's active error kind.
 - [x] Symbol diagnostic spelling for entry errors, panics and nested values.
@@ -339,11 +339,12 @@ typed/refutable matching and module/trait boundaries remain unsupported.
 
 The N2 slices implement the reserved neutral :none shape, intrinsic conversion
 error kinds, entry status by active kind, symbol diagnostic spelling, mandatory
-call handling, error-only/mixed postfixes and no-error postfix rejection. Their
-native/unit regressions are not acceptance of exact-return or optional-ending
-rules. A sole success with several payload positions still requires matching
-rather than an invented tuple result. Detailed slices and changed-expectation
-inventories follow the N1 historical records below.
+call handling, error-only/mixed postfixes, no-error postfix rejection, exact
+returns and only-:ok normalization. Their native/unit regressions are not
+acceptance of optional-ending rules. A sole success with several payload
+positions still requires matching rather than an invented tuple result.
+Detailed slices and changed-expectation inventories follow the N1 historical
+records below.
 
 ### Historical implementation checkpoints
 
@@ -3423,6 +3424,29 @@ and diff checks pass. Full evidence and expectation inventory are in
 `tests/next-version-n2-no-error.md`. Exact returns/only-:ok normalization,
 :none endings/ambiguity and scoped native audits remain. Stop uncommitted for
 review; N2 is not closed.
+
+### N2 increment: exact returns and canonical only-:ok normalization
+
+Singleton :ok[T]/:ok types now normalize to T/unit. Plain calls no longer gain
+symbol envelopes for matches, bindings or arguments; return unions containing
+:ok still pack successes. Changed expectations: four passing error-test
+programs now reject old :ok patterns; the prior compound rejection gains one
+pattern error (2 to 3); the empty-call payload-shape error becomes a non-symbol
+input error. Stored result/partial-contract assertions now use normalized
+types, as do the 30 infallible converter domains, eight chr domains and eight
+singleton-:ok kind-mask rows. Wrapping an error type with sema_success no longer
+hides its kind. The removed sema_result assertion retains the unsupported
+multi-payload schema check. outcomes.brf replaces three wrapper patterns with
+ordinary matches; no runtime marker changes. Detailed expectations are in
+`tests/next-version-n2-exact-returns.md`.
+
+New unit/native tests cover canonical identity, type positions, owned values,
+contextual returns, narrowed catch-alls, partial success contracts and refusal
+to discard an outcome as a unit return. Default GCC Debug and fresh -Werror
+Clang Debug ASan/UBSan suites pass 38/38 each; formatter and diff checks pass.
+Optional endings/ambiguity and scoped symbols/errors audits remain. N3 delayed
+handling and returned-call acceptance are unchanged. Stop uncommitted for
+review; this is not N2 closure or the milestone-closing matrix.
 
 ## Risks
 

@@ -96,7 +96,9 @@ static int reject_none_payload(Resolver *r, const char *name, SymbolKind kind,
   diagnostics_error(r->errors, span, "':none' cannot carry a payload.");
   return 1;
 }
-static const SemaType *type(Resolver *r, const Type *syntax) {
+static const SemaType *type(Resolver *r, const Type *syntax);
+static const SemaType *resolve_type(Resolver *r, const Type *syntax,
+                                    const SemaVariant **written_ok) {
   if (!syntax)
     return &r->program->types[SEMA_UNKNOWN];
   if (syntax->kind == TYPE_UNIT)
@@ -122,11 +124,14 @@ static const SemaType *type(Resolver *r, const Type *syntax) {
     return &r->program->types[SEMA_ERROR];
   }
   if (syntax->kind == TYPE_UNION) {
-    const SemaType *result = NULL;
+    size_t entries = syntax->as.union_type.count, count = 0;
+    const SemaVariant **parts = arena_calloc(r->arena, entries, sizeof(*parts));
+    size_t *counts = arena_calloc(r->arena, entries, sizeof(*counts));
+    NameMap schemas;
+    name_map_init(&schemas, r->arena);
     int valid = 1;
     for (size_t i = 0; i < syntax->as.union_type.count; i++) {
       UnionEntry entry = syntax->as.union_type.items[i];
-      const SemaType *part;
       if (entry.tag) {
         if (entry.module) {
           diagnostics_error(
@@ -161,8 +166,10 @@ static const SemaType *type(Resolver *r, const Type *syntax) {
           valid = 0;
           continue;
         }
-        SemaVariant variant = {name, payloads, entry.count};
-        part = sema_symbol_set(r->program, &variant, 1);
+        SemaVariant *variant = arena_alloc(r->arena, sizeof(*variant));
+        *variant = (SemaVariant){name, payloads, entry.count};
+        parts[i] = variant;
+        counts[i] = 1;
       } else if (entry.type->kind == TYPE_INFER) {
         diagnostics_error(
             r->errors, entry.span,
@@ -170,7 +177,7 @@ static const SemaType *type(Resolver *r, const Type *syntax) {
         valid = 0;
         continue;
       } else {
-        part = type(r, entry.type);
+        const SemaType *part = type(r, entry.type);
         if (part->kind != SEMA_SYM) {
           if (part->kind != SEMA_ERROR)
             diagnostics_error(r->errors, entry.span,
@@ -178,19 +185,45 @@ static const SemaType *type(Resolver *r, const Type *syntax) {
           valid = 0;
           continue;
         }
+        parts[i] = part->symbols->variants;
+        counts[i] = part->symbols->count;
       }
-      result = result ? sema_symbol_union(r->program, result, part) : part;
-      if (!result) {
-        diagnostics_error(r->errors, entry.span,
-                          "Symbol tag has conflicting payload types.");
-        return &r->program->types[SEMA_ERROR];
+      for (size_t j = 0; j < counts[i]; j++) {
+        const SemaVariant *v = &parts[i][j];
+        const SemaVariant *prior =
+            name_map_get(&schemas, v->tag->module, v->tag->name);
+        if (prior && !sema_payloads_equal(prior, v)) {
+          diagnostics_error(r->errors, entry.span,
+                            "Symbol tag has conflicting payload types.");
+          return &r->program->types[SEMA_ERROR];
+        }
+        name_map_put(&schemas, v->tag->module, v->tag->name, (void *)v);
       }
+      count += counts[i];
     }
-    return valid && result ? result : &r->program->types[SEMA_ERROR];
+    if (!valid || !count)
+      return &r->program->types[SEMA_ERROR];
+    // Normalize only the complete union, never each written tag in isolation.
+    SemaVariant *variants = arena_calloc(r->arena, count, sizeof(*variants));
+    size_t next = 0;
+    for (size_t i = 0; i < entries; i++)
+      for (size_t j = 0; j < counts[i]; j++) {
+        variants[next++] = parts[i][j];
+        if (written_ok && parts[i][j].tag == r->program->ok)
+          *written_ok = &parts[i][j];
+      }
+    const SemaType *result = sema_symbol_set(r->program, variants, count);
+    if (!result)
+      diagnostics_error(r->errors, syntax->span,
+                        "Symbol tag has conflicting payload types.");
+    return result ? result : &r->program->types[SEMA_ERROR];
   }
   diagnostics_error(r->errors, syntax->span,
                     "This type is unknown or not implemented yet.");
   return &r->program->types[SEMA_ERROR];
+}
+static const SemaType *type(Resolver *r, const Type *syntax) {
+  return resolve_type(r, syntax, NULL);
 }
 typedef struct AliasEdge AliasEdge;
 struct AliasEdge {
@@ -293,8 +326,8 @@ static const SemaType *return_type(Resolver *r, const Type *syntax,
                       "A partial return type must declare :ok.");
     return &r->program->types[SEMA_ERROR];
   }
-  const SemaType *result = type(r, &copy);
-  if (f->partial && result->kind != SEMA_ERROR && !sema_ok(result))
+  const SemaType *result = resolve_type(r, &copy, &f->written_ok);
+  if (f->partial && result->kind != SEMA_ERROR && !f->written_ok)
     diagnostics_error(r->errors, syntax->span,
                       "A partial return type must declare :ok.");
   return result;
@@ -1096,11 +1129,7 @@ static void collect_function(Resolver *r, const Decl *d, SemaStruct *owner) {
     chain->last = &f->symbol;
   }
   f->written_type = return_type(r, d->as.function.return_type, f);
-  f->symbol.outcome_type =
-      f->written_type->kind == SEMA_SYM || f->written_type->kind <= SEMA_ERROR
-          ? f->written_type
-          : sema_success(p, f->written_type);
-  f->symbol.return_type = sema_result(p, f->symbol.outcome_type);
+  f->symbol.return_type = f->symbol.outcome_type = f->written_type;
   f->symbol.params = arena_calloc(r->arena, f->symbol.arity, sizeof(SemaVar *));
   if (offset) {
     Span span = d->as.function.receiver != RECEIVER_NONE
@@ -1156,8 +1185,8 @@ SemaProgram *sema_resolve(Arena *a, const Program *syntax,
                               .arity = 1,
                               .builtin = SEMA_BUILTIN_STR,
                               .return_type = &p->types[SEMA_STR]};
-  p->print.outcome_type = sema_success(p, p->print.return_type);
-  p->stringify.outcome_type = sema_success(p, p->stringify.return_type);
+  p->print.outcome_type = p->print.return_type;
+  p->stringify.outcome_type = p->stringify.return_type;
   p->print.params = arena_calloc(a, 1, sizeof(SemaVar *));
   p->print.params[0] = arena_calloc(a, 1, sizeof(SemaVar));
   p->print.params[0]->type = &p->types[SEMA_STR];

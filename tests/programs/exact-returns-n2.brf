@@ -1,0 +1,94 @@
+// expect: alias!
+// expect: owned
+// expect: 2
+// expect: direct
+// expect: direct
+// expect: branch
+// expect: red
+// expect: blue
+// expect: red
+// expect: failed
+// expect: boxed
+// expect: empty
+// expect: unit
+// expect: unit payload
+// expect: partial
+// expect: normalized error
+// expect: done
+// expect: 4294967296
+Value = :ok[str]
+Again = :ok[Value]
+Nothing = :ok
+Data = :red | :blue
+Box {
+  text: Again
+  value: :ok[int]
+  unit: Nothing
+}
+alias() -> :ok[Again] { :ok[:ok["alias" + "!"]] }
+make() -> :ok[Box] {
+  :ok[Box { text = "own" + "ed", value = 1, unit = :ok }]
+}
+bump(box: &:ok[Box]) { box.value++ }
+plain() -> str { "direct" }
+wrapped() -> :ok[str] | :!bad { plain() }
+branch(b: bool) -> :ok[str] | :!bad {
+  if b { "branch" } else { :!bad }
+}
+data(b: bool) -> :ok[Data] { if b { :ok[:red] } else { :blue } }
+readData(b: bool) -> :ok[Data] | :!bad {
+  if b { ret :!bad }
+  data(true)
+}
+boxed(b: bool) -> :ok[Box] | :!bad {
+  if b { ret :!bad }
+  Box { text = "box" + "ed", value = 7, unit = () }
+}
+optional() -> :ok[str] | :none { :none }
+drop() -> :ok { "drop" + " owned value" }
+ack() -> :ok | :!bad {}
+ackValue() -> :ok[()] | :!bad { ret :ok[()] }
+barePartial() -> :ok | _ { :!bad }
+normalizedError() -> :ok[:!bad] { :ok[:!bad] }
+recursive(n: int) -> :ok[lng] | _ {
+  if n < 0 { ret :!bad }
+  if n == 0 { ret :ok[4294967296] }
+  recursive(n - 1)?
+}
+main() {
+  drop()
+  print(alias())
+  let box: :ok[Box] = make()
+  print(box.text)
+  bump(box)
+  print(str(box.value))
+  print(wrapped()!)
+  wrapped() |> { :!bad => print("wrong")
+    other => print(other) }
+  print(branch(true)!)
+  data(true) |> { :red => print("red")
+    :blue => print("blue") }
+  data(false) |> { :red => print("red")
+    :blue => print("blue") }
+  readData(false) |> { :!bad => print("wrong")
+    other => other |> { :red => print("red")
+      :blue => print("blue") } }
+  readData(true) |> { :!bad => print("failed")
+    other => other |> { :red => print("wrong")
+      :blue => print("wrong") } }
+  boxed(false) |> { :!bad => print("wrong")
+    other => print(other.text) }
+  optional() |> { :ok[text] => print(text)
+    :none => print("empty") }
+  ack()?
+  ackValue()!
+  ack() |> { :!bad => print("wrong")
+    unit => print("unit") }
+  ackValue() |> { :!bad => print("wrong")
+    unit => print("unit payload") }
+  barePartial() |> { :!bad => print("partial")
+    :ok => print("wrong") }
+  normalizedError() |> { :!bad => print("normalized error") }
+  print("done")
+  print(str(recursive(2)!))
+}

@@ -149,8 +149,10 @@ remain a narrower union, including `:none`. No success edge remains for an
 error-only operand. Extracting several positions from one surviving tag still
 requires a match; no tuple result is invented. No-error postfixes now reject
 because the value has no top-level error tags, including optional, plain and
-only-`:ok` values. Exact returns, singleton-`:ok` normalization and optional
-endings remain pending.
+only-`:ok` values. Singleton `:ok[T]` now normalizes to `T`, and `:ok` to `()`
+in every type position. Calls return their canonical type, without wrappers
+invented for matches or annotations. Return unions containing `:ok` still wrap
+plain success values. Optional endings and their ambiguity check remain pending.
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and
@@ -169,7 +171,7 @@ require lowercase names, with safe casing fixes. Symbol tags also require
 lowercase names in types, values and patterns. `:!name` records an error tag; a
 name cannot have both neutral and error kinds in one module. `:!` must be
 adjacent. Kinds now control entry status, diagnostic spelling and mandatory call
-handling and postfix extraction/rejection. Exact returns still await N2.
+handling and postfix extraction/rejection. Function results use canonical types.
 
 Unambiguous failure tags in five examples and fourteen native program fixtures
 now use `:!` throughout their annotations, values and patterns. Optional

@@ -96,8 +96,7 @@ static void handling_errors(Arena *a, const char *text, size_t handling,
 int main(void) {
   Arena a;
   arena_init(&a);
-  TEST("success-only functions retain their plain ABI and support symbol "
-       "handlers") {
+  TEST("success-only functions return plain values, not symbol envelopes") {
     Result r = invalid(&a,
                        "double(n: int) -> int { n * 2 }\n"
                        "only() -> :ok[str] { :ok[\"a\" + \"b\"] }\n"
@@ -105,28 +104,38 @@ int main(void) {
                        "double(n) |> { :ok[value] => print(str(value)) }\n"
                        "only() |> print()\nprint(only()!)\nprint(only()?) }",
                        "it has no error tags");
-    ASSERT_EQ_INT(2, r.errors.count);
+    ASSERT_EQ_INT(3, r.errors.count);
     valid(&a, "double(n: int) -> int { n * 2 }\n"
               "only() -> :ok[str] { :ok[\"a\" + \"b\"] }\n"
               "main() { let n = double(2) + 1\n"
-              "double(n) |> { :ok[value] => print(str(value)) }\n"
+              "double(n) |> { value => print(str(value)) }\n"
               "only() |> print()\nprint(only())\nprint(only()) }");
     ASSERT_EQ_INT(SEMA_INT, r.program->functions[0].symbol.return_type->kind);
-    ASSERT_TRUE(sema_ok(r.program->functions[0].symbol.outcome_type) != NULL);
+    ASSERT_TRUE(r.program->functions[0].symbol.outcome_type ==
+                r.program->functions[0].symbol.return_type);
     ASSERT_EQ_INT(SEMA_STR, r.program->functions[1].symbol.return_type->kind);
-    valid(&a, "main() { let n = :ok[1]\nprint(str(n))\n"
-              "let x: :ok[int] = :ok[2]\nprint(str(x))\n"
-              "x |> { :ok[v] => print(str(v)) } }");
-    valid(&a, "f() -> :ok[()] { :ok[()] }\nmain() { f() |> { :ok[x] => x } }");
+    invalid(&a,
+            "main() { let n = :ok[1]\nprint(str(n))\n"
+            "let x: :ok[int] = :ok[2]\nprint(str(x))\n"
+            "x |> { :ok[v] => print(str(v)) } }",
+            "Symbol patterns require a symbol input.");
+    invalid(&a,
+            "f() -> :ok[()] { :ok[()] }\n"
+            "main() { f() |> { :ok[x] => x } }",
+            "Symbol patterns require a symbol input.");
     valid(&a, "f() -> lng { ret :ok[4294967296] }\n"
               "g() -> flt { :ok[0.1] }\nmain() { f()\ng() }");
-    valid(&a,
-          "Data = :a | :b\n"
-          "f() -> :ok[Data] { :ok[:a] }\n"
-          "main() { f() |> { :ok[data] => data |> { :a => ()\n:b => () } } }");
+    invalid(&a,
+            "Data = :a | :b\n"
+            "f() -> :ok[Data] { :ok[:a] }\n"
+            "main() { f() |> { :ok[data] => data |> { :a => ()\n:b => () } } }",
+            "Symbol pattern tag is not in the input set.");
+    valid(&a, "Data = :a | :b\nf() -> :ok[Data] { :ok[:a] }\n"
+              "main() { f() |> { :a => ()\n:b => () } }");
     invalid(&a, "main() { 1? }", "it has no error tags");
     invalid(&a, "main() { :data! }", "it has no error tags");
-    invalid(&a, "f() {}\nmain() { f() |> { :ok[x] => x } }", "payload shape");
+    invalid(&a, "f() {}\nmain() { f() |> { :ok[x] => x } }",
+            "Symbol patterns require a symbol input.");
   }
   TEST("error-only postfixes terminate in every enclosing value position") {
     const char *prefix = "Error = :!bad[str, (), :!inner] | :!other\n"
@@ -500,9 +509,8 @@ int main(void) {
         // Rejected returns contribute nothing: the written :ok remains the
         // function's success type, so callers are still checked against it.
         const SemaFunction *f = &r.program->functions[0];
-        ASSERT_EQ_INT(SEMA_SYM, f->symbol.outcome_type->kind);
-        const SemaVariant *ok = sema_ok(f->symbol.outcome_type);
-        ASSERT_TRUE(ok && sema_payloads_equal(ok, sema_ok(f->written_type)));
+        ASSERT_TRUE(f->symbol.outcome_type == f->written_type);
+        ASSERT_TRUE(f->written_ok != NULL);
       }
     }
     Result callers = check(&a, "f(b: bool) -> :ok[int] | :!bad | _ {\n"

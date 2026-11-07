@@ -133,17 +133,6 @@ const SemaType *sema_success(SemaProgram *p, const SemaType *payload) {
   return sema_symbol_type(p, p->ok,
                           payload->kind == SEMA_UNIT ? NULL : payload);
 }
-const SemaType *sema_result(SemaProgram *p, const SemaType *type) {
-  const SemaVariant *ok = sema_ok(type);
-  if (!ok || type->symbols->count != 1)
-    return type;
-  // There is no native tuple result representation yet. Do not silently
-  // collapse several positions into the first or a unit result.
-  if (ok->payload_count > 1)
-    return &p->types[SEMA_ERROR];
-  const SemaType *payload = sema_single_payload(ok);
-  return payload ? payload : &p->types[SEMA_UNIT];
-}
 const SemaType *sema_failures(SemaProgram *p, const SemaType *type) {
   const SemaVariant *ok = sema_ok(type);
   if (!ok || type->symbols->count == 1)
@@ -259,6 +248,9 @@ static void set_table_insert(SemaSymSet **table, size_t capacity,
 // and payload arrays, so callers may pass scratch or stack-owned lists.
 static const SemaType *intern_set(SemaProgram *p, const SemaVariant *sorted,
                                   size_t n) {
+  if (n == 1 && sorted[0].tag == p->ok && sorted[0].payload_count <= 1)
+    return sorted[0].payload_count ? sorted[0].payloads[0]
+                                   : &p->types[SEMA_UNIT];
   if (p->set_table_capacity) {
     size_t mask = p->set_table_capacity - 1;
     for (size_t i = set_hash(sorted, n) & mask; p->set_table[i];
@@ -399,6 +391,8 @@ void sema_symbol_coverage(SemaProgram *p, SemaExpr *e, Diagnostics *errors) {
     a->any = a->kind == PAT_BIND || a->kind == PAT_WILDCARD;
     a->useful = 0;
     a->cases = NULL;
+    a->case_variants = NULL;
+    a->case_count = 0;
     if (a->binding)
       a->binding->type = &p->types[SEMA_ERROR];
     for (size_t j = 0; a->payload_bindings && j < a->payload_count; j++)
@@ -460,6 +454,9 @@ void sema_symbol_coverage(SemaProgram *p, SemaExpr *e, Diagnostics *errors) {
       error(errors, a->span, "Unreachable match arm.");
       continue;
     }
+    a->case_variants = arena_calloc(p->arena, n, sizeof(*remaining));
+    memcpy(a->case_variants, remaining, n * sizeof(*remaining));
+    a->case_count = n;
     a->cases = sema_symbol_set(p, remaining, n);
     if (a->kind == PAT_BIND) {
       a->set = a->cases;
