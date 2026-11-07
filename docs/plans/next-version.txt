@@ -220,8 +220,9 @@ N0, N1 and N2 are complete for their milestone scope. Final reviews are in
 kind-based outcomes, postfixes, exact results, optional endings, entry/diagnostic
 rules and scoped symbols/errors native audits are complete. This does not
 complete the next-version language or claim native acceptance of listed
-APIs/fragments. N3 begins with unchanged outcome returns; delayed/linear
-bindings and its scoped native audits remain.
+APIs/fragments. N3 now includes unchanged outcome returns and flow-checked local
+binding consumption. Richer path/join diagnostics, broader loop/exit coverage and
+its scoped native audits remain.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -352,7 +353,7 @@ expectation inventories follow the N1 historical records below.
 
 - [x] Return outcomes unchanged in TAIL/ret positions, including branch tails,
   written/inferred/partial results and recursive inference.
-- [ ] Admit outcome bindings with flow-based pending/handled states; check
+- [x] Admit outcome bindings with flow-based pending/handled states; check
   straight-line consumption, second handling and forbidden transfer uses.
 - [ ] Check path joins and every scope exit, including early ret/break/continue,
   with one primary per invalid shape and useful source notes.
@@ -3555,6 +3556,42 @@ successful C outputs match a fresh HEAD baseline; only the 32 listed rejected
 source observations change. All 249 prior sanitized executable observations
 match. Strict GCC/Clang normal/sanitized native runs pass 12/12; eleven new
 negative sites stop before CC. Formatter, diff/prose and protected sections pass.
+
+### N3 increment: pending/handled outcome bindings
+
+Reviewed base d1e5603. Written let/var initializers admit complete outcomes;
+matching, postfixes and returns consume each binding once. A new analysis uses
+the existing flow walker, with pending/handled may-states and a reporting-only
+invalid state. Forbidden transfers, discarded reads, second handling and
+reassignment reject with a declaration note and no guessed fix. Hidden match
+owners transport values rather than creating obligations. Basic scope, jump,
+propagation and mixed-state guards prevent admission from losing pending
+results. First-join/path notes and comprehensive loop/exit coverage remain for
+later slices. Permissions, shared flow, IR/RC and runtime are unchanged.
+
+Changed expectations: test_errors' unused let x now fails at scope exit; its
+source-to-take, object-to-field and flt-to-takeFloat bindings fail at the read.
+The typed int binding now fails its annotation. Stored ?, ! and match cases
+accept; the dead binding's argument now fails type checking. Binding metadata
+retains the actual set. Two recovery inputs replace call errors with flow
+errors but keep their other diagnostics. Test_symbols' unused let result fails
+at exit with a note; four nested-error extraction inputs now reject, with
+handled copies retaining IR checks. Test_return_outcomes' unused binding also
+fails at exit with a note. Native markers move in call-kind-errors-n2 (13 to 23),
+returned-outcomes-n3 (15 to 20), and handled-calls (6 to 9, 15 to 16, 17 to 18,
+24 to 26). Splitting the last call keeps both errors: its old wrong-argument
+line 18 becomes 19, and the recursive-input error moves 30 to 31. Diagnostic
+counts stay 11/11/9. No existing runtime marker, golden or .expect changes.
+Full contracts are in `tests/next-version-n3-outcome-bindings.md`.
+
+Six new unit groups and three fixtures cover delayed handling, literal/intrinsic
+outcomes, owned/borrowed values, scope guards, recovery and recursive inference.
+Default GCC Debug and fresh -Werror Clang Debug ASan/UBSan pass 45/45 each.
+All retained ASTs and 1,032 still-successful C outputs are identical; 22 emit-c
+observations change as inventoried. All 252 prior sanitized runs are unchanged.
+Eight strict GCC/Clang normal/sanitized native runs and eleven exact rejection
+sites pass; formatting, diff/prose and protected-plan checks pass. This is not
+N3 closure or its four-configuration matrix.
 
 ## Risks
 

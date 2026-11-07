@@ -708,6 +708,7 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
       bind->as.binding.stage = result;
     } else {
       handled(input);
+      bind->as.binding.outcome = 1;
       result = node(r, SEMA_EXPR_MATCH, s->span);
       SemaExpr *read = node(r, SEMA_EXPR_VAR, input->span);
       read->as.variable = v;
@@ -721,8 +722,6 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
         const Pattern *typed = typed_payload(p);
         const Pattern *qualified = qualified_payload(p);
         SemaArm *a = &result->as.match.arms[i];
-        if (p->kind == PAT_SYMBOL || p->kind == PAT_SET)
-          bind->as.binding.outcome = 1;
         a->kind = p->kind;
         a->span = p->span;
         Local *arm_scope = r->locals;
@@ -912,6 +911,7 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
       else {
         const Decl *d = item.as.decl;
         value = node(r, SEMA_EXPR_BIND, d->span);
+        value->as.binding.declaration = 1;
         value->as.binding.value = resolve_expr(r, d->as.binding.value);
         value->as.binding.variable =
             variable(r, d->name, d->span, type(r, d->as.binding.annotation),

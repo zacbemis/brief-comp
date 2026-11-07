@@ -159,9 +159,12 @@ a union containing both payload-less `:ok` and `:none` is rejected. See the
 N3 now accepts complete outcomes returned in tail and `ret` positions, including
 value-producing branches and final pipeline calls. Written results must include
 the returned errors; an outcome is not implicitly wrapped as nested success.
-Binding initializers and other non-return calls still require immediate
-handling. Delayed/linear bindings and N3's native audits remain pending; see
-[the first slice notes](tests/next-version-n3-returned-outcomes.md).
+Written `let`/`var` bindings may now hold a complete outcome for later handling
+by one match, postfix or return. A shared-flow analysis rejects second handling,
+non-handler transfers, reassignment and pending scope exits. Neutral-only data
+remains freely reusable. Richer join/path diagnostics, broader loop/exit tests
+and N3's native audits remain; see the
+[binding slice notes](tests/next-version-n3-outcome-bindings.md).
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and

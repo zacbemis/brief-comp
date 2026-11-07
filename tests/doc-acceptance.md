@@ -105,11 +105,14 @@ relocations are supplied. Run them with `-L doc-symbols` / `-L doc-errors`.
 N2 closes with the full four-configuration matrix and no changed existing
 expectation in this audit slice; it is not full chapter/API acceptance.
 
-N3's first slice accepts unchanged outcome returns in tail/ret positions,
-including value-producing branch tails and final pipeline stages. Existing
-non-return handling and written result contracts remain enforced. This does not
-promote section 6 fences, admit delayed bindings or complete an N3 native audit;
-see [the slice notes](next-version-n3-returned-outcomes.md).
+N3 accepts unchanged outcome returns in tail/ret positions, including
+value-producing branch tails and final pipeline stages. The next slice admits
+written let/var outcome bindings with flow-based pending/handled states and
+single consumption. Non-handler transfers and reuse reject; written result
+contracts remain enforced. Basic exit/mixed-state guards prevent silent loss,
+while richer path/join notes and broader loop/exit coverage remain. This does
+not promote section 6 fences or complete an N3 native audit; see the
+[binding slice notes](next-version-n3-outcome-bindings.md).
 
 Remaining milestone work:
 

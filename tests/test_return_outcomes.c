@@ -73,13 +73,13 @@ static void rejects(Arena *a, const char *text, const char *message,
     source[length] = 0;
     char location[4096];
     size_t n = 0;
-    for (const char *s = site; *s; s++) {
+    for (const char *s = site ? site : ""; *s; s++) {
       if (crlf && *s == '\n')
         location[n++] = '\r';
       location[n++] = *s;
     }
     location[n] = 0;
-    const char *at = strstr(source, location);
+    const char *at = site ? strstr(source, location) : strrchr(source, '}');
     ASSERT_TRUE(at != NULL);
     Result r = check(a, source);
     for (unsigned repeat = 0; repeat < 3; repeat++) {
@@ -97,7 +97,11 @@ static void rejects(Arena *a, const char *text, const char *message,
         ASSERT_EQ_INT(0, strcmp(message, d->message));
         if (at)
           ASSERT_EQ_INT((size_t)(at - source), d->span.start);
-        ASSERT_TRUE(!d->fixes && !d->notes);
+        ASSERT_TRUE(!d->fixes);
+        if (!site)
+          ASSERT_TRUE(d->notes && !d->notes->next);
+        else
+          ASSERT_TRUE(!d->notes);
       }
     }
   }
@@ -278,9 +282,12 @@ int main(void) {
                "take(value: Result) {}\nBox { value: Result }\n"
                "main() { %s }",
                bodies[i]);
-      rejects(&a, text,
-              "A call that can fail must be handled with ?, !, or a match.",
-              strstr(bodies[i], "source()"));
+      rejects(
+          &a, text,
+          i == 1
+              ? "Outcome binding is not handled before leaving its scope."
+              : "A call that can fail must be handled with ?, !, or a match.",
+          i == 1 ? NULL : strstr(bodies[i], "source()"));
     }
   }
   arena_destroy(&a);

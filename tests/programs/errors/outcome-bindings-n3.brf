@@ -1,0 +1,41 @@
+Result = :ok[int] | :!bad[str]
+source() -> Result { 7 }
+take(value: Result) {}
+Box { value: Result }
+unused() { let result = source()
+} // error: Outcome binding is not handled before leaving its scope.
+pass() { let result = source()
+  take(result) // error: Outcome binding must be handled with ?, !, a match, or return.
+}
+copy() { let result = source()
+  let other = result // error: Outcome binding must be handled with ?, !, a match, or return.
+}
+store() { let result = source()
+  Box { value = result } // error: Outcome binding must be handled with ?, !, a match, or return.
+}
+payload() { let result = source()
+  :outer[result] // error: Outcome binding must be handled with ?, !, a match, or return.
+}
+discard() { let result = source()
+  result // error: Outcome binding must be handled with ?, !, a match, or return.
+  ()
+}
+second() { let result = source()
+  result!
+  result! // error: Outcome binding has already been handled.
+}
+assign() { var result = source()
+  result = source() // error: Outcome binding cannot be reassigned.
+}
+assignAfter() { var result = source()
+  result!
+  result = :!bad["new"] // error: Outcome binding cannot be reassigned.
+}
+early() { let result = source()
+  ret // error: Outcome binding is not handled before leaving its scope.
+}
+propagating() { let result = source()
+  source()? // error: Outcome binding is not handled before leaving its scope.
+  result!
+}
+main() {}

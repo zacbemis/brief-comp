@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum { DISCARD, VALUE, TAIL, OUTCOME } Use;
+typedef enum { DISCARD, VALUE, TAIL, OUTCOME, BOUND } Use;
 typedef struct {
   SemaProgram *p;
   SemaFunction *function;
@@ -521,7 +521,7 @@ static const SemaType *literal(Checker *c, SemaExpr *e,
 static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
                              Use use);
 static void mutable(Checker *c, SemaVar *v, Span span) {
-  if (v && !v->mutable)
+  if (v && !v->mutable && (!v->outcome_binding || !c->reachable))
     error(c, span, "Cannot reassign an immutable binding.");
 }
 static const SemaType *lvalue(Checker *c, SemaExpr *e) {
@@ -530,8 +530,10 @@ static const SemaType *lvalue(Checker *c, SemaExpr *e) {
     return check(c, target, NULL, VALUE);
   }
   mutable(c, e->as.binding.variable, e->span);
-  return e->as.binding.variable ? e->as.binding.variable->type
-                                : t(c, SEMA_ERROR);
+  return e->as.binding.variable &&
+                 (!e->as.binding.variable->outcome_binding || !c->reachable)
+             ? e->as.binding.variable->type
+             : t(c, SEMA_ERROR);
 }
 static const SemaType *operand_type(Checker *c, SemaExpr *a, SemaExpr *b,
                                     const SemaType *expected) {
@@ -563,7 +565,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   unsigned flow = SEMA_NEXT;
   int reachable = c->reachable;
   e->reachable = reachable;
-  e->adapt = e->none_ending = 0;
+  e->adapt = e->none_ending = e->handles_outcome = 0;
   e->failures = NULL;
   switch (e->kind) {
   case SEMA_EXPR_UNIT:
@@ -591,17 +593,30 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   }
   case SEMA_EXPR_VAR:
     result = e->as.variable ? e->as.variable->type : t(c, SEMA_ERROR);
+    e->handles_outcome = use == TAIL || use == OUTCOME;
+    // Flow reports the actual forbidden read after types stabilize. Do not
+    // turn it into unrelated argument, field or recursive-inference errors.
+    // Dead reads keep their actual type: there is no live flow obligation,
+    // but unreachable syntax must still be type checked.
+    if (e->as.variable && e->as.variable->outcome_binding &&
+        !e->handles_outcome && reachable)
+      result = t(c, c->probe ? SEMA_UNKNOWN : SEMA_ERROR);
     break;
   case SEMA_EXPR_BIND: {
     SemaVar *v = e->as.binding.variable;
     SemaExpr *value = e->as.binding.value;
     v->type = check(c, value,
                     e->as.binding.stage ? pipeline_hint(c, e) : v->annotation,
-                    e->as.binding.outcome ? OUTCOME : VALUE);
+                    e->as.binding.declaration ? BOUND
+                    : e->as.binding.outcome   ? OUTCOME
+                                              : VALUE);
     expect(c, value, v->annotation,
            "Binding value does not match its annotation.");
     if (!unknown(v->annotation))
       v->type = v->annotation;
+    v->outcome_binding = e->as.binding.declaration &&
+                         sema_has_errors(v->type) && !special(value->type) &&
+                         sema_assignable(value->type, v->type);
     flow = value->flow;
     break;
   }
@@ -611,7 +626,11 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
       flow = e->as.binding.target->flow;
     c->reachable = reachable && (flow & SEMA_NEXT);
     SemaExpr *value = e->as.binding.value;
-    check(c, value, target, VALUE);
+    check(c, value, target,
+          e->as.binding.variable && e->as.binding.variable->outcome_binding &&
+                  reachable
+              ? BOUND
+              : VALUE);
     flow = sequence(flow, value->flow);
     expect(c, value, target, "Assignment value has the wrong type.");
     if (e->as.binding.op != ASSIGN_SET && !special(target) &&
@@ -852,7 +871,8 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     // TAIL reaches ret values and value-producing branch/block endings; it
     // never reaches arguments, payloads or other discarded statements.
     // Payload/field errors do not make an enclosing data tag fail.
-    if (sema_has_errors(result) && !e->as.call.handled && use != TAIL) {
+    if (sema_has_errors(result) && !e->as.call.handled && use != TAIL &&
+        use != BOUND) {
       error(c, e->span,
             "A call that can fail must be handled with ?, !, or a match.");
       // A forbidden outcome cannot provide a usable value or return candidate.
@@ -1083,7 +1103,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
                     "Value-producing if branches must have compatible types.")
               : join(c, yt, nt, e->span,
                      "Value-producing if branches must have compatible types.");
-    if (!no && (use == VALUE || use == OUTCOME))
+    if (!no && (use == VALUE || use == OUTCOME || use == BOUND))
       error(c, e->span, "An if without else cannot be used as a value.");
     break;
   }
@@ -1099,7 +1119,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
         !(body->flow & SEMA_BREAK))
       exit &= ~SEMA_NEXT;
     flow = sequence(condition->flow, exit);
-    if (use == VALUE || use == OUTCOME)
+    if (use == VALUE || use == OUTCOME || use == BOUND)
       error(c, e->span, "Loops cannot be used as values.");
     break;
   }
@@ -1121,7 +1141,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     check(c, body, NULL, DISCARD);
     flow = sequence(sequence(a->flow, b->flow),
                     SEMA_NEXT | (body->flow & SEMA_RETURN));
-    if (use == VALUE || use == OUTCOME)
+    if (use == VALUE || use == OUTCOME || use == BOUND)
       error(c, e->span, "Loops cannot be used as values.");
     break;
   }
@@ -1327,6 +1347,7 @@ void sema_check(SemaProgram *p, Diagnostics *errors) {
       }
     }
   }
+  sema_check_outcomes(p, errors);
   sema_check_permissions(p, errors);
   p->checked = p->resolved && errors->count == 0;
 }

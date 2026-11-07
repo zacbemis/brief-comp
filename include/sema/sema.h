@@ -85,8 +85,9 @@ struct SemaVar {
   Span span;
   size_t id;
   int mutable;
-  int data_mutable; // Parameter access permission; local permissions are
-                    // flow-checked.
+  int outcome_binding; // Source let/var with a valid top-level error result.
+  int data_mutable;    // Parameter access permission; local permissions are
+                       // flow-checked.
   const SemaType *annotation, *type;
 };
 typedef struct SemaSymbol SemaSymbol;
@@ -156,8 +157,9 @@ struct SemaExpr {
   SemaExprKind kind;
   Span span;
   const SemaType *type, *raw_type, *failures;
-  int adapt;       // Packs :ok only into a contextual union containing :ok.
-  int none_ending; // A valueless return position constructs :none.
+  int adapt;           // Packs :ok only into a contextual union containing :ok.
+  int none_ending;     // A valueless return position constructs :none.
+  int handles_outcome; // This variable read is a match/postfix/return use.
   unsigned flow;
   int reachable;
   int returns;      // No fallthrough (including break/continue).
@@ -197,6 +199,7 @@ struct SemaExpr {
       SemaExpr *target; // Field lvalue; NULL for binding/local assignment.
       SemaExpr *stage;  // Hidden pipeline binding: supplies argument context.
       int outcome;      // Preserve symbol input for a match/postfix handler.
+      int declaration;  // Written let/var, not a hidden pipeline owner.
     } binding;
     struct {
       SemaExpr *object;
@@ -357,6 +360,8 @@ void sema_check(SemaProgram *program, Diagnostics *errors);
 // Intraprocedural read-only alias propagation, after types/flow stabilize.
 // Called by sema_check; does not alter canonical types or ownership.
 void sema_check_permissions(SemaProgram *program, Diagnostics *errors);
+// Local outcome obligations, using the same checked-tree flow framework.
+void sema_check_outcomes(SemaProgram *program, Diagnostics *errors);
 // Scalar normalization / symbol coverage after endpoint and input typing.
 // NULL diagnostics probes coverage without emitting errors.
 void sema_match_coverage(SemaProgram *program, SemaExpr *match,

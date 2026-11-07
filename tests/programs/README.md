@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **189 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **192 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for parser coverage and gaps.
 
@@ -81,6 +81,17 @@ Only two existing ret markers change: errors/handled-calls.brf:9 and
 errors/call-kind-errors-n2.brf:23. Other messages, source lines, runtime markers
 and example goldens are unchanged; see
 [the complete slice inventory](../next-version-n3-returned-outcomes.md).
+
+The next N3 slice adds `outcome-bindings-n3.brf`, `main-bound-outcome-n3.brf`
+and `errors/outcome-bindings-n3.brf`. Let/var bindings hold full outcomes until
+one match, postfix or return; second handling, non-handler reads and assignment
+reject with declaration notes. Fixtures cover owned strings/structs, borrowed
+aliases, optional data, intrinsic conversions, delayed error entry and eleven
+negative sites. Existing markers move from binding calls to their illegal uses
+or exits in handled-calls, call-kind-errors-n2 and returned-outcomes-n3. A split
+call shifts handled-calls' old wrong-argument diagnostic by one line; its later
+projection/converter locations shift too. All existing runtime markers remain
+unchanged. See [the exact inventory](../next-version-n3-outcome-bindings.md).
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

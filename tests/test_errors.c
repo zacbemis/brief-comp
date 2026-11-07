@@ -62,10 +62,9 @@ static Result invalid(Arena *a, const char *text, const char *message) {
   ASSERT_TRUE(ir_lower(a, r.program) == NULL);
   return r;
 }
-static void handling_errors(Arena *a, const char *text, size_t handling,
-                            const char *other, size_t other_count) {
-  const char *required =
-      "A call that can fail must be handled with ?, !, or a match.";
+static void diagnostic_errors(Arena *a, const char *text, const char *required,
+                              size_t handling, const char *other,
+                              size_t other_count) {
   Result r = check(a, text);
   unsigned repeats = r.program->resolved ? 2u : 1u;
   for (unsigned repeat = 0; repeat < repeats; repeat++) {
@@ -92,6 +91,12 @@ static void handling_errors(Arena *a, const char *text, size_t handling,
     ASSERT_TRUE(!r.program->checked);
     ASSERT_TRUE(ir_lower(a, r.program) == NULL);
   }
+}
+static void handling_errors(Arena *a, const char *text, size_t handling,
+                            const char *other, size_t other_count) {
+  diagnostic_errors(
+      a, text, "A call that can fail must be handled with ?, !, or a match.",
+      handling, other, other_count);
 }
 int main(void) {
   Arena a;
@@ -258,7 +263,8 @@ int main(void) {
 #define CASE(body)                                                             \
   (snprintf(text, sizeof(text), "%smain() { %s }", prefix, body), text)
     valid(&a, CASE("f()"));
-    invalid(&a, CASE("let x = f()"), "must be handled");
+    invalid(&a, CASE("let x = f()"),
+            "Outcome binding is not handled before leaving its scope.");
     valid(&a, CASE("ret f()"));
     invalid(&a, CASE("print(str(f()))"), "must be handled");
     invalid(&a, CASE(":ok[f()]"), "must be handled");
@@ -272,7 +278,7 @@ int main(void) {
             "()\nfalse => f() } }",
             "Symbol tag has conflicting payload types.");
   }
-  TEST("unhandled outcomes do not become usable binding or argument types") {
+  TEST("stored outcomes retain their type but forbid non-handler transfers") {
     const char *prefix =
         "P { value: int\n read() -> int { self.value } }\n"
         "Pair { number: int\nflag: bool }\nResult = :ok[int] | :!bad\n"
@@ -284,18 +290,26 @@ int main(void) {
         "takeData(value: Result) {}\n";
     struct {
       const char *bad, *good;
-      enum { CALL_REJECT, RETURN_REJECT, RETURNS } result;
+      enum {
+        CALL_REJECT,
+        RETURN_REJECT,
+        FLOW_REJECT,
+        ANNOTATION_REJECT,
+        ARGUMENT_REJECT,
+        RETURNS
+      } result;
     } cases[] = {
         {"f() { let value = source()\ntake(value, true) }",
-         "f() { let value = source()!\ntake(value, true) }", CALL_REJECT},
+         "f() { let value = source()!\ntake(value, true) }", FLOW_REJECT},
         {"f() { take(source(), true) }", "f() { take(source()!, true) }",
          CALL_REJECT},
         {"f() { take((source()), true) }", "f() { take((source())!, true) }",
          CALL_REJECT},
         {"f() { let value: int = source()\ntake(value, true) }",
-         "f() { let value: int = source()!\ntake(value, true) }", CALL_REJECT},
+         "f() { let value: int = source()!\ntake(value, true) }",
+         ANNOTATION_REJECT},
         {"f() { let value = object()\nvalue.value }",
-         "f() { let value = object()!\nvalue.value }", CALL_REJECT},
+         "f() { let value = object()!\nvalue.value }", FLOW_REJECT},
         {"f() { object().value }", "f() { object()!.value }", CALL_REJECT},
         {"f() { object().read() }", "f() { object()!.read() }", CALL_REJECT},
         {"f() { print(text()) }", "f() { print(text()!) }", CALL_REJECT},
@@ -307,16 +321,14 @@ int main(void) {
         {"f() { takeData(source()) }",
          "f() { takeData(source() |> { other => other }) }", CALL_REJECT},
         {"f() { let value = source()\nvalue? }",
-         "f() { let value = source() |> { other => other }\nvalue? }",
-         CALL_REJECT},
+         "f() { let value = source() |> { other => other }\nvalue? }", RETURNS},
         {"f() { let value = source()\nvalue! }",
-         "f() { let value = source() |> { other => other }\nvalue! }",
-         CALL_REJECT},
+         "f() { let value = source() |> { other => other }\nvalue! }", RETURNS},
         {"f() { let value = source()\nvalue |> { :ok[n] => take(n, true)\n"
          ":!bad => () } }",
          "f() { let value = source() |> { other => other }\n"
          "value |> { :ok[n] => take(n, true)\n:!bad => () } }",
-         CALL_REJECT},
+         RETURNS},
         {"f() -> int { ret source() }", "f() -> int { ret source()! }",
          RETURN_REJECT},
         {"f() -> Result { source() }", "f() -> Result { source()? }", RETURNS},
@@ -325,9 +337,9 @@ int main(void) {
         {"f() { effect() }", "f() { effect()! }", RETURNS},
         {"f() { ret 0\nlet value = source()\ntake(value, true) }",
          "f() { ret 0\nlet value = source()!\ntake(value, true) }",
-         CALL_REJECT},
+         ARGUMENT_REJECT},
         {"f() { let value = flt(\"1\")\ntakeFloat(value) }",
-         "f() { let value = flt(\"1\")!\ntakeFloat(value) }", CALL_REJECT}};
+         "f() { let value = flt(\"1\")!\ntakeFloat(value) }", FLOW_REJECT}};
     char code[4096];
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       snprintf(code, sizeof(code), "%s%s\nmain() {}", prefix, cases[i].bad);
@@ -337,6 +349,18 @@ int main(void) {
         handling_errors(&a, code, 0,
                         "Return value does not match the written return type.",
                         1);
+      else if (cases[i].result == FLOW_REJECT)
+        diagnostic_errors(
+            &a, code,
+            "Outcome binding must be handled with ?, !, a match, or return.", 1,
+            NULL, 0);
+      else if (cases[i].result == ANNOTATION_REJECT)
+        diagnostic_errors(&a, code,
+                          "Binding value does not match its annotation.", 1,
+                          NULL, 0);
+      else if (cases[i].result == ARGUMENT_REJECT)
+        diagnostic_errors(&a, code, "Function argument has the wrong type.", 1,
+                          NULL, 0);
       else
         handling_errors(&a, code, 1, NULL, 0);
       snprintf(code, sizeof(code), "%s%s\nmain() {}", prefix, cases[i].good);
@@ -353,18 +377,20 @@ int main(void) {
     if (f) {
       SemaExpr *binding = f->body->as.block.items[0];
       SemaExpr *call = binding->as.binding.value;
-      ASSERT_EQ_INT(SEMA_ERROR, call->type->kind);
-      ASSERT_EQ_INT(SEMA_ERROR, call->raw_type->kind);
-      ASSERT_EQ_INT(SEMA_ERROR, binding->as.binding.variable->type->kind);
+      ASSERT_EQ_INT(SEMA_SYM, call->type->kind);
+      ASSERT_TRUE(call->raw_type == call->type);
+      ASSERT_TRUE(binding->as.binding.variable->type == call->type);
+      ASSERT_TRUE(binding->as.binding.variable->outcome_binding);
       ASSERT_TRUE(call->flow &
-                  SEMA_NEXT); // Bad values do not hide later syntax.
+                  SEMA_NEXT); // Forbidden reads do not hide later syntax.
       ASSERT_TRUE(!f->inference_conflict);
-      const char *site = strstr(code, "= source()");
+      const char *site = strstr(code, "take(value, true)");
       ASSERT_TRUE(site != NULL);
       if (site && r.errors.count) {
-        size_t start = (size_t)(site - code) + 2;
+        size_t start = (size_t)(site - code) + strlen("take(");
         ASSERT_EQ_INT(start, r.errors.items[0]->span.start);
-        ASSERT_EQ_INT(start + strlen("source()"), r.errors.items[0]->span.end);
+        ASSERT_EQ_INT(start + strlen("value"), r.errors.items[0]->span.end);
+        ASSERT_TRUE(r.errors.items[0]->notes != NULL);
       }
       ASSERT_TRUE(sema_ok(call->as.call.target->outcome_type) != NULL);
       ASSERT_EQ_INT(2, call->as.call.target->outcome_type->symbols->count);
@@ -406,7 +432,15 @@ int main(void) {
     char code[4096];
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
       snprintf(code, sizeof(code), "%s%s\nmain() {}", prefix, cases[i].body);
-      handling_errors(&a, code, cases[i].handling, cases[i].message, 1);
+      const char *required =
+          !strstr(cases[i].body, "let value = source()")
+              ? "A call that can fail must be handled with ?, !, or a match."
+          : strstr(cases[i].body, "let wrong")
+              ? "Outcome binding is not handled before leaving its scope."
+              : "Outcome binding must be handled with ?, !, a match, or "
+                "return.";
+      diagnostic_errors(&a, code, required, cases[i].handling, cases[i].message,
+                        1);
     }
     snprintf(code, sizeof(code), "%s%s", prefix,
              "both(a: int, b: int) -> :ok | :!other { :ok }\n"

@@ -1938,6 +1938,25 @@ int main(void) {
             text[length++] = *s;
           }
           text[length] = 0;
+          if (i + 1 == sizeof(cases) / sizeof(*cases)) {
+            Result old = invalid(
+                &a, text,
+                "Outcome binding is not handled before leaving its scope.");
+            ASSERT_EQ_INT(1, old.errors.count);
+            ASSERT_TRUE(old.errors.items[0]->notes != NULL);
+            // Extracting a nested error creates a fresh top-level obligation.
+            // Keep the original negative input and handle the positive copy.
+            size_t end = strlen(lf) - 1;
+            snprintf(lf + end, sizeof(lf) - end,
+                     "\nvalue |> { :!inner[s] => print(s) } }");
+            length = 0;
+            for (const char *s = lf; *s; s++) {
+              if (crlf && *s == '\n')
+                text[length++] = '\r';
+              text[length++] = *s;
+            }
+            text[length] = 0;
+          }
           Result r = valid(&a, text);
           for (unsigned repeat = 0; repeat < 3; repeat++) {
             if (repeat) {
@@ -2089,11 +2108,21 @@ int main(void) {
           ASSERT_TRUE(!memcmp(source, r.program->module->text, length));
           if (r.errors.count) {
             Diagnostic *d = r.errors.items[0];
-            ASSERT_EQ_INT(0, strcmp(required, d->message));
+            const char *message =
+                i == 1
+                    ? "Outcome binding is not handled before leaving its scope."
+                    : required;
+            ASSERT_EQ_INT(0, strcmp(message, d->message));
             ASSERT_TRUE(d->span.start >= (size_t)(site - source));
-            ASSERT_TRUE(d->span.end <=
-                        (size_t)(site - source) + strlen(bodies[i]));
-            ASSERT_TRUE(!d->fixes && !d->notes);
+            if (i == 1) {
+              ASSERT_EQ_INT(length - 1, d->span.start);
+              ASSERT_TRUE(d->notes && !d->notes->next);
+            } else {
+              ASSERT_TRUE(d->span.end <=
+                          (size_t)(site - source) + strlen(bodies[i]));
+              ASSERT_TRUE(!d->notes);
+            }
+            ASSERT_TRUE(!d->fixes);
           }
         }
       }

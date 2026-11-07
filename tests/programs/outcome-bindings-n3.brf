@@ -1,0 +1,88 @@
+Result = :ok[str] | :!bad[str]
+Box { text: str }
+State { calls: int }
+source(state: &State, fail: bool) -> Result {
+  state.calls += 1
+  if fail { ret :!bad["owned " + "failure"] }
+  "owned " + "success"
+}
+forward(state: &State, fail: bool) {
+  let local = "local " + "owner"
+  let result = source(state, fail)
+  print("between")
+  result
+}
+early(state: &State, fail: bool) -> Result {
+  let result: Result = state |> source(fail)
+  let local = Box { text = "local " + "owner" }
+  ret result
+}
+propagate(state: &State, fail: bool) {
+  var result = source(state, fail)
+  let text = result?
+  print("after success")
+  text
+}
+object(box: Box) -> :ok[Box] | :!missing { box }
+borrowed(box: Box) {
+  let result = object(box)
+  result
+}
+close() -> :ok | :!io { print("close effect") }
+optional() -> :ok[str] | :none { :none }
+nested() -> :created[:!inner[str]] | :!outer {
+  :created[:!inner["nested " + "error"]]
+}
+main() {
+  var state = State { calls = 0 }
+  let first = source(state, false)
+  let second = source(state, true)
+  print("pending pair")
+  first |> { :ok[text] => print(text)
+             :!bad[text] => print(text) }
+  second |> { :ok[text] => print(text)
+              :!bad[text] => print(text) }
+  let returned = forward(state, false)
+  print(returned!)
+  let failed = early(state, true)
+  failed |> { problem => print("caught") }
+  let success = propagate(state, false)
+  print(success!)
+  let error = propagate(state, true)
+  error |> { :ok[text] => print(text)
+             :!bad[text] => print(text) }
+  print(str(state.calls))
+  let done = close()
+  let checked: () = done!
+  let maybe = optional()
+  let copy = maybe
+  maybe |> { :ok[text] => print(text)
+             :none => print("none") }
+  copy |> { :ok[text] => print(text)
+            :none => print("none again") }
+  let inner = nested()!
+  inner |> { :!inner[text] => print(text) }
+  var original = Box { text = "owned " + "object" }
+  let result = borrowed(original)
+  let alias = result!
+  alias.text = "shared"
+  print(original.text)
+  let converted = int("9")
+  print(str(converted!))
+}
+// expect: pending pair
+// expect: owned success
+// expect: owned failure
+// expect: between
+// expect: owned success
+// expect: caught
+// expect: after success
+// expect: owned success
+// expect: owned failure
+// expect: 6
+// expect: close effect
+// expect: none
+// expect: none again
+// expect: nested error
+// expect: shared
+// expect: 9

@@ -12,9 +12,9 @@ take(value: Result) {}
 Box { value: Result }
 main() {
   source() // error: A call that can fail must be handled with ?, !, or a match.
-  let pending = source() // error: A call that can fail must be handled with ?, !, or a match.
+  let pending = source() // N3: admission does not discard the obligation.
   take(source()) // error: A call that can fail must be handled with ?, !, or a match.
   :payload[source()] // error: A call that can fail must be handled with ?, !, or a match.
   Box { value = source() } // error: A call that can fail must be handled with ?, !, or a match.
   source() |> take() // error: A call that can fail must be handled with ?, !, or a match.
-}
+} // error: Outcome binding is not handled before leaving its scope.
