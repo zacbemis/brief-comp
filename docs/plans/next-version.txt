@@ -223,8 +223,9 @@ audits are complete. N3 adds unchanged outcome returns, flow-checked binding
 consumption/rearming, join/path diagnostics, scope exits, loops and recovery.
 The section-6 errors extension and scoped pipelines/memory audits are complete.
 This does not complete the next-version language or claim native acceptance of
-listed APIs/fragments. N4 has started with mixed-type shift counts; its other
-work and N5–N6 remain.
+listed APIs/fragments. N4 includes mixed-type shifts and typed deferred let/var
+bindings with definite assignment. Broader flow hardening, its other features
+and N5–N6 remain.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -377,7 +378,7 @@ matrix passes; the closure review is `tests/next-version-n3-review.md`.
 
 - [x] Admit shift counts of any integer type, preserving the left operand's
   type and checking the count before narrowing or signedness conversion.
-- [ ] Add typed declared-then-assigned let/var bindings and definite assignment
+- [x] Add typed declared-then-assigned let/var bindings and definite assignment
   on the shared flow framework, with safe ownership and outcome integration.
 - [ ] Harden definite assignment across joins, exits, loop back edges, nesting
   and recovery, retaining read-only permissions and exactly-once let writes.
@@ -3741,6 +3742,35 @@ sources all ASTs and 283 prior sanitized runs match; only the three inventoried
 C outputs change. Thirty-six strict native runs, pinned formatting, diff/prose
 and protected-plan checks pass. N4 remains in progress; its complete matrix is
 reserved for closure.
+
+### N4 increment: typed deferred bindings and definite assignment
+
+Reviewed base ed9d146. Typed let/var declarations may omit their initializer at
+a statement boundary; untyped declarations and const still require '='. The
+AST retains a missing value, not a synthetic default. A new analysis on the
+unchanged shared walker intersects definitely-assigned/unassigned facts. Reads
+need assignment on every live path; a deferred let write needs definite
+unassignment after RHS evaluation. Var writes retain ordinary type checks.
+Basic joins, exits and loop guards protect admission; broader hardening remains.
+
+Reference slots register lexical cleanup at declaration without a store. Existing
+zeroed C slots and null/tag-zero drops make exits before assignment safe, while
+first stores and replacements retain ordinary ARC. Deferred outcomes acquire an
+obligation only when a value is produced; first let assignment is allowed, second
+let writes and pending var replacements still reject. Read-only access follows
+the assigned value. Runtime, IR shape and shared flow hooks are unchanged.
+
+Changed existing expectations: none. Old test inputs/markers, ASTs, diagnostics,
+goldens, .expect files, parser classifications and generated audit cases stay.
+Eight new unit groups and three fixtures cover syntax, reads/writes, joins,
+basic loop safety, ownership, outcomes, permissions and recovery. Exact scope
+and inventory are in `tests/next-version-n4-definite-assignment.md`.
+Default GCC Debug and fresh -Werror Clang Debug ASan/UBSan pass 53/53 each.
+All 3,085 retained sources / 6,170 AST/emit observations, 1,350 successful C
+outputs and 292 prior sanitized runs match a fresh HEAD baseline. Eight strict
+native runs and seventeen negative sites with fourteen notes pass, as do pinned
+formatting, diff/prose and protected-plan checks. N4 remains in progress; no
+milestone-closing full matrix is run in this slice.
 
 ## Risks
 

@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **208 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **211 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for parser coverage and gaps.
 
@@ -127,6 +127,15 @@ width-sized, 2^40 and extreme 64-bit counts panic even for zero left values;
 valid left shifts still check overflow. No old marker changes. Three old C
 outputs change only independent count temporaries and guards; see
 [the exact inventory](../next-version-n4-shifts.md).
+
+The deferred-binding slice adds `declared-assignment-n4.brf`,
+`main-declared-outcome-n4.brf` and `errors/declared-assignment-n4.brf`. Typed
+let/var declarations can be initialized later. Native checks exercise branch
+assignment, first stores, never-initialized owned slots, loop cleanup/reuse,
+rearmed outcomes, returned owned errors and borrowed access. Seventeen negative
+sites pin definite-assignment, exactly-once let writes and existing outcome/
+permission/type diagnostics. No old expectation changes; see
+[the slice notes](../next-version-n4-definite-assignment.md).
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

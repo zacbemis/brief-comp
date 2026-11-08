@@ -1,0 +1,91 @@
+Box { text: str }
+Result = :ok[Box] | :!bad[str]
+source(n: int) -> Result {
+  if n < 0 { ret :!bad["bad " + str(n)] }
+  Box { text = "box " + str(n) }
+}
+choose(flag: bool) -> Box {
+  let box: Box
+  if flag { box = Box { text = "chosen true" } }
+  else { box = Box { text = "chosen false" } }
+  box
+}
+number(flag: bool) -> int {
+  let n: int
+  flag |> { true => n = 1
+            false => n = 2 }
+  n
+}
+early(flag: bool) -> Result {
+  let unused: Box
+  let pending: Result
+  if flag { ret :!bad["early error"] }
+  pending = source(8)
+  pending
+}
+main() {
+  let never: Box
+  let unused: str
+  let unit: ()
+  unit = ()
+  let small: shrt
+  small = -32768
+  let high: ulng
+  high = 18446744073709551615
+  print(str(small))
+  print(str(high))
+  var total: lng
+  total = 0
+  for i in 0..3 { total += lng(i) }
+  print(str(total))
+  let label: str
+  if number(true) == 1 { label = "owned " + "label" }
+  else { label = "other" }
+  print(label)
+  print(choose(true).text)
+  print(choose(false).text)
+  print(str(number(false)))
+  var pending: Result
+  pending = source(0)
+  let original = pending!
+  pending = source(1)
+  print(pending!.text)
+  print(original.text)
+  pending = source(-1)
+  pending |> { :ok[box] => print(box.text)
+               :!bad[text] => print(text) }
+  for i in 0..3 {
+    let local: Box
+    var r: Result
+    r = source(i + 2)
+    local = r!
+    if i == 0 { continue }
+    print(local.text)
+    break
+  }
+  early(true) |> { :ok[box] => print(box.text)
+                   :!bad[text] => print(text) }
+  early(false) |> { :ok[box] => print(box.text)
+                    :!bad[text] => print(text) }
+  for i in 0..3 {
+    let slot: Box
+    if i == 1 { continue }
+    slot = Box { text = "conditional " + str(i) }
+    print(slot.text)
+  }
+}
+// expect: -32768
+// expect: 18446744073709551615
+// expect: 3
+// expect: owned label
+// expect: chosen true
+// expect: chosen false
+// expect: 2
+// expect: box 1
+// expect: box 0
+// expect: bad -1
+// expect: box 3
+// expect: early error
+// expect: box 8
+// expect: conditional 0
+// expect: conditional 2

@@ -912,10 +912,12 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
         const Decl *d = item.as.decl;
         value = node(r, SEMA_EXPR_BIND, d->span);
         value->as.binding.declaration = 1;
-        value->as.binding.value = resolve_expr(r, d->as.binding.value);
+        if (d->as.binding.value)
+          value->as.binding.value = resolve_expr(r, d->as.binding.value);
         value->as.binding.variable =
             variable(r, d->name, d->span, type(r, d->as.binding.annotation),
                      d->as.binding.kind == BIND_VAR);
+        value->as.binding.variable->deferred = !d->as.binding.value;
       }
       e->as.block.items[i] = value;
     }

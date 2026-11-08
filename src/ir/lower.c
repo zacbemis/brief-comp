@@ -230,6 +230,13 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
   case SEMA_EXPR_ASSIGN:
   case SEMA_EXPR_UPDATE: {
     SemaVar *v = e->as.binding.variable;
+    if (e->kind == SEMA_EXPR_BIND && !e->as.binding.value) {
+      // C locals start at zero. Register their lexical cleanup now, even if
+      // an early exit occurs before the first store; null/tag-zero is empty.
+      if (sema_reference(v->type))
+        own(l, v->id, 1);
+      return IR_NO_VALUE;
+    }
     const SemaExpr *target = e->as.binding.target;
     SemaField *field = target ? target->as.field.field : NULL;
     size_t object = target ? lower(l, target->as.field.object) : IR_NO_VALUE;

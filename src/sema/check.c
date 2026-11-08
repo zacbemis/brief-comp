@@ -531,10 +531,12 @@ static const SemaType *lvalue(Checker *c, SemaExpr *e) {
     return check(c, target, NULL, VALUE);
   }
   SemaVar *v = e->as.binding.variable;
-  mutable(c, v, e->span);
+  if (!v || !v->deferred || e->kind != SEMA_EXPR_ASSIGN ||
+      e->as.binding.op != ASSIGN_SET)
+    mutable(c, v, e->span);
   // Flow decides whether the old outcome was handled. A potential var rearm
   // still needs ordinary assignment typing; it cannot change the slot's type.
-  int rearm = v && v->mutable && e->kind == SEMA_EXPR_ASSIGN &&
+  int rearm = v && (v->mutable || v->deferred) && e->kind == SEMA_EXPR_ASSIGN &&
               e->as.binding.op == ASSIGN_SET;
   return v && (!v->outcome_binding || !c->reachable || rearm)
              ? v->type
@@ -570,7 +572,7 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   unsigned flow = SEMA_NEXT;
   int reachable = c->reachable;
   e->reachable = reachable;
-  e->adapt = e->none_ending = e->handles_outcome = 0;
+  e->adapt = e->none_ending = e->handles_outcome = e->assignment_invalid = 0;
   e->failures = NULL;
   switch (e->kind) {
   case SEMA_EXPR_UNIT:
@@ -610,6 +612,11 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   case SEMA_EXPR_BIND: {
     SemaVar *v = e->as.binding.variable;
     SemaExpr *value = e->as.binding.value;
+    if (!value) {
+      v->type = v->annotation;
+      v->outcome_binding = sema_has_errors(v->type);
+      break;
+    }
     v->type = check(c, value,
                     e->as.binding.stage ? pipeline_hint(c, e) : v->annotation,
                     e->as.binding.declaration ? BOUND
@@ -1363,6 +1370,7 @@ void sema_check(SemaProgram *p, Diagnostics *errors) {
       }
     }
   }
+  sema_check_assignment(p, errors);
   sema_check_outcomes(p, errors);
   sema_check_permissions(p, errors);
   p->checked = p->resolved && errors->count == 0;

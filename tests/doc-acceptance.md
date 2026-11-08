@@ -131,14 +131,17 @@ helpers; labels are `doc-errors`, `doc-pipelines`, `doc-memory` and
 expectation changes in this closure; unavailable examples remain listings,
 not native acceptance.
 
-N4's first slice implements mixed-type shift counts with independent literal
-contexts and pre-conversion range checks. Existing chapter audit cases remain
-unchanged; this does not promote a pending fence or complete N4. See the
-[shift notes](next-version-n4-shifts.md).
+N4 implements mixed-type shift counts with independent literal contexts and
+pre-conversion range checks; see the [shift notes](next-version-n4-shifts.md).
+Typed deferred let/var declarations now have shared-flow definite assignment,
+with owned-slot cleanup and outcome/permission integration. See the
+[deferred-binding notes](next-version-n4-definite-assignment.md). Existing
+chapter audit cases remain unchanged; no pending fence is promoted and this
+does not complete N4.
 
 Remaining milestone work:
 
-- **N4:** bindings/let-else, inclusive ranges, typed loops and audit extensions.
+- **N4:** assignment hardening, let-else, inclusive/typed loops and audits.
 - **N5:** interpolation and its chapter audit extensions.
 - **N6:** overview, traits, collections and standard library scope inventories.
 

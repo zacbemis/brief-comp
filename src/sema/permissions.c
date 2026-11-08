@@ -110,6 +110,8 @@ static int merge(SemaFlow *flow, void *into, const void *from, SemaExpr *at) {
 static SemaFlowValue enter(SemaFlow *flow, SemaExpr *e, void *state) {
   (void)flow;
   unsigned char *bits = state;
+  if (e->kind == SEMA_EXPR_BIND && !e->as.binding.value)
+    bits[e->as.binding.variable->id] = 0;
   return e->kind == SEMA_EXPR_VAR && e->as.variable ? bits[e->as.variable->id]
                                                     : 0;
 }

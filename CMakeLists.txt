@@ -49,6 +49,7 @@ add_library(brief_core STATIC
     src/sema/check.c
     src/sema/graph.c
     src/sema/flow.c
+    src/sema/assignment.c
     src/sema/permissions.c
     src/sema/outcomes.c
     src/sema/match.c

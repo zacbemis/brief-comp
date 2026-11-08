@@ -85,6 +85,7 @@ struct SemaVar {
   Span span;
   size_t id;
   int mutable;
+  int deferred;        // Written typed let/var declaration with no initializer.
   int outcome_binding; // Source let/var with a valid top-level error result.
   int data_mutable;    // Parameter access permission; local permissions are
                        // flow-checked.
@@ -160,6 +161,7 @@ struct SemaExpr {
   int adapt;           // Packs :ok only into a contextual union containing :ok.
   int none_ending;     // A valueless return position constructs :none.
   int handles_outcome; // This variable read is a match/postfix/return use.
+  int assignment_invalid; // Definite-assignment recovery, reporting walk only.
   unsigned flow;
   int reachable;
   int returns;      // No fallthrough (including break/continue).
@@ -362,6 +364,8 @@ void sema_check(SemaProgram *program, Diagnostics *errors);
 void sema_check_permissions(SemaProgram *program, Diagnostics *errors);
 // Local outcome obligations, using the same checked-tree flow framework.
 void sema_check_outcomes(SemaProgram *program, Diagnostics *errors);
+// Definite assignment for typed declarations without an initializer.
+void sema_check_assignment(SemaProgram *program, Diagnostics *errors);
 // Scalar normalization / symbol coverage after endpoint and input typing.
 // NULL diagnostics probes coverage without emitting errors.
 void sema_match_coverage(SemaProgram *program, SemaExpr *match,

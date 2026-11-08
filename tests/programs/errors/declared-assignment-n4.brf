@@ -1,0 +1,63 @@
+Box { n: int }
+Result = :ok[int] | :!bad
+source() -> Result { 1 }
+readLet() { let n: int
+  print(str(n)) // error: Binding must be assigned before it is read.
+}
+readVar() { var n: int
+  n = n + 1 // error: Binding must be assigned before it is read.
+}
+field() { var box: Box
+  box.n = 1 // error: Binding must be assigned before it is read.
+}
+compound() { var n: int
+  n += 1 // error: Binding must be assigned before it is read.
+}
+update() { var n: int
+  n++ // error: Binding must be assigned before it is read.
+}
+twice() { let n: int
+  n = 1
+  n = 2 // error: A declared let binding can only be assigned once on every path.
+}
+partial(flag: bool) { let n: int
+  if flag { n = 1 }
+  print(str(n)) // error: Binding must be assigned before it is read.
+}
+mixedWrite(flag: bool) { let n: int
+  if flag { n = 1 }
+  n = 2 // error: A declared let binding can only be assigned once on every path.
+}
+loop(flag: bool) { let n: int
+  while flag { n = 1 } // error: A declared let binding can only be assigned once on every path.
+}
+zero() { var n: int
+  for i in 0..3 { n = i }
+  print(str(n)) // error: Binding must be assigned before it is read.
+}
+wrong() { var n: int
+  n = true // error: Assignment value has the wrong type.
+}
+immutable() { let n: int
+  n += 1 // error: Cannot reassign an immutable binding.
+}
+readOutcome() { let r: Result
+  r! // error: Binding must be assigned before it is read.
+}
+unhandled() { let r: Result
+  r = source()
+} // error: Outcome binding is not handled before leaving its scope.
+letOutcome() { let r: Result
+  r = source()
+  r!
+  r = source() // error: A declared let binding can only be assigned once on every path.
+}
+pendingWrite() { var r: Result
+  r = source()
+  r = source() // error: Outcome binding cannot be reassigned.
+}
+readonly(box: Box) { let alias: Box
+  alias = box
+  alias.n = 2 // error: Cannot mutate through an ordinary parameter; use &.
+}
+main() {}

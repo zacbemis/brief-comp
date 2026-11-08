@@ -1,0 +1,13 @@
+Box { text: str }
+Result = :ok[Box] | :!bad[Box]
+source() -> Result { :!bad[Box { text = "owned " + "error" }] }
+main() -> Result {
+  let unused: Box
+  let pending: Result
+  pending = source()
+  print("returning declared outcome")
+  ret pending
+}
+// expect: returning declared outcome
+// stderr: error: :!bad[Box { text = "owned error" }]
+// exit: 1

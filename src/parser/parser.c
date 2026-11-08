@@ -991,12 +991,17 @@ static Decl *binding(Parser *p, Visibility visibility) {
     if (!d->as.binding.annotation)
       return NULL;
   }
-  if (!expect(p, TOK_EQUAL, "Expected '=' in binding."))
-    return NULL;
-  d->as.binding.value = expression(p, 0, 1);
-  if (!d->as.binding.value)
-    return NULL;
-  d->span = through(start.span, d->as.binding.value->span);
+  if (d->as.binding.annotation && d->as.binding.kind != BIND_CONST &&
+      (at(p, TOK_NEWLINE) || at(p, TOK_RBRACE) || at(p, TOK_EOF)))
+    d->span = through(start.span, d->as.binding.annotation->span);
+  else {
+    if (!expect(p, TOK_EQUAL, "Expected '=' in binding."))
+      return NULL;
+    d->as.binding.value = expression(p, 0, 1);
+    if (!d->as.binding.value)
+      return NULL;
+    d->span = through(start.span, d->as.binding.value->span);
+  }
   check_name_case(p, declared, mark, TOK_LOWER_NAME,
                   "Binding names must start with a lowercase letter.");
   return d;

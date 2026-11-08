@@ -175,8 +175,15 @@ See the [N3 closure review](tests/next-version-n3-review.md).
 N4 has started with shift counts of any integer type. The result keeps the
 left operand's type; the count retains its own type and is checked before
 conversion, including negative and oversized counts. Other numeric operators
-still require matching operand types. Bindings and the other N4 loop changes
-remain; see the [first slice notes](tests/next-version-n4-shifts.md).
+still require matching operand types; see the
+[shift notes](tests/next-version-n4-shifts.md).
+
+Typed `let`/`var` bindings may now omit the initializer and be assigned later.
+Reads require whole-value assignment on every live path; a deferred `let` can
+be assigned only while definitely unassigned. Owned slots clean up safely even
+before their first store, and assigned outcomes still require handling once.
+Broader assignment-flow hardening and other N4 features remain; see the
+[deferred-binding notes](tests/next-version-n4-definite-assignment.md).
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and

@@ -182,6 +182,13 @@ static SemaFlowValue enter(SemaFlow *flow, SemaExpr *e, void *state) {
   }
   if (!flow->active)
     return 0;
+  if (e->assignment_invalid) {
+    SemaVar *v =
+        e->kind == SEMA_EXPR_VAR ? e->as.variable : e->as.binding.variable;
+    if (v && v->outcome_binding && !flow->probe)
+      facts[v->id].bits = INVALID;
+    return 0;
+  }
   if (e->kind == SEMA_EXPR_VAR && e->as.variable &&
       e->as.variable->outcome_binding) {
     size_t id = e->as.variable->id;
@@ -204,7 +211,7 @@ static SemaFlowValue enter(SemaFlow *flow, SemaExpr *e, void *state) {
     size_t id = v->id;
     if (facts[id].bits == (PENDING | HANDLED))
       mixed(flow, facts, id);
-    else if (!v->mutable || e->kind != SEMA_EXPR_ASSIGN ||
+    else if ((!v->mutable && !v->deferred) || e->kind != SEMA_EXPR_ASSIGN ||
              e->as.binding.op != ASSIGN_SET)
       reject(flow, facts, id, e->span, "Outcome binding cannot be reassigned.");
     // Evaluate the RHS with the old slot's state. It may handle that value
@@ -263,21 +270,26 @@ static SemaFlowValue leave(SemaFlow *flow, SemaExpr *e, void *state,
   State *facts = state;
   (void)result;
   if (e->kind == SEMA_EXPR_BIND && flow->active &&
-      (e->as.binding.value->flow & SEMA_NEXT) &&
-      e->as.binding.variable->outcome_binding)
-    facts[e->as.binding.variable->id] =
-        (State){.bits = PENDING, .pending = e->span};
+      e->as.binding.variable->outcome_binding) {
+    if (!e->as.binding.value)
+      facts[e->as.binding.variable->id] = (State){0};
+    else if (e->as.binding.value->flow & SEMA_NEXT)
+      facts[e->as.binding.variable->id] =
+          (State){.bits = PENDING, .pending = e->span};
+  }
   if (e->kind == SEMA_EXPR_ASSIGN && flow->active && e->as.binding.variable &&
       e->as.binding.variable->outcome_binding) {
     SemaVar *v = e->as.binding.variable;
-    if (v->mutable && e->as.binding.op == ASSIGN_SET &&
+    if ((v->mutable || v->deferred) && !e->assignment_invalid &&
+        e->as.binding.op == ASSIGN_SET &&
         (e->as.binding.value->flow & SEMA_NEXT)) {
       if (facts[v->id].bits == (PENDING | HANDLED))
         mixed(flow, facts, v->id);
       else if (facts[v->id].bits == PENDING)
         reject(flow, facts, v->id, e->span,
                "Outcome binding cannot be reassigned.");
-      else if (facts[v->id].bits == HANDLED &&
+      else if ((facts[v->id].bits == HANDLED ||
+                (!facts[v->id].bits && v->deferred)) &&
                sema_assignable(e->as.binding.value->type, v->type))
         facts[v->id] = (State){.bits = PENDING, .pending = e->span};
     }
