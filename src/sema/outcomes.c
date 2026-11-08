@@ -20,6 +20,7 @@ typedef struct Loop Loop;
 struct Loop {
   SemaExpr *body, *join;
   Loop *outer;
+  int in_body;
 };
 typedef struct Report Report;
 struct Report {
@@ -35,6 +36,14 @@ typedef struct {
   Scope *scope;
   Loop *loop;
 } Outcomes;
+// Conditions and range bounds run outside their own loop's jump region.
+// An enclosing body can still be the target of a jump evaluated there.
+static Loop *jump_loop(Outcomes *o) {
+  Loop *loop = o->loop;
+  while (loop && !loop->in_body)
+    loop = loop->outer;
+  return loop;
+}
 static void declaration(Outcomes *o, Diagnostic *d, size_t id) {
   diagnostic_note(o->errors, d, o->declarations[id]->span,
                   "The outcome binding is declared here.");
@@ -103,9 +112,11 @@ static int merge(SemaFlow *flow, void *into, const void *from, SemaExpr *at) {
   int changed = 0;
   // Break/continue snapshots meet at the enclosing loop's exit/header,
   // not at the source location of whichever jump happened to arrive last.
-  if ((at->kind == SEMA_EXPR_BREAK || at->kind == SEMA_EXPR_CONTINUE) &&
-      o->loop)
-    at = o->loop->join;
+  if (at->kind == SEMA_EXPR_BREAK || at->kind == SEMA_EXPR_CONTINUE) {
+    Loop *loop = jump_loop(o);
+    if (loop)
+      at = loop->join;
+  }
   for (size_t i = 0; i < o->count; i++) {
     unsigned old = a[i].bits, next = old | b[i].bits;
     if (next == (PENDING | HANDLED)) {
@@ -148,6 +159,8 @@ static Span end(SemaExpr *e) {
 static SemaFlowValue enter(SemaFlow *flow, SemaExpr *e, void *state) {
   Outcomes *o = flow->context;
   State *facts = state;
+  if (o->loop && o->loop->body == e)
+    o->loop->in_body = 1;
   if (e->kind == SEMA_EXPR_BLOCK) {
     Scope *scope = arena_alloc(o->arena, sizeof(*scope));
     *scope = (Scope){e, o->scope};
@@ -156,12 +169,10 @@ static SemaFlowValue enter(SemaFlow *flow, SemaExpr *e, void *state) {
     Loop *loop = arena_alloc(o->arena, sizeof(*loop));
     SemaExpr *body = e->kind == SEMA_EXPR_WHILE ? e->as.while_loop.body
                                                 : e->as.for_loop.body;
-    *loop = (Loop){body, e, o->loop};
+    *loop = (Loop){.body = body, .join = e, .outer = o->loop};
     o->loop = loop;
-    path(flow, facts,
-         e->kind == SEMA_EXPR_WHILE ? e->as.while_loop.condition->span
-                                    : e->as.for_loop.lower->span,
-         LOOP_ENTRY);
+    if (e->kind == SEMA_EXPR_WHILE)
+      path(flow, facts, e->as.while_loop.condition->span, LOOP_ENTRY);
   } else if (e->kind == SEMA_EXPR_BIND) {
     SemaVar *v = e->as.binding.variable;
     if (v->outcome_binding) {
@@ -198,13 +209,15 @@ static SemaFlowValue enter(SemaFlow *flow, SemaExpr *e, void *state) {
       reject(flow, facts, id, e->span, "Outcome binding cannot be reassigned.");
     // Evaluate the RHS with the old slot's state. It may handle that value
     // or leave the function; only an actual write can create a replacement.
-  } else if ((e->kind == SEMA_EXPR_BREAK || e->kind == SEMA_EXPR_CONTINUE) &&
-             o->loop) {
-    // The walker snapshots jumps before leave(). Discharge departing locals
-    // here so their facts cannot leak into a loop header or an outer scope.
-    exits(flow, facts, e, o->loop->body, 1);
-    path(flow, facts, e->span,
-         e->kind == SEMA_EXPR_CONTINUE ? BACK_EDGE : PATH);
+  } else if (e->kind == SEMA_EXPR_BREAK || e->kind == SEMA_EXPR_CONTINUE) {
+    Loop *loop = jump_loop(o);
+    if (loop) {
+      // The walker snapshots jumps before leave(). Discharge departing locals
+      // here so their facts cannot leak into a loop header or an outer scope.
+      exits(flow, facts, e, loop->body, 1);
+      path(flow, facts, e->span,
+           e->kind == SEMA_EXPR_CONTINUE ? BACK_EDGE : PATH);
+    }
   }
   return 0;
 }
@@ -232,6 +245,9 @@ static SemaFlowValue child(SemaFlow *flow, SemaExpr *e, size_t index,
            e->as.binary.op == BINARY_LOGICAL_AND ? FALSE_PATH : TRUE_PATH);
     else
       path(flow, state, end(e->as.binary.right), PATH);
+  } else if (e->kind == SEMA_EXPR_FOR && index == 1) {
+    // Both bounds execute once, before the repeated header is established.
+    path(flow, state, e->as.for_loop.lower->span, LOOP_ENTRY);
   } else if ((e->kind == SEMA_EXPR_WHILE && index == 1) ||
              (e->kind == SEMA_EXPR_FOR && index == 2)) {
     SemaExpr *body = e->kind == SEMA_EXPR_WHILE ? e->as.while_loop.body
@@ -284,6 +300,8 @@ static SemaFlowValue leave(SemaFlow *flow, SemaExpr *e, void *state,
     o->scope = o->scope->outer;
   } else if (e->kind == SEMA_EXPR_WHILE || e->kind == SEMA_EXPR_FOR)
     o->loop = o->loop->outer;
+  if (o->loop && o->loop->body == e)
+    o->loop->in_body = 0;
   return 0;
 }
 void sema_check_outcomes(SemaProgram *program, Diagnostics *errors) {

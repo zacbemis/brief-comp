@@ -111,9 +111,11 @@ bindings have flow-based pending/handled states. A handled var can receive a
 new outcome and becomes pending again; other transfer and reuse rules remain.
 Inconsistent paths report once at their first join, with an unhandled-path
 note, and scope exits check departing obligations. Written result contracts
-remain enforced. Broader loop/recovery coverage remains; this does not promote
-section 6 fences or complete an N3 native audit. See the
-[join and scope notes](next-version-n3-joins-exits.md).
+remain enforced. Loop coverage includes back edges, regenerated values, nested
+jump targets and independent-error recovery. Bounds execute once; repeated
+conditions participate in the header. This does not promote section 6 fences
+or complete an N3 native audit. See the
+[loop and recovery notes](next-version-n3-loop-recovery.md).
 
 Remaining milestone work:
 

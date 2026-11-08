@@ -1,0 +1,59 @@
+State { calls: int }
+Box { value: int
+      text: str }
+Result = :ok[Box] | :!bad[str]
+source(state: &State, n: int) -> Result {
+  state.calls += 1
+  if n < 0 { ret :!bad["bad " + str(n)] }
+  Box { value = n, text = "box " + str(n) }
+}
+bounds(state: &State) {
+  var first = true
+  for outer in 0..3 {
+    let r = source(state, 10 + outer)
+    let kept = r!
+    for inner in (if first { first = false
+                             continue } else { 0 })..
+                 (if outer == 2 { break } else { 2 }) {}
+    print(kept.text)
+  }
+}
+conditions(state: &State) {
+  for outer in 0..3 {
+    let r = source(state, 20 + outer)
+    let kept = r!
+    while (if outer == 0 { continue } else { false }) {}
+    print(kept.text)
+    while (if outer == 1 { break } else { false }) {}
+  }
+}
+main() {
+  let state = State { calls = 0 }
+  var r = source(state, 0)
+  let saved = r!
+  r = source(state, 1)
+  while r!.value < 3 { r = source(state, state.calls) }
+  print(saved.text)
+  print(str(state.calls))
+  for outer in 0..2 {
+    let local = source(state, 4 + outer)
+    while true { let box = local!
+                 print(box.text)
+                 break }
+    continue
+  }
+  let once = source(state, 2)
+  for i in 0..once!.value {}
+  bounds(state)
+  conditions(state)
+  print(str(state.calls))
+  print(saved.text)
+}
+// expect: box 0
+// expect: 4
+// expect: box 4
+// expect: box 5
+// expect: box 11
+// expect: box 21
+// expect: 12
+// expect: box 0

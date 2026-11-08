@@ -1,0 +1,76 @@
+Result = :ok[int] | :!bad[str]
+f(n: int) -> Result { n }
+outerFor() { let r = f(1)
+  for i in 0..2 { r! } // error: Outcome binding is handled on some paths but not others.
+}
+outerContinue() { let r = f(1)
+  while true { r! // error: Outcome binding is handled on some paths but not others.
+    continue }
+}
+conditionConsumes() { let r = f(1)
+  while r! > 0 {} // error: Outcome binding is handled on some paths but not others.
+}
+normalBack(flag: bool) { var r = f(1)
+  r!
+  while flag { r = f(2) } // error: Outcome binding is handled on some paths but not others.
+}
+continueBack(flag: bool) { var r = f(1)
+  r!
+  while flag { r = f(2) // error: Outcome binding is handled on some paths but not others.
+    continue }
+}
+nested() { let r = f(1)
+  for outer in 0..2 {
+    for inner in 0..2 { r! } // error: Outcome binding is handled on some paths but not others.
+  }
+  r!
+}
+lowerBreak(flag: bool) { while true { let r = f(1)
+  for i in (if flag {
+    break // error: Outcome binding is not handled before leaving its scope.
+  } else { 0 })..2 {}
+  r!
+  break
+} }
+upperContinue(flag: bool) { while true { let r = f(1)
+  for i in 0..(if flag {
+    continue // error: Outcome binding is not handled before leaving its scope.
+  } else { 2 }) {}
+  r!
+  break
+} }
+conditionBreak(flag: bool) { while true { let r = f(1)
+  while (if flag {
+    break // error: Outcome binding is not handled before leaving its scope.
+  } else { false }) {}
+  r!
+  break
+} }
+conditionContinue(flag: bool) { while true { let r = f(1)
+  while (if flag {
+    continue // error: Outcome binding is not handled before leaving its scope.
+  } else { false }) {}
+  r!
+  break
+} }
+jumpJoin(flag: bool) { let r = f(1)
+  while true { // error: Outcome binding is handled on some paths but not others.
+    for i in (if flag { r!
+                       break } else { break })..2 {}
+  }
+}
+boundProduces(flag: bool) { var r = f(1)
+  r!
+  for i in (if flag { r = f(2) // error: Outcome binding is handled on some paths but not others.
+                     0 } else { r = f(3)
+                                0 })..2 { r! }
+}
+recovery(flag: bool) { let r = f(1)
+  while flag { r! // error: Outcome binding is handled on some paths but not others.
+    let local = f(2)
+    f(true)! // error: Function argument has the wrong type.
+    continue // error: Outcome binding is not handled before leaving its scope.
+  }
+  r!
+}
+main() {}

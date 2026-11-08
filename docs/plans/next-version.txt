@@ -357,7 +357,7 @@ expectation inventories follow the N1 historical records below.
   straight-line consumption, second handling and forbidden transfer uses.
 - [x] Check path joins and every scope exit, including early ret/break/continue,
   with one primary per invalid shape and useful source notes.
-- [ ] Check loop back edges, outer-binding consumption, nesting and recovery
+- [x] Check loop back edges, outer-binding consumption, nesting and recovery
   using the shared flow framework, with permissions behavior unchanged.
 - [ ] Extend the errors audit for section 6 and add scoped pipelines/memory
   native audits without extracted fragments or stand-in APIs/types.
@@ -3627,6 +3627,35 @@ and 254 sanitized runtimes. Only seven listed rejection diagnostics change.
 Eight strict native runs and fourteen source-located rejection sites pass.
 Formatter, diff/prose and protected-plan checks pass. N3 remains in progress;
 its final four-configuration matrix is not part of this slice.
+
+### N3 increment: loop back edges, outer bindings, nesting and recovery
+
+Reviewed base 128492d. The outcome checker's loop stack distinguishes conditions
+and range bounds from active bodies, matching the shared walker's jump targets.
+A break/continue evaluated in an inner condition or bound checks and clears
+locals from the enclosing body it actually leaves. Inconsistent jump edges
+report at that target's join. Range-entry witnesses are recorded after both
+bounds execute, including newly produced pending values. Conditions remain
+part of repeated headers; consistent regeneration and once-only handling work.
+Shared flow/hooks, permissions, typing, lowering, RC and runtime are unchanged.
+
+Changed existing expectations: none. No committed source/assertion, native
+marker, golden, .expect or runtime observation changes. New independent probes
+expose four previously accepted bad jumps; each now rejects at the jump with
+one declaration note. A new mixed-break probe moves its single primary from
+the inner for to the actual outer while join. A bound-produced pending value
+now gets a loop-entry witness. The exact new regression inventory is in
+`tests/next-version-n3-loop-recovery.md`.
+
+Eight unit groups cover back edges, conditions/bounds, local generations,
+nesting, short circuits, returns/propagation, independent recovery, dead code,
+parameter permissions and 24-level fixed points, with LF/CRLF and rechecks.
+Three new native fixtures cover owned values and fifteen exact negative sites.
+Default GCC Debug and fresh -Werror Clang Debug ASan/UBSan pass 47/47 each.
+All 2,735 retained ASTs, 1,117 previously successful C outputs and 256 prior
+sanitized runs match a fresh HEAD baseline. Eight strict native runs pass;
+formatter, diff/prose and protected-plan checks pass. N3 remains in progress
+for its scoped native audits and the final four-configuration closure matrix.
 
 ## Risks
 

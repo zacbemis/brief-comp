@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **195 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **198 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for parser coverage and gaps.
 
@@ -102,6 +102,15 @@ errors. Fourteen negative sites pin joins, exits and invalid writes. The old
 outcome-bindings error fixture keeps eleven diagnostics: assignAfter's write
 error moves from line 32 to its pending exit on line 33. Runtime markers stay
 unchanged; see [the full inventory](../next-version-n3-joins-exits.md).
+
+The loop/recovery slice adds `outcome-loops-n3.brf`,
+`main-loop-outcome-n3.brf` and `errors/outcome-loops-n3.brf`. They exercise
+owned aliases across regenerated loop values, once-only bound handling, nested
+condition/bound jumps and an owned error returned from a loop. Fifteen negative
+sites cover repeated outer consumption, first inner joins, departing locals
+and independent typing errors. No old expectation changes; newly discovered
+bad jumps now reject instead of silently discarding outcomes. See
+[the loop inventory](../next-version-n3-loop-recovery.md).
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

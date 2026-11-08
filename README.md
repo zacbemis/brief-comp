@@ -164,9 +164,11 @@ one match, postfix or return. A handled `var` may be assigned a new outcome,
 which must be handled again; pending or mixed writes still reject. Shared-flow
 checks reject second handling, non-handler transfers and pending scope exits.
 Inconsistent paths report once at their join with an unhandled-path note.
-Neutral-only data remains freely reusable. Broader loop/recovery tests and
+Neutral-only data remains freely reusable. Loop checks cover repeated outer
+consumption, rearmed values, nesting and recovery. Jumps evaluated in an inner
+condition or range bound discharge the enclosing loop body's obligations.
 N3's native audits remain; see the
-[join and scope notes](tests/next-version-n3-joins-exits.md).
+[loop and recovery notes](tests/next-version-n3-loop-recovery.md).
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and

@@ -1,0 +1,14 @@
+Result = :ok[str] | :!bad[str]
+source() -> Result { :!bad["owned " + "loop"] }
+main() -> Result {
+  for outer in 0..2 {
+    let r = source()
+    print("returning loop error")
+    for inner in 0..2 { ret r }
+    ret r
+  }
+  "not reached"
+}
+// expect: returning loop error
+// stderr: error: :!bad["owned loop"]
+// exit: 1
