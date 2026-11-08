@@ -172,6 +172,12 @@ extension and scoped pipelines/memory native audits. The full four-configuration
 `-Werror` matrix passes; unavailable APIs/fragments remain explicit listings.
 See the [N3 closure review](tests/next-version-n3-review.md).
 
+N4 has started with shift counts of any integer type. The result keeps the
+left operand's type; the count retains its own type and is checked before
+conversion, including negative and oversized counts. Other numeric operators
+still require matching operand types. Bindings and the other N4 loop changes
+remain; see the [first slice notes](tests/next-version-n4-shifts.md).
+
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and
 remain reserved in ordinary name positions, including fields and bindings.

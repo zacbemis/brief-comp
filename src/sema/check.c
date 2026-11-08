@@ -342,7 +342,8 @@ static const SemaType *hint(SemaExpr *e) {
       return e->type;
     {
       const SemaType *a = hint(e->as.binary.left);
-      if (special(a))
+      if (special(a) && e->as.binary.op != BINARY_LSHIFT &&
+          e->as.binary.op != BINARY_RSHIFT)
         a = hint(e->as.binary.right);
       return special(a) ? e->type : a;
     }
@@ -962,14 +963,25 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     BinaryOp op = e->as.binary.op;
     int logical = op == BINARY_LOGICAL_AND || op == BINARY_LOGICAL_OR;
     int comparison = op >= BINARY_EQ && op <= BINARY_GE;
-    const SemaType *context =
-        logical ? t(c, SEMA_BOOL)
-                : operand_type(c, a, b, comparison ? NULL : expected);
+    int shift = op == BINARY_LSHIFT || op == BINARY_RSHIFT;
+    const SemaType *context = logical
+                                  ? t(c, SEMA_BOOL)
+                                  : operand_type(c, a, shift ? NULL : b,
+                                                 comparison ? NULL : expected);
     const SemaType *at = check(c, a, context, VALUE);
     c->reachable = reachable && (a->flow & SEMA_NEXT);
-    const SemaType *bt = check(c, b, special(at) ? context : at, VALUE);
+    const SemaType *bt =
+        check(c, b, shift ? NULL : (special(at) ? context : at), VALUE);
     flow = sequence(a->flow, logical ? (b->flow | SEMA_NEXT) : b->flow);
     e->as.binary.common = NULL;
+    if (shift) {
+      if (!special(at) && !sema_integer(at))
+        error(c, a->span, "The shifted value must be an integer.");
+      if (!special(bt) && !sema_integer(bt))
+        error(c, b->span, "A shift count must be an integer.");
+      result = at; // The count never anchors or widens the shifted value.
+      break;
+    }
     if (at->kind == SEMA_SYM && bt->kind == SEMA_SYM) {
       result = sema_symbol_union(c->p, at, bt);
       if (!result) {

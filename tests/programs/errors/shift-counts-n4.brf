@@ -1,0 +1,19 @@
+Box { n: int }
+main() {
+  1 << true // error: A shift count must be an integer.
+  1 << 'a' // error: A shift count must be an integer.
+  1 << 1.5 // error: A shift count must be an integer.
+  1 << "text" // error: A shift count must be an integer.
+  1 << () // error: A shift count must be an integer.
+  1 << :tag // error: A shift count must be an integer.
+  1 << Box { n = 2 } // error: A shift count must be an integer.
+  true >> 1 // error: The shifted value must be an integer.
+  'a' >> 1 // error: The shifted value must be an integer.
+  dbl(1) >> 1 // error: The shifted value must be an integer.
+  false << // error: The shifted value must be an integer.
+    "text" // error: A shift count must be an integer.
+  let small: shrt = 1
+  let large: ulng = 1
+  small + large // error: Operator operands must have the same type; numeric conversions are explicit.
+  small & large // error: Operator operands must have the same type; numeric conversions are explicit.
+}

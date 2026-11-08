@@ -1,6 +1,6 @@
 # Document acceptance status
 
-**N1, N2 and N3 are complete for their milestone scope.** The
+**N1–N3 are complete for their milestone scope; N4 is in progress.** The
 [N1 final review](next-version-n1-review.md) checks its three completion
 criteria; the [N2 closure review](next-version-n2-review.md) records kind-based
 outcomes. The [N3 closure review](next-version-n3-review.md) records returned/
@@ -131,9 +131,15 @@ helpers; labels are `doc-errors`, `doc-pipelines`, `doc-memory` and
 expectation changes in this closure; unavailable examples remain listings,
 not native acceptance.
 
+N4's first slice implements mixed-type shift counts with independent literal
+contexts and pre-conversion range checks. Existing chapter audit cases remain
+unchanged; this does not promote a pending fence or complete N4. See the
+[shift notes](next-version-n4-shifts.md).
+
 Remaining milestone work:
 
-- **N4/N5:** add bindings/loops and interpolation fences to their chapter audits.
+- **N4:** bindings/let-else, inclusive ranges, typed loops and audit extensions.
+- **N5:** interpolation and its chapter audit extensions.
 - **N6:** overview, traits, collections and standard library scope inventories.
 
 N1's syntax/kind checks are not the N2 native audits. The plan's individual N2

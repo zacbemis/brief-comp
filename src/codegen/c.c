@@ -381,7 +381,8 @@ static void structures(FILE *out, const IrProgram *p) {
     fputs(";\n}\n", out);
   }
 }
-static void binary(FILE *out, const IrInstruction *in) {
+static void binary(FILE *out, const IrFunction *function,
+                   const IrInstruction *in) {
   BinaryOp op = in->as.binary;
   SemaTypeKind kind = in->type->kind;
   const char *operators[] = {"+",  "-", "*",  "/",  "%",  NULL, "==",
@@ -393,6 +394,16 @@ static void binary(FILE *out, const IrInstruction *in) {
   if ((kind >= SEMA_SHRT && kind <= SEMA_ULNG && helpers[op]) ||
       (kind == SEMA_STR && op == BINARY_ADD))
     fputs("  brt_locate(__FILE__, __LINE__);", out);
+  if ((op == BINARY_LSHIFT || op == BINARY_RSHIFT) &&
+      function->temporary_types[in->b] != in->type) {
+    // Operands have already been evaluated once, left to right. Check the
+    // count in its own type before the helper's signed/unsigned conversion.
+    fputs("  if (", out);
+    if (function->temporary_types[in->b]->is_signed)
+      fprintf(out, "brt_tmp_%zu < 0 || ", in->b);
+    fprintf(out, "brt_tmp_%zu >= %u) brt_panic(\"invalid shift count\");",
+            in->b, bits(kind));
+  }
   fprintf(out, "  brt_tmp_%zu = ", in->result);
   if (kind == SEMA_UNIT)
     fputs(op == BINARY_EQ ? "1" : "0", out);
@@ -699,7 +710,7 @@ int emit_c(FILE *out, const IrProgram *p) {
         break;
       }
       case IR_BINARY:
-        binary(out, in);
+        binary(out, f, in);
         break;
       case IR_UNARY: {
         SemaTypeKind kind = in->type->kind;

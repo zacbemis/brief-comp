@@ -1,0 +1,108 @@
+State { log: str }
+verify(value: bool, name: str) { if not value { print(name) } }
+left(state: &State) -> shrt { state.log = state.log + "L"
+  -3
+}
+count(state: &State) -> ulng { state.log = state.log + "R"
+  1
+}
+main() {
+  let s: shrt = -3
+  let us: ushrt = 3
+  let i: int = -3
+  let ui: uint = 3
+  let l: lng = -3
+  let ul: ulng = 3
+  let cs: shrt = 1
+  let cus: ushrt = 1
+  let ci: int = 1
+  let cui: uint = 1
+  let cl: lng = 1
+  let cul: ulng = 1
+  verify(s << cs == -6, "shrt << shrt")
+  verify(s >> cs == -2, "shrt >> shrt")
+  verify(s << cus == -6, "shrt << ushrt")
+  verify(s >> cus == -2, "shrt >> ushrt")
+  verify(s << ci == -6, "shrt << int")
+  verify(s >> ci == -2, "shrt >> int")
+  verify(s << cui == -6, "shrt << uint")
+  verify(s >> cui == -2, "shrt >> uint")
+  verify(s << cl == -6, "shrt << lng")
+  verify(s >> cl == -2, "shrt >> lng")
+  verify(s << cul == -6, "shrt << ulng")
+  verify(s >> cul == -2, "shrt >> ulng")
+  verify(us << cs == 6, "ushrt << shrt")
+  verify(us >> cs == 1, "ushrt >> shrt")
+  verify(us << cus == 6, "ushrt << ushrt")
+  verify(us >> cus == 1, "ushrt >> ushrt")
+  verify(us << ci == 6, "ushrt << int")
+  verify(us >> ci == 1, "ushrt >> int")
+  verify(us << cui == 6, "ushrt << uint")
+  verify(us >> cui == 1, "ushrt >> uint")
+  verify(us << cl == 6, "ushrt << lng")
+  verify(us >> cl == 1, "ushrt >> lng")
+  verify(us << cul == 6, "ushrt << ulng")
+  verify(us >> cul == 1, "ushrt >> ulng")
+  verify(i << cs == -6, "int << shrt")
+  verify(i >> cs == -2, "int >> shrt")
+  verify(i << cus == -6, "int << ushrt")
+  verify(i >> cus == -2, "int >> ushrt")
+  verify(i << ci == -6, "int << int")
+  verify(i >> ci == -2, "int >> int")
+  verify(i << cui == -6, "int << uint")
+  verify(i >> cui == -2, "int >> uint")
+  verify(i << cl == -6, "int << lng")
+  verify(i >> cl == -2, "int >> lng")
+  verify(i << cul == -6, "int << ulng")
+  verify(i >> cul == -2, "int >> ulng")
+  verify(ui << cs == 6, "uint << shrt")
+  verify(ui >> cs == 1, "uint >> shrt")
+  verify(ui << cus == 6, "uint << ushrt")
+  verify(ui >> cus == 1, "uint >> ushrt")
+  verify(ui << ci == 6, "uint << int")
+  verify(ui >> ci == 1, "uint >> int")
+  verify(ui << cui == 6, "uint << uint")
+  verify(ui >> cui == 1, "uint >> uint")
+  verify(ui << cl == 6, "uint << lng")
+  verify(ui >> cl == 1, "uint >> lng")
+  verify(ui << cul == 6, "uint << ulng")
+  verify(ui >> cul == 1, "uint >> ulng")
+  verify(l << cs == -6, "lng << shrt")
+  verify(l >> cs == -2, "lng >> shrt")
+  verify(l << cus == -6, "lng << ushrt")
+  verify(l >> cus == -2, "lng >> ushrt")
+  verify(l << ci == -6, "lng << int")
+  verify(l >> ci == -2, "lng >> int")
+  verify(l << cui == -6, "lng << uint")
+  verify(l >> cui == -2, "lng >> uint")
+  verify(l << cl == -6, "lng << lng")
+  verify(l >> cl == -2, "lng >> lng")
+  verify(l << cul == -6, "lng << ulng")
+  verify(l >> cul == -2, "lng >> ulng")
+  verify(ul << cs == 6, "ulng << shrt")
+  verify(ul >> cs == 1, "ulng >> shrt")
+  verify(ul << cus == 6, "ulng << ushrt")
+  verify(ul >> cus == 1, "ulng >> ushrt")
+  verify(ul << ci == 6, "ulng << int")
+  verify(ul >> ci == 1, "ulng >> int")
+  verify(ul << cui == 6, "ulng << uint")
+  verify(ul >> cui == 1, "ulng >> uint")
+  verify(ul << cl == 6, "ulng << lng")
+  verify(ul >> cl == 1, "ulng >> lng")
+  verify(ul << cul == 6, "ulng << ulng")
+  verify(ul >> cul == 1, "ulng >> ulng")
+  let literal: int = 1 << cul
+  verify(literal == 2, "literal result type")
+  let high: ulng = 1 << shrt(63)
+  verify(high == 9223372036854775808, "unsigned high bit")
+  verify(lng(-1) << ulng(63) == -9223372036854775808, "signed minimum")
+  verify(ulng(1) << (3 * 8 + 1) == 33554432, "documented computed count")
+  verify(shrt(-32768) >> ulng(15) == -1, "short sign extension")
+  verify(ushrt(65535) >> lng(15) == 1, "short zero fill")
+  let state = State { log = "" }
+  verify(left(state) << count(state) == -6, "effectful operands")
+  print(state.log)
+  print("all shift pairs")
+}
+// expect: LR
+// expect: all shift pairs

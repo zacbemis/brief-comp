@@ -1,6 +1,6 @@
 # Plan: Moving the Compiler to the Next-Version Language
 
-> **Status: N0, N1, N2 and N3 complete; N4–N6 remain.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
+> **Status: N0–N3 complete; N4 in progress; N5–N6 remain.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
 
 ## Goal
 
@@ -223,7 +223,8 @@ audits are complete. N3 adds unchanged outcome returns, flow-checked binding
 consumption/rearming, join/path diagnostics, scope exits, loops and recovery.
 The section-6 errors extension and scoped pipelines/memory audits are complete.
 This does not complete the next-version language or claim native acceptance of
-listed APIs/fragments; N4–N6 remain.
+listed APIs/fragments. N4 has started with mixed-type shift counts; its other
+work and N5–N6 remain.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -371,6 +372,23 @@ survive recovery without repeated join primaries. Scoped audits classify all
 listings, and 55 independent prose programs exercise available rules. No old
 expectation changes in this closure slice. The full four-configuration -Werror
 matrix passes; the closure review is `tests/next-version-n3-review.md`.
+
+### N4 (in progress)
+
+- [x] Admit shift counts of any integer type, preserving the left operand's
+  type and checking the count before narrowing or signedness conversion.
+- [ ] Add typed declared-then-assigned let/var bindings and definite assignment
+  on the shared flow framework, with safe ownership and outcome integration.
+- [ ] Harden definite assignment across joins, exits, loop back edges, nesting
+  and recovery, retaining read-only permissions and exactly-once let writes.
+- [ ] Implement let ... else through checked matching, requiring a divergent
+  else and preserving the remaining value, ownership and permissions.
+- [ ] Add inclusive range patterns and loops, with overflow-safe maximum-edge
+  iteration and continue targeting the exhaustion check.
+- [ ] Add explicitly typed loop variables with contextual bounds and diagnostics.
+- [ ] Extend scoped native/parser audits for N4 fences without extraction,
+  completed fragments or stand-in APIs/types.
+- [ ] Close N4 with its expectation review and full four-configuration matrix.
 
 ### Historical implementation checkpoints
 
@@ -3696,6 +3714,33 @@ executed fence prefixes/bodies, 22 prior errors cases and normal/sanitized
 sources are byte-identical. Pinned formatting, diff/prose and protected-plan
 checks pass. Full results and scoped limitations are in
 `tests/next-version-n3-review.md`. N4–N6 remain.
+
+### N4 increment: independent integer shift counts
+
+Reviewed base ad96a16. N4 starts with its bounded shift-count Design change.
+Both operands must be integers, but the count may have any integer width or
+signedness. The left operand and its result context determine the result type;
+the count cannot anchor or widen it. Counts are checked in their own type before
+the runtime helper converts them. Negative/oversized counts panic even for zero
+values; signed right shift and checked left-shift overflow remain unchanged.
+Parser, IR shape, runtime, flow/permissions and language chapters are unchanged.
+
+Changed existing expectations: no old test assertion, marker, golden, diagnostic
+or runtime contract changes. Three retained C outputs change only count-literal
+temporaries and pre-conversion guards: numbers.brf:30/31/33 and the old
+panics/shift-count.brf:3 and panics/shift-overflow.brf:3. These six temporaries
+now default to int independently of the left type. Full details are in
+`tests/next-version-n4-shifts.md`; all other successful C outputs are identical.
+
+Six new unit groups cover every integer type pair, contextual literals, result
+inference, rechecks, recovery and noninteger rejection. Ten native fixtures add
+all 72 pair/direction checks, ordered single evaluation, seven invalid-count
+panics, one overflow panic and fourteen rejection sites. Default GCC Debug and
+fresh -Werror Clang Debug ASan/UBSan pass 52/52 each. Across 2,864 retained
+sources all ASTs and 283 prior sanitized runs match; only the three inventoried
+C outputs change. Thirty-six strict native runs, pinned formatting, diff/prose
+and protected-plan checks pass. N4 remains in progress; its complete matrix is
+reserved for closure.
 
 ## Risks
 

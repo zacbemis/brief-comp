@@ -1,0 +1,8 @@
+main() {
+  let value: ulng = 0
+  let count: ushrt = 64
+  value << count
+}
+// panic: panic: invalid shift count
+// panic: shift-width-count-n4.brf:4
+// exit: 1

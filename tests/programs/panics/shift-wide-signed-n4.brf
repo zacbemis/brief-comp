@@ -1,0 +1,8 @@
+main() {
+  let value: ushrt = 0
+  let count: lng = 1099511627776
+  value >> count
+}
+// panic: panic: invalid shift count
+// panic: shift-wide-signed-n4.brf:4
+// exit: 1

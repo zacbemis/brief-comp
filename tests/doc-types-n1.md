@@ -1,5 +1,9 @@
 # Current types native audit (N1 scope)
 
+The N1 audit cases below remain unchanged. Mixed-type shift counts are now
+implemented in N4's [first slice](next-version-n4-shifts.md), with independent
+unit/native coverage; the broader N4 chapter audit extension remains separate.
+
 `test_doc_types_n1.cmake` reads `docs/lang-types.txt`, not `docs/v0/`. All **28
 fences** are classified: six execute successfully, one reaches its first
 integer-overflow panic, one rejects all three documented conversion errors,

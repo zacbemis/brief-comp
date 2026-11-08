@@ -1,0 +1,8 @@
+main() {
+  let value: ulng = 0
+  let count: lng = -1
+  value >> count
+}
+// panic: panic: invalid shift count
+// panic: shift-negative-unsigned-n4.brf:4
+// exit: 1

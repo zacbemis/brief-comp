@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **198 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **208 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for parser coverage and gaps.
 
@@ -115,9 +115,18 @@ bad jumps now reject instead of silently discarding outcomes. See
 N3 closure adds no program fixture or changed marker. Its section-6 errors
 extension and scoped pipelines/memory audits generate separate whole-fence and
 independent prose cases under the build tree, using `doc_native.cmake`. Those
-are not counted in this 198-fixture inventory. See
+are not counted in that 198-fixture inventory. See
 [the closure review](../next-version-n3-review.md) for their scope, the full
 four-configuration matrix and the unchanged retained-source/runtime comparison.
+
+N4's first slice adds `shift-counts-n4.brf`, its fourteen-site error fixture
+and eight panic fixtures. All 36 integer type pairs run both shift directions,
+including arithmetic signed right shifts and single ordered operand evaluation.
+Counts keep their own signedness/width until validated. Invalid negative,
+width-sized, 2^40 and extreme 64-bit counts panic even for zero left values;
+valid left shifts still check overflow. No old marker changes. Three old C
+outputs change only independent count temporaries and guards; see
+[the exact inventory](../next-version-n4-shifts.md).
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

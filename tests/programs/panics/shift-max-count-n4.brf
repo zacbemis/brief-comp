@@ -1,0 +1,8 @@
+main() {
+  let value: lng = 0
+  let count: ulng = 18446744073709551615
+  value >> count
+}
+// panic: panic: invalid shift count
+// panic: shift-max-count-n4.brf:4
+// exit: 1

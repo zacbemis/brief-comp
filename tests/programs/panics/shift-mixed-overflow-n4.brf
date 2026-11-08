@@ -1,0 +1,8 @@
+main() {
+  let value: shrt = 1
+  let count: ulng = 15
+  value << count
+}
+// panic: panic: integer overflow
+// panic: shift-mixed-overflow-n4.brf:4
+// exit: 1
