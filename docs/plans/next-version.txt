@@ -1,6 +1,6 @@
 # Plan: Moving the Compiler to the Next-Version Language
 
-> **Status: N0, N1 and N2 complete; N3 in progress.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
+> **Status: N0, N1, N2 and N3 complete; N4–N6 remain.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
 
 ## Goal
 
@@ -215,14 +215,15 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 
 ## Implementation progress
 
-N0, N1 and N2 are complete for their milestone scope. Final reviews are in
-`tests/next-version-n1-review.md` and `tests/next-version-n2-review.md`. N2's
-kind-based outcomes, postfixes, exact results, optional endings, entry/diagnostic
-rules and scoped symbols/errors native audits are complete. This does not
-complete the next-version language or claim native acceptance of listed
-APIs/fragments. N3 now includes unchanged outcome returns and flow-checked local
-binding consumption, join/path diagnostics and scope exits. Broader loop and
-recovery coverage and its scoped native audits remain.
+N0, N1, N2 and N3 are complete for their milestone scope. Final reviews are in
+`tests/next-version-n1-review.md`, `tests/next-version-n2-review.md` and
+`tests/next-version-n3-review.md`. N2's kind-based outcomes, postfixes, exact
+results, optional endings, entry/diagnostic rules and scoped symbols/errors
+audits are complete. N3 adds unchanged outcome returns, flow-checked binding
+consumption/rearming, join/path diagnostics, scope exits, loops and recovery.
+The section-6 errors extension and scoped pipelines/memory audits are complete.
+This does not complete the next-version language or claim native acceptance of
+listed APIs/fragments; N4–N6 remain.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -344,12 +345,12 @@ error kinds, entry status by active kind, symbol diagnostic spelling, mandatory
 call handling, error-only/mixed postfixes, no-error postfix rejection, exact
 returns, only-:ok normalization and optional endings/ambiguity. Scoped native
 audits classify all 53 symbols/errors fences without supplying missing APIs or
-splitting fragments; section 6 remains N3. The full four-configuration -Werror
+splitting fragments; section 6 is covered by N3 below. The four-way -Werror
 matrix passes. A sole success with several payload positions still requires
 matching rather than an invented tuple result. Detailed slices and reviewed
 expectation inventories follow the N1 historical records below.
 
-### N3 (in progress)
+### N3 (complete)
 
 - [x] Return outcomes unchanged in TAIL/ret positions, including branch tails,
   written/inferred/partial results and recursive inference.
@@ -359,9 +360,17 @@ expectation inventories follow the N1 historical records below.
   with one primary per invalid shape and useful source notes.
 - [x] Check loop back edges, outer-binding consumption, nesting and recovery
   using the shared flow framework, with permissions behavior unchanged.
-- [ ] Extend the errors audit for section 6 and add scoped pipelines/memory
+- [x] Extend the errors audit for section 6 and add scoped pipelines/memory
   native audits without extracted fragments or stand-in APIs/types.
-- [ ] Close N3 with its expectation review and full four-configuration matrix.
+- [x] Close N3 with its expectation review and full four-configuration matrix.
+
+N3 returns complete outcomes unchanged and tracks written local outcomes through
+handling, rearming, branches, exits and loop fixed points. Independent errors
+survive recovery without repeated join primaries. Scoped audits classify all
+73 errors/pipelines/memory fences: seven execute unchanged, 66 remain explicit
+listings, and 55 independent prose programs exercise available rules. No old
+expectation changes in this closure slice. The full four-configuration -Werror
+matrix passes; the closure review is `tests/next-version-n3-review.md`.
 
 ### Historical implementation checkpoints
 
@@ -3656,6 +3665,37 @@ All 2,735 retained ASTs, 1,117 previously successful C outputs and 256 prior
 sanitized runs match a fresh HEAD baseline. Eight strict native runs pass;
 formatter, diff/prose and protected-plan checks pass. N3 remains in progress
 for its scoped native audits and the final four-configuration closure matrix.
+
+### N3 closure: scoped native audits and final review
+
+Reviewed base 27d7eb1. N3 is complete for its milestone scope. The errors audit
+is extended in place for section 6, and scoped pipelines/memory audits use the
+unchanged doc_native.cmake whole-fence/prose/listing discipline. All 73 fences
+are hash/count guarded and classified once. Seven whole fences execute, 66
+remain explicit listings, and 55 independent prose programs exercise available
+rules. No missing API/type/body, extraction or split alternative is supplied.
+
+Changed existing expectations: none. All old test sources/fixtures, markers,
+goldens, .expect files, parser classifications and generated audit cases stay.
+The six section-6 native listings become five context listings and the complete
+print execution, without changing any prior runtime contract. New programs
+cover the available returned/bound outcome, pipeline and ownership/permission
+rules. Exact coverage boundaries are recorded in tests/doc-errors-n3.md,
+tests/doc-pipelines-n3.md and tests/doc-memory-n3.md; historical N2 notes remain.
+Compiler, shared flow/permissions, IR/RC, runtime and language chapters stay.
+
+Default build/ and fresh -Werror GCC Debug ASan/UBSan, Clang Debug ASan/UBSan
+and GCC Release pass 51/51 each; GCC Debug without sanitizers passes 41/41.
+A fresh HEAD baseline retains 2,824 sources / 5,648 AST/emit observations,
+including 1,155 successful C outputs: zero deltas. All 258 prior sanitized
+executable observations match. Forty-one audit executables pass 164 strict
+GCC/Clang normal/sanitized runs, including 25 new sources and 100 new runs.
+Twenty-one negative audit programs pin 64 sites, including 15 new programs and
+55 new sites, and reject emit/build/run before a nonexistent CC. All seven
+executed fence prefixes/bodies, 22 prior errors cases and normal/sanitized
+sources are byte-identical. Pinned formatting, diff/prose and protected-plan
+checks pass. Full results and scoped limitations are in
+`tests/next-version-n3-review.md`. N4–N6 remain.
 
 ## Risks
 

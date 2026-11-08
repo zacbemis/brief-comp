@@ -7,7 +7,8 @@ native_fences(fragment "Standalone signatures, alternatives or interleaved decla
 native_fences(context "Missing parse/readFile/Json inputs or APIs; no invented implementations, including the intended omitted-error rejection" "2;3;10;11;12;13;14")
 native_fences(context "Missing module/type/API context; qualified identity and composition require the bootstrap loader" "16;17;18;19;32;37;38")
 native_fences(later "Collection APIs and lambdas; 35 also needs the omitted users binding and N4 loops" "8;34;35")
-native_fences(later "Section 6 is N3, explicitly outside this audit's acceptance scope, including File-dependent and complete print fences" "24;25;26;27;28;29")
+native_fences(context "Section 6 needs File/readFile/Loan/User and omitted local inputs; no stand-in APIs or completed fences" "24;25;26;27;28")
+native_fences(run "Section 6's complete print body returns unit and may be ignored" "29")
 native_fences(context "Section 7 needs readFile/parse/Json and N5 brace escaping; no completed fence or premature escape support" "30")
 native_fences(later "Section 10 let-else is N4 and find is unavailable" "36")
 
@@ -29,7 +30,7 @@ native_run(5 health-data [=[
 // expect: down]=])
 
 # Independently authored complete programs, NOT supplied File/Json/User APIs.
-# N3 returned calls and stored/linear outcomes are deliberately not exercised.
+# Existing N2 cases stay unchanged; N3 section-6 programs follow below.
 native_prose(prose-scalar-postfix [=[
 source(n: int) -> :ok[int] | :!bad[str] {
   if n < 0 { ret :!bad["owned " + "failure"] }
@@ -373,5 +374,235 @@ main() {
 // expect: unit payload
 ]=])
 
-native_finish(22 0 37 21)
+# Section 6 extension at N3. Keep the existing test name and N2 cases intact.
+native_run_body(29 ignored-unit "" "// expect: Hello")
+native_prose(prose-returned-outcomes [=[
+Box { text: str }
+Result = :ok[Box] | :!bad[str]
+source(n: int) -> Result {
+  if n < 0 { ret :!bad["owned " + "error"] }
+  Box { text = "owned " + str(n) }
+}
+tail(n: int) -> Result { source(n) }
+explicit(n: int) { ret source(n) }
+partial(n: int) -> :ok[Box] | _ { n |> source() }
+branch(n: int) {
+  if n == 0 { tail(n) } else { n |> explicit() }
+}
+matched(n: int) { n |> { 0 => partial(n)
+                        _ => branch(n) } }
+show(n: int) {
+  matched(n) |> { :ok[box] => print(box.text)
+                  :!bad[text] => print(text) }
+}
+main() { show(0)
+  show(2)
+  show(-1)
+}
+// expect: owned 0
+// expect: owned 2
+// expect: owned error
+]=])
+native_prose(prose-delayed-handlers [=[
+Result = :ok[str] | :!bad[str]
+source(n: int) -> Result {
+  if n < 0 { ret :!bad["owned error"] }
+  "owned " + str(n)
+}
+forward(n: int) { let saved = source(n)
+  print("bound")
+  ret saved
+}
+main() {
+  let first = source(1)
+  print("before handling")
+  print(first!)
+  let second = source(2)
+  print(second?)
+  let third = source(-1)
+  third |> { :ok[text] => print(text)
+             :!bad[text] => print(text) }
+  let number = int("42")
+  print(str(number!))
+  forward(3) |> { :ok[text] => print(text)
+                  :!bad[text] => print(text) }
+}
+// expect: before handling
+// expect: owned 1
+// expect: owned 2
+// expect: owned error
+// expect: 42
+// expect: bound
+// expect: owned 3
+]=])
+native_prose(prose-rearmed-outcomes [=[
+Box { text: str }
+Result = :ok[Box] | :!bad[str]
+source(n: int) -> Result { Box { text = "box " + str(n) } }
+main() {
+  var r = source(0)
+  let original = r!
+  r = source(1)
+  for i in 0..3 { let box = r!
+    print(box.text)
+    r = source(i + 2)
+  }
+  print(r!.text)
+  print(original.text)
+  r = :!bad["owned replacement"]
+  r |> { :ok[box] => print(box.text)
+         :!bad[text] => print(text) }
+}
+// expect: box 1
+// expect: box 2
+// expect: box 3
+// expect: box 4
+// expect: box 0
+// expect: owned replacement
+]=])
+native_prose(prose-returned-error-entry [=[
+failure() -> :!bad[str] { :!bad["owned " + "failure"] }
+main() {
+  let pending = failure()
+  print("returning")
+  pending
+}
+// expect: returning
+// stderr: error: :!bad["owned failure"]
+// exit: 1
+]=])
+native_prose(prose-neutral-data [=[
+Data = :adult | :senior
+Maybe = :ok[str] | :none
+classify() -> Data { :adult }
+optional() -> Maybe { :none }
+main() {
+  classify()
+  let data = classify()
+  let copy = data
+  copy |> { :adult => print("adult")
+            :senior => print("senior") }
+  let absent = optional()
+  let again = absent
+  again |> { :ok[text] => print(text)
+             :none => print("none") }
+  let nested = :holder[:!inner["owned"]]
+  let same = nested
+  same |> { :holder[inner] => inner |> { :!inner[text] => print(text) } }
+}
+// expect: adult
+// expect: none
+// expect: owned
+]=])
+native_prose(prose-unhandled-calls [=[
+Result = :ok[int] | :!bad
+Box { value: Result }
+source() -> Result { 7 }
+take(value: Result) {}
+wrong() {
+  source() // error: A call that can fail must be handled with ?, !, or a match.
+  take(source()) // error: A call that can fail must be handled with ?, !, or a match.
+  let box = Box { value = source() } // error: A call that can fail must be handled with ?, !, or a match.
+  let outer = :holder[source()] // error: A call that can fail must be handled with ?, !, or a match.
+}
+main() {}
+]=])
+native_prose(prose-forbidden-transfers [=[
+Result = :ok[int] | :!bad
+Box { value: Result }
+source() -> Result { 7 }
+take(value: Result) {}
+copy() { let r = source()
+  let next = r // error: Outcome binding must be handled with ?, !, a match, or return.
+}
+argument() { let r = source()
+  take(r) // error: Outcome binding must be handled with ?, !, a match, or return.
+}
+field() { let r = source()
+  let box = Box { value = r } // error: Outcome binding must be handled with ?, !, a match, or return.
+}
+payload() { let r = source()
+  let outer = :holder[r] // error: Outcome binding must be handled with ?, !, a match, or return.
+}
+main() {}
+]=])
+native_prose(prose-second-handling [=[
+source() -> :ok[int] | :!bad { 7 }
+postfix() { let r = source()
+  r!
+  r? // error: Outcome binding has already been handled.
+}
+matched() { let r = source()
+  r |> { _ => () }
+  r! // error: Outcome binding has already been handled.
+}
+returned() { let r = source()
+  r!
+  ret r // error: Outcome binding has already been handled.
+}
+main() {}
+]=])
+native_prose(prose-pending-exits [=[
+source() -> :ok[int] | :!bad { 7 }
+normal() { let r = source()
+} // error: Outcome binding is not handled before leaving its scope.
+early() { let r = source()
+  ret // error: Outcome binding is not handled before leaving its scope.
+}
+propagate() { let r = source()
+  source()? // error: Outcome binding is not handled before leaving its scope.
+  r!
+}
+jump() { while true { let r = source()
+  break // error: Outcome binding is not handled before leaving its scope.
+} }
+repeat() { for i in 0..2 { let r = source()
+  continue // error: Outcome binding is not handled before leaving its scope.
+} }
+main() {}
+]=])
+native_prose(prose-path-joins [=[
+source() -> :ok[int] | :!bad { 7 }
+branch(flag: bool) { let r = source()
+  if flag { r! } // error: Outcome binding is handled on some paths but not others.
+  r!
+}
+matched(flag: bool) { let r = source()
+  flag |> { true => { r! } // error: Outcome binding is handled on some paths but not others.
+            false => { () } }
+  ()
+}
+repeated(flag: bool) { let r = source()
+  while flag { r! } // error: Outcome binding is handled on some paths but not others.
+}
+main() {}
+]=])
+native_prose(prose-illegal-writes [=[
+source() -> :ok[int] | :!bad { 7 }
+pending() { var r = source()
+  r = source() // error: Outcome binding cannot be reassigned.
+}
+immutable() { let r = source()
+  r!
+  r = source() // error: Outcome binding cannot be reassigned.
+}
+typeError() { var r = source()
+  r!
+  r = true // error: Assignment value has the wrong type.
+}
+main() {}
+]=])
+native_prose(prose-written-outcome-contract [=[
+Result = :ok[int] | :!bad
+source() -> Result { 7 }
+plain() -> int { // error: Function body does not match the written return type.
+  source()
+}
+nested() -> :ok[Result] | :!outer { // error: Function body does not match the written return type.
+  source()
+}
+main() {}
+]=])
+
+native_finish(35 0 36 33)
 native_execute()

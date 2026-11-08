@@ -112,6 +112,13 @@ and independent typing errors. No old expectation changes; newly discovered
 bad jumps now reject instead of silently discarding outcomes. See
 [the loop inventory](../next-version-n3-loop-recovery.md).
 
+N3 closure adds no program fixture or changed marker. Its section-6 errors
+extension and scoped pipelines/memory audits generate separate whole-fence and
+independent prose cases under the build tree, using `doc_native.cmake`. Those
+are not counted in this 198-fixture inventory. See
+[the closure review](../next-version-n3-review.md) for their scope, the full
+four-configuration matrix and the unchanged retained-source/runtime comparison.
+
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside
 the compiler. CTest runs normal and `--debug` (ASan/UBSan) variants; no interpreter

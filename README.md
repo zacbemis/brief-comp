@@ -12,8 +12,8 @@ scalar/symbol/string matching, named symbol sets, success/error inference,
 Compilation supports the subset below; the parser accepts much more syntax.
 The design docs also include deferred features and fragments needing context.
 The [document status](tests/doc-acceptance.md) distinguishes retired v0 evidence
-from the current parser inventory and scoped syntax/functions/types/modules
-native audits, plus the whole raw-base inventory and six independent examples.
+from the current parser inventory and scoped N1–N3 chapter native audits,
+plus the whole raw-base inventory and six independent examples.
 Listed fragments and unavailable APIs are not passing native coverage.
 
 ## Build and test
@@ -167,8 +167,10 @@ Inconsistent paths report once at their join with an unhandled-path note.
 Neutral-only data remains freely reusable. Loop checks cover repeated outer
 consumption, rearmed values, nesting and recovery. Jumps evaluated in an inner
 condition or range bound discharge the enclosing loop body's obligations.
-N3's native audits remain; see the
-[loop and recovery notes](tests/next-version-n3-loop-recovery.md).
+N3 is complete for its milestone scope, including the section-6 errors
+extension and scoped pipelines/memory native audits. The full four-configuration
+`-Werror` matrix passes; unavailable APIs/fragments remain explicit listings.
+See the [N3 closure review](tests/next-version-n3-review.md).
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and

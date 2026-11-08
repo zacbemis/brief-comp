@@ -1,9 +1,10 @@
 # Document acceptance status
 
-**N1 and N2 are complete for their milestone scope; N3 is in progress.** The
+**N1, N2 and N3 are complete for their milestone scope.** The
 [N1 final review](next-version-n1-review.md) checks its three completion
 criteria; the [N2 closure review](next-version-n2-review.md) records kind-based
-outcomes and its scoped audits.
+outcomes. The [N3 closure review](next-version-n3-review.md) records returned/
+bound outcomes, flow checks and its scoped native audits.
 
 First-version native document audits and all spelling bridges have been retired
 as required by `docs/plans/next-version.txt`. Executable scripts and CTest
@@ -15,10 +16,10 @@ The replacement [current-document parser inventory](doc-parser.md) reads all
 and two zero-fence listings. Parser checks are not native acceptance. The
 retirement left an intentional native document-coverage gap. The scoped
 syntax/functions/types/modules audits and raw-base inventory cover available
-N1 rules; the symbols/errors audits now cover available N2 rules, not later
-native/API requirements. Six complete independent examples run in
-normal/sanitized CI too; program fixtures and independent C/compiler/native
-driver tests remain active.
+N1 rules; symbols/errors cover available N2 rules, and the section-6 errors
+extension and pipelines/memory audits cover available N3 rules, not later APIs.
+Six complete independent examples run in normal/sanitized CI too; program
+fixtures and independent C/compiler/native driver tests remain active.
 
 ```sh
 ctest --test-dir build -L doc-parser --output-on-failure
@@ -97,13 +98,13 @@ Payload-less `:ok` and `:none` together reject; `:ok[()] | :none` remains valid.
 
 The [symbols native audit](doc-symbols-n2.md) classifies all 15 fences: one
 unchanged alias executes, 14 remain listings and eleven independent prose
-programs exercise available rules. The [errors native audit](doc-errors-n2.md)
-classifies all 38 fences: one unchanged alias executes, 37 remain listings and
-21 independent prose programs exercise sections 1–5 and 7–12. Section 6's six
-fences stay with N3. No missing APIs, stand-in types, split fences or scope
-relocations are supplied. Run them with `-L doc-symbols` / `-L doc-errors`.
-N2 closes with the full four-configuration matrix and no changed existing
-expectation in this audit slice; it is not full chapter/API acceptance.
+programs exercise available rules. The historical
+[N2 errors audit](doc-errors-n2.md) covered sections 1–5 and 7–12 with one
+unchanged alias, 37 listings and 21 independent prose programs. Those cases are
+retained by the [N3 extension](doc-errors-n3.md). No missing APIs, stand-in
+types, split fences or scope relocations are supplied. Run them with
+`-L doc-symbols` / `-L doc-errors`. N2 closed with the full matrix and no
+changed existing expectation in its audit slice, not full chapter acceptance.
 
 N3 accepts unchanged outcome returns in tail/ret positions, including
 value-producing branch tails and final pipeline stages. Written let/var outcome
@@ -113,13 +114,25 @@ Inconsistent paths report once at their first join, with an unhandled-path
 note, and scope exits check departing obligations. Written result contracts
 remain enforced. Loop coverage includes back edges, regenerated values, nested
 jump targets and independent-error recovery. Bounds execute once; repeated
-conditions participate in the header. This does not promote section 6 fences
-or complete an N3 native audit. See the
+conditions participate in the header. See the
 [loop and recovery notes](next-version-n3-loop-recovery.md).
+
+N3's [errors extension](doc-errors-n3.md) classifies section 6 as five context
+listings and one unchanged print execution; the complete errors audit now has
+two whole executions, 36 listings and 33 independent prose programs. The scoped
+[pipelines audit](doc-pipelines-n3.md) has one unchanged whole execution,
+sixteen listings and twelve prose programs. The scoped
+[memory audit](doc-memory-n3.md) has four unchanged whole executions, fourteen
+listings and ten prose programs.
+All 73 fences are classified exactly once without extraction, substitutions
+or invented APIs. Normal/sanitized sources use unchanged `doc_native.cmake`
+helpers; labels are `doc-errors`, `doc-pipelines`, `doc-memory` and
+`doc-native`. The full four-configuration `-Werror` matrix passes. No old
+expectation changes in this closure; unavailable examples remain listings,
+not native acceptance.
 
 Remaining milestone work:
 
-- **N3:** error handling section 6, pipelines and memory.
 - **N4/N5:** add bindings/loops and interpolation fences to their chapter audits.
 - **N6:** overview, traits, collections and standard library scope inventories.
 

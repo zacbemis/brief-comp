@@ -1,5 +1,9 @@
 # N2 native audit: errors and outcomes
 
+Historical N2 scope and counts follow. The same audit is now extended for
+section 6; see [the N3 extension](doc-errors-n3.md) for current native coverage.
+The old cases and expectations are retained unchanged.
+
 Base: `c02b91b`, committed unchanged. `test_doc_errors_n2.cmake` uses the
 unchanged `doc_native.cmake` framework. The full 38-fence chapter is hash/count
 guarded and classified exactly once, but native acceptance is scoped to
