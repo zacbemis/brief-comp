@@ -1,0 +1,77 @@
+Box { n: int }
+Result = :ok[int] | :!bad
+branch(flag: bool) { let n: int
+  if flag { if flag { n = 1 } } else { n = 2 }
+  print(str(n)) // error: Binding must be assigned before it is read.
+}
+matched(flag: bool) { let n: int
+  flag |> { true => n = 1
+            false => () }
+  print(str(n)) // error: Binding must be assigned before it is read.
+}
+zero() { var n: int
+  for i in 0..1 { n = i }
+  print(str(n)) // error: Binding must be assigned before it is read.
+}
+missingBreak(flag: bool) { let n: int
+  while true { if flag { n = 1
+                        break } else { break } }
+  print(str(n)) // error: Binding must be assigned before it is read.
+}
+continued() { let n: int
+  for i in 0..2 { n = i // error: A declared let binding can only be assigned once on every path.
+    continue }
+}
+nested() { let n: int
+  for outer in 0..2 { while true {
+    n = 1 // error: A declared let binding can only be assigned once on every path.
+    break
+  } }
+}
+condition(flag: bool) { let n: int
+  while (if flag { n = 1 // error: A declared let binding can only be assigned once on every path.
+                   true } else { false }) {}
+}
+bounds(flag: bool) { let n: int
+  for i in (if flag { n = 1
+                     0 } else { n = 2
+                                0 })..(if flag {
+    n = 3 // error: A declared let binding can only be assigned once on every path.
+    2 } else { 2 }) {}
+}
+take(a: int, b: int) {}
+order() { let n: int
+  take(n, if true { n = 1 // error: Binding must be assigned before it is read.
+                    2 } else { n = 2
+                               3 })
+}
+immutableCompound() { let r: Result
+  r = :ok[1]
+  r += :!bad // error: Cannot reassign an immutable binding.
+}
+immutableUpdate() { let r: Result
+  r++ // error: Cannot reassign an immutable binding.
+}
+immutableHandled() { let r: Result
+  r = :ok[1]
+  r!
+  r-- // error: Cannot reassign an immutable binding.
+}
+invalidRhs() { let n: int
+  n = true // error: Assignment value has the wrong type.
+  print(str(n)) // error: Binding must be assigned before it is read.
+}
+readonlyJoin(box: Box, flag: bool) { let alias: Box
+  if flag { alias = box } else { alias = Box { n = 1 } }
+  alias.n = 2 // error: Cannot mutate through an ordinary parameter; use &.
+}
+readonlyLoop(box: Box) { var alias: Box
+  alias = box
+  for i in 0..2 { alias = Box { n = i } }
+  alias.n = 2 // error: Cannot mutate through an ordinary parameter; use &.
+}
+argument() { let n: int
+  take(true, 1) // error: Function argument has the wrong type.
+  n = 1
+}
+main() {}

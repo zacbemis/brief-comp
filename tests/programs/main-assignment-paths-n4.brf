@@ -1,0 +1,15 @@
+Result = :ok[str] | :!bad[str]
+main() -> Result {
+  print("before loop propagation")
+  for i in 0..2 {
+    let unassigned: str
+    let result: str
+    result = if true { :!bad["owned " + "loop exit"]? }
+             else { "not reached" }
+    print(result)
+  }
+  "not reached"
+}
+// expect: before loop propagation
+// stderr: error: :!bad["owned loop exit"]
+// exit: 1

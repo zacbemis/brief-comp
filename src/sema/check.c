@@ -522,7 +522,9 @@ static const SemaType *literal(Checker *c, SemaExpr *e,
 static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
                              Use use);
 static void mutable(Checker *c, SemaVar *v, Span span) {
-  if (v && !v->mutable && (!v->outcome_binding || !c->reachable))
+  // Deferred plain stores bypass this check below. Compound/update writes
+  // must still diagnose before assignment recovery suppresses outcome errors.
+  if (v && !v->mutable && (v->deferred || !v->outcome_binding || !c->reachable))
     error(c, span, "Cannot reassign an immutable binding.");
 }
 static const SemaType *lvalue(Checker *c, SemaExpr *e) {

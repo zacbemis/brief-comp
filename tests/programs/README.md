@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **211 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **214 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for parser coverage and gaps.
 
@@ -136,6 +136,16 @@ rearmed outcomes, returned owned errors and borrowed access. Seventeen negative
 sites pin definite-assignment, exactly-once let writes and existing outcome/
 permission/type diagnostics. No old expectation changes; see
 [the slice notes](../next-version-n4-definite-assignment.md).
+
+The assignment-path slice adds `assignment-paths-n4.brf`,
+`main-assignment-paths-n4.brf` and `errors/assignment-paths-n4.brf`. Native
+checks initialize owned values through branches, loop breaks, range bounds and
+early-returning right-hand sides, and propagate an owned error out of a loop
+before its deferred bindings are stored. Seventeen negative sites pin missing
+branch, match and loop assignments, let writes in back edges, conditions and
+bounds, argument order and immutable compound/update writes. No old
+expectation changes; see
+[the slice notes](../next-version-n4-assignment-paths.md).
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

@@ -1,0 +1,81 @@
+Box { text: str }
+Result = :ok[Box] | :!bad[Box]
+select(flag: bool) -> Box {
+  let box: Box
+  while true {
+    if flag { box = Box { text = "selected " + "true" }
+              break }
+    else { box = Box { text = "selected " + "false" }
+           break }
+  }
+  box
+}
+rhs(flag: bool) -> Box {
+  let box: Box
+  box = if flag {
+    box = Box { text = "rhs " + "return" }
+    ret box
+  } else { Box { text = "rhs " + "completion" } }
+  box
+}
+bounds(flag: bool) -> Box {
+  let box: Box
+  for i in (if flag { box = Box { text = "bound " + "true" }
+                      0 }
+            else { box = Box { text = "bound " + "false" }
+                   0 })..1 {}
+  box
+}
+jump(flag: bool) -> Box {
+  let box: Box
+  while true {
+    for i in (if flag { box = Box { text = "bound " + "break" }
+                        break }
+              else { 0 })..2 {}
+    box = Box { text = "outer " + "break" }
+    break
+  }
+  box
+}
+propagate(flag: bool) -> Result {
+  let box: Box
+  box = if flag { :!bad[Box { text = "owned " + "propagation" }]? }
+        else { select(true) }
+  box
+}
+main() {
+  print(select(true).text)
+  print(select(false).text)
+  print(rhs(true).text)
+  print(rhs(false).text)
+  print(bounds(true).text)
+  print(bounds(false).text)
+  print(jump(true).text)
+  print(jump(false).text)
+  for outer in 0..3 {
+    let saved: Box
+    while (if outer == 0 { saved = Box { text = "discarded condition" }
+                           continue } else { false }) {}
+    for inner in 0..(if outer == 1 {
+                       saved = Box { text = "discarded upper bound" }
+                       continue
+                     } else { 1 }) {}
+    saved = Box { text = "generation " + str(outer) }
+    print(saved.text)
+  }
+  propagate(true) |> { :ok[box] => print(box.text)
+                       :!bad[box] => print(box.text) }
+  propagate(false) |> { :ok[box] => print(box.text)
+                        :!bad[box] => print(box.text) }
+}
+// expect: selected true
+// expect: selected false
+// expect: rhs return
+// expect: rhs completion
+// expect: bound true
+// expect: bound false
+// expect: bound break
+// expect: outer break
+// expect: generation 2
+// expect: owned propagation
+// expect: selected true

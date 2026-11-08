@@ -134,10 +134,12 @@ not native acceptance.
 N4 implements mixed-type shift counts with independent literal contexts and
 pre-conversion range checks; see the [shift notes](next-version-n4-shifts.md).
 Typed deferred let/var declarations now have shared-flow definite assignment,
-with owned-slot cleanup and outcome/permission integration. See the
-[deferred-binding notes](next-version-n4-definite-assignment.md). Existing
-chapter audit cases remain unchanged; no pending fence is promoted and this
-does not complete N4.
+with owned-slot cleanup and outcome/permission integration, hardened across
+joins, exits, loops and nesting. See the
+[deferred-binding](next-version-n4-definite-assignment.md) and
+[assignment-path](next-version-n4-assignment-paths.md) notes. Existing chapter
+audit cases remain unchanged; no pending fence is promoted and this does not
+complete N4.
 
 Remaining milestone work:
 

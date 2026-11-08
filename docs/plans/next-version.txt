@@ -224,8 +224,8 @@ consumption/rearming, join/path diagnostics, scope exits, loops and recovery.
 The section-6 errors extension and scoped pipelines/memory audits are complete.
 This does not complete the next-version language or claim native acceptance of
 listed APIs/fragments. N4 includes mixed-type shifts and typed deferred let/var
-bindings with definite assignment. Broader flow hardening, its other features
-and N5–N6 remain.
+bindings with definite assignment across joins, exits, loop back edges, nesting
+and recovery. N4's other features and N5–N6 remain.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -380,7 +380,7 @@ matrix passes; the closure review is `tests/next-version-n3-review.md`.
   type and checking the count before narrowing or signedness conversion.
 - [x] Add typed declared-then-assigned let/var bindings and definite assignment
   on the shared flow framework, with safe ownership and outcome integration.
-- [ ] Harden definite assignment across joins, exits, loop back edges, nesting
+- [x] Harden definite assignment across joins, exits, loop back edges, nesting
   and recovery, retaining read-only permissions and exactly-once let writes.
 - [ ] Implement let ... else through checked matching, requiring a divergent
   else and preserving the remaining value, ownership and permissions.
@@ -3771,6 +3771,37 @@ outputs and 292 prior sanitized runs match a fresh HEAD baseline. Eight strict
 native runs and seventeen negative sites with fourteen notes pass, as do pinned
 formatting, diff/prose and protected-plan checks. N4 remains in progress; no
 milestone-closing full matrix is run in this slice.
+
+### N4 increment: assignment joins, exits, loops, nesting and recovery
+
+Reviewed base d39c2ac. Nine new unit groups harden must-fact intersections across
+nested if/match, returning paths, break/continue joins, normal back edges,
+repeated conditions, once-only bounds, RHS order, loop generations and deep
+nesting. Independent type/read/write errors remain visible, dead syntax retains
+ordinary type checks, and read-only permissions are unchanged. Shared walker,
+assignment/outcome analyses, lowering, RC, runtime and language chapters stay.
+
+Recovery probes found a safety hole: deferred outcome let compound/update writes
+were missing a primary. Ordinary checking delegated to outcomes, then assignment
+recovery suppressed that later check. The ordinary immutable check now diagnoses
+these writes before recovery. All five compound operators and both updates reject
+once before C emission in unassigned, pending and handled states. Plain first
+assignments and existing initialized-outcome diagnostics retain their rules.
+
+Changed existing expectations: none. All old assertions, fixture/marker bytes,
+goldens, .expect files, parser/audit classifications and generated cases remain.
+New independent probes demonstrate the twenty-one formerly accepted bad shapes;
+none replaces an old negative. Three native fixtures cover owned branch/bound
+initialization, nested jumps, propagation before stores and seventeen rejection
+sites. Details are in `tests/next-version-n4-assignment-paths.md`.
+
+Default GCC Debug and fresh -Werror Clang Debug ASan/UBSan pass 54/54 each.
+All 3,189 retained sources / 6,378 AST/emit observations, 1,397 successful C
+outputs and 294 prior sanitized runs match a fresh HEAD baseline. Eight strict
+native runs, two CLI debug runs and the seventeen-site/ten-note negative check
+pass; every operator probe rejects emit/build/run before a nonexistent CC.
+Pinned formatting, diff/prose and protected-plan checks pass. N4 remains open;
+its full four-configuration matrix is reserved for closure.
 
 ## Risks
 

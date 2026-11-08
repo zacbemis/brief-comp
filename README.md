@@ -182,8 +182,9 @@ Typed `let`/`var` bindings may now omit the initializer and be assigned later.
 Reads require whole-value assignment on every live path; a deferred `let` can
 be assigned only while definitely unassigned. Owned slots clean up safely even
 before their first store, and assigned outcomes still require handling once.
-Broader assignment-flow hardening and other N4 features remain; see the
-[deferred-binding notes](tests/next-version-n4-definite-assignment.md).
+The checks hold across joins, exits, loop back edges and nesting; see the
+[deferred-binding](tests/next-version-n4-definite-assignment.md) and
+[assignment-path](tests/next-version-n4-assignment-paths.md) notes.
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and
