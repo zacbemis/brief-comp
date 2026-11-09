@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **217 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **220 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for parser coverage and gaps.
 
@@ -155,6 +155,16 @@ obligations, recursive inference and replacement error entry. Thirteen exact
 negative sites pin input eligibility, divergence, scope, type/return contracts,
 second handling, permissions and unsupported multi-position extraction. No old
 expectation changes; see [the slice notes](../next-version-n4-let-else.md).
+
+The inclusive-range slice adds `inclusive-ranges-n4.brf`,
+`main-inclusive-ranges-n4.brf` and `errors/inclusive-ranges-n4.brf`. Native
+checks cover every integer minimum/maximum, singleton/final continues, empty
+ranges, once-only bounds, nested jump targets, owned cleanup and an owned error
+returned at the ulng maximum. Inclusive scalar patterns retain coverage,
+including signed zero and NaN fallback. Thirteen exact negative sites reject
+wrong types, immutable writes, invalid patterns, named runtime pattern bounds
+and read-only stores. Existing fixture bytes and observations do not change;
+see [the slice notes](../next-version-n4-inclusive-ranges.md).
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

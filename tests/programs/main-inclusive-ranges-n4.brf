@@ -1,0 +1,12 @@
+Box { text: str }
+main() -> :ok | :!limit[str] {
+  let saved: Box
+  for i in ulng(18446744073709551615)..=18446744073709551615 {
+    saved = Box { text = "end " + str(i) }
+    print("at maximum")
+    ret :!limit[saved.text]
+  }
+}
+// expect: at maximum
+// stderr: error: :!limit["end 18446744073709551615"]
+// exit: 1

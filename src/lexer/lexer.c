@@ -317,7 +317,8 @@ Token lexer_next_token(Lexer *lexer) {
     return make_token(lexer, TOK_COMMA);
   case '.':
     if (match(lexer, '.'))
-      return make_token(lexer, TOK_DOT_DOT);
+      return make_token(lexer,
+                        match(lexer, '=') ? TOK_DOT_DOT_EQUAL : TOK_DOT_DOT);
     if (match(lexer, '('))
       return make_token(lexer, TOK_DOT_LPAREN);
     return make_token(lexer, TOK_PERIOD);

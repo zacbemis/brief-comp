@@ -146,6 +146,7 @@ typedef struct {
   uint64_t first, last;
   SemaExpr *first_value, *last_value;
   int any, useful, invalid;
+  int inclusive; // Range endpoint includes its entire normalized value.
   SemaTag *tag;
   SemaVar **payload_bindings; // Positional; NULL array/entries are wildcards.
   size_t payload_count;
@@ -232,6 +233,7 @@ struct SemaExpr {
     struct {
       SemaVar *variable;
       SemaExpr *lower, *upper, *body;
+      int inclusive;
     } for_loop;
     struct {
       SemaExpr *input;

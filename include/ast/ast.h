@@ -117,6 +117,7 @@ struct Expr {
       BinaryOp op;
       Expr *left;
       Expr *right;
+      int inclusive; // BINARY_RANGE: ..= instead of ..
     } binary;
     struct {
       Expr *callee;
@@ -203,6 +204,7 @@ struct Pattern {
     struct {
       Expr *lower;
       Expr *upper;
+      int inclusive;
     } range;
     struct {
       BinaryOp op;

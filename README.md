@@ -189,8 +189,14 @@ The checks hold across joins, exits, loop back edges and nesting; see the
 Initialized named `let` bindings now support `else { ... }` on values containing
 `:none` or errors. The else must diverge; success binds the remaining payload,
 unit or tagged union using checked matching and normal ownership/permissions.
-Inclusive/typed loops and audit updates remain; see the
-[let-else notes](tests/next-version-n4-let-else.md).
+See the [let-else notes](tests/next-version-n4-let-else.md).
+
+Inclusive `..=` patterns and integer loops now include their upper endpoint.
+Loops evaluate bounds once, left to right, and check exhaustion before any
+increment, including on `continue` at an integer maximum. Pattern coverage
+retains inclusive scalar ranks; named runtime pattern bounds explicitly reject.
+Typed loop variables and audit updates remain; see the
+[inclusive-range notes](tests/next-version-n4-inclusive-ranges.md).
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and

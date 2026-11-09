@@ -70,10 +70,14 @@ static int normalize(SemaArm *a, const SemaType *t, uint64_t min,
     a->last = hi;
   } else if (a->kind == PAT_RANGE) {
     a->first = lo;
-    uint64_t end = low_rank(t, a->upper);
-    if (!end || end <= lo)
-      return 2; // Empty, without end - 1 underflow.
-    a->last = end - 1;
+    if (a->inclusive)
+      a->last = high_rank(t, a->upper);
+    else {
+      uint64_t end = low_rank(t, a->upper);
+      if (!end || end <= lo)
+        return 2; // Empty, without end - 1 underflow.
+      a->last = end - 1;
+    }
   } else if (a->kind == PAT_COMPARE) {
     switch (a->comparison) {
     case BINARY_LT:

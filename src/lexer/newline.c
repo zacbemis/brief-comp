@@ -89,6 +89,7 @@ static int continues(TokenType t, int type_close, int prefix_bang) {
   case TOK_BIT_XOR:
   case TOK_LSHIFT:
   case TOK_DOT_DOT:
+  case TOK_DOT_DOT_EQUAL:
   case TOK_LET:
   case TOK_VAR:
   case TOK_CONST:

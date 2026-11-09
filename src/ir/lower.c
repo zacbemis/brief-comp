@@ -660,16 +660,24 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
     store(l, v, IR_NO_VALUE, NULL, start, e->span);
     size_t head = l->function->labels++, step = l->function->labels++,
            end = l->function->labels++;
-    jump(l, head, e->span);
-    label(l, head, e->span);
+    if (!e->as.for_loop.inclusive) {
+      jump(l, head, e->span);
+      label(l, head, e->span);
+    }
     size_t index = load(l, v, IR_NO_VALUE, NULL, e->span);
     size_t condition =
-        binary(l, BINARY_LT, v->type, &l->program->types[SEMA_BOOL], index,
-               stop, e->span);
+        binary(l, e->as.for_loop.inclusive ? BINARY_LE : BINARY_LT, v->type,
+               &l->program->types[SEMA_BOOL], index, stop, e->span);
     emit(l, (IrInstruction){.op = IR_BRANCH_FALSE,
                             .span = e->span,
                             .a = condition,
                             .label = end});
+    if (e->as.for_loop.inclusive) {
+      // Entry is tested only once. Keep head an explicit target even when
+      // the body always returns/breaks and no back edge is emitted.
+      jump(l, head, e->span);
+      label(l, head, e->span);
+    }
     Loop loop = {
         .exit = end, .next = step, .outer = l->loop, .saved = l->owned};
     l->loop = &loop;
@@ -680,6 +688,16 @@ static size_t lower_raw(Lower *l, const SemaExpr *e) {
         jump(l, step, e->span);
       label(l, step, e->span);
       size_t old = load(l, v, IR_NO_VALUE, NULL, e->span);
+      if (e->as.for_loop.inclusive) {
+        // Continue reaches this exhaustion check too. Never form stop + 1
+        // or increment a maximum value, even on a singleton final iteration.
+        size_t more = binary(l, BINARY_NE, v->type,
+                             &l->program->types[SEMA_BOOL], old, stop, e->span);
+        emit(l, (IrInstruction){.op = IR_BRANCH_FALSE,
+                                .span = e->span,
+                                .a = more,
+                                .label = end});
+      }
       size_t one = constant(l, v->type, 1, 1.0, 0, e->span);
       size_t next = binary(l, BINARY_ADD, v->type, v->type, old, one, e->span);
       store(l, v, IR_NO_VALUE, NULL, next, e->span);

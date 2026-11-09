@@ -164,7 +164,7 @@ static void pattern(FILE *out, const Pattern *p) {
     fputc(')', out);
     break;
   case PAT_RANGE:
-    fputs("(range ", out);
+    fputs(p->as.range.inclusive ? "(range-inclusive " : "(range ", out);
     expr(out, p->as.range.lower);
     fputc(' ', out);
     expr(out, p->as.range.upper);
@@ -240,7 +240,8 @@ static void expr(FILE *out, const Expr *e) {
     break;
   }
   case EXPR_BINARY:
-    fprintf(out, "(%s ", binary(e->as.binary.op));
+    fprintf(out, "(%s ",
+            e->as.binary.inclusive ? "..=" : binary(e->as.binary.op));
     expr(out, e->as.binary.left);
     fputc(' ', out);
     expr(out, e->as.binary.right);

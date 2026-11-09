@@ -794,6 +794,21 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
         else if (p->kind == PAT_RANGE) {
           a->lower = resolve_expr(r, p->as.range.lower);
           a->upper = resolve_expr(r, p->as.range.upper);
+          a->inclusive = p->as.range.inclusive;
+          // Coverage ranks are compile-time literal values, not runtime
+          // variable slots. Do not silently normalize a named bound to zero.
+          SemaExpr *bound =
+              a->lower->kind == SEMA_EXPR_VAR && a->lower->as.variable
+                  ? a->lower
+              : a->upper->kind == SEMA_EXPR_VAR && a->upper->as.variable
+                  ? a->upper
+                  : NULL;
+          if (bound) {
+            a->invalid = 1;
+            diagnostics_error(
+                r->errors, bound->span,
+                "Non-literal range pattern bounds are not implemented yet.");
+          }
         } else if (p->kind == PAT_COMPARE) {
           a->comparison = p->as.compare.op;
           a->lower = resolve_expr(r, p->as.compare.value);
@@ -975,6 +990,7 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     e = node(r, SEMA_EXPR_FOR, s->span);
     e->as.for_loop.lower = resolve_expr(r, range->as.binary.left);
     e->as.for_loop.upper = resolve_expr(r, range->as.binary.right);
+    e->as.for_loop.inclusive = range->as.binary.inclusive;
     Local *saved = r->locals;
     r->depth++;
     e->as.for_loop.variable = variable(r, s->as.for_loop.name, s->span,

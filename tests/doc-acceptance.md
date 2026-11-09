@@ -140,12 +140,15 @@ joins, exits, loops and nesting. See the
 [assignment-path](next-version-n4-assignment-paths.md) notes. Existing chapter
 audit cases remain unchanged. Initialized named lets now support divergent
 else blocks via checked matches, preserving remaining values, owners and
-permissions; see the [let-else notes](next-version-n4-let-else.md). No pending
-fence is promoted in this slice and this does not complete N4.
+permissions; see the [let-else notes](next-version-n4-let-else.md).
+Inclusive patterns and integer loops now preserve endpoint values, with safe
+maximum-edge exhaustion and continue targets; see the
+[inclusive-range notes](next-version-n4-inclusive-ranges.md). No pending fence
+is promoted in this slice and this does not complete N4.
 
 Remaining milestone work:
 
-- **N4:** inclusive/typed loops and audit extensions.
+- **N4:** typed loop variables, audit extensions and closure review.
 - **N5:** interpolation and its chapter audit extensions.
 - **N6:** overview, traits, collections and standard library scope inventories.
 

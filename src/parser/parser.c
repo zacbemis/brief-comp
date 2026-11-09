@@ -2011,7 +2011,7 @@ static Pattern *pattern_inner(Parser *p, int payload_context) {
             "Payload binding names must start with a lowercase letter.");
       return v;
     }
-    if (!at(p, TOK_DOT_DOT)) {
+    if (!at(p, TOK_DOT_DOT) && !at(p, TOK_DOT_DOT_EQUAL)) {
       PatternKind kind = strcmp(text, "_") == 0 ? PAT_WILDCARD
                          : start.type == TOK_UPPER_NAME || strchr(text, '.')
                              ? PAT_SET
@@ -2022,25 +2022,28 @@ static Pattern *pattern_inner(Parser *p, int payload_context) {
     }
     Expr *lower = new_expr(p, EXPR_NAME, through(start.span, p->previous.span));
     lower->as.name = text;
-    take(p);
+    Token range = take(p);
     Expr *upper = pattern_value(p);
     if (!upper)
       return NULL;
     Pattern *v = new_pattern(p, PAT_RANGE, through(start.span, upper->span));
     v->as.range.lower = lower;
     v->as.range.upper = upper;
+    v->as.range.inclusive = range.type == TOK_DOT_DOT_EQUAL;
     return v;
   }
   Expr *lower = pattern_value(p);
   if (!lower)
     return NULL;
-  if (match(p, TOK_DOT_DOT)) {
+  if (at(p, TOK_DOT_DOT) || at(p, TOK_DOT_DOT_EQUAL)) {
+    Token range = take(p);
     Expr *upper = pattern_value(p);
     if (!upper)
       return NULL;
     Pattern *v = new_pattern(p, PAT_RANGE, through(start.span, upper->span));
     v->as.range.lower = lower;
     v->as.range.upper = upper;
+    v->as.range.inclusive = range.type == TOK_DOT_DOT_EQUAL;
     return v;
   }
   Pattern *v = new_pattern(p, PAT_LITERAL, lower->span);
@@ -2141,6 +2144,7 @@ static const Operator operators[] = {
     {TOK_BIT_XOR, 80, BINARY_BIT_XOR, 0},
     {TOK_BIT_OR, 70, BINARY_BIT_OR, 0},
     {TOK_DOT_DOT, 60, BINARY_RANGE, 0},
+    {TOK_DOT_DOT_EQUAL, 60, BINARY_RANGE, 0},
     {TOK_PIPE, 50, BINARY_ADD, 0},
     {TOK_EQUAL_EQUAL, 40, BINARY_EQ, 0},
     {TOK_BANG_EQUAL, 40, BINARY_NE, 0},
@@ -2334,7 +2338,8 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
       }
     }
     if ((comparison(token.type) && compared) ||
-        (token.type == TOK_DOT_DOT && ranged)) {
+        ((token.type == TOK_DOT_DOT || token.type == TOK_DOT_DOT_EQUAL) &&
+         ranged)) {
       error(p,
             comparison(token.type)
                 ? "Comparison operators do not chain; use 'and' or parentheses."
@@ -2344,7 +2349,7 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
     take(p);
     if (comparison(token.type))
       compared = 1;
-    if (token.type == TOK_DOT_DOT)
+    if (token.type == TOK_DOT_DOT || token.type == TOK_DOT_DOT_EQUAL)
       ranged = 1;
     Expr *right =
         token.type == TOK_PIPE && at(p, TOK_LBRACE)
@@ -2369,6 +2374,7 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
     } else {
       e = new_expr(p, EXPR_BINARY, through(left->span, right->span));
       e->as.binary.op = op->op;
+      e->as.binary.inclusive = token.type == TOK_DOT_DOT_EQUAL;
       e->as.binary.left = left;
       e->as.binary.right = right;
     }

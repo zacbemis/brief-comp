@@ -1,0 +1,65 @@
+Box { n: int }
+wrongTypes(a: shrt, b: ulng) {
+  for i in a..=b {} // error: Range bounds must have the same type.
+}
+notIntegers() {
+  for i in 0.0..= // error: Range bounds must be integers.
+      1.0 {} // error: Range bounds must be integers.
+}
+immutable() {
+  for i in 0..=1 {
+    i = 2 // error: Cannot reassign an immutable binding.
+  }
+}
+notAValue() {
+  let range = 0..=1 // error: Ranges are only supported in for loops.
+}
+empty(n: int) {
+  n |> {
+    2..=1 => 1 // error: Unreachable match arm.
+    _ => 0
+  }
+}
+duplicate(n: ulng) {
+  n |> {
+    18446744073709551615..=18446744073709551615 => 1
+    18446744073709551615 => 2 // error: Unreachable match arm.
+    _ => 0
+  }
+}
+wrongPatternType(n: int) {
+  n |> {
+    0..=1.0 => 1 // error: Pattern value has the wrong type.
+    _ => 0
+  }
+}
+notNumeric(n: bool) {
+  n |> {
+    false..=false => 1 // error: Range and comparison patterns require numbers or chr.
+    _ => 0
+  }
+}
+namedLower(lower: int, n: int) {
+  n |> {
+    lower..=2 => 1 // error: Non-literal range pattern bounds are not implemented yet.
+    _ => 0
+  }
+}
+namedUpper(upper: int, n: int) {
+  n |> {
+    0..=upper => 1 // error: Non-literal range pattern bounds are not implemented yet.
+    _ => 0
+  }
+}
+halfOpenLower(lower: int, n: int) {
+  n |> {
+    lower..2 => 1 // error: Non-literal range pattern bounds are not implemented yet.
+    _ => 0
+  }
+}
+permissions(box: Box) {
+  for i in 0..=0 {
+    box.n = 1 // error: Cannot mutate through an ordinary parameter; use &.
+  }
+}
+main() {}

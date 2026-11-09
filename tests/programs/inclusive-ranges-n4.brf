@@ -1,0 +1,292 @@
+Box { text: str }
+load(n: int) -> :ok[Box] | :none | :!skip[str] {
+  if n == 0 { :none }
+  else if n == 1 { :!skip["skip " + str(n)] }
+  else { :ok[Box { text = "box " + str(n) }] }
+}
+edge() {
+  print("left bound")
+  ulng(18446744073709551614)
+}
+end() {
+  print("right bound")
+  ulng(18446744073709551615)
+}
+wide(n: ulng) { n |> { 0..=18446744073709551615 => str(n) } }
+classify(n: int) {
+  n |> {
+    -2147483648..=-1 => "negative"
+    0..=0 => "zero"
+    1..=2147483647 => "positive"
+  }
+}
+letter(c: chr) {
+  c |> {
+    'a'..='z' => "letter"
+    _ => "other"
+  }
+}
+floating(n: dbl) {
+  n |> {
+    -1.0..=1.0 => "inside"
+    _ => "outside"
+  }
+}
+single(n: flt) {
+  n |> {
+    -0.0..=0.0 => "zero"
+    _ => "other"
+  }
+}
+main() {
+  // Every integer maximum is a singleton, including an unconditional continue.
+  var count = 0
+  for i in shrt(32767)..=32767 {
+    count += 1
+    continue
+  }
+  for i in ushrt(65535)..=65535 {
+    count += 1
+    continue
+  }
+  for i in 2147483647..=2147483647 {
+    count += 1
+    continue
+  }
+  for i in uint(4294967295)..=4294967295 {
+    count += 1
+    continue
+  }
+  for i in lng(9223372036854775807)..=9223372036854775807 {
+    count += 1
+    continue
+  }
+  for i in ulng(18446744073709551615)..=18446744073709551615 {
+    count += 1
+    continue
+  }
+  print(str(count))
+
+  // Adjacent values at every maximum must reach, but never increment, the end.
+  for i in shrt(32766)..=32767 {
+    print(str(i))
+    count += 1
+    continue
+  }
+  for i in ushrt(65534)..=65535 {
+    print(str(i))
+    count += 1
+    continue
+  }
+  for i in 2147483646..=2147483647 {
+    print(str(i))
+    count += 1
+    continue
+  }
+  for i in uint(4294967294)..=4294967295 {
+    print(str(i))
+    count += 1
+    continue
+  }
+  for i in lng(9223372036854775806)..=9223372036854775807 {
+    print(str(i))
+    count += 1
+    continue
+  }
+  for i in ulng(18446744073709551614)..=18446744073709551615 {
+    print(str(i))
+    count += 1
+  }
+
+  // Walk upward from each minimum with the bound's actual integer type.
+  for i in shrt(-32768)..=-32767 {
+    print(str(i))
+    count += 1
+  }
+  for i in ushrt(0)..=1 {
+    print(str(i))
+    count += 1
+  }
+  for i in -2147483648..=-2147483647 {
+    print(str(i))
+    count += 1
+  }
+  for i in uint(0)..=1 {
+    print(str(i))
+    count += 1
+  }
+  for i in lng(-9223372036854775808)..=-9223372036854775807 {
+    print(str(i))
+    count += 1
+  }
+  for i in ulng(0)..=1 {
+    print(str(i))
+    count += 1
+  }
+  print(str(count))
+
+  // Equal inclusive bounds run once; inverted and equal exclusive bounds do not.
+  for i in 0..=0 { count += 1 }
+  for i in 2..=1 { count += 1000 }
+  for i in ulng(18446744073709551615)..=18446744073709551614 {
+    count += 1000
+    continue
+  }
+  for i in ulng(18446744073709551615)..18446744073709551615 {
+    count += 1000
+  }
+  print(str(count))
+
+  for i in ulng(18446744073709551615)..=18446744073709551615 {
+    print("break at maximum")
+    break
+  }
+
+  // Bounds run exactly once, left to right, outside the loop's jump region.
+  for i in edge()..=
+      end() {
+    print(str(i))
+    continue
+  }
+
+  var bound = 2
+  var visits = 0
+  for i in 0..=bound {
+    bound = 0
+    visits += 1
+    continue
+  }
+  print(str(visits))
+  print(str(bound))
+
+  var nested = 0
+  for outer in 0..=1 {
+    for inner in ulng(18446744073709551614)..=18446744073709551615 {
+      nested += 1
+      continue
+    }
+  }
+  print(str(nested))
+  for i in ulng(18446744073709551615)..=18446744073709551615 {
+    var j = 0
+    while j < 2 {
+      j += 1
+      continue
+    }
+    nested += 1
+    continue
+  }
+  var j = 0
+  while j < 2 {
+    j += 1
+    for i in ulng(18446744073709551615)..=18446744073709551615 {
+      continue
+    }
+    nested += 1
+  }
+  print(str(nested))
+
+  // Jumps in inner bounds/conditions still target the active outer body.
+  var fromBound = 0
+  for outer in ulng(18446744073709551614)..=18446744073709551615 {
+    for inner in if outer == 18446744073709551615 { continue } else { 0 }..=0 {
+      fromBound += 1
+    }
+  }
+  print(str(fromBound))
+  for outer in ulng(18446744073709551614)..=18446744073709551615 {
+    for inner in 0..=if outer == 18446744073709551615 { continue } else { 0 } {
+      fromBound += 1
+    }
+  }
+  print(str(fromBound))
+  for outer in ulng(18446744073709551614)..=18446744073709551615 {
+    while if outer == 18446744073709551615 { continue } else { false } {}
+    fromBound += 1
+  }
+  print(str(fromBound))
+
+  // Every exit releases deferred slots, extracted payloads and handled errors.
+  let shared = Box { text = "shared " + "owner" }
+  for i in 0..=3 {
+    let local: Box
+    local = shared
+    let pending = load(i)
+    let box = pending else { continue }
+    print(box.text)
+    if i == 2 { continue }
+    break
+  }
+  print(shared.text)
+
+  print(wide(18446744073709551615))
+  print(classify(-2147483648))
+  print(classify(0))
+  print(classify(2147483647))
+  print(letter('z'))
+  print(letter('{'))
+  print(floating(-1.0))
+  print(floating(1.0))
+  print(floating(-0.0))
+  print(floating(1.5))
+  print(floating(0.0 / 0.0))
+  print(single(-0.0))
+  print(single(0.0))
+  print(single(1.0))
+}
+// expect: 6
+// expect: 32766
+// expect: 32767
+// expect: 65534
+// expect: 65535
+// expect: 2147483646
+// expect: 2147483647
+// expect: 4294967294
+// expect: 4294967295
+// expect: 9223372036854775806
+// expect: 9223372036854775807
+// expect: 18446744073709551614
+// expect: 18446744073709551615
+// expect: -32768
+// expect: -32767
+// expect: 0
+// expect: 1
+// expect: -2147483648
+// expect: -2147483647
+// expect: 0
+// expect: 1
+// expect: -9223372036854775808
+// expect: -9223372036854775807
+// expect: 0
+// expect: 1
+// expect: 30
+// expect: 31
+// expect: break at maximum
+// expect: left bound
+// expect: right bound
+// expect: 18446744073709551614
+// expect: 18446744073709551615
+// expect: 3
+// expect: 0
+// expect: 4
+// expect: 7
+// expect: 1
+// expect: 2
+// expect: 3
+// expect: box 2
+// expect: box 3
+// expect: shared owner
+// expect: 18446744073709551615
+// expect: negative
+// expect: zero
+// expect: positive
+// expect: letter
+// expect: other
+// expect: inside
+// expect: inside
+// expect: inside
+// expect: outside
+// expect: outside
+// expect: zero
+// expect: zero
+// expect: other

@@ -385,7 +385,7 @@ matrix passes; the closure review is `tests/next-version-n3-review.md`.
   and recovery, retaining read-only permissions and exactly-once let writes.
 - [x] Implement let ... else through checked matching, requiring a divergent
   else and preserving the remaining value, ownership and permissions.
-- [ ] Add inclusive range patterns and loops, with overflow-safe maximum-edge
+- [x] Add inclusive range patterns and loops, with overflow-safe maximum-edge
   iteration and continue targeting the exhaustion check.
 - [ ] Add explicitly typed loop variables with contextual bounds and diagnostics.
 - [ ] Extend scoped native/parser audits for N4 fences without extraction,
@@ -3835,6 +3835,37 @@ native runs, two CLI debug runs and thirteen negative sites with two notes pass;
 rejections stop emit/build/run before a nonexistent CC. Pinned formatting,
 diff/prose and protected-plan checks pass. N4 remains in progress; its complete
 four-configuration matrix is reserved for closure.
+
+### N4 increment: inclusive range patterns and overflow-safe loops
+
+Reviewed base 822e102. Adjacent ..= tokens retain range precedence, newline
+continuation, pattern roles and non-chaining. Scalar patterns normalize their
+inclusive upper rank, including integer/chr maxima and signed-zero equivalence;
+coverage merging and NaN policy stay. Integer loops evaluate bounds once, left
+to right, test entry with <=, then check equality before incrementing. Continue
+reaches that exhaustion check, including through jumps in inner bounds or
+conditions. Terminal bodies keep an explicit entry target for strict C builds.
+
+A shared range-pattern guard rejects known variable bounds instead of silently
+ranking their unset literal metadata as zero. Half-open and inclusive forms
+report the unsupported boundary without guessed fixes; dynamic loop bounds and
+literal pattern behavior stay. Shared flow, assignment/outcomes/permissions,
+RC, C emission, runtime and language chapters are unchanged.
+
+Changed existing expectations: none. All old assertions, fixture bytes/markers,
+ASTs, diagnostics, goldens, .expect files and parser/audit classifications stay.
+Eight new unit groups and three fixtures cover every integer edge, exhaustive
+chr intervals, floating endpoints, bound order/capture, nested jumps, owners,
+error entry and thirteen exact negative sites. Two independent base/current
+probes expose formerly misranked half-open bounds; no old negative is weakened.
+Scope and inventory are in `tests/next-version-n4-inclusive-ranges.md`.
+
+Default GCC Debug and fresh -Werror Clang Debug ASan/UBSan pass 56/56 each.
+All 3,406 retained sources / 6,812 AST/emit observations, 1,482 successful C
+outputs and 298 prior sanitized runs match the fresh archived HEAD baseline.
+Eight strict native executions, two CLI debug runs, blocked rejection probes,
+pinned formatting, diff/prose and protected-plan checks pass. N4 remains open;
+typed loop variables, scoped audits and its full closure matrix remain.
 
 ## Risks
 
