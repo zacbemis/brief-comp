@@ -1,6 +1,6 @@
 # Program tests
 
-Current inventory: **214 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **217 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for parser coverage and gaps.
 
@@ -146,6 +146,15 @@ branch, match and loop assignments, let writes in back edges, conditions and
 bounds, argument order and immutable compound/update writes. No old
 expectation changes; see
 [the slice notes](../next-version-n4-assignment-paths.md).
+
+The let-else slice adds `let-else-n4.brf`, `main-let-else-n4.brf` and
+`errors/let-else-n4.brf`. Checked matches remove outer errors/absence and bind
+a remaining payload, unit or tagged union. Native checks cover once-only
+input evaluation, continue/break/return cleanup, owned aliases, nested error
+obligations, recursive inference and replacement error entry. Thirteen exact
+negative sites pin input eligibility, divergence, scope, type/return contracts,
+second handling, permissions and unsupported multi-position extraction. No old
+expectation changes; see [the slice notes](../next-version-n4-let-else.md).
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside

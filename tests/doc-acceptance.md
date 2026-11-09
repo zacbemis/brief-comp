@@ -138,12 +138,14 @@ with owned-slot cleanup and outcome/permission integration, hardened across
 joins, exits, loops and nesting. See the
 [deferred-binding](next-version-n4-definite-assignment.md) and
 [assignment-path](next-version-n4-assignment-paths.md) notes. Existing chapter
-audit cases remain unchanged; no pending fence is promoted and this does not
-complete N4.
+audit cases remain unchanged. Initialized named lets now support divergent
+else blocks via checked matches, preserving remaining values, owners and
+permissions; see the [let-else notes](next-version-n4-let-else.md). No pending
+fence is promoted in this slice and this does not complete N4.
 
 Remaining milestone work:
 
-- **N4:** assignment hardening, let-else, inclusive/typed loops and audits.
+- **N4:** inclusive/typed loops and audit extensions.
 - **N5:** interpolation and its chapter audit extensions.
 - **N6:** overview, traits, collections and standard library scope inventories.
 

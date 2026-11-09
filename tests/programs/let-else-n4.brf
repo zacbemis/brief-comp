@@ -1,0 +1,89 @@
+State { calls: int }
+Box { text: str }
+Result = :ok[Box] | :none | :!bad[str]
+source(state: &State, n: int) -> Result {
+  state.calls += 1
+  if n == 0 { ret :none }
+  if n < 0 { ret :!bad["original " + "error"] }
+  Box { text = "box " + str(n) }
+}
+read(state: &State, n: int) -> str {
+  let box = source(state, n) else { ret "fallback" }
+  box.text
+}
+Choice = :new[Box] | :old[Box] | :none | :!bad[str]
+choice(n: int) -> Choice {
+  if n < 0 { ret :none }
+  if n == 0 { ret :old[Box { text = "owned old" }] }
+  :new[Box { text = "owned new" }]
+}
+show(n: int) {
+  let value = choice(n) else { print("missing choice")
+                              ret }
+  value |> { :new[box] => print(box.text)
+             :old[box] => print(box.text) }
+}
+ready() -> :ready | :none { :ready }
+inner() -> :hold[:!inner[str]] | :none { :hold[:!inner["owned " + "inner"]] }
+stop() -> :!stopped[str] { :!stopped["discarded " + "error"] }
+terminal() -> str {
+  let value = stop() else { ret "stopped" }
+  "not reached"
+}
+one(n: int) {
+  if n == 0 { ret :none }
+  let x = two(n - 1) else { ret :none }
+  :ok[x]
+}
+two(n: int) {
+  if n == 0 { ret :ok[7] }
+  one(n - 1)
+}
+main() {
+  let state = State { calls = 0 }
+  print(read(state, 1))
+  print(read(state, 0))
+  print(read(state, -1))
+  for i in 0..4 {
+    let box = source(state, i) else { continue }
+    print(box.text)
+  }
+  for i in 0..3 {
+    let box = source(state, 0) else { break }
+    print("not reached")
+  }
+  let saved = source(state, 2)
+  let box: Box = saved else { ret }
+  let alias = box
+  alias.text = "shared alias"
+  print(box.text)
+  show(0)
+  show(1)
+  show(-1)
+  let empty: () = ready() else { ret }
+  print("unit success")
+  let problem = inner() else { ret }
+  problem |> { :!inner[text] => print(text) }
+  print(terminal())
+  one(1) |> { :ok[n] => print(str(n))
+              :none => print("none") }
+  one(2) |> { :ok[n] => print(str(n))
+              :none => print("none") }
+  print(str(state.calls))
+}
+// expect: box 1
+// expect: fallback
+// expect: fallback
+// expect: box 1
+// expect: box 2
+// expect: box 3
+// expect: shared alias
+// expect: owned old
+// expect: owned new
+// expect: missing choice
+// expect: unit success
+// expect: owned inner
+// expect: stopped
+// expect: 7
+// expect: none
+// expect: 9

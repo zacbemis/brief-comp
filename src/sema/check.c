@@ -519,6 +519,70 @@ static const SemaType *literal(Checker *c, SemaExpr *e,
   e->integer = value;
   return kind;
 }
+// Let-else is an ordinary checked match after its input type stabilizes.
+// Keep original variants for tag tests even when a singleton :ok normalizes.
+static void let_else(Checker *c, SemaExpr *e, const SemaType *input) {
+  SemaArm *yes = &e->as.match.arms[0], *no = &e->as.match.arms[1];
+  SemaVar *value = e->as.match.remaining;
+  yes->kind = PAT_SET;
+  yes->binding = value;
+  yes->tag = NULL;
+  yes->payload_count = 0;
+  yes->payload_bindings[0] = NULL;
+  yes->any = 0;
+  yes->useful = 1;
+  yes->cases = yes->set = NULL;
+  yes->case_count = no->case_count = 0;
+  yes->case_variants = no->case_variants = NULL;
+  no->any = 1;
+  no->useful = 0;
+  no->cases = NULL;
+  value->type = special(input) ? input : t(c, SEMA_ERROR);
+  if (special(input))
+    return;
+  const SemaVariant *none = sema_none(input);
+  if (!none && !sema_has_errors(input)) {
+    error(c, e->as.match.input->span,
+          "A let-else value must contain :none or an error tag.");
+    value->type = t(c, c->probe ? SEMA_UNKNOWN : SEMA_ERROR);
+    return;
+  }
+  size_t count = input->symbols->count;
+  yes->case_variants = arena_calloc(c->p->arena, count, sizeof(SemaVariant));
+  no->case_variants = arena_calloc(c->p->arena, count, sizeof(SemaVariant));
+  for (size_t i = 0; i < count; i++) {
+    const SemaVariant *v = &input->symbols->variants[i];
+    SemaArm *arm = v == none || v->tag->kind == SEMA_TAG_ERROR ? no : yes;
+    arm->case_variants[arm->case_count++] = *v;
+  }
+  no->useful = 1;
+  no->cases = sema_symbol_set(c->p, no->case_variants, no->case_count);
+  yes->useful = yes->case_count != 0;
+  if (!yes->useful) {
+    value->type = t(c, SEMA_NEVER);
+    return;
+  }
+  yes->cases = sema_symbol_set(c->p, yes->case_variants, yes->case_count);
+  if (yes->case_count == 1) {
+    const SemaVariant *v = yes->case_variants;
+    if (v->payload_count > 1) {
+      error(c, e->as.match.input->span,
+            "Extracting several success payloads is not implemented yet.");
+      value->type = t(c, c->probe ? SEMA_UNKNOWN : SEMA_ERROR);
+      return;
+    }
+    yes->kind = PAT_SYMBOL;
+    yes->tag = v->tag;
+    yes->binding = NULL;
+    yes->payload_count = v->payload_count;
+    if (v->payload_count)
+      yes->payload_bindings[0] = value;
+    value->type = v->payload_count ? v->payloads[0] : t(c, SEMA_UNIT);
+  } else {
+    yes->set = yes->cases;
+    value->type = yes->cases;
+  }
+}
 static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
                              Use use);
 static void mutable(Checker *c, SemaVar *v, Span span) {
@@ -1041,37 +1105,43 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     int scalar =
         sema_number(it) || it->kind == SEMA_BOOL || it->kind == SEMA_CHR;
     int string_literal = it->kind == SEMA_STR;
-    for (size_t i = 0; i < e->as.match.count; i++) {
-      SemaArm *a = &e->as.match.arms[i];
-      if (a->binding)
-        a->binding->type = it;
-      for (size_t j = 0; a->payload_bindings && j < a->payload_count; j++)
-        if (a->payload_bindings[j])
-          a->payload_bindings[j]->type = it;
-      if (it->kind == SEMA_SYM || a->invalid)
-        continue;
-      if (!special(it) && (a->kind == PAT_SYMBOL || a->kind == PAT_SET))
-        error(c, a->span, "Symbol patterns require a symbol input.");
-      if (a->lower) {
-        check(c, a->lower, it, VALUE);
-        if (scalar || (string_literal && a->kind == PAT_LITERAL))
-          expect(c, a->lower, it, "Pattern value has the wrong type.");
-      }
-      if (a->upper) {
-        check(c, a->upper, it, VALUE);
-        if (scalar)
-          expect(c, a->upper, it, "Pattern value has the wrong type.");
-      }
-      if (!special(it) && !scalar && !string_literal && !a->invalid && a->lower)
-        error(c, a->span,
+    if (e->as.match.remaining)
+      let_else(c, e, it);
+    else {
+      for (size_t i = 0; i < e->as.match.count; i++) {
+        SemaArm *a = &e->as.match.arms[i];
+        if (a->binding)
+          a->binding->type = it;
+        for (size_t j = 0; a->payload_bindings && j < a->payload_count; j++)
+          if (a->payload_bindings[j])
+            a->payload_bindings[j]->type = it;
+        if (it->kind == SEMA_SYM || a->invalid)
+          continue;
+        if (!special(it) && (a->kind == PAT_SYMBOL || a->kind == PAT_SET))
+          error(c, a->span, "Symbol patterns require a symbol input.");
+        if (a->lower) {
+          check(c, a->lower, it, VALUE);
+          if (scalar || (string_literal && a->kind == PAT_LITERAL))
+            expect(c, a->lower, it, "Pattern value has the wrong type.");
+        }
+        if (a->upper) {
+          check(c, a->upper, it, VALUE);
+          if (scalar)
+            expect(c, a->upper, it, "Pattern value has the wrong type.");
+        }
+        if (!special(it) && !scalar && !string_literal && !a->invalid &&
+            a->lower)
+          error(
+              c, a->span,
               "Literal, range, and comparison patterns require a scalar type.");
-      if ((it->kind == SEMA_BOOL || string_literal) &&
-          (a->kind == PAT_RANGE || a->kind == PAT_COMPARE)) {
-        error(c, a->span,
-              "Range and comparison patterns require numbers or chr.");
+        if ((it->kind == SEMA_BOOL || string_literal) &&
+            (a->kind == PAT_RANGE || a->kind == PAT_COMPARE)) {
+          error(c, a->span,
+                "Range and comparison patterns require numbers or chr.");
+        }
       }
+      sema_match_coverage(c->p, e, c->probe ? NULL : c->errors);
     }
-    sema_match_coverage(c->p, e, c->probe ? NULL : c->errors);
     const SemaType *context = expected;
     if (special(context))
       context = hint(e);
@@ -1082,10 +1152,15 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
     for (size_t i = 0; i < e->as.match.count; i++) {
       SemaArm *a = &e->as.match.arms[i];
       c->reachable = reachable && (input->flow & SEMA_NEXT) && a->useful;
-      const SemaType *at = check(c, a->body, context, use);
+      int fallback = e->as.match.remaining && i == 1;
+      const SemaType *at = check(c, a->body, fallback ? NULL : context,
+                                 fallback ? DISCARD : use);
+      if (fallback && !a->body->returns)
+        error(c, a->body->span,
+              "The else block of a let binding must not fall through.");
       if (a->useful) {
         arms_flow |= a->body->flow;
-        if (use != DISCARD)
+        if (use != DISCARD && !fallback)
           result = use == TAIL ? return_join(c, result, at, a->span,
                                              "Value-producing match arms must "
                                              "have compatible types.")

@@ -914,6 +914,34 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
         value->as.binding.declaration = 1;
         if (d->as.binding.value)
           value->as.binding.value = resolve_expr(r, d->as.binding.value);
+        if (d->as.binding.else_body) {
+          SemaExpr *input = value->as.binding.value;
+          handled(input);
+          Span span = input->span;
+          span.end = d->as.binding.else_body->span.end;
+          SemaExpr *match = node(r, SEMA_EXPR_MATCH, span);
+          match->as.match.input = input;
+          match->as.match.count = 2;
+          match->as.match.arms = arena_calloc(r->arena, 2, sizeof(SemaArm));
+          Local *saved_arm = r->locals;
+          r->depth++;
+          SemaVar *remaining = variable(r, "$else", input->span,
+                                        &r->program->types[SEMA_UNKNOWN], 0);
+          match->as.match.remaining = remaining;
+          SemaArm *success = &match->as.match.arms[0];
+          success->span = input->span;
+          success->payload_bindings =
+              arena_calloc(r->arena, 1, sizeof(SemaVar *));
+          success->body = node(r, SEMA_EXPR_VAR, input->span);
+          success->body->as.variable = remaining;
+          SemaArm *failure = &match->as.match.arms[1];
+          failure->kind = PAT_WILDCARD;
+          failure->span = d->as.binding.else_body->span;
+          failure->body = resolve_expr(r, d->as.binding.else_body);
+          restore(r, saved_arm);
+          r->depth--;
+          value->as.binding.value = match;
+        }
         value->as.binding.variable =
             variable(r, d->name, d->span, type(r, d->as.binding.annotation),
                      d->as.binding.kind == BIND_VAR);
@@ -1016,6 +1044,7 @@ static const Expr *first_self(const Expr *e) {
         SELF(item.as.expr);
       } else if (item.kind == BLOCK_ITEM_DECL) {
         SELF(item.as.decl->as.binding.value);
+        SELF(item.as.decl->as.binding.else_body);
       } else if (item.as.stmt->kind == STMT_ASSIGN) {
         SELF(item.as.stmt->as.assign.target);
         SELF(item.as.stmt->as.assign.value);

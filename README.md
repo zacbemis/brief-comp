@@ -186,6 +186,12 @@ The checks hold across joins, exits, loop back edges and nesting; see the
 [deferred-binding](tests/next-version-n4-definite-assignment.md) and
 [assignment-path](tests/next-version-n4-assignment-paths.md) notes.
 
+Initialized named `let` bindings now support `else { ... }` on values containing
+`:none` or errors. The else must diverge; success binds the remaining payload,
+unit or tagged union using checked matching and normal ownership/permissions.
+Inclusive/typed loops and audit updates remain; see the
+[let-else notes](tests/next-version-n4-let-else.md).
+
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and
 remain reserved in ordinary name positions, including fields and bindings.

@@ -222,6 +222,7 @@ struct Decl {
       BindingKind kind;
       Type *annotation;
       Expr *value;
+      Expr *else_body; // Optional divergent block on an initialized let.
     } binding;
     struct {
       Parameter *params;

@@ -1,0 +1,12 @@
+Box { text: str }
+Result = :ok[Box] | :!missing[str]
+source() -> :ok[Box] | :none | :!bad[str] { :none }
+main() -> Result {
+  let unassigned: Box
+  print("before let-else")
+  let box = source() else { ret :!missing["replacement " + "error"] }
+  box
+}
+// expect: before let-else
+// stderr: error: :!missing["replacement error"]
+// exit: 1

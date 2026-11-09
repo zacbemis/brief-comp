@@ -237,6 +237,7 @@ struct SemaExpr {
       SemaExpr *input;
       SemaArm *arms;
       size_t count;
+      SemaVar *remaining; // Let-else: hidden success projection, else ordinary.
     } match;
     struct {
       SemaTag *tag;

@@ -339,6 +339,7 @@ static Expr *checked_expr(Parser *p, Expr *e) {
         }
       } else {
         CHILD(item.as.decl->as.binding.value);
+        CHILD(item.as.decl->as.binding.else_body);
       }
     }
     break;
@@ -1001,6 +1002,23 @@ static Decl *binding(Parser *p, Visibility visibility) {
     if (!d->as.binding.value)
       return NULL;
     d->span = through(start.span, d->as.binding.value->span);
+    Parser saved = *p;
+    newlines(p);
+    if (match(p, TOK_ELSE)) {
+      if (d->as.binding.kind != BIND_LET) {
+        error_at(p, p->previous.span,
+                 "Only let bindings can have an else block.");
+        return NULL;
+      }
+      if (!enter(p))
+        return NULL;
+      d->as.binding.else_body = block(p);
+      p->depth--;
+      if (!d->as.binding.else_body)
+        return NULL;
+      d->span = through(start.span, d->as.binding.else_body->span);
+    } else
+      *p = saved;
   }
   check_name_case(p, declared, mark, TOK_LOWER_NAME,
                   "Binding names must start with a lowercase letter.");

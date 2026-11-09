@@ -225,7 +225,8 @@ The section-6 errors extension and scoped pipelines/memory audits are complete.
 This does not complete the next-version language or claim native acceptance of
 listed APIs/fragments. N4 includes mixed-type shifts and typed deferred let/var
 bindings with definite assignment across joins, exits, loop back edges, nesting
-and recovery. N4's other features and N5–N6 remain.
+and recovery, plus let-else through checked matching. Inclusive/typed loops,
+N4's audit extensions and N5–N6 remain.
 
 - [x] N1: converted tests retain runtime/panic/status expectations and diagnostic
   rules, with reviewed syntax-message changes and added rejection cases.
@@ -382,7 +383,7 @@ matrix passes; the closure review is `tests/next-version-n3-review.md`.
   on the shared flow framework, with safe ownership and outcome integration.
 - [x] Harden definite assignment across joins, exits, loop back edges, nesting
   and recovery, retaining read-only permissions and exactly-once let writes.
-- [ ] Implement let ... else through checked matching, requiring a divergent
+- [x] Implement let ... else through checked matching, requiring a divergent
   else and preserving the remaining value, ownership and permissions.
 - [ ] Add inclusive range patterns and loops, with overflow-safe maximum-edge
   iteration and continue targeting the exhaustion check.
@@ -3802,6 +3803,38 @@ native runs, two CLI debug runs and the seventeen-site/ten-note negative check
 pass; every operator probe rejects emit/build/run before a nonexistent CC.
 Pinned formatting, diff/prose and protected-plan checks pass. N4 remains open;
 its full four-configuration matrix is reserved for closure.
+
+### N4 increment: let-else through checked matching
+
+Reviewed base f7fce5d. Initialized named let bindings admit an else block, which
+must not fall through. Resolution creates a two-arm checked match; input types
+partition its exact raw tags into errors/:none versus remaining data. One
+remaining tag yields its sole payload or unit; several stay a tagged union.
+No remaining tag means the else always diverges. Several positions from one
+success tag still require an explicit match; no tuple is invented. Else reads
+see only outer names, and syntactic self inference also visits else bodies.
+
+The existing match flow, lowering, ownership and permissions are reused. Inputs
+evaluate once; stored outcomes are consumed once. Projections retain owners and
+read-only access, while an extracted error payload creates a new obligation.
+Return/break/continue use existing scope cleanup. The else handles failure rather
+than automatically propagating it; written return contracts remain enforced.
+Shared flow, permissions, lowering, RC, runtime and language chapters stay.
+
+Changed existing expectations: none. All old assertions, sources/markers, ASTs,
+diagnostics, goldens, .expect files, parser/audit classifications and generated
+cases remain. Eight new unit groups and three fixtures cover named/typed syntax,
+divergence, projections, terminal inputs, tagged remainders, loops, scope,
+ownership, permissions, nested payloads and recursive inference. Exact scope
+and inventory are in `tests/next-version-n4-let-else.md`.
+
+Default GCC Debug and fresh -Werror Clang Debug ASan/UBSan pass 55/55 each.
+All 3,323 retained sources / 6,646 AST/emit observations, 1,437 successful C
+outputs and 296 prior sanitized runs match a fresh HEAD baseline. Eight strict
+native runs, two CLI debug runs and thirteen negative sites with two notes pass;
+rejections stop emit/build/run before a nonexistent CC. Pinned formatting,
+diff/prose and protected-plan checks pass. N4 remains in progress; its complete
+four-configuration matrix is reserved for closure.
 
 ## Risks
 

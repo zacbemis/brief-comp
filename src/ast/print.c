@@ -362,6 +362,11 @@ static void decl(FILE *out, const Decl *d) {
     type(out, d->as.binding.annotation);
     fputc(' ', out);
     expr(out, d->as.binding.value);
+    if (d->as.binding.else_body) {
+      fputs(" (else ", out);
+      expr(out, d->as.binding.else_body);
+      fputc(')', out);
+    }
     fputc(')', out);
     break;
   }

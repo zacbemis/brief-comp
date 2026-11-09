@@ -1,0 +1,51 @@
+Box { n: int }
+Maybe = :ok[int] | :none | :!bad
+source() -> Maybe { 1 }
+plain() {
+  let n = 7 else { ret } // error: A let-else value must contain :none or an error tag.
+}
+data() {
+  let n = :tag else { ret } // error: A let-else value must contain :none or an error tag.
+}
+fallthrough() {
+  let n = source() else {} // error: The else block of a let binding must not fall through.
+}
+partial(flag: bool) {
+  let n = source() else { if flag { ret } } // error: The else block of a let binding must not fall through.
+}
+annotation() {
+  let n: str = source() else { ret } // error: Binding value does not match its annotation.
+}
+pair() -> :pair[int, int] | :none { :pair[1, 2] }
+positions() {
+  let n = pair() else { ret } // error: Extracting several success payloads is not implemented yet.
+}
+newName() {
+  let n = source() else { print(str(n)) // error: Unknown binding.
+                          ret }
+}
+twice() -> () {
+  let saved = source()
+  let n = saved else { ret }
+  saved! // error: Outcome binding has already been handled.
+}
+outsideLoop() {
+  let n = source() else { break } // error: break and continue are only allowed inside loops.
+}
+borrowed(box: Box) -> :ok[Box] | :none { box }
+readonly(box: Box) {
+  let alias = borrowed(box) else { ret }
+  alias.n = 2 // error: Cannot mutate through an ordinary parameter; use &.
+}
+contract() -> int {
+  let n = source() else { ret :!replacement } // error: Return value does not match the written return type.
+  n
+}
+inner() -> :hold[:!inner[str]] | :none { :hold[:!inner["owned"]] }
+nested() {
+  let problem = inner() else { ret }
+} // error: Outcome binding is not handled before leaving its scope.
+onlyNone() {
+  let n = :none else { () } // error: The else block of a let binding must not fall through.
+}
+main() {}
