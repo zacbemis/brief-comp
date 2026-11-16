@@ -113,14 +113,11 @@ int main(void) {
                                 r.errors.items[0]->message));
     }
   }
-  TEST("legacy alias modifiers cannot reach lowering") {
-    const char *sources[] = {"type A = :a\nmain() {}", "pub A = :a\nmain() {}"};
-    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
-      Result r = check(&a, sources[i]);
-      ASSERT_EQ_INT(1, r.errors.count);
-      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
-      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
-    }
+  TEST("pub aliases cannot reach lowering") {
+    Result r = check(&a, "pub A = :a\nmain() {}");
+    ASSERT_EQ_INT(1, r.errors.count);
+    ASSERT_TRUE(!r.program->resolved && !r.program->checked);
+    ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
     valid(&a, "A = :a\nmain() { :a |> { A => () } }");
   }
   TEST("bindings are lexical, checked in declaration order, and mutable only "

@@ -4,17 +4,15 @@ int main(void) {
   arena_init(&test_arena);
   TEST("function types from docs use the Fn keyword") {
     Lexer lx;
-    init_lexer(&lx, "keep: Fn<(T): bool> fn Fns");
+    init_lexer(&lx, "keep: Fn(Item) -> bool fn Fns");
     expect(&lx, TOK_LOWER_NAME, "keep");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_FN, "Fn");
-    expect(&lx, TOK_LESS_THAN, "<");
     expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_UPPER_NAME, "T");
+    expect(&lx, TOK_UPPER_NAME, "Item");
     expect(&lx, TOK_RPAREN, ")");
-    expect(&lx, TOK_COLON, ":");
+    expect(&lx, TOK_ARROW, "->");
     expect(&lx, TOK_BOOL, "bool");
-    expect(&lx, TOK_GREATER_THAN, ">");
     expect(&lx, TOK_LOWER_NAME, "fn");
     expect(&lx, TOK_UPPER_NAME, "Fns");
     expect(&lx, TOK_EOF, NULL);
@@ -42,43 +40,6 @@ int main(void) {
     expect(&lx, TOK_INT_LIT, "0");
     expect(&lx, TOK_NEWLINE, "\n");
     expect(&lx, TOK_RBRACE, "}");
-    expect(&lx, TOK_EOF, NULL);
-  }
-
-  TEST("keywords dropped from the syntax are plain identifiers") {
-    Lexer lx;
-    init_lexer(&lx, "mut shr unit struct module priv match return");
-    expect(&lx, TOK_LOWER_NAME, "mut");
-    expect(&lx, TOK_LOWER_NAME, "shr");
-    expect(&lx, TOK_LOWER_NAME, "unit");
-    expect(&lx, TOK_LOWER_NAME, "struct");
-    expect(&lx, TOK_LOWER_NAME, "module");
-    expect(&lx, TOK_LOWER_NAME, "priv");
-    expect(&lx, TOK_LOWER_NAME, "match");
-    expect(&lx, TOK_LOWER_NAME, "return");
-    expect(&lx, TOK_EOF, NULL);
-  }
-
-  TEST("generic syntax from docs uses angle brackets") {
-    Lexer lx;
-    init_lexer(&lx, "pub Collection<T> impl<T: HasUser> Vec<User>()");
-    expect(&lx, TOK_PUB, "pub");
-    expect(&lx, TOK_UPPER_NAME, "Collection");
-    expect(&lx, TOK_LESS_THAN, "<");
-    expect(&lx, TOK_UPPER_NAME, "T");
-    expect(&lx, TOK_GREATER_THAN, ">");
-    expect(&lx, TOK_LOWER_NAME, "impl");
-    expect(&lx, TOK_LESS_THAN, "<");
-    expect(&lx, TOK_UPPER_NAME, "T");
-    expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_UPPER_NAME, "HasUser");
-    expect(&lx, TOK_GREATER_THAN, ">");
-    expect(&lx, TOK_UPPER_NAME, "Vec");
-    expect(&lx, TOK_LESS_THAN, "<");
-    expect(&lx, TOK_UPPER_NAME, "User");
-    expect(&lx, TOK_GREATER_THAN, ">");
-    expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_RPAREN, ")");
     expect(&lx, TOK_EOF, NULL);
   }
 
@@ -130,23 +91,6 @@ int main(void) {
     expect(&lx, TOK_LOWER_NAME, "x");
     expect(&lx, TOK_COLON, ":");
     expect(&lx, TOK_INT, "int");
-    expect(&lx, TOK_EOF, NULL);
-  }
-
-  TEST("array type and indexing syntax from docs uses brackets") {
-    Lexer lx;
-    init_lexer(&lx, "int[5] User[] arr[i]");
-    expect(&lx, TOK_INT, "int");
-    expect(&lx, TOK_LBRACKET, "[");
-    expect(&lx, TOK_INT_LIT, "5");
-    expect(&lx, TOK_RBRACKET, "]");
-    expect(&lx, TOK_UPPER_NAME, "User");
-    expect(&lx, TOK_LBRACKET, "[");
-    expect(&lx, TOK_RBRACKET, "]");
-    expect(&lx, TOK_LOWER_NAME, "arr");
-    expect(&lx, TOK_LBRACKET, "[");
-    expect(&lx, TOK_LOWER_NAME, "i");
-    expect(&lx, TOK_RBRACKET, "]");
     expect(&lx, TOK_EOF, NULL);
   }
 

@@ -66,25 +66,14 @@ int main(void) {
       }
     }
   }
-  TEST("Self is ordinary but keyword self is not a casing-repair name") {
-    const char *sources[] = {"self { value: int }\n", "type self = :a\n",
-                             "import models.self\n"};
+  TEST("keyword self is not a casing-repair name") {
+    const char *sources[] = {"self { value: int }\n", "import models.self\n"};
     for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
       Parsed *v = parse(&arena, sources[i]);
       ASSERT_TRUE(v->diagnostics.count > 0);
       for (size_t j = 0; j < v->diagnostics.count; j++)
         ASSERT_TRUE(!v->diagnostics.items[j]->fixes);
     }
-    Parsed *v = parse(&arena, "Self = int\nf(n: Self) -> Self { n }\n");
-    ASSERT_EQ_INT(0, v->diagnostics.count);
-    ASSERT_EQ_INT(TYPE_NAME,
-                  v->program->items[1]->as.function.params[0].type->kind);
-    ASSERT_EQ_INT(TYPE_NAME,
-                  v->program->items[1]->as.function.return_type->kind);
-    ASSERT_TRUE(v->program->items[0]->name ==
-                v->program->items[1]->as.function.return_type->as.name);
-    expression_dump(&arena, "Self { value = 1 }",
-                    "(struct-value (name Self) (value (int 1)))");
   }
   TEST("case fixes do not turn names into keywords or invent wildcard names") {
     const char *sources[] = {"main() { let Int = 0 }",

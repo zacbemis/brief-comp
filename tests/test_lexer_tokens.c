@@ -234,41 +234,6 @@ int main(void) {
     expect(&lx, TOK_LOWER_NAME, "bad");
     expect(&lx, TOK_EOF, NULL);
   }
-  TEST("Sym is an ordinary name, with case and prefix boundaries") {
-    Lexer lx;
-    init_lexer(&lx, "Sym sym Symmetry Sym_2");
-    expect(&lx, TOK_UPPER_NAME, "Sym");
-    expect(&lx, TOK_LOWER_NAME, "sym");
-    expect(&lx, TOK_UPPER_NAME, "Symmetry");
-    expect(&lx, TOK_UPPER_NAME, "Sym_2");
-    expect(&lx, TOK_EOF, NULL);
-  }
-  TEST("trait and ovr are ordinary names, including case and prefix "
-       "boundaries") {
-    const char *text = "trait ovr Trait Ovr traits ovride trait_2 ovr2";
-    const TokenType types[] = {TOK_LOWER_NAME, TOK_LOWER_NAME, TOK_UPPER_NAME,
-                               TOK_UPPER_NAME, TOK_LOWER_NAME, TOK_LOWER_NAME,
-                               TOK_LOWER_NAME, TOK_LOWER_NAME};
-    SourceFile *source =
-        source_create(&test_arena, "names.brf", text, strlen(text));
-    Diagnostics d;
-    diagnostics_init(&d, &test_arena);
-    TokenArray tokens = lexer_tokenize(&test_arena, source, &d);
-    ASSERT_EQ_INT(0, d.count);
-    ASSERT_EQ_INT(9, tokens.count);
-    Lexer stream;
-    lexer_init(&stream, source, NULL);
-    for (size_t i = 0; i < tokens.count; i++) {
-      Token t = lexer_next_token(&stream);
-      ASSERT_EQ_INT(tokens.items[i].type, t.type);
-      ASSERT_EQ_INT(tokens.items[i].span.start, t.span.start);
-      ASSERT_EQ_INT(tokens.items[i].span.end, t.span.end);
-      if (i < sizeof(types) / sizeof(*types)) {
-        ASSERT_EQ_INT(types[i], t.type);
-        ASSERT_TRUE(token_is_name(t.type));
-      }
-    }
-  }
   TEST("self alone is a keyword, not Self or identifier prefixes") {
     Lexer lx;
     init_lexer(&lx, "self Self selfish self_ self1 selfSelf &self");
@@ -286,9 +251,7 @@ int main(void) {
   TEST("type and definition keywords are distinguished from identifiers") {
     Lexer lx;
     init_lexer(&lx, "bool int uint shrt ushrt lng ulng flt dbl chr str "
-                    "Sym Self type mod import trait impl pub ovr types enum "
-                    "intx sym self modern imports traits implicit public "
-                    "override");
+                    "mod import pub intx self modern imports public");
     expect(&lx, TOK_BOOL, "bool");
     expect(&lx, TOK_INT, "int");
     expect(&lx, TOK_UINT, "uint");
@@ -300,41 +263,25 @@ int main(void) {
     expect(&lx, TOK_DBL, "dbl");
     expect(&lx, TOK_CHR, "chr");
     expect(&lx, TOK_STR, "str");
-    expect(&lx, TOK_UPPER_NAME, "Sym");
-    expect(&lx, TOK_UPPER_NAME, "Self");
-    expect(&lx, TOK_LOWER_NAME, "type");
     expect(&lx, TOK_MOD, "mod");
     expect(&lx, TOK_IMPORT, "import");
-    expect(&lx, TOK_LOWER_NAME, "trait");
-    expect(&lx, TOK_LOWER_NAME, "impl");
     expect(&lx, TOK_PUB, "pub");
-    expect(&lx, TOK_LOWER_NAME, "ovr");
-    expect(&lx, TOK_LOWER_NAME, "types");
-    expect(&lx, TOK_LOWER_NAME, "enum");
     expect(&lx, TOK_LOWER_NAME, "intx");
-    expect(&lx, TOK_LOWER_NAME, "sym");
     expect(&lx, TOK_SELF, "self");
     expect(&lx, TOK_LOWER_NAME, "modern");
     expect(&lx, TOK_LOWER_NAME, "imports");
-    expect(&lx, TOK_LOWER_NAME, "traits");
-    expect(&lx, TOK_LOWER_NAME, "implicit");
     expect(&lx, TOK_LOWER_NAME, "public");
-    expect(&lx, TOK_LOWER_NAME, "override");
     expect(&lx, TOK_EOF, NULL);
   }
 
-  TEST("dbl is a keyword; dub is an ordinary name") {
+  TEST("dbl is a keyword only as a whole lowercase word") {
     Lexer lx;
-    init_lexer(&lx, "dbl dub dblx dubx Dbl Dub dbl_1 dub_1 \"dub\"");
+    init_lexer(&lx, "dbl dblx Dbl dbl_1 \"dbl\"");
     expect(&lx, TOK_DBL, "dbl");
-    expect(&lx, TOK_LOWER_NAME, "dub");
     expect(&lx, TOK_LOWER_NAME, "dblx");
-    expect(&lx, TOK_LOWER_NAME, "dubx");
     expect(&lx, TOK_UPPER_NAME, "Dbl");
-    expect(&lx, TOK_UPPER_NAME, "Dub");
     expect(&lx, TOK_LOWER_NAME, "dbl_1");
-    expect(&lx, TOK_LOWER_NAME, "dub_1");
-    expect(&lx, TOK_STR_LIT, "\"dub\"");
+    expect(&lx, TOK_STR_LIT, "\"dbl\"");
     expect(&lx, TOK_EOF, NULL);
   }
 

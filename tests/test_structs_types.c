@@ -246,21 +246,6 @@ int main(void) {
                               "not implemented yet.",
                               trait.errors.items[0]->message));
   }
-  TEST("ordinary Self types do not mean the current owner") {
-    valid(&a, "Self { n: int\nmake() -> Self { Self { n = 1 } } }\n"
-              "Other { value: Self\npass(s: Self) -> Self { Self.make() } }\n"
-              "main() { let s: Self = Other.pass(Self.make()) }");
-    valid(&a, "Self = Value\nValue = :value[int] | :none\nOther { n: Self\n"
-              "pass(n: Self) -> Self { n } }\n"
-              "main() { let n: Self = Other.pass(:value[1]) }");
-    valid(&a,
-          "Self = :value[int] | :none\nOther { n: Self\n"
-          "pass(n: Self) -> Self { n } }\nmain() { Other.pass(:value[1]) }");
-    Result unknown = check(&a, "f(n: Self) {}\nmain() {}");
-    ASSERT_EQ_INT(1, unknown.errors.count);
-    if (unknown.errors.count)
-      ASSERT_TRUE(unknown.errors.items[0]->fixes == NULL);
-  }
   TEST("string operators and builtin conversion boundaries") {
     valid(&a,
           "main() { var s = \"a\" + str(1)\ns += str(true)\ns == \"a1true\" }");

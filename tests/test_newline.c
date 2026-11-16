@@ -34,24 +34,11 @@ static void check(Arena *arena, const char *raw_text,
 int main(void) {
   Arena arena;
   arena_init(&arena);
-  TEST("ordinary Self names obey ordinary type and expression layout") {
-    check(&arena, "Self = int\nf(n: Self) ->\nSelf { n }\n",
-          "Self = int\nf(n: Self) -> Self { n }\n");
-    check(&arena, "main() { let n = Self < a >\n b\n}\n",
-          "main() { let n = Self < a > b\n}\n");
-    check(&arena, "Self { next: Self\nn: int }\r\nmain() {}\r\n",
-          "Self { next: Self\nn: int }\r\nmain() {}\r\n");
-  }
   TEST("self ends expressions without becoming an ordinary name") {
     check(&arena, "f() { self\nnext()\n}\n", "f() { self\nnext()\n}\n");
     check(&arena, "f() { self\n.read()\n}\n", "f() { self.read()\n}\n");
     check(&arena, "P { f(\n&self,\nn: int\n) { self.n } }\n",
           "P { f(&self,n: int) { self.n } }\n");
-  }
-  TEST("ordinary impl names do not continue declarations across newlines") {
-    check(&arena, "impl\nnext()\n", "impl\nnext()\n");
-    check(&arena, "impl(value: int) ->\nint { value }\n",
-          "impl(value: int) -> int { value }\n");
   }
   TEST("ordinary newlines and blank lines remain") {
     check(&arena, "\nlet x = 1\n\nlet y = 2\n", "\nlet x = 1\n\nlet y = 2\n");

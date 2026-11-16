@@ -231,7 +231,7 @@ int main(void) {
         ASSERT_TRUE(!r.errors.items[0]->fixes);
     }
   }
-  TEST("conversion failure kinds reject the old neutral characterization") {
+  TEST("conversion failures conflict with neutral invalid and overflow tags") {
     const char *source =
         "Maybe = :ok[int] | :none\n"
         "parse(s: str) -> :ok[int] | :invalid[str] { int(s)? }\n"

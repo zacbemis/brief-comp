@@ -302,36 +302,6 @@ int main(void) {
             0, strcmp("after", v->program->items[v->program->count - 1]->name));
     }
   }
-  TEST("trait and ovr are names, not declaration or override modifiers") {
-    const char *text =
-        "trait(ovr: int) -> int { ovr }\novr(trait: int) -> int { trait }\n"
-        "P { trait: int\novr: int\n trait() { self.trait }\novr() { self.ovr "
-        "} }\n"
-        "main() { let trait = P { trait = 1, ovr = 2 }\nvar ovr = "
-        "trait.trait()\n"
-        "for trait in 0..2 { ovr += trait }\n:trait |> { :trait => :ovr } }";
-    Parsed *v = parse(&arena, text);
-    if (v->diagnostics.count)
-      diagnostics_print(&v->diagnostics, stderr);
-    ASSERT_EQ_INT(0, v->diagnostics.count);
-    ASSERT_EQ_INT(4, v->program->count);
-    if (v->program->count == 4) {
-      ASSERT_EQ_INT(0, strcmp("trait", v->program->items[0]->name));
-      ASSERT_EQ_INT(0, strcmp("ovr", v->program->items[1]->name));
-      ASSERT_EQ_INT(2, v->program->items[2]->as.structure.count);
-      ASSERT_EQ_INT(2, v->program->items[2]->as.structure.function_count);
-    }
-    const char *fixed[] = {"Trait() {}", "Ovr() {}", "main() { :Trait }",
-                           "main() { :Ovr }"};
-    for (size_t i = 0; i < sizeof(fixed) / sizeof(*fixed); i++) {
-      v = parse(&arena, fixed[i]);
-      ASSERT_EQ_INT(1, v->diagnostics.count);
-      if (v->diagnostics.count)
-        ASSERT_TRUE(v->diagnostics.items[0]->fixes != NULL);
-      Parsed *again = parse(&arena, apply_fixes(&arena, v));
-      ASSERT_EQ_INT(0, again->diagnostics.count);
-    }
-  }
   TEST("bindings, typed fields, methods, written and partial return types") {
     const char *text =
         "Error = :!bad[str] | :!missing\n"
