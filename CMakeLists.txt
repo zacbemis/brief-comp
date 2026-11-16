@@ -43,7 +43,15 @@ add_library(brief_core STATIC
     src/lexer/lexer.c
     src/lexer/token.c
     src/lexer/newline.c
-    src/parser/parser.c
+    src/parser/cursor.c
+    src/parser/nesting.c
+    src/parser/names.c
+    src/parser/types.c
+    src/parser/primary.c
+    src/parser/expressions.c
+    src/parser/match.c
+    src/parser/statements.c
+    src/parser/declarations.c
     src/ast/print.c
     src/sema/sema.c
     src/sema/check.c
@@ -64,7 +72,9 @@ add_library(brief_core STATIC
 
 target_include_directories(brief_core PUBLIC
     ${CMAKE_SOURCE_DIR}/include
-    PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated
+    # Pass-private headers live beside their sources as src/<pass>/internal.h.
+    PRIVATE ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 
 target_link_libraries(brief_core PUBLIC brief_options)
