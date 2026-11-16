@@ -87,6 +87,7 @@ add_library(brief_core STATIC
     src/codegen/c/types.c
     src/codegen/c/function.c
     src/codegen/c/program.c
+    src/driver/compile.c
     src/driver/native.c
     "${runtime_header}"
 )

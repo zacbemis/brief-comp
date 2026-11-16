@@ -1,9 +1,6 @@
 #include "codegen/c.h"
-#include "common/diagnostic.h"
+#include "driver/compile.h"
 #include "driver/native.h"
-#include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -37,6 +34,24 @@ static void print_lexeme(const Token *token) {
     }
   }
   fputc('"', stdout);
+}
+
+static int dump_tokens(Arena *arena, const Compilation *c) {
+  if (c->diagnostics.count) {
+    diagnostics_print(&c->diagnostics, stderr);
+    arena_destroy(arena);
+    return 1;
+  }
+  for (size_t i = 0; i < c->tokens.count; i++) {
+    const Token *token = &c->tokens.items[i];
+    SourcePosition position = source_position(c->source, token->span.start);
+    printf("%zu:%zu %s ", position.line, position.column,
+           token_type_name(token->type));
+    print_lexeme(token);
+    fputc('\n', stdout);
+  }
+  arena_destroy(arena);
+  return 0;
 }
 
 typedef enum { DUMP_TOKENS, DUMP_AST, EMIT_C, BUILD, RUN } Command;
@@ -111,55 +126,36 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  TokenArray tokens = lexer_tokenize(&arena, source, &diagnostics);
-  if (options.command != DUMP_TOKENS) {
-    InternTable names;
-    intern_init(&names, &arena);
-    TokenArray filtered = newline_filter(&arena, tokens);
-    Program *program = parse_program(&arena, &names, filtered, &diagnostics);
-    if (diagnostics.count) {
-      diagnostics_print(&diagnostics, stderr);
-      arena_destroy(&arena);
-      return 1;
+  Compilation c;
+  compilation_init(&c, &arena, source);
+  compilation_lex(&c);
+  if (options.command == DUMP_TOKENS)
+    return dump_tokens(&arena, &c);
+  compilation_parse(&c);
+  int result = 0;
+  if (c.diagnostics.count) {
+    diagnostics_print(&c.diagnostics, stderr);
+    result = 1;
+  } else if (options.command == DUMP_AST) {
+    ast_print(stdout, c.syntax);
+  } else {
+    compilation_resolve(&c);
+    compilation_check(&c);
+    if (c.diagnostics.count) {
+      diagnostics_print(&c.diagnostics, stderr);
+      result = 1;
+    } else {
+      compilation_lower(&c);
+      if (options.command == EMIT_C) {
+        if (!emit_c(stdout, c.ir) || fflush(stdout) != 0) {
+          fputs("error: cannot write generated C\n", stderr);
+          result = 1;
+        }
+      } else
+        result = native_build(&arena, c.ir, options.output, options.debug,
+                              options.command == RUN);
     }
-    int result = 0;
-    if (options.command == DUMP_AST)
-      ast_print(stdout, program);
-    else {
-      SemaProgram *checked = sema_resolve(&arena, program, &diagnostics);
-      sema_check(checked, &diagnostics);
-      if (diagnostics.count) {
-        diagnostics_print(&diagnostics, stderr);
-        result = 1;
-      } else {
-        IrProgram *ir = ir_lower(&arena, checked);
-        ir_insert_rc(&arena, ir);
-        if (options.command == EMIT_C) {
-          if (!emit_c(stdout, ir) || fflush(stdout) != 0) {
-            fputs("error: cannot write generated C\n", stderr);
-            result = 1;
-          }
-        } else
-          result = native_build(&arena, ir, options.output, options.debug,
-                                options.command == RUN);
-      }
-    }
-    arena_destroy(&arena);
-    return result;
-  }
-  if (diagnostics.count) {
-    diagnostics_print(&diagnostics, stderr);
-    arena_destroy(&arena);
-    return 1;
-  }
-  for (size_t i = 0; i < tokens.count; i++) {
-    const Token *token = &tokens.items[i];
-    SourcePosition position = source_position(source, token->span.start);
-    printf("%zu:%zu %s ", position.line, position.column,
-           token_type_name(token->type));
-    print_lexeme(token);
-    fputc('\n', stdout);
   }
   arena_destroy(&arena);
-  return 0;
+  return result;
 }
