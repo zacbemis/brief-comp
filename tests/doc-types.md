@@ -138,7 +138,7 @@ remain independent. In particular, all 64 numeric domain pairs, exhaustive/
 random runtime bounds, round trips and character ranks are not replaced by this
 chapter's selected observations. `test_objects.c` directly checks stored string
 lengths, trailing NULs, immortal literals and counts; the Brief cases do not
-claim C interop or exact transient ARC counts. `test_lexer.c` separately checks
+claim C interop or exact transient ARC counts. The `test_lexer_*` suites separately check
 exact backslash-before-newline bytes and recovery for LF/CRLF. Native invalid
 literal cases add their expectation text before converting to CRLF; they do not
 claim that an inline annotation preserves a final backslash byte.
