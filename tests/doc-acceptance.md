@@ -1,15 +1,15 @@
 # Document acceptance status
 
 **N1–N3 are complete for their milestone scope; N4 is in progress.** The
-[N1 final review](next-version-n1-review.md) checks its three completion
-criteria; the [N2 closure review](next-version-n2-review.md) records kind-based
-outcomes. The [N3 closure review](next-version-n3-review.md) records returned/
+[N1 final review](../docs/history/reviews/next-version-n1-review.md) checks its three completion
+criteria; the [N2 closure review](../docs/history/reviews/next-version-n2-review.md) records kind-based
+outcomes. The [N3 closure review](../docs/history/reviews/next-version-n3-review.md) records returned/
 bound outcomes, flow checks and its scoped native audits.
 
 First-version native document audits and all spelling bridges have been retired
 as required by `docs/plans/next-version.txt`. Executable scripts and CTest
 registrations are deleted; they are not maintained as a second syntax or
-extended into a migration system. `docs/v0/` is untouched.
+extended into a migration system. `docs/history/v0/` is untouched.
 
 The replacement [current-document parser inventory](doc-parser.md) reads all
 13 current chapters: 239 fences, 162 parser checks, 77 explicitly listed fences
@@ -115,7 +115,7 @@ note, and scope exits check departing obligations. Written result contracts
 remain enforced. Loop coverage includes back edges, regenerated values, nested
 jump targets and independent-error recovery. Bounds execute once; repeated
 conditions participate in the header. See the
-[loop and recovery notes](next-version-n3-loop-recovery.md).
+[loop and recovery notes](../docs/history/reviews/next-version-n3-loop-recovery.md).
 
 N3's [errors extension](doc-errors-n3.md) classifies section 6 as five context
 listings and one unchanged print execution; the complete errors audit now has
@@ -132,18 +132,18 @@ expectation changes in this closure; unavailable examples remain listings,
 not native acceptance.
 
 N4 implements mixed-type shift counts with independent literal contexts and
-pre-conversion range checks; see the [shift notes](next-version-n4-shifts.md).
+pre-conversion range checks; see the [shift notes](../docs/history/reviews/next-version-n4-shifts.md).
 Typed deferred let/var declarations now have shared-flow definite assignment,
 with owned-slot cleanup and outcome/permission integration, hardened across
 joins, exits, loops and nesting. See the
-[deferred-binding](next-version-n4-definite-assignment.md) and
-[assignment-path](next-version-n4-assignment-paths.md) notes. Existing chapter
+[deferred-binding](../docs/history/reviews/next-version-n4-definite-assignment.md) and
+[assignment-path](../docs/history/reviews/next-version-n4-assignment-paths.md) notes. Existing chapter
 audit cases remain unchanged. Initialized named lets now support divergent
 else blocks via checked matches, preserving remaining values, owners and
-permissions; see the [let-else notes](next-version-n4-let-else.md).
+permissions; see the [let-else notes](../docs/history/reviews/next-version-n4-let-else.md).
 Inclusive patterns and integer loops now preserve endpoint values, with safe
 maximum-edge exhaustion and continue targets; see the
-[inclusive-range notes](next-version-n4-inclusive-ranges.md). No pending fence
+[inclusive-range notes](../docs/history/reviews/next-version-n4-inclusive-ranges.md). No pending fence
 is promoted in this slice and this does not complete N4.
 
 Remaining milestone work:
@@ -244,16 +244,16 @@ to them in retired records below describe past tests, not available helpers.
 ## Historical first-version evidence
 
 M6 completed the first-version feature scope before this migration. Its
-[final review](first-version-review.md) and the following retired records
+[final review](../docs/history/reviews/first-version-review.md) and the following retired records
 preserve the previous classifications, adapters, exclusions and validation.
 Their embedded script names/commands are historical, not current instructions:
 
-[Errors](doc-errors.md), [pipelines](doc-pipelines.md),
-[overview](doc-overview.md), [syntax](doc-syntax.md), [types](doc-types.md),
-[functions](doc-functions.md), [symbols](doc-symbols.md),
-[memory](doc-memory.md), [base sample](doc-base.md),
-[standard library](doc-stdlib.md), [modules](doc-modules.md),
-[collections](doc-collections.md), [traits](doc-traits.md).
+[Errors](../docs/history/audits/doc-errors.md), [pipelines](../docs/history/audits/doc-pipelines.md),
+[overview](../docs/history/audits/doc-overview.md), [syntax](../docs/history/audits/doc-syntax.md), [types](../docs/history/audits/doc-types.md),
+[functions](../docs/history/audits/doc-functions.md), [symbols](../docs/history/audits/doc-symbols.md),
+[memory](../docs/history/audits/doc-memory.md), [base sample](../docs/history/audits/doc-base.md),
+[standard library](../docs/history/audits/doc-stdlib.md), [modules](../docs/history/audits/doc-modules.md),
+[collections](../docs/history/audits/doc-collections.md), [traits](../docs/history/audits/doc-traits.md).
 
 The old green suites and their generated cases do not establish acceptance of
 the current documents. Current audit status is the explicit inventory above.

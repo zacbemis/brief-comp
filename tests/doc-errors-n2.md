@@ -99,5 +99,5 @@ Only these new expectations were corrected; no compiler behavior changed.
 
 The 22 cases comprise 16 native executions (two expected panics) and six
 rejection programs with nine exact diagnostic sites, all without guessed fixes.
-See [the closure review](next-version-n2-review.md) for the full matrix,
+See [the closure review](../docs/history/reviews/next-version-n2-review.md) for the full matrix,
 retained-source comparison, additional strict-C checks and scoped limitations.

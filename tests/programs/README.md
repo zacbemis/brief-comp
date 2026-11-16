@@ -57,7 +57,7 @@ values, even when :ok is present. `errors/no-error-postfix-n2.brf` checks
 fourteen independent sites. Existing conversion-matrix, numeric-conversions
 and outcomes sources drop redundant postfixes; numeric-conversions also drops
 an unreachable phantom-success arm. Runtime markers remain unchanged. See the
-[complete expectation inventory](../next-version-n2-no-error.md).
+[complete expectation inventory](../../docs/history/reviews/next-version-n2-no-error.md).
 
 Singleton :ok types and values now normalize to their payload or unit. Plain
 results cannot be matched as :ok or gain wrappers merely from a binding or
@@ -65,7 +65,7 @@ argument annotation. `exact-returns-n2.brf` covers aliases, owned values,
 contextual return wrapping, normalized catch-alls and partial inference;
 `errors/exact-returns-n2.brf` pins fifteen rejections. The three obsolete
 wrapper matches in outcomes.brf now match ordinary values. Runtime markers are
-unchanged; see [the slice notes](../next-version-n2-exact-returns.md).
+unchanged; see [the slice notes](../../docs/history/reviews/next-version-n2-exact-returns.md).
 
 Valueless returns and tails now produce :none when the result includes it.
 `none-endings-n2.brf` covers written/inferred/partial results, ownership, branch
@@ -73,7 +73,7 @@ and loop endings, unit payloads and error-kind postfix handling of optionals.
 `main-none-ending-n2.brf` checks a successful entry with an owned local. The
 errors/none-endings-n2 fixture pins eleven ambiguity diagnostics: payload-less
 :ok and :none cannot coexist in a union. Details and the changed canonical-mask
-expectations are in [the slice notes](../next-version-n2-none-endings.md).
+expectations are in [the slice notes](../../docs/history/reviews/next-version-n2-none-endings.md).
 
 N3's first slice adds `returned-outcomes-n3.brf`: written, inferred, partial,
 branch, match, pipeline and recursive forwarding return complete outcomes,
@@ -85,7 +85,7 @@ diagnostics, including refusal to nest an error outcome implicitly as success.
 Only two existing ret markers change: errors/handled-calls.brf:9 and
 errors/call-kind-errors-n2.brf:23. Other messages, source lines, runtime markers
 and example goldens are unchanged; see
-[the complete slice inventory](../next-version-n3-returned-outcomes.md).
+[the complete slice inventory](../../docs/history/reviews/next-version-n3-returned-outcomes.md).
 
 The next N3 slice adds `outcome-bindings-n3.brf`, `main-bound-outcome-n3.brf`
 and `errors/outcome-bindings-n3.brf`. Let/var bindings hold full outcomes until
@@ -96,7 +96,7 @@ negative sites. Existing markers move from binding calls to their illegal uses
 or exits in handled-calls, call-kind-errors-n2 and returned-outcomes-n3. A split
 call shifts handled-calls' old wrong-argument diagnostic by one line; its later
 projection/converter locations shift too. All existing runtime markers remain
-unchanged. See [the exact inventory](../next-version-n3-outcome-bindings.md).
+unchanged. See [the exact inventory](../../docs/history/reviews/next-version-n3-outcome-bindings.md).
 
 The path/scope slice adds `outcome-rearm-n3.brf`,
 `main-rearmed-outcome-n3.brf` and `errors/outcome-paths-n3.brf`. A handled var
@@ -106,7 +106,7 @@ report one primary with an unhandled-path note rather than later read/exit
 errors. Fourteen negative sites pin joins, exits and invalid writes. The old
 outcome-bindings error fixture keeps eleven diagnostics: assignAfter's write
 error moves from line 32 to its pending exit on line 33. Runtime markers stay
-unchanged; see [the full inventory](../next-version-n3-joins-exits.md).
+unchanged; see [the full inventory](../../docs/history/reviews/next-version-n3-joins-exits.md).
 
 The loop/recovery slice adds `outcome-loops-n3.brf`,
 `main-loop-outcome-n3.brf` and `errors/outcome-loops-n3.brf`. They exercise
@@ -115,13 +115,13 @@ condition/bound jumps and an owned error returned from a loop. Fifteen negative
 sites cover repeated outer consumption, first inner joins, departing locals
 and independent typing errors. No old expectation changes; newly discovered
 bad jumps now reject instead of silently discarding outcomes. See
-[the loop inventory](../next-version-n3-loop-recovery.md).
+[the loop inventory](../../docs/history/reviews/next-version-n3-loop-recovery.md).
 
 N3 closure adds no program fixture or changed marker. Its section-6 errors
 extension and scoped pipelines/memory audits generate separate whole-fence and
 independent prose cases under the build tree, using `doc_native.cmake`. Those
 are not counted in that 198-fixture inventory. See
-[the closure review](../next-version-n3-review.md) for their scope, the full
+[the closure review](../../docs/history/reviews/next-version-n3-review.md) for their scope, the full
 four-configuration matrix and the unchanged retained-source/runtime comparison.
 
 N4's first slice adds `shift-counts-n4.brf`, its fourteen-site error fixture
@@ -131,7 +131,7 @@ Counts keep their own signedness/width until validated. Invalid negative,
 width-sized, 2^40 and extreme 64-bit counts panic even for zero left values;
 valid left shifts still check overflow. No old marker changes. Three old C
 outputs change only independent count temporaries and guards; see
-[the exact inventory](../next-version-n4-shifts.md).
+[the exact inventory](../../docs/history/reviews/next-version-n4-shifts.md).
 
 The deferred-binding slice adds `declared-assignment-n4.brf`,
 `main-declared-outcome-n4.brf` and `errors/declared-assignment-n4.brf`. Typed
@@ -140,7 +140,7 @@ assignment, first stores, never-initialized owned slots, loop cleanup/reuse,
 rearmed outcomes, returned owned errors and borrowed access. Seventeen negative
 sites pin definite-assignment, exactly-once let writes and existing outcome/
 permission/type diagnostics. No old expectation changes; see
-[the slice notes](../next-version-n4-definite-assignment.md).
+[the slice notes](../../docs/history/reviews/next-version-n4-definite-assignment.md).
 
 The assignment-path slice adds `assignment-paths-n4.brf`,
 `main-assignment-paths-n4.brf` and `errors/assignment-paths-n4.brf`. Native
@@ -150,7 +150,7 @@ before its deferred bindings are stored. Seventeen negative sites pin missing
 branch, match and loop assignments, let writes in back edges, conditions and
 bounds, argument order and immutable compound/update writes. No old
 expectation changes; see
-[the slice notes](../next-version-n4-assignment-paths.md).
+[the slice notes](../../docs/history/reviews/next-version-n4-assignment-paths.md).
 
 The let-else slice adds `let-else-n4.brf`, `main-let-else-n4.brf` and
 `errors/let-else-n4.brf`. Checked matches remove outer errors/absence and bind
@@ -159,7 +159,7 @@ input evaluation, continue/break/return cleanup, owned aliases, nested error
 obligations, recursive inference and replacement error entry. Thirteen exact
 negative sites pin input eligibility, divergence, scope, type/return contracts,
 second handling, permissions and unsupported multi-position extraction. No old
-expectation changes; see [the slice notes](../next-version-n4-let-else.md).
+expectation changes; see [the slice notes](../../docs/history/reviews/next-version-n4-let-else.md).
 
 The inclusive-range slice adds `inclusive-ranges-n4.brf`,
 `main-inclusive-ranges-n4.brf` and `errors/inclusive-ranges-n4.brf`. Native
@@ -169,7 +169,7 @@ returned at the ulng maximum. Inclusive scalar patterns retain coverage,
 including signed zero and NaN fallback. Thirteen exact negative sites reject
 wrong types, immutable writes, invalid patterns, named runtime pattern bounds
 and read-only stores. Existing fixture bytes and observations do not change;
-see [the slice notes](../next-version-n4-inclusive-ranges.md).
+see [the slice notes](../../docs/history/reviews/next-version-n4-inclusive-ranges.md).
 
 `../run_programs.c` compiles each `.brf` with `brief build`, runs successful
 binaries, and checks the expectations below. CMake builds the runner alongside
@@ -271,7 +271,7 @@ exact coverage/type/immutability diagnostics. Refutable/nested payload patterns
 and symbol ordering remain deferred outside M5's first-version acceptance scope.
 
 M5 is complete against its definition of done. The separate
-[`lang-errors.txt` acceptance audit](../doc-errors.md) reads every code fence,
+[`lang-errors.txt` acceptance audit](../../docs/history/audits/doc-errors.md) reads every code fence,
 checks 28 in-scope fences in 49 generated native/diagnostic cases (normal and
 sanitized), and explicitly excludes eight later-version module/collection
 examples. These generated cases are separate from the 87 source fixtures here;
@@ -281,60 +281,60 @@ native/stage-level tests.
 M6's acceptance/diagnostic work developed in the following slices. Its first
 slice adds 20 generated pipeline/matching doc cases and shared acceptance
 helpers with eleven failure-guard checks. The [acceptance
-tracker](../doc-acceptance.md) and [pipeline audit](../doc-pipelines.md) record
+tracker](../doc-acceptance.md) and [pipeline audit](../../docs/history/audits/doc-pipelines.md) record
 exact scope, including partial coverage and later-version exclusions. The next
-slice adds 33 [function-document cases](../doc-functions.md), covering return
+slice adds 33 [function-document cases](../../docs/history/audits/doc-functions.md), covering return
 typing, owned/unit results, call forms and selected prose rules, plus regression
 coverage for a misleading partial-return payload-collision cascade. The symbol
-slice adds 32 [symbol-document cases](../doc-symbols.md), covering
+slice adds 32 [symbol-document cases](../../docs/history/audits/doc-symbols.md), covering
 constructors/handlers, named sets, forward/recursive aliases, exact payload
 identity and contextual payload widening, with module-qualified sets and
 ordering explicitly deferred. The memory slice adds 48 [memory/permission
-cases](../doc-memory.md), including exact access-path errors, flow joins,
+cases](../../docs/history/audits/doc-memory.md), including exact access-path errors, flow joins,
 symbol/handler permissions, argument snapshots, retained/returned owners and
 scope/jump cleanup. Count elimination, collector claims, cloning, `const` and
 real resource APIs have explicit partial/deferred classifications. The syntax
-slice adds 65 [syntax-document cases](../doc-syntax.md), observing
+slice adds 65 [syntax-document cases](../../docs/history/audits/doc-syntax.md), observing
 operators/precedence, bindings, control flow and continuations, and checking
 exact syntax/type errors. Deferred fragments are explicit; later diagnostic
 slices remove the struct-condition newline adapter and the unsupported-generic
 ordinary-callee cascade without adding those deferred features. The type slice
-adds 64 [type-document cases](../doc-types.md): primitive/literal domains,
+adds 64 [type-document cases](../../docs/history/audits/doc-types.md): primitive/literal domains,
 checked arithmetic, numeric/text conversion rules including `chr` sources, IEEE
 behavior, binary strings, content equality and unit effects. Identity calls in
 two equality fences and nine feature/library fences remain deferred. A later
 lexer slice gives source exponents an explicit unsupported-notation diagnostic,
 without changing numeric text conversion. The overview slice adds 24
-[prose-contract scenarios](../doc-overview.md), not extracted programs: the
+[prose-contract scenarios](../../docs/history/audits/doc-overview.md), not extracted programs: the
 overview has no code fences. It guards first-version/deferred scope, checks the
 document/open-question inventories, and exercises representative entry, typing,
 control-flow, permission, outcome and ownership contracts. The shared harness
 now handles prose-only manifests, with fourteen failure-guard checks. The raw
-[running-sample audit](../doc-base.md) adds 38 cases from 38 completely
+[running-sample audit](../../docs/history/audits/doc-base.md) adds 38 cases from 38 completely
 classified source spans, including preserved arithmetic/control flow and
 localized User/Admin/retaining/handler bodies. Module, trait, const, JSON,
 vector and clone limitations are explicit; adapted bodies are not acceptance of
-those features. The [standard-library audit](../doc-stdlib.md) adds 17 cases for
+those features. The [standard-library audit](../../docs/history/audits/doc-stdlib.md) adds 17 cases for
 its one partial JSON fence, preserving constructor/propagation bodies with
 deterministic field access. It tests local error compatibility, handling,
 ownership and coverage, not JSON parsing/serialization or module privacy. A
 later checker slice removes the unhandled-getter argument-type cascade, without
 weakening direct handling. The chapter contains no builtin examples. The
-[modules-chapter audit](../doc-modules.md) adds 30 cases covering eight of its
+[modules-chapter audit](../../docs/history/audits/doc-modules.md) adds 30 cases covering eight of its
 17 fences and guarded prose contracts. It checks local structs/literals,
 explicit receivers and `Self`, constructors and entry ownership/results in one
 file. Nine fences are deferred; three represented fences are partial. Neither
 local `File.read` outcomes nor local public declarations establish filesystem
 APIs, module loading or cross-file privacy. A later parser slice gives top-level
 calls/bindings a direct inside-a-function hint, pinned here and by the base
-audit. The [collections scope audit](../doc-collections.md) classifies all 31
+audit. The [collections scope audit](../../docs/history/audits/doc-collections.md) classifies all 31
 fences: only four are partial, represented with prose/derived checks in 14
 cases. It runs original symbol handlers and the written manual `while` expansion
 with controlled inputs, not vectors, queries, lambdas or compiler-generated
 cursor iteration. All 26 table operations and 27 whole fences are deferred.
 Direct `!` handling in the oldest-user example is corrected and its former
 delayed shape is rejected; ASCII/UTF-8 byte comparisons are tested without
-claiming sorting support. The [traits scope audit](../doc-traits.md) classifies
+claiming sorting support. The [traits scope audit](../../docs/history/audits/doc-traits.md) classifies
 all six fences: five partial fences and derived scenarios run in 16 cases; the
 generic example is deferred. Original getters/default/custom bodies run as
 explicitly installed ordinary methods, with nominal composition, permission,
@@ -429,7 +429,7 @@ exhausted the C stack through recursive release in debug runs.
 
 These generated cases remained separate from the 87 source fixtures at M6
 completion. Every tracked chapter has an audit, the initial diagnostic
-inventory is addressed, and the [final review](../first-version-review.md) records completed
+inventory is addressed, and the [final review](../../docs/history/reviews/first-version-review.md) records completed
 implementation/acceptance/README status verification. M6 is complete for the
 first-version scope, without claiming the deferred surrounding features.
 

@@ -1,7 +1,7 @@
-# M6 acceptance slice: `docs/v0/lang-stdlib.txt`
+# M6 acceptance slice: `docs/history/v0/lang-stdlib.txt`
 
 > **Retired in N1.** Historical record; scripts/commands below are no longer
-> active. See [current document status](doc-acceptance.md).
+> active. See [current document status](../../../tests/doc-acceptance.md).
 
 The chapter has **one code fence**, explicitly **partial** in this audit, and
 **no builtin examples**. `test_doc_stdlib.cmake` reads the fence directly and
@@ -21,7 +21,7 @@ adaptation anchors, and the chapter's six design-goal bullets and non-final-API
 qualification are guarded. Generated cases live in
 `build/tests/test_doc_stdlib-fixtures/programs/`, separately from the sanitized
 variant and checked-in fixtures. Overall M6 completion is recorded in the
-[final review](first-version-review.md), not established by this chapter alone.
+[final review](../reviews/first-version-review.md), not established by this chapter alone.
 
 ## Fence and prose classification
 

@@ -164,4 +164,4 @@ tree. Each file starts with a header:
 - Files named `later-*` use syntax from later versions (lambdas, traits,
   tuples). Move them to `pass/` as each feature's syntax is added.
 - Files named `limit-*` exceed the parser's 128-level nesting limit
-  (`docs/plans/first-version.txt`, "Implementation limits").
+  (`docs/history/plans/first-version.txt`, "Implementation limits").

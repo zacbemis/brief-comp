@@ -23,9 +23,9 @@ makes no compiler or runtime change.
 - Both required audit entry points now exist using `tests/doc_native.cmake`,
   with the same unchanged whole-fence/prose/listing discipline as N1.
 
-[Symbols](doc-symbols-n2.md) classifies all 15 fences: one unchanged local alias
+[Symbols](../../../tests/doc-symbols-n2.md) classifies all 15 fences: one unchanged local alias
 runs, 14 remain listings, and eleven independently authored programs exercise
-available prose rules. [Errors](doc-errors-n2.md) classifies all 38 fences: one
+available prose rules. [Errors](../../../tests/doc-errors-n2.md) classifies all 38 fences: one
 unchanged alias runs, 37 remain listings, and 21 independent programs exercise
 sections 1–5 and 7–12. Section 6's six fences are explicit N3 listings, not
 native acceptance. All 53 fences are classified once, without supplying missing

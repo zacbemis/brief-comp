@@ -83,5 +83,5 @@ success extraction and cycle collection retain their existing boundaries.
 The broader language wording is not silently weakened by this audit.
 
 The slice's full validation, unchanged-source comparison and N2 closure decision
-are recorded in [the closure review](next-version-n2-review.md). In this audit,
+are recorded in [the closure review](../docs/history/reviews/next-version-n2-review.md). In this audit,
 12 programs comprise six native executions and six compiler rejections.

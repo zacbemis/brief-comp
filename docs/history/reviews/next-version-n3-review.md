@@ -20,11 +20,11 @@ shared flow/permissions, IR/RC, runtime and language chapters are unchanged.
   Ownership snapshots and read-only permissions are not upgraded by handling.
 - Required native audits now exist, with unchanged `doc_native.cmake` helpers.
 
-The [section-6 extension](doc-errors-n3.md) retains the N2 audit name and all
+The [section-6 extension](../../../tests/doc-errors-n3.md) retains the N2 audit name and all
 22 prior programs: two whole fences execute, 36 remain listings, and 33 prose
-programs exercise available rules. [Pipelines](doc-pipelines-n3.md) executes
+programs exercise available rules. [Pipelines](../../../tests/doc-pipelines-n3.md) executes
 one whole fence and twelve prose programs; sixteen fences remain listings.
-[Memory](doc-memory-n3.md) executes four whole fences and ten prose programs;
+[Memory](../../../tests/doc-memory-n3.md) executes four whole fences and ten prose programs;
 fourteen fences remain listings. All **73 fences** are classified exactly once,
 with seven unchanged whole fences and 66 honest listings. No missing API/type/
 body, extracted fragment or split alternative is supplied.

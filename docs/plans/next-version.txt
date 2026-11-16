@@ -1,6 +1,6 @@
 # Plan: Moving the Compiler to the Next-Version Language
 
-> **Status: N0–N3 complete; N4 in progress; N5–N6 remain.** This plan moves the C compiler and its tests from the first version's language (`docs/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
+> **Status: N0–N3 complete; N4 in progress; N5–N6 remain.** This plan moves the C compiler and its tests from the first version's language (`docs/history/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
 
 ## Goal
 
@@ -10,7 +10,7 @@ The plan is done when:
 
 - every program fixture, parser fixture and example program passes in the new syntax, with the same output, panics, exit status and error lines as before, except where this plan changes the meaning;
 - every code fence in the new documents is classified by an acceptance audit, and those in scope compile and behave as described;
-- the old grammar and the tests that read `docs/v0/` are gone.
+- the old grammar and the tests that read `docs/history/v0/` are gone.
 
 ## Scope
 
@@ -204,7 +204,7 @@ Each milestone ends with every test passing in the full CI matrix.
 | # | Milestone | Done when |
 |---|---|---|
 | N0 | **Groundwork, in the first version's syntax.** Fix-its on diagnostics; the flow framework, with permissions ported to it and no change in behavior; tags with kind and module fields, all neutral. | All tests pass with no change in behavior. |
-| N1 | **The new syntax, with the same meaning.** Lexer, newline filter, parser, syntax tree, method inference, wrong-way calls, casing, `not`, `pub` rules, struct-or-trait detection and the old-syntax diagnostics. All fixtures, examples and C tests are converted in the same change. The scripts that read `docs/v0/` are deleted, `test_doc_parser` reads the new documents, and the audits for `lang-syntax.txt`, `lang-types.txt`, `lang-functions.txt`, `lang-modules.txt` and `lang-ex-base.txt` are written for the rules that exist. Error tags are parsed and their kind checked, while outcomes keep the first version's `:ok`-based rules. | Every converted test passes with its old expectations, apart from message texts that quote syntax. The old grammar is rejected with fixes. Every new document fence parses or is listed. |
+| N1 | **The new syntax, with the same meaning.** Lexer, newline filter, parser, syntax tree, method inference, wrong-way calls, casing, `not`, `pub` rules, struct-or-trait detection and the old-syntax diagnostics. All fixtures, examples and C tests are converted in the same change. The scripts that read `docs/history/v0/` are deleted, `test_doc_parser` reads the new documents, and the audits for `lang-syntax.txt`, `lang-types.txt`, `lang-functions.txt`, `lang-modules.txt` and `lang-ex-base.txt` are written for the rules that exist. Error tags are parsed and their kind checked, while outcomes keep the first version's `:ok`-based rules. | Every converted test passes with its old expectations, apart from message texts that quote syntax. The old grammar is rejected with fixes. Every new document fence parses or is listed. |
 | N2 | **Outcomes by error kind.** Outcomes defined by error tags; `?` and `!` on errors only, and what is left after them; `:ok[T]` alone as `T` and exact return types; `:none`; `main`'s exit by error kind; the entry formatter's new spelling. The audits for `lang-symbols.txt` and `lang-errors.txt` sections 1–5 and 7–12. | The fixtures for each rule pass, and the only changed expectations are the reviewed ones. |
 | N3 | **Handling outcomes.** Returning an outcome as it is, and outcome bindings handled exactly once, on the flow framework. The audits for `lang-errors.txt` section 6, `lang-pipelines.txt` and `lang-memory.txt`. | Every documented example in "Handling outcomes" behaves as described, and the invalid shapes report their errors once each. |
 | N4 | **Bindings and loops.** Declared-then-assigned bindings, `let ... else`, `..=` in loops and patterns, typed loop variables and shift counts of any integer type, with their fences added to the audits. | Fixtures for each, including the edge values, pass under sanitizers. |
@@ -216,8 +216,8 @@ N4 and N5 depend only on N1 and can be done in either order, or alongside N2 and
 ## Implementation progress
 
 N0, N1, N2 and N3 are complete for their milestone scope. Final reviews are in
-`tests/next-version-n1-review.md`, `tests/next-version-n2-review.md` and
-`tests/next-version-n3-review.md`. N2's kind-based outcomes, postfixes, exact
+`docs/history/reviews/next-version-n1-review.md`, `docs/history/reviews/next-version-n2-review.md` and
+`docs/history/reviews/next-version-n3-review.md`. N2's kind-based outcomes, postfixes, exact
 results, optional endings, entry/diagnostic rules and scoped symbols/errors
 audits are complete. N3 adds unchanged outcome returns, flow-checked binding
 consumption/rearming, join/path diagnostics, scope exits, loops and recovery.
@@ -373,7 +373,7 @@ survive recovery without repeated join primaries. Scoped audits classify all
 73 errors/pipelines/memory fences: seven execute unchanged, 66 remain explicit
 listings, and 55 independent prose programs exercise available rules. No old
 expectation changes in this closure slice. The full four-configuration -Werror
-matrix passes; the closure review is `tests/next-version-n3-review.md`.
+matrix passes; the closure review is `docs/history/reviews/next-version-n3-review.md`.
 
 ### N4 (in progress)
 
@@ -703,7 +703,7 @@ The spelling bridges grew with each slice: two adapters for `not`, three for
 slices (unions, methods, struct literals, payload brackets) touch nearly every
 fence, so the bridge would turn into the hand-maintained migration this plan
 rules out. It was not extended. The keyword-free alias slice below deletes the
-scripts that read `docs/v0/` and every bridge with them, as "Tests" plans for N1,
+scripts that read `docs/history/v0/` and every bridge with them, as "Tests" plans for N1,
 and switches `test_doc_parser` to the current documents. Each new native chapter
 audit is written in the milestone implementing its rules; the coverage gap is
 explicit below and under "Risks".
@@ -740,7 +740,7 @@ are 94 native fixtures and 83 parse-fail files. No alias semantics changed.
 
 All 13 v0 native scripts, their support test, registrations and both shared
 bridges are deleted. Historical Markdown records are clearly retired, and no
-active CMake test reads `docs/v0/`. That source remains untouched. The new
+active CMake test reads `docs/history/v0/`. That source remains untouched. The new
 `test_doc_parser` inventory reads 13 current chapters, classifying all 239
 fences: 94 successful parses, three intended syntax rejections and 142 listings
 (58 awaiting N1/N4/N5, 72 later-feature cases, 12 fragments), plus the two
@@ -2814,7 +2814,7 @@ prose programs and examples do not supply missing native APIs or fence context.
 No active v0 reader/bridge returns. Formatter 23.1.3, diff/prose/design checks
 and the 23-ending CRLF fixture pass. Ignored evidence is under
 `build/validation/n1-final.20261106T202748Z/`; the durable criterion-by-criterion
-review is `tests/next-version-n1-review.md`.
+review is `docs/history/reviews/next-version-n1-review.md`.
 
 N1 is complete, not the whole next-version plan. Only current status/checklists
 and documentation are updated; the pre-progress design and milestone contracts
@@ -3467,7 +3467,7 @@ a plain binding), and seen(...)? in life.brf; life's audit hash is repinned.
 New rejection, recheck, recovery and converter-domain tests pass. Default GCC
 Debug and fresh -Werror Clang Debug ASan/UBSan suites pass 37/37 each; formatter
 and diff checks pass. Full evidence and expectation inventory are in
-`tests/next-version-n2-no-error.md`. Exact returns/only-:ok normalization,
+`docs/history/reviews/next-version-n2-no-error.md`. Exact returns/only-:ok normalization,
 :none endings/ambiguity and scoped native audits remain. Stop uncommitted for
 review; N2 is not closed.
 
@@ -3484,7 +3484,7 @@ singleton-:ok kind-mask rows. Wrapping an error type with sema_success no longer
 hides its kind. The removed sema_result assertion retains the unsupported
 multi-payload schema check. outcomes.brf replaces three wrapper patterns with
 ordinary matches; no runtime marker changes. Detailed expectations are in
-`tests/next-version-n2-exact-returns.md`.
+`docs/history/reviews/next-version-n2-exact-returns.md`.
 
 New unit/native tests cover canonical identity, type positions, owned values,
 contextual returns, narrowed catch-alls, partial success contracts and refusal
@@ -3508,7 +3508,7 @@ Two new ordered-stream CLI cases cover nested struct entry errors and panics,
 unit fields and quoted text whose colons must stay literal. Default GCC Debug
 and fresh -Werror Clang Debug ASan/UBSan suites pass 38/38 each; formatter and
 diff checks pass. Baseline differences are confined to generated field labels
-and the two stderr fixtures; see `tests/next-version-n2-struct-format.md`.
+and the two stderr fixtures; see `docs/history/reviews/next-version-n2-struct-format.md`.
 Stop uncommitted for review. The next slice is :none endings and the
 payload-less :ok/:none ambiguity; N2 audits and N3 handling remain pending.
 
@@ -3528,7 +3528,7 @@ order, recursive anchors, type positions, ambiguity and the unit-payload
 control. Default GCC Debug and fresh -Werror Clang Debug ASan/UBSan suites pass
 39/39 each; formatter and diff checks pass. Retained CLI/runtime observations
 are unchanged; the two bank C outputs only renumber three symbol-set IDs. See
-`tests/next-version-n2-none-endings.md` for evidence and expectations.
+`docs/history/reviews/next-version-n2-none-endings.md` for evidence and expectations.
 Stop uncommitted for review. Scoped symbols/errors audits remain before N2
 closure; N3 handling is unchanged.
 
@@ -3549,7 +3549,7 @@ fresh archived-HEAD baseline. Strict GCC/Clang normal/sanitized checks pass 88
 native runs. Twelve negative programs reject all 16 exact sites before CC.
 Pinned formatter, diff/prose and protected-plan checks pass. See
 `tests/doc-symbols-n2.md`, `tests/doc-errors-n2.md` and the short closure review
-`tests/next-version-n2-review.md` for scope, expectations and evidence. N2 is
+`docs/history/reviews/next-version-n2-review.md` for scope, expectations and evidence. N2 is
 complete for its milestone scope; N3 and full API acceptance are not claimed.
 
 ### N3 increment: return complete outcomes unchanged
@@ -3575,7 +3575,7 @@ Ret markers at handled-calls.brf:9 and call-kind-errors-n2.brf:23 are removed;
 other messages/lines stay. The original CRLF CLI tail call now emits C, while a
 separate discarded-call control preserves rejection before CC. No existing
 runtime marker, panic location, golden or .expect changes. The full inventory
-is in `tests/next-version-n3-returned-outcomes.md`.
+is in `docs/history/reviews/next-version-n3-returned-outcomes.md`.
 
 Seven new unit groups and four fixtures cover return contexts, schema identity,
 owned/borrowed cleanup, entry kinds, recursive order, remaining rejection sites
@@ -3611,7 +3611,7 @@ returned-outcomes-n3 (15 to 20), and handled-calls (6 to 9, 15 to 16, 17 to 18,
 24 to 26). Splitting the last call keeps both errors: its old wrong-argument
 line 18 becomes 19, and the recursive-input error moves 30 to 31. Diagnostic
 counts stay 11/11/9. No existing runtime marker, golden or .expect changes.
-Full contracts are in `tests/next-version-n3-outcome-bindings.md`.
+Full contracts are in `docs/history/reviews/next-version-n3-outcome-bindings.md`.
 
 Six new unit groups and three fixtures cover delayed handling, literal/intrinsic
 outcomes, owned/borrowed values, scope guards, recovery and recursive inference.
@@ -3646,7 +3646,7 @@ marker moves from outcome-bindings-n3.brf:32 to its pending scope exit on line
 33; the eleven-error count stays. The requested complete rearm now accepts;
 the requested variable-condition loop has one join primary instead of two, and
 the if example reports at its join. No existing runtime marker, golden or .expect
-changes. Exact contracts are in `tests/next-version-n3-joins-exits.md`.
+changes. Exact contracts are in `docs/history/reviews/next-version-n3-joins-exits.md`.
 
 Seven new unit groups and three native fixtures cover rearming, path provenance,
 scope exits, deduplication, RHS exits and owned/borrowed aliases. Default GCC
@@ -3674,7 +3674,7 @@ expose four previously accepted bad jumps; each now rejects at the jump with
 one declaration note. A new mixed-break probe moves its single primary from
 the inner for to the actual outer while join. A bound-produced pending value
 now gets a loop-entry witness. The exact new regression inventory is in
-`tests/next-version-n3-loop-recovery.md`.
+`docs/history/reviews/next-version-n3-loop-recovery.md`.
 
 Eight unit groups cover back edges, conditions/bounds, local generations,
 nesting, short circuits, returns/propagation, independent recovery, dead code,
@@ -3715,7 +3715,7 @@ Twenty-one negative audit programs pin 64 sites, including 15 new programs and
 executed fence prefixes/bodies, 22 prior errors cases and normal/sanitized
 sources are byte-identical. Pinned formatting, diff/prose and protected-plan
 checks pass. Full results and scoped limitations are in
-`tests/next-version-n3-review.md`. N4–N6 remain.
+`docs/history/reviews/next-version-n3-review.md`. N4–N6 remain.
 
 ### N4 increment: independent integer shift counts
 
@@ -3732,7 +3732,7 @@ or runtime contract changes. Three retained C outputs change only count-literal
 temporaries and pre-conversion guards: numbers.brf:30/31/33 and the old
 panics/shift-count.brf:3 and panics/shift-overflow.brf:3. These six temporaries
 now default to int independently of the left type. Full details are in
-`tests/next-version-n4-shifts.md`; all other successful C outputs are identical.
+`docs/history/reviews/next-version-n4-shifts.md`; all other successful C outputs are identical.
 
 Six new unit groups cover every integer type pair, contextual literals, result
 inference, rechecks, recovery and noninteger rejection. Ten native fixtures add
@@ -3765,7 +3765,7 @@ Changed existing expectations: none. Old test inputs/markers, ASTs, diagnostics,
 goldens, .expect files, parser classifications and generated audit cases stay.
 Eight new unit groups and three fixtures cover syntax, reads/writes, joins,
 basic loop safety, ownership, outcomes, permissions and recovery. Exact scope
-and inventory are in `tests/next-version-n4-definite-assignment.md`.
+and inventory are in `docs/history/reviews/next-version-n4-definite-assignment.md`.
 Default GCC Debug and fresh -Werror Clang Debug ASan/UBSan pass 53/53 each.
 All 3,085 retained sources / 6,170 AST/emit observations, 1,350 successful C
 outputs and 292 prior sanitized runs match a fresh HEAD baseline. Eight strict
@@ -3794,7 +3794,7 @@ goldens, .expect files, parser/audit classifications and generated cases remain.
 New independent probes demonstrate the twenty-one formerly accepted bad shapes;
 none replaces an old negative. Three native fixtures cover owned branch/bound
 initialization, nested jumps, propagation before stores and seventeen rejection
-sites. Details are in `tests/next-version-n4-assignment-paths.md`.
+sites. Details are in `docs/history/reviews/next-version-n4-assignment-paths.md`.
 
 Default GCC Debug and fresh -Werror Clang Debug ASan/UBSan pass 54/54 each.
 All 3,189 retained sources / 6,378 AST/emit observations, 1,397 successful C
@@ -3826,7 +3826,7 @@ diagnostics, goldens, .expect files, parser/audit classifications and generated
 cases remain. Eight new unit groups and three fixtures cover named/typed syntax,
 divergence, projections, terminal inputs, tagged remainders, loops, scope,
 ownership, permissions, nested payloads and recursive inference. Exact scope
-and inventory are in `tests/next-version-n4-let-else.md`.
+and inventory are in `docs/history/reviews/next-version-n4-let-else.md`.
 
 Default GCC Debug and fresh -Werror Clang Debug ASan/UBSan pass 55/55 each.
 All 3,323 retained sources / 6,646 AST/emit observations, 1,437 successful C
@@ -3858,7 +3858,7 @@ Eight new unit groups and three fixtures cover every integer edge, exhaustive
 chr intervals, floating endpoints, bound order/capture, nested jumps, owners,
 error entry and thirteen exact negative sites. Two independent base/current
 probes expose formerly misranked half-open bounds; no old negative is weakened.
-Scope and inventory are in `tests/next-version-n4-inclusive-ranges.md`.
+Scope and inventory are in `docs/history/reviews/next-version-n4-inclusive-ranges.md`.
 
 Default GCC Debug and fresh -Werror Clang Debug ASan/UBSan pass 56/56 each.
 All 3,406 retained sources / 6,812 AST/emit observations, 1,482 successful C

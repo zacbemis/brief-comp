@@ -1,6 +1,6 @@
 # Current functions native audit (N1 scope)
 
-`test_doc_functions_n1.cmake` reads `docs/lang-functions.txt`, not `docs/v0/`.
+`test_doc_functions_n1.cmake` reads `docs/lang-functions.txt`, not `docs/history/v0/`.
 It classifies all **27 fences**: four run unchanged with entry observers, two
 reject for their documented return contracts, and **21 remain listings**.
 Eight separately authored prose programs bring the audit to **14 cases**:
@@ -14,7 +14,7 @@ ctest --test-dir build -L doc-functions --output-on-failure
 Normal and sanitized variants use the existing binary-safe C program runner.
 The sanitized variant is registered under the same compiler/sanitizer support
 condition as native program tests. A compiler-free manifest test runs in every
-configuration. Existing v0 records in [doc-functions.md](doc-functions.md)
+configuration. Existing v0 records in [doc-functions.md](../docs/history/audits/doc-functions.md)
 remain historical; none of their adapters, extracted bodies or stand-ins is
 restored.
 
@@ -96,5 +96,5 @@ Generated sources, classifications, case provenance and logs are under
 `current-doc-functions_sanitized/` directory. Manifest guard reports are under
 `build/tests/doc-native-manifest-fixtures/`. Parser inventory counts remain
 unchanged. This bounded native audit is not complete function/API acceptance.
-The [final N1 review](next-version-n1-review.md) closes the milestone's scope,
+The [final N1 review](../docs/history/reviews/next-version-n1-review.md) closes the milestone's scope,
 not the later native/API requirements.

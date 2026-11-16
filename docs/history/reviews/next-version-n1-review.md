@@ -2,7 +2,7 @@
 
 **N1 is complete for its milestone scope. N2 has not started.** This review is
 against the three N1 “Done when” criteria in
-[`next-version.txt`](../docs/plans/next-version.txt), not the full next-version
+[`next-version.txt`](../../plans/next-version.txt), not the full next-version
 language, full chapter/API acceptance or production readiness. Reviewed base:
 `ca94731` (raw-base audit and example CI, committed unchanged).
 
@@ -114,7 +114,7 @@ passing fragments. Six example prefixes are likewise checked byte-for-byte.
 Shared native integrity checks have two positives and 27 independent negatives,
 including exact diagnostics/fixes, raw bytes and example inventory/hash/counts.
 
-No active test reads `docs/v0/`. The 13 old executable audits, registrations and
+No active test reads `docs/history/v0/`. The 13 old executable audits, registrations and
 spelling bridges remain retired. Historical Markdown is evidence only; retiring
 those generated cases is not claimed to preserve full document/API coverage.
 

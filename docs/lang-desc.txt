@@ -4,7 +4,7 @@
 >
 > This document describes the intended design and philosophy of a new statically typed, compiled programming language. The syntax and semantics are evolving, and examples should be treated as design references rather than proof of an implemented feature.
 >
-> These documents describe the next version of the language. The current compiler implements the first version, whose documents are kept unchanged in `docs/v0/` and checked by the document-acceptance tests. `lang-post-0-notes.txt` records the decisions that separate the two.
+> These documents describe the next version of the language. The current compiler implements the first version, whose documents are kept unchanged in `docs/history/v0/` and checked by the document-acceptance tests. `lang-post-0-notes.txt` records the decisions that separate the two.
 
 ## 1. Overview
 
@@ -106,7 +106,7 @@ The design is split across these files in `docs/`.
 | `lang-stdlib.txt` | The standard library and the JSON example. |
 | `lang-ex-base.txt` | A running syntax sample. |
 
-`lang-post-0-notes.txt` is the record of the decisions made after the first version, and `docs/v0/` holds the first version's documents.
+`lang-post-0-notes.txt` is the record of the decisions made after the first version, and `docs/history/v0/` holds the first version's documents.
 
 ---
 
@@ -156,7 +156,7 @@ The long-term goal is to bootstrap: most of the compiler will be rewritten in th
 
 ### Versions
 
-The first version of the compiler handles a single source file and a subset of the language. Its scope is listed in `docs/v0/lang-desc.txt`, "First version", in the first version's syntax: `main()`, the primitive types, `let` and `var`, arithmetic and comparisons, functions with inferred and written return types, `if`, `while`, `for` over ranges, structs and their functions, symbols with `?`, `!` and match blocks, `|>` calls, `print` and the converters, and reference counting without the cycle collector.
+The first version of the compiler handles a single source file and a subset of the language. Its scope is listed in `docs/history/v0/lang-desc.txt`, "First version", in the first version's syntax: `main()`, the primitive types, `let` and `var`, arithmetic and comparisons, functions with inferred and written return types, `if`, `while`, `for` over ranges, structs and their functions, symbols with `?`, `!` and match blocks, `|>` calls, `print` and the converters, and reference counting without the cycle collector.
 
 The next version moves that scope to the syntax and rules in these documents. Which further features it adds, such as arrays and vectors, modules found by name, and `const`, is planned in `docs/plans/`.
 

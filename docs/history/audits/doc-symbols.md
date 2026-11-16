@@ -1,7 +1,7 @@
-# M6 acceptance slice: `docs/v0/lang-symbols.txt`
+# M6 acceptance slice: `docs/history/v0/lang-symbols.txt`
 
 > **Retired in N1.** Historical record; scripts/commands below are no longer
-> active. See [current document status](doc-acceptance.md).
+> active. See [current document status](../../../tests/doc-acceptance.md).
 
 `test_doc_symbols.cmake` reads all **10 code fences** directly from the document.
 Nine are represented in **32 native/diagnostic cases**. Fence 10 needs a

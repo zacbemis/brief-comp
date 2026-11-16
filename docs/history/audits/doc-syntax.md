@@ -1,7 +1,7 @@
-# M6 acceptance slice: `docs/v0/lang-syntax.txt`
+# M6 acceptance slice: `docs/history/v0/lang-syntax.txt`
 
 > **Retired in N1.** Historical record; scripts/commands below are no longer
-> active. See [current document status](doc-acceptance.md).
+> active. See [current document status](../../../tests/doc-acceptance.md).
 
 `test_doc_syntax.cmake` reads all **33 code fences** directly from the document.
 Thirty are represented in **65 native/diagnostic cases**; three collection-only
@@ -118,7 +118,7 @@ one-argument arity mismatch.
 The two unambiguous comparison alternatives continue to execute unchanged.
 
 The tracked diagnostic gaps are addressed; the [final M6
-review](first-version-review.md) records the completed in-scope/status
+review](../reviews/first-version-review.md) records the completed in-scope/status
 verification. Fence 19 continues to require all errors from its documented
 unparenthesized parse, not an arbitrary failure.
 

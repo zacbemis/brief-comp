@@ -1,6 +1,6 @@
 # Current syntax native audit (N1 scope)
 
-`test_doc_syntax_n1.cmake` reads `docs/lang-syntax.txt`, not `docs/v0/`. All
+`test_doc_syntax_n1.cmake` reads `docs/lang-syntax.txt`, not `docs/history/v0/`. All
 **35 fences** are classified: two execute unchanged and five reject for their
 documented errors. **28 remain explicit listings**. Thirteen independent prose
 programs bring the audit to **20 cases**: eight native executions and twelve
@@ -13,7 +13,7 @@ ctest --test-dir build -L doc-syntax --output-on-failure
 
 Normal/sanitized variants use the reviewed shared harness and C runner. The
 compiler-free manifest guards run in every configuration. The historical
-[syntax audit](doc-syntax.md) remains retired; no adapter is restored.
+[syntax audit](../docs/history/audits/doc-syntax.md) remains retired; no adapter is restored.
 
 ## Fence inventory
 
@@ -98,4 +98,4 @@ Shared guards use `build/tests/doc-native-manifest-fixtures/`. Parser counts,
 frozen documents, existing fixtures and compiler/runtime behavior are unchanged.
 Syntax, functions, types and modules have bounded native audits, not full API
 coverage. The raw-base inventory now exists with independent example tests;
-the [final N1 review](next-version-n1-review.md) closes its milestone scope.
+the [final N1 review](../docs/history/reviews/next-version-n1-review.md) closes its milestone scope.

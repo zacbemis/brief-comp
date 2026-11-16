@@ -1,7 +1,7 @@
-# M6 acceptance slice: `docs/v0/lang-functions.txt`
+# M6 acceptance slice: `docs/history/v0/lang-functions.txt`
 
 > **Retired in N1.** Historical record; scripts/commands below are no longer
-> active. See [current document status](doc-acceptance.md).
+> active. See [current document status](../../../tests/doc-acceptance.md).
 
 `test_doc_functions.cmake` reads all 27 code fences directly from the document.
 Twenty fences are represented in **33 native/diagnostic cases**; fences 9 and 27
@@ -21,7 +21,7 @@ not completion of the milestone.
 ## N1 spelling bridge
 
 The chapter stays frozen. Its listed declaration headers use `->` through the
-shared, hash-guarded [return-header bridge](doc-acceptance.md#n1-spelling-bridges).
+shared, hash-guarded [return-header bridge](../../../tests/doc-acceptance.md#n1-spelling-bridges).
 Authored scaffolds/anchors use `->` directly. References below to unchanged
 functions/headers exclude this syntax-only separator change; bodies, inferred
 results, unit discarding, outcome behavior and error lines are preserved. This

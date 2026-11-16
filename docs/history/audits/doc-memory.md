@@ -1,7 +1,7 @@
-# M6 acceptance slice: `docs/v0/lang-memory.txt`
+# M6 acceptance slice: `docs/history/v0/lang-memory.txt`
 
 > **Retired in N1.** Historical record; scripts/commands below are no longer
-> active. See [current document status](doc-acceptance.md).
+> active. See [current document status](../../../tests/doc-acceptance.md).
 
 `test_doc_memory.cmake` reads all **17 code fences** from the document. Ten are
 represented in **48 native/diagnostic cases**; fences **4, 6 and 7 are partial**.

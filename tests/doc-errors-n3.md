@@ -77,5 +77,5 @@ function openings; a new tail match also accidentally joined int and unit.
 The markers were located correctly and the intended discarded match was made
 explicit. These were new-program corrections, not altered old expectations.
 
-See [the N3 closure review](next-version-n3-review.md) for the full matrix,
+See [the N3 closure review](../docs/history/reviews/next-version-n3-review.md) for the full matrix,
 retained-source comparison, strict native checks and remaining scope boundaries.

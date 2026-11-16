@@ -12,7 +12,7 @@ fences(later "Lambdas/collection predicates; fences 13 and 22 also need N4 let-e
 fences(body "Ordinary bindings/field calls only; no collection semantics claimed" "27")
 end_chapter()
 
-chapter(lang-desc 0 f53d36c5f58592be602d68da0fc17b83a663b308c3ab59a08abac983aad8914b)
+chapter(lang-desc 0 27f9297e70e79bb3dd2bdf66ed0d85b23621ba763051a126e857a1245fa8fa3c)
 fences(raw "Prose-only overview; native scope audit returns in N6" "0")
 end_chapter()
 

@@ -1,10 +1,10 @@
 # Current types native audit (N1 scope)
 
 The N1 audit cases below remain unchanged. Mixed-type shift counts are now
-implemented in N4's [first slice](next-version-n4-shifts.md), with independent
+implemented in N4's [first slice](../docs/history/reviews/next-version-n4-shifts.md), with independent
 unit/native coverage; the broader N4 chapter audit extension remains separate.
 
-`test_doc_types_n1.cmake` reads `docs/lang-types.txt`, not `docs/v0/`. All **28
+`test_doc_types_n1.cmake` reads `docs/lang-types.txt`, not `docs/history/v0/`. All **28
 fences** are classified: six execute successfully, one reaches its first
 integer-overflow panic, one rejects all three documented conversion errors,
 and **20 remain listings**. Twelve independent prose programs bring the audit
@@ -19,7 +19,7 @@ ctest --test-dir build -L doc-types --output-on-failure
 Normal and sanitized variants use the existing binary-safe C program runner.
 The sanitized variant has the same support gate as other native program tests.
 Shared compiler-free manifest guards run in every configuration. The historical
-[types audit](doc-types.md) stays retired; no old adapters or API mocks return.
+[types audit](../docs/history/audits/doc-types.md) stays retired; no old adapters or API mocks return.
 
 ## Fence inventory
 
@@ -101,6 +101,6 @@ Sources, case provenance, classifications and logs are generated under
 manifest reports stay under `build/tests/doc-native-manifest-fixtures/`.
 Parser counts remain unchanged. Functions and types now have scoped native
 audits, now joined by syntax/modules and a whole raw-base inventory with
-independent examples. The [final N1 review](next-version-n1-review.md) closes
+independent examples. The [final N1 review](../docs/history/reviews/next-version-n1-review.md) closes
 the milestone's scope, not full API acceptance. Filesystem module discovery is
 not claimed.

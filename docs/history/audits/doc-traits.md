@@ -1,7 +1,7 @@
 # First-version scope audit: `lang-traits.txt`
 
 > **Retired in N1.** Historical record; scripts/commands below are no longer
-> active. See [current document status](doc-acceptance.md).
+> active. See [current document status](../../../tests/doc-acceptance.md).
 
 `test_doc_traits.cmake` classifies **all six fences**. **Five (1–5) have
 explicitly partial coverage**, represented with derived nominal-type scenarios
@@ -75,6 +75,6 @@ Fence counts, all method/call inventories, unique adapters, generic-fence
 subjects, selected scope prose, valid unique case names and the 16-case total
 are guarded. No language-reference, compiler or runtime changes were needed.
 Every tracked chapter has a scope/acceptance audit, but that inventory alone
-does not establish completion. The [final review](first-version-review.md)
+does not establish completion. The [final review](../reviews/first-version-review.md)
 records the diagnostic, implementation and README/status verification behind
 M6's first-version completion decision; traits remain deferred.

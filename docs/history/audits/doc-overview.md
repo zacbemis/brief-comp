@@ -1,7 +1,7 @@
-# M6 acceptance slice: `docs/v0/lang-desc.txt`
+# M6 acceptance slice: `docs/history/v0/lang-desc.txt`
 
 > **Retired in N1.** Historical record; scripts/commands below are no longer
-> active. See [current document status](doc-acceptance.md).
+> active. See [current document status](../../../tests/doc-acceptance.md).
 
 The overview contains **zero code fences**. `test_doc_overview.cmake` guards that
 count and checks **24 representative first-version prose-contract cases**.
@@ -19,8 +19,8 @@ script also checks the overview's thirteen document-table links for existence
 and uniqueness and guards the eleven-item open-question inventory. A link check
 is not acceptance of the linked document's contents. The other chapter audits
 and diagnostic improvements are recorded in
-[doc-acceptance.md](doc-acceptance.md); the [final
-review](first-version-review.md) records overall M6 completion.
+[doc-acceptance.md](../../../tests/doc-acceptance.md); the [final
+review](../reviews/first-version-review.md) records overall M6 completion.
 
 Normal and sanitized runs use the shared C runner, exact output/status and
 message/source-line expectations, source-located panics, sanitizer checks and

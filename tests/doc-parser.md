@@ -1,7 +1,7 @@
 # Current-document parser inventory (N1 complete)
 
 `test_doc_parser` reads the 13 language chapters in `docs/lang-*.txt`, not
-`docs/v0/`. The rationale file `lang-post-0-notes.txt` is not a language chapter.
+`docs/history/v0/`. The rationale file `lang-post-0-notes.txt` is not a language chapter.
 The manifest in `test_doc_parser.cmake` classifies all **239 code fences** and
 the two unfenced chapters. It runs **157 successful parses and five intentional
 syntax rejections**. The other **77 fences** are explicit listings, not passing
@@ -80,7 +80,7 @@ accounting without a compiler.
 When syntax is implemented, move its applicable listings into parser checks;
 when documents change, review classifications before updating their hashes.
 
-The [final N1 review](next-version-n1-review.md) verifies every current fence
+The [final N1 review](../docs/history/reviews/next-version-n1-review.md) verifies every current fence
 and generated context independently. No listing is blocked solely by N1 syntax.
 Parser coverage remains distinct from native acceptance.
 
@@ -185,7 +185,7 @@ still depends on its external helper, so it is not a completed native audit.
 
 N1 retired all 13 v0 native chapter scripts, their normal/sanitized CTest
 registrations, support guards and spelling bridges. No active CMake test reads
-`docs/v0/`. The old chapter Markdown records are historical; their commands no
+`docs/history/v0/`. The old chapter Markdown records are historical; their commands no
 longer select registered tests. Existing checked-in native fixtures and C tests
 remain active. New native chapter audits return in the milestones specified in
 `docs/plans/next-version.txt`; none is claimed complete by this parser inventory.

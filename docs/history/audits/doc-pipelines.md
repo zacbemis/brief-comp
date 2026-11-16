@@ -1,7 +1,7 @@
-# M6 acceptance slice: `docs/v0/lang-pipelines.txt`
+# M6 acceptance slice: `docs/history/v0/lang-pipelines.txt`
 
 > **Retired in N1.** Historical record; scripts/commands below are no longer
-> active. See [current document status](doc-acceptance.md).
+> active. See [current document status](../../../tests/doc-acceptance.md).
 
 `test_doc_pipelines.cmake` reads all 17 code fences directly from the document.
 Ten fences are represented in **20 native/diagnostic cases**: nine contain only
@@ -67,5 +67,5 @@ Existing `test_matching`, `scalar-matches.brf`, `integer-matches.brf`,
 cover the chapter's additional prose rules: immutable arm bindings, first-useful
 selection, byte-exact strings, required catch-alls, NaN/signed zero, nonlocal
 jumps and ownership. This slice alone does not establish all-document acceptance
-or M6 completion; the [final review](first-version-review.md) records the
+or M6 completion; the [final review](../reviews/first-version-review.md) records the
 overall first-version completion decision.

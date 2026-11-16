@@ -3,7 +3,7 @@
 > These are the design decisions for the next version of the language, and the
 > reasons for them. The `lang-*.txt` documents have been rewritten to follow
 > them. The first version's documents, which the current compiler implements
-> and the document-acceptance tests check, are kept unchanged in `docs/v0/`
+> and the document-acceptance tests check, are kept unchanged in `docs/history/v0/`
 > until the compiler and its tests move to the new design.
 
 ## Decided
@@ -619,7 +619,7 @@ them.
   Several of its questions are answered here: Q5 and Q8 by "Numbers", Q6 and Q7
   by "Handling outcomes", Q10 by string interpolation and D12 by "Modules".
 - Order of work: settle these notes; apply them to the `lang-*.txt` documents
-  (done, with the first version's documents kept in `docs/v0/`); plan the
+  (done, with the first version's documents kept in `docs/history/v0/`); plan the
   changes to the C compiler and its tests (`docs/plans/next-version.txt`,
   proposed); rewrite the bootstrap plan for the
   new syntax; then start the bootstrap. The Brief-written compiler should not

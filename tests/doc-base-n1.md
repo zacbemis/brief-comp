@@ -1,6 +1,6 @@
 # Current raw-base inventory and independent examples (N1 scope)
 
-`test_doc_base_n1.cmake` reads `docs/lang-ex-base.txt`, not `docs/v0/`. Its
+`test_doc_base_n1.cmake` reads `docs/lang-ex-base.txt`, not `docs/history/v0/`. Its
 **zero fences** are intentional: this is a 323-line mixed reference sheet, not
 one complete source program. The entire file is hash-guarded and saved
 byte-for-byte as **one unaccepted raw listing**. No function, usage line,
@@ -17,7 +17,7 @@ ctest --test-dir build -L native-examples --output-on-failure
 ```
 
 Normal/sanitized variants use the existing C program runner and the same
-support gate as other native audits. The historical [base audit](doc-base.md)
+support gate as other native audits. The historical [base audit](../docs/history/audits/doc-base.md)
 stays retired. No v0 scaffold or syntax bridge returns.
 
 ## Whole raw-listing classification
@@ -87,5 +87,5 @@ Shared guards use `build/tests/doc-native-manifest-fixtures/`. Parser inventory
 counts do not change: this remains one of its two unfenced listings, not a
 promoted parser check. All five N1 audit entry points now exist, but the raw
 sheet is still unaccepted natively and API limitations remain explicit.
-The [final N1 review](next-version-n1-review.md) closes the milestone's scope,
+The [final N1 review](../docs/history/reviews/next-version-n1-review.md) closes the milestone's scope,
 not native acceptance of the raw listing or its unavailable APIs.

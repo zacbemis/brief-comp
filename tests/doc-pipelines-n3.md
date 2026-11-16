@@ -78,5 +78,5 @@ expression rather than the function opening. A new decoded-string test used
 an unavailable hex escape; two valid apostrophe spellings now test decoded
 identity instead. No compiler behavior or old assertion was changed.
 
-See [the closure review](next-version-n3-review.md) for the full matrix,
+See [the closure review](../docs/history/reviews/next-version-n3-review.md) for the full matrix,
 retained-source comparison and strict GCC/Clang normal/sanitized native checks.

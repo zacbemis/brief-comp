@@ -28,7 +28,7 @@ ctest --test-dir build -L native-examples --output-on-failure
 ```
 
 This independent example coverage does not accept the raw reference sheet in
-`docs/lang-ex-base.txt`. The [N1 review](../tests/next-version-n1-review.md) is
+`docs/lang-ex-base.txt`. The [N1 review](../docs/history/reviews/next-version-n1-review.md) is
 complete. N2's payload, intrinsic conversion-kind, entry-kind, formatter,
 call-kind and postfix slices change none of these sources or their observations
 or emitted C. No-error postfix rejection and exact returns remain pending.

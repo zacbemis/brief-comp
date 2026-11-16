@@ -1,14 +1,14 @@
-# M6 acceptance slice: `docs/v0/lang-types.txt`
+# M6 acceptance slice: `docs/history/v0/lang-types.txt`
 
 > **Retired in N1.** Historical record; scripts/commands below are no longer
-> active. See [current document status](doc-acceptance.md).
+> active. See [current document status](../../../tests/doc-acceptance.md).
 
 `test_doc_types.cmake` reads all **24 code fences** directly from the chapter.
 Fifteen are represented in **64 native/diagnostic cases**; nine require deferred
 features or provisional library APIs. Fences **20 and 21 are partial**: content
 equality is checked, but the `same(...)` identity calls remain deferred.
 Selected first-version inline/prose rules have additional guarded cases. The
-[final M6 review](first-version-review.md) records overall completion; this
+[final M6 review](../reviews/first-version-review.md) records overall completion; this
 chapter is not a claim that all language-design types are implemented.
 
 ```sh
@@ -33,7 +33,7 @@ probes use `dbl` too; the historical `text-dub` case ID/path stays unchanged.
 These temporary adapters preserve the original numeric domains, error lines and
 observations. They are not the new type-document audit; N1 still replaces the
 v0 scripts in the full grammar switch. Return annotations also use the shared,
-hash-guarded [header bridge](doc-acceptance.md#n1-spelling-bridges); bodies and
+hash-guarded [header bridge](../../../tests/doc-acceptance.md#n1-spelling-bridges); bodies and
 return-checking behavior are unchanged.
 
 ## Fence-by-fence record

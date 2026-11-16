@@ -1,11 +1,11 @@
-# M5 acceptance audit: `docs/v0/lang-errors.txt`
+# M5 acceptance audit: `docs/history/v0/lang-errors.txt`
 
 > **Retired in N1.** Historical record; scripts/commands below are no longer
-> active. See [current document status](doc-acceptance.md).
+> active. See [current document status](../../../tests/doc-acceptance.md).
 
 M5's definition of done is the **first-version** error-handling examples,
 including their compile errors. It is not every future symbol feature. The scope
-is `docs/v0/lang-desc.txt`, “First version”, and the milestone table in the plan.
+is `docs/history/v0/lang-desc.txt`, “First version”, and the milestone table in the plan.
 Refutable/nested payload patterns and symbol ordering are deferred features,
 not M5 acceptance requirements.
 

@@ -83,5 +83,5 @@ golden, `.expect`, language chapter, parser classification or generated audit
 program changes. These cases use independent Box/Holder functions, not repaired
 User/File/collection fragments. All new memory cases passed their first run.
 
-See [the N3 closure review](next-version-n3-review.md) for the full matrix,
+See [the N3 closure review](../docs/history/reviews/next-version-n3-review.md) for the full matrix,
 retained-source comparison, strict native checks and remaining scope boundaries.

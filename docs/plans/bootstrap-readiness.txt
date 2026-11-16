@@ -1,6 +1,6 @@
 # Plan: Getting the Compiler Ready for Bootstrapping
 
-> **Status: Proposed, not started; language decisions still open.** This plan extends the first-version compiler (`docs/plans/first-version.txt`) until a compiler for Brief can be written in Brief. The decisions in "Decisions to settle first" and the questions in "Open questions" need answers, and their language rules need to be recorded in the `docs/lang-*.txt` files, before milestone B1 begins. The recommendations below are proposals, not settled design. "Findings from the example programs" records what writing the programs in `examples/` showed about the current language. Porting the compiler itself is outlined at the end but is not part of this plan.
+> **Status: Proposed, not started; language decisions still open.** This plan extends the first-version compiler (`docs/history/plans/first-version.txt`) until a compiler for Brief can be written in Brief. The decisions in "Decisions to settle first" and the questions in "Open questions" need answers, and their language rules need to be recorded in the `docs/lang-*.txt` files, before milestone B1 begins. The recommendations below are proposals, not settled design. "Findings from the example programs" records what writing the programs in `examples/` showed about the current language. Porting the compiler itself is outlined at the end but is not part of this plan.
 
 ## Goal
 

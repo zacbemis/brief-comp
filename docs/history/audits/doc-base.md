@@ -1,7 +1,7 @@
-# M6 acceptance slice: `docs/v0/lang-ex-base.txt`
+# M6 acceptance slice: `docs/history/v0/lang-ex-base.txt`
 
 > **Retired in N1.** This is a historical record; its scripts and commands are
-> no longer active. See [current document status](doc-acceptance.md).
+> no longer active. See [current document status](../../../tests/doc-acceptance.md).
 
 This chapter is a **raw running syntax sample**, not a fenced Markdown chapter
 or a complete single-source program. It combines notation, unrelated local
@@ -33,7 +33,7 @@ separate directory for the sanitized variant. They are not checked-in fixtures.
 The raw v0 sample stays frozen. Its primitive reference still says `dub x`;
 the generated binding probe uses `dbl` while retaining the original `probe_dub`
 name. The default-domain scaffold also takes `dbl`. The shared, hash-guarded
-[return-header bridge](doc-acceptance.md#n1-spelling-bridges) changes the listed
+[return-header bridge](../../../tests/doc-acceptance.md#n1-spelling-bridges) changes the listed
 annotations to `->` before span classification; all boundaries and bodies remain.
 The on-disk source, outcomes and expectations are unchanged. These are temporary
 bridges, not the replacement audit for the full new declaration/type grammar.
@@ -167,7 +167,7 @@ builtins get no such note. This is single-file function guidance, not module
 discovery or privacy support. A later M6 parser slice improves the top-level
 binding error to `Statements are only allowed inside a function.`, pinned by
 this audit. Overall diagnostic/scope completion is recorded in the [final M6
-review](first-version-review.md), not established by this audit alone. Acyclic
+review](../reviews/first-version-review.md), not established by this audit alone. Acyclic
 native objects and leak-free debug exits do not establish cycle collection, ARC
 count elimination, deep const, identity comparison or clone behavior.
 Independent parser, checker, IR/RC, arithmetic, conversion, matching and

@@ -5,7 +5,7 @@ written in C and emits readable C, then invokes an existing C compiler to
 produce a native program.
 
 **The first-version compiler is complete (milestones 0–6)** for the scope in
-[`docs/v0/lang-desc.txt`](docs/v0/lang-desc.txt): native compilation, numbers,
+[`docs/history/v0/lang-desc.txt`](docs/history/v0/lang-desc.txt): native compilation, numbers,
 control flow, heap strings, structs, methods, reference counting, pipelines,
 scalar/symbol/string matching, named symbol sets, success/error inference,
 `?`/`!` handling and numeric/string conversions.
@@ -129,7 +129,7 @@ potentially effectful receiver evaluation is never discarded by a fix.
 Pipelines prefer actual self methods, then visible module functions; an
 associated function does not masquerade as a method. Fixtures, examples and
 embedded native sources use the new forms. N1 is complete for its milestone
-scope; see [the final review](tests/next-version-n1-review.md).
+scope; see [the final review](docs/history/reviews/next-version-n1-review.md).
 
 N2 reserves neutral `:none` for absence: `:none` and `:none[]` stay valid, but
 any payload, including `()`, is rejected without a guessed fix. Fallible
@@ -154,7 +154,7 @@ in every type position. Calls return their canonical type, without wrappers
 invented for matches or annotations. Return unions containing `:ok` still wrap
 plain success values. A result containing `:none` uses it for valueless endings;
 a union containing both payload-less `:ok` and `:none` is rejected. See the
-[N2 closure review](tests/next-version-n2-review.md) for its bounded scope.
+[N2 closure review](docs/history/reviews/next-version-n2-review.md) for its bounded scope.
 
 N3 now accepts complete outcomes returned in tail and `ret` positions, including
 value-producing branches and final pipeline calls. Written results must include
@@ -170,33 +170,33 @@ condition or range bound discharge the enclosing loop body's obligations.
 N3 is complete for its milestone scope, including the section-6 errors
 extension and scoped pipelines/memory native audits. The full four-configuration
 `-Werror` matrix passes; unavailable APIs/fragments remain explicit listings.
-See the [N3 closure review](tests/next-version-n3-review.md).
+See the [N3 closure review](docs/history/reviews/next-version-n3-review.md).
 
 N4 has started with shift counts of any integer type. The result keeps the
 left operand's type; the count retains its own type and is checked before
 conversion, including negative and oversized counts. Other numeric operators
 still require matching operand types; see the
-[shift notes](tests/next-version-n4-shifts.md).
+[shift notes](docs/history/reviews/next-version-n4-shifts.md).
 
 Typed `let`/`var` bindings may now omit the initializer and be assigned later.
 Reads require whole-value assignment on every live path; a deferred `let` can
 be assigned only while definitely unassigned. Owned slots clean up safely even
 before their first store, and assigned outcomes still require handling once.
 The checks hold across joins, exits, loop back edges and nesting; see the
-[deferred-binding](tests/next-version-n4-definite-assignment.md) and
-[assignment-path](tests/next-version-n4-assignment-paths.md) notes.
+[deferred-binding](docs/history/reviews/next-version-n4-definite-assignment.md) and
+[assignment-path](docs/history/reviews/next-version-n4-assignment-paths.md) notes.
 
 Initialized named `let` bindings now support `else { ... }` on values containing
 `:none` or errors. The else must diverge; success binds the remaining payload,
 unit or tagged union using checked matching and normal ownership/permissions.
-See the [let-else notes](tests/next-version-n4-let-else.md).
+See the [let-else notes](docs/history/reviews/next-version-n4-let-else.md).
 
 Inclusive `..=` patterns and integer loops now include their upper endpoint.
 Loops evaluate bounds once, left to right, and check exhaustion before any
 increment, including on `continue` at an integer maximum. Pattern coverage
 retains inclusive scalar ranks; named runtime pattern bounds explicitly reject.
 Typed loop variables and audit updates remain; see the
-[inclusive-range notes](tests/next-version-n4-inclusive-ranges.md).
+[inclusive-range notes](docs/history/reviews/next-version-n4-inclusive-ranges.md).
 
 Primitive keywords can name function members and dotted expression members,
 as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and
@@ -324,9 +324,9 @@ Compilation supports:
   Parsing text returns `:invalid[original]` on bad syntax or range, with binary-safe
   full-input validation. Floating decimal text rounds directly to its destination
   width. Conversions work with pipelines, matching,
-  `?` and `!`; see `docs/v0/lang-types.txt` for the exact rules.
+  `?` and `!`; see `docs/history/v0/lang-types.txt` for the exact rules.
 - Immutable heap strings, `+`/`+=`, bytewise comparisons, and `str(number)` /
-  `str(bool)` conversions. See `docs/v0/lang-types.txt` for formatting choices.
+  `str(bool)` conversions. See `docs/history/v0/lang-types.txt` for formatting choices.
 - Transparent aliases of native types, with canonical identity, forward chains
   and recursion only through structs. Aliases add no runtime representation.
 - Field-bearing nominal structs, complete named field initialization, field
@@ -467,8 +467,8 @@ Wide and combining characters do not yet have special display-width handling.
 
 ## Design and implementation plan
 
-- [First-version language overview and scope](docs/v0/lang-desc.txt), with the
-  rest of the first version's documents in [`docs/v0/`](docs/v0/)
+- [First-version language overview and scope](docs/history/v0/lang-desc.txt), with the
+  rest of the first version's documents in [`docs/history/v0/`](docs/history/v0/)
 - [Next-version language overview](docs/lang-desc.txt), with the decisions
   behind it in [`docs/lang-post-0-notes.txt`](docs/lang-post-0-notes.txt)
 - [Syntax](docs/lang-syntax.txt)
@@ -476,7 +476,7 @@ Wide and combining characters do not yet have special display-width handling.
 - [Functions](docs/lang-functions.txt)
 - [Symbols](docs/lang-symbols.txt)
 - [Errors and outcomes](docs/lang-errors.txt)
-- [First compiler plan](docs/plans/first-version.txt)
+- [First compiler plan](docs/history/plans/first-version.txt)
 - [Next-version compiler plan](docs/plans/next-version.txt) (N0–N2 complete for
   their milestone scope; N3 handling, N4 bindings/loops, N5 interpolation and
   N6 remaining inventories are pending; listed APIs are not native acceptance)
@@ -485,12 +485,12 @@ Wide and combining characters do not yet have special display-width handling.
 The overview links the remaining topic documents. Milestone 5 is complete for
 the first-version scope: pipelines, scalar/symbol matching, named sets,
 success/error handling, numeric/string conversions and string literal patterns
-are implemented. The retired [error-example audit](tests/doc-errors.md)
+are implemented. The retired [error-example audit](docs/history/audits/doc-errors.md)
 checked the in-scope v0 examples, including compile errors. **Milestone 6
 completed that scope:** all thirteen chapters had guarded acceptance/scope
 audits and the tracked diagnostic gaps were addressed. N1 has now retired those
 executables; the
-[final implementation/status review](tests/first-version-review.md) is complete.
+[final implementation/status review](docs/history/reviews/first-version-review.md) is complete.
 Those historical audits distinguished extracted examples, prose scenarios,
 partial adaptations and deferred features; local library/module/collection/trait
 stand-ins are not implementations of those deferred features. Fresh GCC/Clang
