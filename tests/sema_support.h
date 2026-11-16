@@ -1,52 +1,11 @@
 #ifndef BRIEF_TESTS_SEMA_SUPPORT_H
 #define BRIEF_TESTS_SEMA_SUPPORT_H
 
-#include "ir/ir.h"
-#include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
-#include "sema/sema.h"
-#include "test_utils.h"
+#include "compile_support.h"
 
 #include <float.h>
 #include <math.h>
 
-typedef struct {
-  SemaProgram *program;
-  Diagnostics errors;
-} Result;
-static inline Result check(Arena *a, const char *text) {
-  Result r;
-  diagnostics_init(&r.errors, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *source = source_create(a, "sema.brf", text, strlen(text));
-  TokenArray tokens = newline_filter(a, lexer_tokenize(a, source, &r.errors));
-  Program *ast = parse_program(a, &names, tokens, &r.errors);
-  r.program = sema_resolve(a, ast, &r.errors);
-  sema_check(r.program, &r.errors);
-  return r;
-}
-static inline void valid(Arena *a, const char *text) {
-  Result r = check(a, text);
-  if (r.errors.count)
-    diagnostics_print(&r.errors, stderr);
-  ASSERT_EQ_INT(0, r.errors.count);
-  ASSERT_TRUE(r.program->checked);
-}
-static inline void invalid(Arena *a, const char *text, const char *message) {
-  Result r = check(a, text);
-  int found = 0;
-  for (size_t i = 0; i < r.errors.count; i++)
-    if (strstr(r.errors.items[i]->message, message))
-      found = 1;
-  if (!found) {
-    fprintf(stderr, "missing '%s' for %s\n", message, text);
-    diagnostics_print(&r.errors, stderr);
-  }
-  ASSERT_TRUE(found);
-  ASSERT_TRUE(!r.program->checked);
-}
 static inline void real_literal(Arena *a, const char *type,
                                 const char *spelling, double expected) {
   size_t capacity = strlen(spelling) + 64;
@@ -71,14 +30,14 @@ static inline size_t message_count(const Diagnostics *errors,
 }
 static inline Result generic_error(Arena *a, const char *text, const char *site,
                                    const char *other, size_t other_count) {
-  Result r;
-  diagnostics_init(&r.errors, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *source = source_create(a, "generic.brf", text, strlen(text));
-  TokenArray tokens = newline_filter(a, lexer_tokenize(a, source, &r.errors));
-  Program *ast = parse_program(a, &names, tokens, &r.errors);
-  ASSERT_EQ_INT(0, r.errors.count);
+  Compilation c;
+  compilation_init(&c, a, source_create(a, "generic.brf", text, strlen(text)));
+  compilation_lex(&c);
+  compilation_parse(&c);
+  ASSERT_EQ_INT(0, c.diagnostics.count);
+  TokenArray tokens = c.filtered;
+  Program *ast = c.syntax;
+  Result r = {.text = text, .ast = ast};
   size_t bytes = tokens.count * sizeof(Token);
   Token *saved = arena_alloc(a, bytes);
   memcpy(saved, tokens.items, bytes);

@@ -1,63 +1,9 @@
-#include "codegen/c.h"
-#include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
-#include "test_utils.h"
+#include "compile_support.h"
 
 static const char *source_prefix =
     "Result = :ok[int] | :!bad[str]\n"
     "source() -> Result { 7 }\n"
     "take(value: Result) {}\nBox { value: Result }\n";
-typedef struct {
-  SemaProgram *program;
-  Diagnostics errors;
-} Result;
-static Result check(Arena *a, const char *text) {
-  Result r;
-  diagnostics_init(&r.errors, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *s = source_create(a, "bindings.brf", text, strlen(text));
-  Program *ast = parse_program(
-      a, &names, newline_filter(a, lexer_tokenize(a, s, &r.errors)), &r.errors);
-  r.program = sema_resolve(a, ast, &r.errors);
-  sema_check(r.program, &r.errors);
-  return r;
-}
-static Result valid(Arena *a, const char *text) {
-  Result r = check(a, text);
-  const SemaType **types = arena_calloc(a, r.program->count, sizeof(*types));
-  for (size_t i = 0; i < r.program->count; i++)
-    types[i] = r.program->functions[i].symbol.return_type;
-  for (unsigned repeat = 0; repeat < 3; repeat++) {
-    if (repeat) {
-      diagnostics_init(&r.errors, a);
-      sema_check(r.program, &r.errors);
-    }
-    if (r.errors.count)
-      diagnostics_print(&r.errors, stderr);
-    ASSERT_EQ_INT(0, r.errors.count);
-    ASSERT_TRUE(r.program->checked);
-    ASSERT_TRUE(!strcmp(text, r.program->module->text));
-    for (size_t i = 0; i < r.program->count; i++)
-      ASSERT_TRUE(types[i] == r.program->functions[i].symbol.return_type);
-  }
-  IrProgram *ir = ir_lower(a, r.program);
-  ASSERT_TRUE(ir != NULL);
-  if (ir) {
-    ir_insert_rc(a, ir);
-    size_t count = ir->functions[ir->entry].count;
-    ir_insert_rc(a, ir);
-    ASSERT_EQ_INT(count, ir->functions[ir->entry].count);
-    FILE *out = tmpfile();
-    ASSERT_TRUE(out != NULL);
-    if (out) {
-      ASSERT_TRUE(emit_c(out, ir));
-      fclose(out);
-    }
-  }
-  return r;
-}
 static void reject_with_path(Arena *a, const char *body, const char *message,
                              const char *site, const char *path_site,
                              const char *path_message) {

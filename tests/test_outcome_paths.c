@@ -1,8 +1,4 @@
-#include "codegen/c.h"
-#include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
-#include "test_utils.h"
+#include "compile_support.h"
 
 static const char *prefix =
     "Result = :ok[int] | :!bad[str]\n"
@@ -11,68 +7,6 @@ static const char *join_message =
     "Outcome binding is handled on some paths but not others.";
 static const char *exit_message =
     "Outcome binding is not handled before leaving its scope.";
-typedef struct {
-  SemaProgram *program;
-  Diagnostics errors;
-} Result;
-static Result check(Arena *a, const char *text) {
-  Result r;
-  diagnostics_init(&r.errors, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *s = source_create(a, "paths.brf", text, strlen(text));
-  Program *ast = parse_program(
-      a, &names, newline_filter(a, lexer_tokenize(a, s, &r.errors)), &r.errors);
-  r.program = sema_resolve(a, ast, &r.errors);
-  sema_check(r.program, &r.errors);
-  return r;
-}
-static char *newlines(Arena *a, const char *source, int crlf) {
-  char *text = arena_alloc(a, 2 * strlen(source) + 1);
-  size_t length = 0;
-  for (const char *s = source; *s; s++) {
-    if (crlf && *s == '\n')
-      text[length++] = '\r';
-    text[length++] = *s;
-  }
-  text[length] = 0;
-  return text;
-}
-static void valid(Arena *a, const char *source) {
-  for (int crlf = 0; crlf < 2; crlf++) {
-    char *text = newlines(a, source, crlf);
-    Result r = check(a, text);
-    const SemaType **types = arena_calloc(a, r.program->count, sizeof(*types));
-    for (size_t i = 0; i < r.program->count; i++)
-      types[i] = r.program->functions[i].symbol.return_type;
-    for (unsigned repeat = 0; repeat < 3; repeat++) {
-      if (repeat) {
-        diagnostics_init(&r.errors, a);
-        sema_check(r.program, &r.errors);
-      }
-      if (r.errors.count)
-        diagnostics_print(&r.errors, stderr);
-      ASSERT_EQ_INT(0, r.errors.count);
-      ASSERT_TRUE(r.program->checked && !strcmp(text, r.program->module->text));
-      for (size_t i = 0; i < r.program->count; i++)
-        ASSERT_TRUE(types[i] == r.program->functions[i].symbol.return_type);
-    }
-    IrProgram *ir = ir_lower(a, r.program);
-    ASSERT_TRUE(ir != NULL);
-    if (ir) {
-      ir_insert_rc(a, ir);
-      size_t count = ir->functions[ir->entry].count;
-      ir_insert_rc(a, ir);
-      ASSERT_EQ_INT(count, ir->functions[ir->entry].count);
-      FILE *out = tmpfile();
-      ASSERT_TRUE(out != NULL);
-      if (out) {
-        ASSERT_TRUE(emit_c(out, ir));
-        fclose(out);
-      }
-    }
-  }
-}
 static const char *location(const char *text, const char *site) {
   return site ? strstr(text, site) : strrchr(text, '}');
 }
@@ -80,10 +14,10 @@ static void reject(Arena *a, const char *source, const char *message,
                    const char *site, const char *path_site, size_t width,
                    const char *path_message, const char *declaration) {
   for (int crlf = 0; crlf < 2; crlf++) {
-    char *text = newlines(a, source, crlf);
-    const char *at = location(text, site ? newlines(a, site, crlf) : NULL);
+    char *text = lines(a, source, crlf);
+    const char *at = location(text, site ? lines(a, site, crlf) : NULL);
     const char *pending =
-        path_site ? strstr(text, newlines(a, path_site, crlf)) : NULL;
+        path_site ? strstr(text, lines(a, path_site, crlf)) : NULL;
     const char *decl = declaration ? strstr(text, declaration) : NULL;
     ASSERT_TRUE(at != NULL);
     if (path_site)
@@ -158,7 +92,7 @@ int main(void) {
         ("var r = f(1)\nr!\nr = if true { f(2) } else { ret "
          ":!bad[\"early\"] }\nr!")};
     for (size_t i = 0; i < sizeof(bodies) / sizeof(*bodies); i++)
-      valid(&a, program(&a, bodies[i]));
+      accepts(&a, program(&a, bodies[i]));
     reject(&a, program(&a, "var r = f(1)\nr!\nr = f(2)"), exit_message, NULL,
            NULL, 0, NULL, "var r =");
     reject(&a, program(&a, "var r = f(1)\nr = f(2)\nr!"),
@@ -285,12 +219,13 @@ int main(void) {
         exit_message, "ret\n", NULL, 0, NULL, "let r =");
     reject(&a, program(&a, "while true { var r = f(1)\nr!\nr = f(2)\nbreak }"),
            exit_message, "break", NULL, 0, NULL, "var r =");
-    valid(&a, program(&a, "let r = f(1)\nwhile true { break }\nr!"));
-    valid(&a, program(&a, "for i in 0..2 { let r = f(i)\nr!\ncontinue }"));
-    valid(&a,
-          program(
-              &a,
-              "var flag = true\nlet r = f(1)\nif flag { ret r } else { r! }"));
+    accepts(&a, program(&a, "let r = f(1)\nwhile true { break }\nr!"));
+    accepts(&a, program(&a, "for i in 0..2 { let r = f(i)\nr!\ncontinue }"));
+    accepts(
+        &a,
+        program(
+            &a,
+            "var flag = true\nlet r = f(1)\nif flag { ret r } else { r! }"));
   }
   TEST("return and rearm RHS exits do not invent a pending replacement") {
     reject(
@@ -301,11 +236,11 @@ int main(void) {
            program(&a, "var r = f(1)\nr!\nlet other = f(3)\nr = if true { f(2) "
                        "} else { ret :!bad[\"early\"] }\nother!\nr!"),
            exit_message, "ret :!bad[\"early\"]", NULL, 0, NULL, "let other =");
-    valid(&a, "Box { text: str }\nR = :ok[Box] | :!bad\n"
-              "source(box: Box) -> R { box }\nfresh() -> R { Box { text = "
-              "\"new\" } }\n"
-              "mutate(box: Box) { var r = source(box)\nlet old = r!\n"
-              "r = fresh()\nlet new = r!\nnew.text = \"ok\" }\nmain() {}");
+    accepts(&a, "Box { text: str }\nR = :ok[Box] | :!bad\n"
+                "source(box: Box) -> R { box }\nfresh() -> R { Box { text = "
+                "\"new\" } }\n"
+                "mutate(box: Box) { var r = source(box)\nlet old = r!\n"
+                "r = fresh()\nlet new = r!\nnew.text = \"ok\" }\nmain() {}");
     reject(&a,
            "Box { text: str }\nR = :ok[Box] | :!bad\n"
            "source(box: Box) -> R { box }\nfresh() -> R { Box { text = \"new\" "

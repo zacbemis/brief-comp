@@ -1,31 +1,19 @@
 #ifndef BRIEF_TESTS_SYMBOLS_SUPPORT_H
 #define BRIEF_TESTS_SYMBOLS_SUPPORT_H
 
-#include "codegen/c.h"
-#include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
 #include "sema/internal.h"
-#include "test_utils.h"
 
-typedef struct {
-  Diagnostics errors;
-  SemaProgram *program;
-} Result;
-static inline Result check(Arena *a, const char *text) {
-  Result r;
-  diagnostics_init(&r.errors, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *s = source_create(a, "symbols.brf", text, strlen(text));
-  Program *ast = parse_program(
-      a, &names, newline_filter(a, lexer_tokenize(a, s, &r.errors)), &r.errors);
-  r.program = sema_resolve(a, ast, &r.errors);
-  sema_check(r.program, &r.errors);
-  ASSERT_TRUE(r.program->module == s);
-  ASSERT_EQ_INT(1, r.program->ok->id);
-  size_t id = r.program->tag_count;
-  for (const SemaTag *tag = r.program->tags; tag; tag = tag->next) {
+#define COMPILE_SUPPORT_HOOK tag_invariants
+#include "compile_support.h"
+
+// Tag IDs count down the creation-ordered list; only :ok and :none have no
+// module, and implicit conversion failures are the only undeclared errors.
+static void tag_invariants(const Result *r, const char *text) {
+  const SourceFile *s = r->program->module;
+  ASSERT_TRUE(s && !strcmp(s->text, text));
+  ASSERT_EQ_INT(1, r->program->ok->id);
+  size_t id = r->program->tag_count;
+  for (const SemaTag *tag = r->program->tags; tag; tag = tag->next) {
     if (!strstr(text, ":!")) {
       if (tag->module && !tag->kind_span.file) {
         ASSERT_TRUE(!strcmp(tag->name, "invalid") ||
@@ -42,60 +30,6 @@ static inline Result check(Arena *a, const char *text) {
         ((!strcmp(tag->name, "ok") || !strcmp(tag->name, "none")) ? NULL : s));
   }
   ASSERT_EQ_INT(0, id);
-  return r;
-}
-static inline Result valid(Arena *a, const char *text) {
-  Result r = check(a, text);
-  if (r.errors.count)
-    diagnostics_print(&r.errors, stderr);
-  ASSERT_EQ_INT(0, r.errors.count);
-  ASSERT_TRUE(r.program->checked);
-  if (r.program->checked) {
-    IrProgram *ir = ir_lower(a, r.program);
-    ASSERT_TRUE(ir != NULL);
-    FILE *out = tmpfile();
-    ASSERT_TRUE(out != NULL);
-    if (out) {
-      ASSERT_TRUE(!emit_c(out, ir));
-      ir_insert_rc(a, ir);
-      size_t count = ir->functions[0].count;
-      ir_insert_rc(a, ir);
-      ASSERT_EQ_INT(count, ir->functions[0].count);
-      ASSERT_TRUE(emit_c(out, ir));
-      fclose(out);
-    }
-  }
-  return r;
-}
-static inline Result invalid(Arena *a, const char *text, const char *message) {
-  Result r = check(a, text);
-  int found = 0;
-  for (size_t i = 0; i < r.errors.count; i++)
-    found |= strstr(r.errors.items[i]->message, message) != NULL;
-  if (!found)
-    diagnostics_print(&r.errors, stderr);
-  ASSERT_TRUE(found);
-  ASSERT_TRUE(!r.program->checked);
-  ASSERT_TRUE(ir_lower(a, r.program) == NULL);
-  return r;
-}
-static inline IrProgram *owned_ir(Arena *a, SemaProgram *p) {
-  ASSERT_TRUE(p->checked);
-  IrProgram *ir = ir_lower(a, p);
-  ASSERT_TRUE(ir != NULL);
-  if (!ir)
-    return NULL;
-  ir_insert_rc(a, ir);
-  FILE *out = tmpfile();
-  ASSERT_TRUE(out != NULL);
-  if (out) {
-    ASSERT_TRUE(emit_c(out, ir));
-    fclose(out);
-  }
-  size_t count = ir->functions[0].count;
-  ir_insert_rc(a, ir);
-  ASSERT_EQ_INT(count, ir->functions[0].count);
-  return ir;
 }
 // Build internal semantic trees for independent checking and lowering tests.
 static inline SemaExpr *copy_expr(Arena *a, const SemaExpr *source) {
@@ -119,7 +53,8 @@ static inline SemaVar *extra_binding(Arena *a, SemaProgram *p, SemaFunction *f,
   f->variable_capacity = f->variable_count;
   return v;
 }
-static inline void recheck(Arena *a, SemaProgram *p, Diagnostics *errors) {
+static inline void recheck_program(Arena *a, SemaProgram *p,
+                                   Diagnostics *errors) {
   diagnostics_init(errors, a);
   sema_check(p, errors);
 }

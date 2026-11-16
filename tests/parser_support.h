@@ -1,6 +1,7 @@
 #ifndef BRIEF_TESTS_PARSER_SUPPORT_H
 #define BRIEF_TESTS_PARSER_SUPPORT_H
 
+#include "driver/compile.h"
 #include "lexer/lexer.h"
 #include "lexer/newline.h"
 #include "parser/parser.h"
@@ -16,13 +17,13 @@ typedef struct {
   TokenArray raw;
 } Parsed;
 static inline Parsed *parse(Arena *arena, const char *text) {
-  Parsed *v = arena_calloc(arena, 1, sizeof(*v));
-  v->source = source_create(arena, "test.brf", text, strlen(text));
-  diagnostics_init(&v->diagnostics, arena);
-  intern_init(&v->names, arena);
-  v->raw = lexer_tokenize(arena, v->source, &v->diagnostics);
-  v->program = parse_program(arena, &v->names, newline_filter(arena, v->raw),
-                             &v->diagnostics);
+  Compilation c;
+  compilation_init(&c, arena,
+                   source_create(arena, "test.brf", text, strlen(text)));
+  compilation_lex(&c);
+  compilation_parse(&c);
+  Parsed *v = arena_alloc(arena, sizeof(*v));
+  *v = (Parsed){c.source, c.diagnostics, c.names, c.syntax, c.tokens};
   return v;
 }
 static inline char *dump(Arena *arena, const Program *program) {

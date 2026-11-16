@@ -29,14 +29,14 @@ int main(void) {
     f->symbol.params[0]->type = f->symbol.params[0]->annotation = input;
     for (unsigned pass = 0; pass < 3; pass++) {
       Diagnostics errors;
-      recheck(&a, p, &errors);
+      recheck_program(&a, p, &errors);
       if (errors.count)
         diagnostics_print(&errors, stderr);
       ASSERT_EQ_INT(0, errors.count);
       ASSERT_TRUE(first->type == types[0] && last->type == types[2]);
       ASSERT_TRUE(first->id != last->id && !last->mutable);
       ASSERT_TRUE(f->symbol.return_type == types[2]);
-      ASSERT_TRUE(owned_ir(&a, p) != NULL);
+      ASSERT_TRUE(lower(&a, p) != NULL);
     }
     // A malformed arm must clear every binder, not retain probe-time types.
     arm->payload_count = 2;
@@ -46,7 +46,7 @@ int main(void) {
     f->written = 1;
     f->written_type = &p->types[SEMA_UNIT];
     Diagnostics errors;
-    recheck(&a, p, &errors);
+    recheck_program(&a, p, &errors);
     ASSERT_EQ_INT(1, errors.count);
     ASSERT_EQ_INT(0, strcmp("Symbol pattern has the wrong payload shape.",
                             errors.items[0]->message));
@@ -75,7 +75,7 @@ int main(void) {
     for (unsigned reverse = 0; reverse < 2; reverse++) {
       for (unsigned pass = 0; pass < 2; pass++) {
         Diagnostics errors;
-        recheck(&a, p, &errors);
+        recheck_program(&a, p, &errors);
         ASSERT_EQ_INT(1, errors.count);
         ASSERT_EQ_INT(
             0, strcmp("Cannot mutate through an ordinary parameter; use &.",
@@ -103,7 +103,7 @@ int main(void) {
     row->as.symbol.count = 3;
     for (unsigned pass = 0; pass < 3; pass++) {
       Diagnostics errors;
-      recheck(&a, p, &errors);
+      recheck_program(&a, p, &errors);
       if (errors.count)
         diagnostics_print(&errors, stderr);
       ASSERT_EQ_INT(0, errors.count);
@@ -114,7 +114,7 @@ int main(void) {
       for (const SemaSymSet *s = p->symbol_sets; s; s = s->next)
         for (size_t i = 0; i < s->count; i++)
           ASSERT_TRUE(s->variants[i].payload_count <= 1);
-      ASSERT_TRUE(owned_ir(&a, p) != NULL);
+      ASSERT_TRUE(lower(&a, p) != NULL);
     }
   }
   TEST("positional values survive recursive return probes without losing "
@@ -131,7 +131,7 @@ int main(void) {
     row->as.symbol.count = 2;
     for (unsigned pass = 0; pass < 3; pass++) {
       Diagnostics errors;
-      recheck(&a, p, &errors);
+      recheck_program(&a, p, &errors);
       if (errors.count)
         diagnostics_print(&errors, stderr);
       ASSERT_EQ_INT(0, errors.count);
@@ -144,7 +144,7 @@ int main(void) {
         ASSERT_TRUE(v->payloads[0] == &p->types[SEMA_INT] &&
                     v->payloads[1] == &p->types[SEMA_INT]);
       }
-      ASSERT_TRUE(owned_ir(&a, p) != NULL);
+      ASSERT_TRUE(lower(&a, p) != NULL);
     }
   }
   TEST("wide semantic values and wildcard arms preserve the final unit slot") {
@@ -178,7 +178,7 @@ int main(void) {
     arm->payload_count = WIDTH;
     for (unsigned pass = 0; pass < 2; pass++) {
       Diagnostics errors;
-      recheck(&a, p, &errors);
+      recheck_program(&a, p, &errors);
       if (errors.count)
         diagnostics_print(&errors, stderr);
       ASSERT_EQ_INT(0, errors.count);
@@ -186,14 +186,14 @@ int main(void) {
       ASSERT_TRUE(last->type == types[WIDTH - 1] &&
                   g->symbol.return_type == types[WIDTH - 1]);
       ASSERT_EQ_INT(WIDTH, sema_variant(type, v.tag)->payload_count);
-      ASSERT_TRUE(owned_ir(&a, p) != NULL);
+      ASSERT_TRUE(lower(&a, p) != NULL);
     }
   }
   TEST("malformed positional IR is rejected before any C is published") {
     SemaProgram *p =
         valid(&a, "main() { :pair[1, \"x\"] |> { :pair[a, b] => print(b) } }")
             .program;
-    IrProgram *ir = owned_ir(&a, p);
+    IrProgram *ir = lower(&a, p);
     if (ir)
       for (size_t i = 0; i < ir->functions[0].count; i++) {
         IrInstruction *in = &ir->functions[0].instructions[i];
@@ -226,7 +226,7 @@ int main(void) {
     ok->as.symbol.payloads = items;
     ok->as.symbol.count = 2;
     Diagnostics errors;
-    recheck(&a, p, &errors);
+    recheck_program(&a, p, &errors);
     ASSERT_EQ_INT(1, errors.count);
     ASSERT_EQ_INT(0, strcmp("Multiple ':ok' payloads are not implemented yet.",
                             errors.items[0]->message));
@@ -238,7 +238,7 @@ int main(void) {
     const SemaType *input = sema_symbol_set(p, variants, 2);
     p->functions[0].symbol.params[0]->type =
         p->functions[0].symbol.params[0]->annotation = input;
-    recheck(&a, p, &errors);
+    recheck_program(&a, p, &errors);
     ASSERT_EQ_INT(1, errors.count);
     ASSERT_EQ_INT(0, strcmp("Multiple ':ok' payloads are not implemented yet.",
                             errors.items[0]->message));

@@ -1,58 +1,7 @@
-#include "codegen/c.h"
-#include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
+#include "compile_support.h"
 #include "sema/internal.h"
-#include "test_utils.h"
 #include <math.h>
 
-typedef struct {
-  Diagnostics errors;
-  SemaProgram *program;
-} Result;
-static Result check(Arena *a, const char *text) {
-  Result r;
-  diagnostics_init(&r.errors, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *s = source_create(a, "matching.brf", text, strlen(text));
-  Program *ast = parse_program(
-      a, &names, newline_filter(a, lexer_tokenize(a, s, &r.errors)), &r.errors);
-  r.program = sema_resolve(a, ast, &r.errors);
-  sema_check(r.program, &r.errors);
-  return r;
-}
-static Result valid(Arena *a, const char *text) {
-  Result r = check(a, text);
-  if (r.errors.count)
-    diagnostics_print(&r.errors, stderr);
-  ASSERT_EQ_INT(0, r.errors.count);
-  ASSERT_TRUE(r.program->checked);
-  if (r.program->checked) {
-    IrProgram *ir = ir_lower(a, r.program);
-    ASSERT_TRUE(ir != NULL);
-    ir_insert_rc(a, ir);
-    FILE *out = tmpfile();
-    ASSERT_TRUE(out != NULL);
-    if (out) {
-      ASSERT_TRUE(emit_c(out, ir));
-      fclose(out);
-    }
-  }
-  return r;
-}
-static void invalid(Arena *a, const char *text, const char *message) {
-  Result r = check(a, text);
-  int found = 0;
-  for (size_t i = 0; i < r.errors.count; i++)
-    if (strstr(r.errors.items[i]->message, message))
-      found = 1;
-  if (!found)
-    diagnostics_print(&r.errors, stderr);
-  ASSERT_TRUE(found);
-  ASSERT_TRUE(!r.program->checked);
-  ASSERT_TRUE(ir_lower(a, r.program) == NULL);
-}
 int main(void) {
   Arena a;
   arena_init(&a);

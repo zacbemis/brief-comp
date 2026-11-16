@@ -1,34 +1,16 @@
-#include "codegen/c.h"
-#include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
-#include "test_utils.h"
+#include "compile_support.h"
 
 typedef struct {
   Diagnostics errors;
   SemaProgram *program;
 } Checked;
 static Checked resolve(Arena *a, const char *text, const char *path) {
-  Checked c;
-  diagnostics_init(&c.errors, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *source = source_create(a, path, text, strlen(text));
-  TokenArray tokens = newline_filter(a, lexer_tokenize(a, source, &c.errors));
-  Program *ast = parse_program(a, &names, tokens, &c.errors);
-  c.program = sema_resolve(a, ast, &c.errors);
-  return c;
-}
-static void invalid(Arena *a, const char *text, const char *message) {
-  Checked c = resolve(a, text, "invalid.brf");
-  sema_check(c.program, &c.errors);
-  int found = 0;
-  for (size_t i = 0; i < c.errors.count; i++)
-    if (strstr(c.errors.items[i]->message, message))
-      found = 1;
-  ASSERT_TRUE(found);
-  ASSERT_TRUE(!c.program->checked);
-  ASSERT_TRUE(ir_lower(a, c.program) == NULL);
+  Compilation c;
+  compilation_init(&c, a, source_create(a, path, text, strlen(text)));
+  compilation_lex(&c);
+  compilation_parse(&c);
+  compilation_resolve(&c);
+  return (Checked){c.diagnostics, c.program};
 }
 int main(void) {
   Arena a;

@@ -1,70 +1,8 @@
 #ifndef BRIEF_TESTS_ERRORS_SUPPORT_H
 #define BRIEF_TESTS_ERRORS_SUPPORT_H
 
-#include "codegen/c.h"
-#include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
-#include "test_utils.h"
+#include "compile_support.h"
 
-typedef struct {
-  Diagnostics errors;
-  SemaProgram *program;
-} Result;
-static inline Result check(Arena *a, const char *text) {
-  Result r;
-  diagnostics_init(&r.errors, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *s = source_create(a, "errors.brf", text, strlen(text));
-  Program *ast = parse_program(
-      a, &names, newline_filter(a, lexer_tokenize(a, s, &r.errors)), &r.errors);
-  r.program = sema_resolve(a, ast, &r.errors);
-  sema_check(r.program, &r.errors);
-  // Explicit failures and implicit converter tags have error kind. Shared
-  // :none remains neutral.
-  for (const SemaSymSet *set = r.program->symbol_sets; set; set = set->next) {
-    if (!sema_ok(&set->type))
-      continue;
-    for (size_t i = 0; i < set->count; i++) {
-      const SemaTag *tag = set->variants[i].tag;
-      if (tag != r.program->ok && tag->module && tag->kind_declared)
-        ASSERT_EQ_INT(SEMA_TAG_ERROR, tag->kind);
-    }
-  }
-  return r;
-}
-static inline Result valid(Arena *a, const char *text) {
-  Result r = check(a, text);
-  if (r.errors.count)
-    diagnostics_print(&r.errors, stderr);
-  ASSERT_EQ_INT(0, r.errors.count);
-  ASSERT_TRUE(r.program->checked);
-  if (r.program->checked) {
-    IrProgram *ir = ir_lower(a, r.program);
-    ASSERT_TRUE(ir != NULL);
-    ir_insert_rc(a, ir);
-    FILE *out = tmpfile();
-    ASSERT_TRUE(out != NULL);
-    if (out) {
-      ASSERT_TRUE(emit_c(out, ir));
-      fclose(out);
-    }
-  }
-  return r;
-}
-static inline Result invalid(Arena *a, const char *text, const char *message) {
-  Result r = check(a, text);
-  int found = 0;
-  for (size_t i = 0; i < r.errors.count; i++)
-    found |= strstr(r.errors.items[i]->message, message) != NULL;
-  if (!found)
-    diagnostics_print(&r.errors, stderr);
-  ASSERT_TRUE(found);
-  ASSERT_TRUE(!r.program->checked);
-  ASSERT_TRUE(ir_lower(a, r.program) == NULL);
-  return r;
-}
 static inline void diagnostic_errors(Arena *a, const char *text,
                                      const char *required, size_t handling,
                                      const char *other, size_t other_count) {

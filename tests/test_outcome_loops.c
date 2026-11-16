@@ -1,8 +1,4 @@
-#include "codegen/c.h"
-#include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
-#include "test_utils.h"
+#include "compile_support.h"
 
 static const char *prefix =
     "R = :ok[int] | :!bad[str]\n"
@@ -14,38 +10,11 @@ static const char *unhandled =
 typedef struct {
   const char *message, *site, *path, *path_message, *declaration;
 } Expected;
-typedef struct {
-  SemaProgram *program;
-  Diagnostics errors;
-} Result;
-static char *lines(Arena *a, const char *source, int crlf) {
-  char *out = arena_alloc(a, 2 * strlen(source) + 1);
-  size_t n = 0;
-  for (; *source; source++) {
-    if (crlf && *source == '\n')
-      out[n++] = '\r';
-    out[n++] = *source;
-  }
-  out[n] = 0;
-  return out;
-}
 static char *program(Arena *a, const char *body) {
   size_t size = strlen(prefix) + strlen(body) + 32;
   char *text = arena_alloc(a, size);
   snprintf(text, size, "%smain() { %s\n}\n", prefix, body);
   return text;
-}
-static Result check(Arena *a, const char *text) {
-  Result r;
-  diagnostics_init(&r.errors, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *s = source_create(a, "loops.brf", text, strlen(text));
-  Program *ast = parse_program(
-      a, &names, newline_filter(a, lexer_tokenize(a, s, &r.errors)), &r.errors);
-  r.program = sema_resolve(a, ast, &r.errors);
-  sema_check(r.program, &r.errors);
-  return r;
 }
 static void at(const char *text, const char *site, Span span) {
   const char *p = strstr(text, site);
@@ -101,53 +70,6 @@ static void rejects(Arena *a, const char *source, const Expected *expected,
 static void rejects_one(Arena *a, const char *body, Expected expected) {
   rejects(a, program(a, body), &expected, 1);
 }
-static void valid(Arena *a, const char *source) {
-  for (int crlf = 0; crlf < 2; crlf++) {
-    char *text = lines(a, source, crlf);
-    Result r = check(a, text);
-    size_t count = r.program->count;
-    for (size_t i = 0; i < r.program->count; i++)
-      count += r.program->functions[i].variable_count;
-    const SemaType **types = arena_calloc(a, count, sizeof(*types));
-    for (unsigned repeat = 0; repeat < 3; repeat++) {
-      if (repeat) {
-        diagnostics_init(&r.errors, a);
-        sema_check(r.program, &r.errors);
-      }
-      if (r.errors.count)
-        diagnostics_print(&r.errors, stderr);
-      ASSERT_EQ_INT(0, r.errors.count);
-      ASSERT_TRUE(r.program->checked);
-      ASSERT_TRUE(!strcmp(text, r.program->module->text));
-      size_t n = 0;
-      for (size_t i = 0; i < r.program->count; i++) {
-        SemaFunction *f = &r.program->functions[i];
-        if (!repeat)
-          types[n] = f->symbol.return_type;
-        ASSERT_TRUE(types[n++] == f->symbol.return_type);
-        for (size_t j = 0; j < f->variable_count; j++) {
-          if (!repeat)
-            types[n] = f->variables[j]->type;
-          ASSERT_TRUE(types[n++] == f->variables[j]->type);
-        }
-      }
-    }
-    IrProgram *ir = ir_lower(a, r.program);
-    ASSERT_TRUE(ir != NULL);
-    if (ir) {
-      ir_insert_rc(a, ir);
-      size_t count = ir->functions[ir->entry].count;
-      ir_insert_rc(a, ir);
-      ASSERT_EQ_INT(count, ir->functions[ir->entry].count);
-      FILE *out = tmpfile();
-      ASSERT_TRUE(out != NULL);
-      if (out) {
-        ASSERT_TRUE(emit_c(out, ir));
-        fclose(out);
-      }
-    }
-  }
-}
 int main(void) {
   Arena a;
   arena_init(&a);
@@ -181,7 +103,7 @@ int main(void) {
         ("var r = f(1)\nr!\nfor i in 0..2 { r = f(i)\nr!\n"
          "continue }")};
     for (size_t i = 0; i < sizeof(bodies) / sizeof(*bodies); i++)
-      valid(&a, program(&a, bodies[i]));
+      accepts(&a, program(&a, bodies[i]));
     rejects_one(&a, "let r = f(2)\nfor i in 0..r! { r! }",
                 (Expected){"Outcome binding has already been handled.", "r! }",
                            NULL, NULL, "let r ="});
@@ -212,7 +134,7 @@ int main(void) {
       snprintf(body, sizeof(body),
                "var flag = true\nwhile true { let r = f(1)\nr!\n%s\nbreak }",
                loops[i]);
-      valid(&a, program(&a, body));
+      accepts(&a, program(&a, body));
     }
     rejects_one(&a,
                 "var flag = true\nlet r = f(1)\nwhile true { for i in "
@@ -222,12 +144,13 @@ int main(void) {
                            "let r ="});
   }
   TEST("nested loops preserve local generations and the first inner join") {
-    valid(&a, program(&a, "let r = f(1)\nwhile true { while true { r!\n"
-                          "break }\nbreak }"));
-    valid(&a, program(&a, "for i in 0..2 { let r = f(i)\nwhile true { r!\n"
-                          "break }\ncontinue }"));
-    valid(&a,
-          program(&a, "let r = f(1)\nfor i in 0..2 { let r = f(i)\nr! }\nr!"));
+    accepts(&a, program(&a, "let r = f(1)\nwhile true { while true { r!\n"
+                            "break }\nbreak }"));
+    accepts(&a, program(&a, "for i in 0..2 { let r = f(i)\nwhile true { r!\n"
+                            "break }\ncontinue }"));
+    accepts(
+        &a,
+        program(&a, "let r = f(1)\nfor i in 0..2 { let r = f(i)\nr! }\nr!"));
     rejects_one(
         &a, "let r = f(1)\nfor outer in 0..2 { for inner in 1..3 { r! } }\nr!",
         (Expected){mixed, "for inner", "1..3",
@@ -263,7 +186,7 @@ int main(void) {
                    "let r ="});
     rejects_one(&a, "for outer in 0..2 { let r = f(1)\nf(2)?\nr! }",
                 (Expected){unhandled, "f(2)?", NULL, NULL, "let r ="});
-    valid(&a, program(&a, "while true { let r = f(1)\nret r }"));
+    accepts(&a, program(&a, "while true { let r = f(1)\nret r }"));
   }
   TEST("reporting recovery preserves independent bindings and typing errors") {
     rejects_one(
@@ -298,7 +221,7 @@ int main(void) {
                 "ret\nwhile true { let r = :!bad[\"dead\"]\nr = :!bad[\"x\"] }",
                 (Expected){"Cannot reassign an immutable binding.",
                            "r = :!bad[\"x\"]", NULL, NULL, NULL});
-    valid(&a, program(&a, "ret\nwhile true { let r = f(1)\nr!\nr! }"));
+    accepts(&a, program(&a, "ret\nwhile true { let r = f(1)\nr!\nr! }"));
   }
   TEST("nested outcome handling retains ordinary parameter permissions") {
     const char *source = "Box { text: str }\nR = :ok[Box] | :!bad\n"
@@ -309,10 +232,10 @@ int main(void) {
         "Cannot mutate through an ordinary parameter; use &.", "alias.text",
         NULL, NULL, NULL};
     rejects(&a, source, &error, 1);
-    valid(&a, "Box { text: str }\nR = :ok[Box] | :!bad\n"
-              "f(box: Box) -> R { box }\n"
-              "touch(box: &Box) { for i in 0..2 { let r = f(box)\n"
-              "let alias = r!\nalias.text = \"ok\" } }\nmain() {}");
+    accepts(&a, "Box { text: str }\nR = :ok[Box] | :!bad\n"
+                "f(box: Box) -> R { box }\n"
+                "touch(box: &Box) { for i in 0..2 { let r = f(box)\n"
+                "let alias = r!\nalias.text = \"ok\" } }\nmain() {}");
   }
   TEST("whole-tree fixed points converge deeply and reset on each check") {
     char body[4096];
@@ -329,8 +252,9 @@ int main(void) {
         (Expected){mixed, "for level23", "0..2 {\nr!",
                    "The outcome is still pending on entry to this loop.",
                    "let r ="});
-    valid(&a, program(&a, "var r = f(1)\nfor outer in 0..2 { for inner in 0..2 "
-                          "{ r!\nr = f(inner) } }\nr!"));
+    accepts(&a,
+            program(&a, "var r = f(1)\nfor outer in 0..2 { for inner in 0..2 "
+                        "{ r!\nr = f(inner) } }\nr!"));
   }
   arena_destroy(&a);
   RUN_TESTS();

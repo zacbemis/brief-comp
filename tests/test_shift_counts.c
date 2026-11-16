@@ -1,66 +1,5 @@
-#include "codegen/c.h"
-#include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
-#include "test_utils.h"
+#include "compile_support.h"
 
-typedef struct {
-  SemaProgram *program;
-  Diagnostics errors;
-} Result;
-static Result check(Arena *a, const char *text) {
-  Result r;
-  diagnostics_init(&r.errors, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *s = source_create(a, "shifts.brf", text, strlen(text));
-  Program *ast = parse_program(
-      a, &names, newline_filter(a, lexer_tokenize(a, s, &r.errors)), &r.errors);
-  r.program = sema_resolve(a, ast, &r.errors);
-  sema_check(r.program, &r.errors);
-  return r;
-}
-static char *lines(Arena *a, const char *source, int crlf) {
-  char *out = arena_alloc(a, 2 * strlen(source) + 1);
-  size_t n = 0;
-  for (; *source; source++) {
-    if (crlf && *source == '\n')
-      out[n++] = '\r';
-    out[n++] = *source;
-  }
-  out[n] = 0;
-  return out;
-}
-static char *emit(Arena *a, IrProgram *ir) {
-  FILE *out = tmpfile();
-  ASSERT_TRUE(out != NULL);
-  if (!out)
-    return NULL;
-  ASSERT_TRUE(emit_c(out, ir));
-  long size = ftell(out);
-  ASSERT_TRUE(size >= 0);
-  rewind(out);
-  char *text = arena_alloc(a, (size_t)size + 1);
-  ASSERT_EQ_INT((size_t)size, fread(text, 1, (size_t)size, out));
-  text[size] = 0;
-  fclose(out);
-  return text;
-}
-static Result valid(Arena *a, const char *text) {
-  Result r = check(a, text);
-  for (unsigned repeat = 0; repeat < 3; repeat++) {
-    if (repeat) {
-      diagnostics_init(&r.errors, a);
-      sema_check(r.program, &r.errors);
-    }
-    if (r.errors.count)
-      diagnostics_print(&r.errors, stderr);
-    ASSERT_EQ_INT(0, r.errors.count);
-    ASSERT_TRUE(r.program->checked);
-    ASSERT_TRUE(!strcmp(text, r.program->module->text));
-  }
-  return r;
-}
 static void reject(Arena *a, const char *source, const char *message,
                    const char *site) {
   for (int crlf = 0; crlf < 2; crlf++) {
@@ -139,7 +78,7 @@ int main(void) {
             size_t count = function->count;
             ir_insert_rc(&a, ir);
             ASSERT_EQ_INT(count, function->count);
-            char *c = emit(&a, ir);
+            char *c = emit_text(&a, ir);
             if (c)
               ASSERT_TRUE((strstr(c, ") brt_panic(\"invalid shift count\");") !=
                            NULL) == (left != right));

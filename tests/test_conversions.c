@@ -1,35 +1,8 @@
 #include "../runtime/brief_runtime.c"
-#include "codegen/c.h"
-#include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
-#include "test_utils.h"
+#include "compile_support.h"
 
-static SemaProgram *check(Arena *a, const char *text, const char *error) {
-  Diagnostics d;
-  diagnostics_init(&d, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *source = source_create(a, "conversions.brf", text, strlen(text));
-  Program *ast = parse_program(
-      a, &names, newline_filter(a, lexer_tokenize(a, source, &d)), &d);
-  SemaProgram *p = sema_resolve(a, ast, &d);
-  sema_check(p, &d);
-  if (error) {
-    int found = 0;
-    for (size_t i = 0; i < d.count; i++)
-      found |= strstr(d.items[i]->message, error) != NULL;
-    if (!found)
-      diagnostics_print(&d, stderr);
-    ASSERT_TRUE(found);
-    ASSERT_TRUE(!p->checked);
-  } else {
-    if (d.count)
-      diagnostics_print(&d, stderr);
-    ASSERT_EQ_INT(0, d.count);
-    ASSERT_TRUE(p->checked);
-  }
-  return p;
+static SemaProgram *converted(Arena *a, const char *text, const char *error) {
+  return (error ? invalid(a, text, error) : valid(a, text)).program;
 }
 static int parse_number(const char *text, int kind, unsigned bits,
                         brt_number *out) {
@@ -55,12 +28,12 @@ int main(void) {
           for (unsigned panic = 0; panic < 2; panic++) {
             snprintf(source, sizeof(source), "f(x: %s) { %s(x)%c }\nmain() {}",
                      names[i], names[j], panic ? '!' : '?');
-            SemaProgram *bad = check(&a, source, "it has no error tags");
+            SemaProgram *bad = converted(&a, source, "it has no error tags");
             ASSERT_TRUE(ir_lower(&a, bad) == NULL);
           }
         snprintf(source, sizeof(source), "f(x: %s) { %s(x)%s }\nmain() {}",
                  names[i], names[j], infallible[i][j] ? "" : "!");
-        SemaProgram *p = check(&a, source, NULL);
+        SemaProgram *p = converted(&a, source, NULL);
         const SemaType *from = &p->types[SEMA_SHRT + i],
                        *to = &p->types[SEMA_SHRT + j];
         const SemaType *outcome = sema_conversion(p, from, to);
@@ -109,7 +82,7 @@ int main(void) {
       char source[256];
       snprintf(source, sizeof(source), "f(x: chr) { %s(x) }\nmain() {}",
                names[j]);
-      SemaProgram *p = check(&a, source, NULL);
+      SemaProgram *p = converted(&a, source, NULL);
       const SemaType *to = &p->types[SEMA_SHRT + j];
       const SemaType *outcome = sema_conversion(p, &p->types[SEMA_CHR], to);
       ASSERT_TRUE(outcome == to);
@@ -128,7 +101,7 @@ int main(void) {
     }
   }
   TEST("intrinsic error kinds are lazy, local, stable and non-destructive") {
-    SemaProgram *p = check(&a, "main() {}", NULL);
+    SemaProgram *p = converted(&a, "main() {}", NULL);
     const SemaType *number = &p->types[SEMA_INT];
     ASSERT_EQ_INT(1, p->tag_count);
     ASSERT_TRUE(sema_conversion(p, &p->types[SEMA_UNKNOWN], number) != NULL);
@@ -156,7 +129,7 @@ int main(void) {
     }
     ASSERT_TRUE(remote != sema_tag(p, p->module, "invalid"));
     ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, remote->kind);
-    p = check(&a, "Data = :invalid[str] | :overflow\nmain() {}", NULL);
+    p = converted(&a, "Data = :invalid[str] | :overflow\nmain() {}", NULL);
     size_t count = p->tag_count, sets = p->symbol_set_count;
     ASSERT_TRUE(sema_conversion(p, &p->types[SEMA_STR], &p->types[SEMA_INT]) ==
                 &p->types[SEMA_ERROR]);
@@ -166,7 +139,7 @@ int main(void) {
     ASSERT_EQ_INT(sets, p->symbol_set_count);
     for (const SemaTag *tag = p->tags; tag; tag = tag->next)
       ASSERT_EQ_INT(SEMA_TAG_NEUTRAL, tag->kind);
-    p = check(&a, "main() {}", NULL);
+    p = converted(&a, "main() {}", NULL);
     p->tag_count = UINT32_MAX;
     ASSERT_TRUE(sema_conversion(p, &p->types[SEMA_STR], &p->types[SEMA_INT]) ==
                 &p->types[SEMA_ERROR]);
@@ -175,43 +148,45 @@ int main(void) {
   }
   TEST(
       "typed sources retain their domain; literal arguments adopt the target") {
-    check(&a, "main() { shrt(1)\nflt(16777217)\n lng(4294967296) }", NULL);
-    check(&a, "main() { let x = 1\nshrt(x) }", NULL);
-    check(&a, "main() { let d = 0.1\nflt(d) }", NULL);
-    check(&a, "main() { shrt(70000) }", "outside the range");
-    check(&a, "main() { 70000 |> shrt() }", "outside the range");
-    check(&a, "main() { uint(-1) }", "outside the range");
-    check(&a, "main() { uint(-0) }", NULL);
-    check(&a, "main() { int(2.5) }", NULL);
-    check(&a, "main() { let x = 1\nlng(1 + x)\nlng(x + 1) }", NULL);
-    check(&a, "main() { int(\"1\") }", NULL);
-    check(&a, "main() { int() }", "exactly one");
-    check(&a, "main() { int(1, 2) }", "exactly one");
-    check(&a, "main() { int(true) }", "number, chr or str");
-    check(&a, "int() {}\nmain() {}", "Expected a declaration");
-    check(&a, "main() { let c: chr = '1'\nint(c) + 1 }", NULL);
-    check(&a, "Box { unit: () }\nmain() { int(Box { unit = () }) }",
-          "number, chr or str");
-    check(&a, "f() -> int { int(\"1\")? }\nmain() {}", "Propagated variants");
+    converted(&a, "main() { shrt(1)\nflt(16777217)\n lng(4294967296) }", NULL);
+    converted(&a, "main() { let x = 1\nshrt(x) }", NULL);
+    converted(&a, "main() { let d = 0.1\nflt(d) }", NULL);
+    converted(&a, "main() { shrt(70000) }", "outside the range");
+    converted(&a, "main() { 70000 |> shrt() }", "outside the range");
+    converted(&a, "main() { uint(-1) }", "outside the range");
+    converted(&a, "main() { uint(-0) }", NULL);
+    converted(&a, "main() { int(2.5) }", NULL);
+    converted(&a, "main() { let x = 1\nlng(1 + x)\nlng(x + 1) }", NULL);
+    converted(&a, "main() { int(\"1\") }", NULL);
+    converted(&a, "main() { int() }", "exactly one");
+    converted(&a, "main() { int(1, 2) }", "exactly one");
+    converted(&a, "main() { int(true) }", "number, chr or str");
+    converted(&a, "int() {}\nmain() {}", "Expected a declaration");
+    converted(&a, "main() { let c: chr = '1'\nint(c) + 1 }", NULL);
+    converted(&a, "Box { unit: () }\nmain() { int(Box { unit = () }) }",
+              "number, chr or str");
+    converted(&a, "f() -> int { int(\"1\")? }\nmain() {}",
+              "Propagated variants");
     SemaProgram *literal_types =
-        check(&a,
-              "f() { shrt((1)) }\ng() { (1) |> shrt() }\n"
-              "h() { shrt(-32768) }\ni() { lng(4294967296) }\n"
-              "j() { flt(0.1) }\nk() { 0.1 |> flt() }\nmain() {}",
-              NULL);
+        converted(&a,
+                  "f() { shrt((1)) }\ng() { (1) |> shrt() }\n"
+                  "h() { shrt(-32768) }\ni() { lng(4294967296) }\n"
+                  "j() { flt(0.1) }\nk() { 0.1 |> flt() }\nmain() {}",
+                  NULL);
     const SemaTypeKind expected[] = {SEMA_SHRT, SEMA_SHRT, SEMA_SHRT,
                                      SEMA_LNG,  SEMA_FLT,  SEMA_FLT};
     for (size_t i = 0; i < sizeof(expected) / sizeof(*expected); i++)
       ASSERT_EQ_INT(expected[i],
                     literal_types->functions[i].symbol.return_type->kind);
-    check(&a, "f() { int(f())? }\nmain() {}", "it has no error tags");
-    check(&a, "f() { int(f()) }\nmain() {}", NULL);
-    check(&a, "main() { \"12\" |> int()? |> lng() |> str() |> print() }", NULL);
+    converted(&a, "f() { int(f())? }\nmain() {}", "it has no error tags");
+    converted(&a, "f() { int(f()) }\nmain() {}", NULL);
+    converted(&a, "main() { \"12\" |> int()? |> lng() |> str() |> print() }",
+              NULL);
   }
   TEST("recursive conversions require direct handling of their input call") {
     // The outer ? handles int(), not g(). This used to pass only because
     // poisoned SCC outcomes became SEMA_ERROR and hid g()'s fallibility.
-    SemaProgram *bad = check(
+    SemaProgram *bad = converted(
         &a, "f() { if true { ret :!bad }\nint(g())? }\ng() { f()? }\nmain() {}",
         "must be handled");
     Diagnostics again;
@@ -220,7 +195,7 @@ int main(void) {
     ASSERT_EQ_INT(1, again.count);
     ASSERT_TRUE(!bad->checked);
     ASSERT_TRUE(ir_lower(&a, bad) == NULL);
-    SemaProgram *good = check(
+    SemaProgram *good = converted(
         &a,
         "f() { if true { ret :!bad }\nint(g()?)? }\ng() { f()? }\nmain() {}",
         NULL);
@@ -253,10 +228,10 @@ int main(void) {
   }
   TEST("conversion definitions borrow invalid strings and get standalone "
        "ownership insertion") {
-    SemaProgram *p = check(&a,
-                           "main() { int(\"b\" + \"ad\") |> { :ok[_] => "
-                           "()\n:!invalid[s] => print(s) } }",
-                           NULL);
+    SemaProgram *p = converted(&a,
+                               "main() { int(\"b\" + \"ad\") |> { :ok[_] => "
+                               "()\n:!invalid[s] => print(s) } }",
+                               NULL);
     IrProgram *ir = ir_lower(&a, p);
     ir_insert_rc(&a, ir);
     int found = 0;

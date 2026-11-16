@@ -1,42 +1,11 @@
-#include "codegen/c.h"
-#include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
-#include "test_utils.h"
+#include "compile_support.h"
 
 typedef struct {
   const char *message, *site, *declaration;
 } Expected;
-typedef struct {
-  SemaProgram *program;
-  Diagnostics errors;
-} Result;
 static const char *read_message = "Binding must be assigned before it is read.";
 static const char *once_message =
     "A declared let binding can only be assigned once on every path.";
-static Result check(Arena *a, const char *text) {
-  Result r;
-  diagnostics_init(&r.errors, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *s = source_create(a, "assignment-paths.brf", text, strlen(text));
-  Program *ast = parse_program(
-      a, &names, newline_filter(a, lexer_tokenize(a, s, &r.errors)), &r.errors);
-  r.program = sema_resolve(a, ast, &r.errors);
-  sema_check(r.program, &r.errors);
-  return r;
-}
-static char *lines(Arena *a, const char *source, int crlf) {
-  char *out = arena_alloc(a, 2 * strlen(source) + 1);
-  size_t n = 0;
-  for (; *source; source++) {
-    if (crlf && *source == '\n')
-      out[n++] = '\r';
-    out[n++] = *source;
-  }
-  out[n] = 0;
-  return out;
-}
 static void at(const char *text, const char *site, Span span, int exact) {
   const char *p = strstr(text, site);
   ASSERT_TRUE(p != NULL);
@@ -89,64 +58,15 @@ static void rejects_one(Arena *a, const char *source, const char *message,
   Expected expected = {message, site, declaration};
   rejects(a, source, &expected, 1);
 }
-static void valid(Arena *a, const char *source) {
-  for (int crlf = 0; crlf < 2; crlf++) {
-    char *text = lines(a, source, crlf);
-    Result r = check(a, text);
-    size_t count = r.program->count;
-    for (size_t i = 0; i < r.program->count; i++)
-      count += r.program->functions[i].variable_count;
-    const SemaType **types = arena_calloc(a, count, sizeof(*types));
-    for (unsigned repeat = 0; repeat < 3; repeat++) {
-      if (repeat) {
-        diagnostics_init(&r.errors, a);
-        sema_check(r.program, &r.errors);
-      }
-      if (r.errors.count) {
-        fprintf(stderr, "Unexpected errors:\n%s\n", text);
-        diagnostics_print(&r.errors, stderr);
-      }
-      ASSERT_EQ_INT(0, r.errors.count);
-      ASSERT_TRUE(r.program->checked);
-      ASSERT_TRUE(!strcmp(text, r.program->module->text));
-      size_t n = 0;
-      for (size_t i = 0; i < r.program->count; i++) {
-        SemaFunction *f = &r.program->functions[i];
-        if (!repeat)
-          types[n] = f->symbol.return_type;
-        ASSERT_TRUE(types[n++] == f->symbol.return_type);
-        for (size_t j = 0; j < f->variable_count; j++) {
-          if (!repeat)
-            types[n] = f->variables[j]->type;
-          ASSERT_TRUE(types[n++] == f->variables[j]->type);
-        }
-      }
-    }
-    IrProgram *ir = ir_lower(a, r.program);
-    ASSERT_TRUE(ir != NULL);
-    if (ir) {
-      ir_insert_rc(a, ir);
-      size_t count = ir->functions[ir->entry].count;
-      ir_insert_rc(a, ir);
-      ASSERT_EQ_INT(count, ir->functions[ir->entry].count);
-      FILE *out = tmpfile();
-      ASSERT_TRUE(out != NULL);
-      if (out) {
-        ASSERT_TRUE(emit_c(out, ir));
-        fclose(out);
-      }
-    }
-  }
-}
 int main(void) {
   Arena a;
   arena_init(&a);
   TEST("continuing nested if and match paths intersect both must properties") {
-    valid(&a, "f(a: bool, b: bool) -> int { let n: int\n"
-              "if a { if b { n = 1 } else { n = 2 } } else { n = 3 }\nn "
-              "}\nmain() {}");
-    valid(&a, "f(flag: bool) -> int { let n: int\n"
-              "flag |> { true => n = 1\nfalse => ret 2 }\nn }\nmain() {}");
+    accepts(&a, "f(a: bool, b: bool) -> int { let n: int\n"
+                "if a { if b { n = 1 } else { n = 2 } } else { n = 3 }\nn "
+                "}\nmain() {}");
+    accepts(&a, "f(flag: bool) -> int { let n: int\n"
+                "flag |> { true => n = 1\nfalse => ret 2 }\nn }\nmain() {}");
     rejects_one(&a,
                 "main() { var flag = true\nlet n: int\n"
                 "flag |> { true => n = 1\nfalse => () }\nprint(str(n)) }",
@@ -162,16 +82,17 @@ int main(void) {
                 read_message, "n))", "let n: int");
   }
   TEST("return propagation break and continue discard only departing paths") {
-    valid(&a,
-          "f(flag: bool) -> int { let n: int\nwhile true { if flag { n = 1\n"
-          "break } else { ret 2 } }\nn }\nmain() {}");
-    valid(&a,
-          "main() { let n: int\nvar flag = true\nwhile true { if flag { n = 1\n"
-          "break } else { n = 2\nbreak } }\nprint(str(n)) }");
-    valid(&a, "f(flag: bool) -> :ok[int] | :!bad { let n: int\n"
-              "if flag { ret :!bad } else { n = 2 }\nn }\nmain() {}");
-    valid(&a, "f() -> :ok[int] | :!bad { let n: int\n"
-              "n = :!bad?\nn }\nmain() {}");
+    accepts(&a,
+            "f(flag: bool) -> int { let n: int\nwhile true { if flag { n = 1\n"
+            "break } else { ret 2 } }\nn }\nmain() {}");
+    accepts(
+        &a,
+        "main() { let n: int\nvar flag = true\nwhile true { if flag { n = 1\n"
+        "break } else { n = 2\nbreak } }\nprint(str(n)) }");
+    accepts(&a, "f(flag: bool) -> :ok[int] | :!bad { let n: int\n"
+                "if flag { ret :!bad } else { n = 2 }\nn }\nmain() {}");
+    accepts(&a, "f() -> :ok[int] | :!bad { let n: int\n"
+                "n = :!bad?\nn }\nmain() {}");
     rejects_one(&a, "f() -> int { let n: int\nret n }\nmain() {}", read_message,
                 "n }", "let n: int");
     rejects_one(&a,
@@ -194,29 +115,29 @@ int main(void) {
                 "main() { let n: int\nfor outer in 0..2 { while true { n = 1\n"
                 "break } } }",
                 once_message, "n = 1", "let n: int");
-    valid(&a, "main() { for outer in 0..2 { let n: int\n"
-              "while true { n = outer\nbreak }\nprint(str(n))\ncontinue } }");
-    valid(&a,
-          "main() { var n: int\nn = 0\nfor outer in 0..2 { for inner in 0..2 "
-          "{ n += outer + inner\ncontinue } }\nprint(str(n)) }");
+    accepts(&a, "main() { for outer in 0..2 { let n: int\n"
+                "while true { n = outer\nbreak }\nprint(str(n))\ncontinue } }");
+    accepts(&a,
+            "main() { var n: int\nn = 0\nfor outer in 0..2 { for inner in 0..2 "
+            "{ n += outer + inner\ncontinue } }\nprint(str(n)) }");
     rejects_one(&a,
                 "main() { var n: int\nfor i in 0..1 { n = i }\nprint(str(n)) }",
                 read_message, "n))", "var n: int");
   }
   TEST("conditions repeat while range bounds run once outside their jump "
        "region") {
-    valid(&a,
-          "main() { var flag = true\nlet n: int\nfor i in "
-          "(if flag { n = 1\n0 } else { n = 2\n0 })..3 {}\nprint(str(n)) }");
-    valid(&a, "main() { var flag = true\nlet n: int\nwhile true { for i in "
-              "(if flag { n = 1\nbreak } else { 0 })..2 {}\nn = 2\nbreak }\n"
-              "print(str(n)) }");
-    valid(&a, "main() { var flag = true\nfor outer in 0..2 { let n: int\n"
-              "while (if flag { n = 1\ncontinue } else { false }) {}\n"
-              "n = 2\nprint(str(n)) } }");
-    valid(&a, "main() { var flag = true\nfor outer in 0..2 { let n: int\n"
-              "for inner in 0..(if flag { n = 1\ncontinue } else { 2 }) {}\n"
-              "n = 2\nprint(str(n)) } }");
+    accepts(&a,
+            "main() { var flag = true\nlet n: int\nfor i in "
+            "(if flag { n = 1\n0 } else { n = 2\n0 })..3 {}\nprint(str(n)) }");
+    accepts(&a, "main() { var flag = true\nlet n: int\nwhile true { for i in "
+                "(if flag { n = 1\nbreak } else { 0 })..2 {}\nn = 2\nbreak }\n"
+                "print(str(n)) }");
+    accepts(&a, "main() { var flag = true\nfor outer in 0..2 { let n: int\n"
+                "while (if flag { n = 1\ncontinue } else { false }) {}\n"
+                "n = 2\nprint(str(n)) } }");
+    accepts(&a, "main() { var flag = true\nfor outer in 0..2 { let n: int\n"
+                "for inner in 0..(if flag { n = 1\ncontinue } else { 2 }) {}\n"
+                "n = 2\nprint(str(n)) } }");
     rejects_one(&a,
                 "main() { var flag = true\nlet n: int\n"
                 "while (if flag { n = 1\ntrue } else { false }) {} }",
@@ -233,8 +154,8 @@ int main(void) {
                 once_message, "n = 3", "let n: int");
   }
   TEST("RHS evaluation precedes writes without rewriting earlier read facts") {
-    valid(&a, "f(flag: bool) -> int { let n: int\nn = if flag { n = 1\n"
-              "ret n } else { 2 }\nn }\nmain() {}");
+    accepts(&a, "f(flag: bool) -> int { let n: int\nn = if flag { n = 1\n"
+                "ret n } else { 2 }\nn }\nmain() {}");
     rejects_one(&a,
                 "main() { var n: int\nn += if true { n = 1\n2 } else { 3 } }",
                 read_message, "n +=", "var n: int");
@@ -243,8 +164,8 @@ int main(void) {
             "take(a: int, b: int) {}\nmain() { let n: int\n"
             "take(n, if true { n = 1\n2 } else { n = 2\n3 }) }",
             order, 1);
-    valid(&a, "take(a: int, b: int) {}\nmain() { let n: int\n"
-              "take(if true { n = 1\n2 } else { n = 2\n3 }, n) }");
+    accepts(&a, "take(a: int, b: int) {}\nmain() { let n: int\n"
+                "take(if true { n = 1\n2 } else { n = 2\n3 }, n) }");
   }
   TEST("invalid-use recovery cannot silently admit immutable outcome updates") {
     const char *ops[] = {"+= :!bad", "-= :!bad", "*= :!bad", "/= :!bad",
@@ -290,7 +211,7 @@ int main(void) {
         {read_message, "n))", "let n: int"}};
     rejects(&a, "main() { let n: int\nn = true\nprint(str(n)) }", invalid_rhs,
             2);
-    valid(&a, "main() { ret\nlet n: int\nprint(str(n))\nn = 1\nn = 2 }");
+    accepts(&a, "main() { ret\nlet n: int\nprint(str(n))\nn = 1\nn = 2 }");
     rejects_one(&a, "main() { ret\nlet n: int\nn = true }",
                 "Assignment value has the wrong type.", "true", NULL);
     rejects_one(&a,
@@ -299,10 +220,10 @@ int main(void) {
                 "Unreachable match arm.", "_ =>", NULL);
   }
   TEST("nested assignment and outcome ownership preserve access permissions") {
-    valid(&a, "Box { n: int }\nf(box: &Box, flag: bool) { let alias: Box\n"
-              "while true { if flag { alias = box\nbreak } else { alias = "
-              "box\nbreak } }\n"
-              "alias.n = 2 }\nmain() {}");
+    accepts(&a, "Box { n: int }\nf(box: &Box, flag: bool) { let alias: Box\n"
+                "while true { if flag { alias = box\nbreak } else { alias = "
+                "box\nbreak } }\n"
+                "alias.n = 2 }\nmain() {}");
     rejects_one(&a,
                 "Box { n: int }\nf(box: Box, flag: bool) { let alias: Box\n"
                 "if flag { alias = box } else { alias = Box { n = 1 } }\n"
@@ -314,12 +235,13 @@ int main(void) {
         "Box { n: int }\nf(box: Box) { var alias: Box\nalias = box\n"
         "for i in 0..2 { alias = Box { n = i } }\nalias.n = 2 }\nmain() {}",
         "Cannot mutate through an ordinary parameter; use &.", "alias.n", NULL);
-    valid(&a, "Box { n: int }\nf(box: Box, flag: bool) { var alias: Box\n"
-              "while true { if flag { alias = Box { n = 1 }\nbreak } else { "
-              "alias = Box { n = 2 }\nbreak } }\nalias.n = 3 }\nmain() {}");
-    valid(&a, "R = :ok[str] | :!bad[str]\nf() -> R { \"owned\" }\n"
-              "main() { for i in 0..2 { let r: R\nif true { r = f() } "
-              "else { r = :!bad[\"error\"] }\nr |> { _ => () }\ncontinue } }");
+    accepts(&a, "Box { n: int }\nf(box: Box, flag: bool) { var alias: Box\n"
+                "while true { if flag { alias = Box { n = 1 }\nbreak } else { "
+                "alias = Box { n = 2 }\nbreak } }\nalias.n = 3 }\nmain() {}");
+    accepts(&a,
+            "R = :ok[str] | :!bad[str]\nf() -> R { \"owned\" }\n"
+            "main() { for i in 0..2 { let r: R\nif true { r = f() } "
+            "else { r = :!bad[\"error\"] }\nr |> { _ => () }\ncontinue } }");
     rejects_one(&a,
                 "R = :ok[int] | :!bad\nmain() { var flag = true\nlet r: R\n"
                 "if flag { r = :ok[1]\nr! }\nr! // read\n}",
@@ -341,9 +263,10 @@ int main(void) {
       n += (size_t)snprintf(source + n, sizeof(source) - n, "}\n");
     snprintf(source + n, sizeof(source) - n, "}\n");
     rejects_one(&a, source, once_message, "n = 1", "let n: int");
-    valid(&a,
-          "main() { for outer in 0..2 { let n: int\nfor inner in "
-          "(if true { n = 1\n0 } else { n = 2\n0 })..2 {}\nprint(str(n)) } }");
+    accepts(
+        &a,
+        "main() { for outer in 0..2 { let n: int\nfor inner in "
+        "(if true { n = 1\n0 } else { n = 2\n0 })..2 {}\nprint(str(n)) } }");
   }
   arena_destroy(&a);
   RUN_TESTS();

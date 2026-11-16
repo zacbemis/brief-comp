@@ -1,83 +1,8 @@
-#include "codegen/c.h"
+#include "compile_support.h"
 #include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
 #include "sema/internal.h"
-#include "test_utils.h"
 #include <math.h>
 
-typedef struct {
-  Program *ast;
-  SemaProgram *program;
-  Diagnostics errors;
-} Result;
-static Result check(Arena *a, const char *text) {
-  Result r;
-  diagnostics_init(&r.errors, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *s = source_create(a, "inclusive.brf", text, strlen(text));
-  TokenArray raw = lexer_tokenize(a, s, &r.errors);
-  TokenArray tokens = newline_filter(a, raw);
-  size_t bytes = tokens.count * sizeof(Token);
-  Token *saved = arena_alloc(a, bytes);
-  memcpy(saved, tokens.items, bytes);
-  r.ast = parse_program(a, &names, tokens, &r.errors);
-  ASSERT_TRUE(!memcmp(saved, tokens.items, bytes));
-  r.program = sema_resolve(a, r.ast, &r.errors);
-  sema_check(r.program, &r.errors);
-  return r;
-}
-static char *lines(Arena *a, const char *source, int crlf) {
-  char *out = arena_alloc(a, 2 * strlen(source) + 1);
-  size_t n = 0;
-  for (; *source; source++) {
-    if (crlf && *source == '\n')
-      out[n++] = '\r';
-    out[n++] = *source;
-  }
-  out[n] = 0;
-  return out;
-}
-static Result valid(Arena *a, const char *text) {
-  Result r = check(a, text);
-  const SemaType **types = arena_calloc(a, r.program->count, sizeof(*types));
-  for (size_t i = 0; i < r.program->count; i++)
-    types[i] = r.program->functions[i].symbol.return_type;
-  for (unsigned repeat = 0; repeat < 3; repeat++) {
-    if (repeat) {
-      diagnostics_init(&r.errors, a);
-      sema_check(r.program, &r.errors);
-    }
-    if (r.errors.count) {
-      fprintf(stderr, "Unexpected errors:\n%s\n", text);
-      diagnostics_print(&r.errors, stderr);
-    }
-    ASSERT_EQ_INT(0, r.errors.count);
-    ASSERT_TRUE(r.program->checked && !strcmp(text, r.program->module->text));
-    for (size_t i = 0; i < r.program->count; i++)
-      ASSERT_TRUE(types[i] == r.program->functions[i].symbol.return_type);
-  }
-  IrProgram *ir = ir_lower(a, r.program);
-  ASSERT_TRUE(ir != NULL);
-  if (ir) {
-    ir_insert_rc(a, ir);
-    size_t n = ir->functions[ir->entry].count;
-    ir_insert_rc(a, ir);
-    ASSERT_EQ_INT(n, ir->functions[ir->entry].count);
-    FILE *out = tmpfile();
-    ASSERT_TRUE(out != NULL);
-    if (out) {
-      ASSERT_TRUE(emit_c(out, ir));
-      fclose(out);
-    }
-  }
-  return r;
-}
-static void accepts(Arena *a, const char *text) {
-  for (int crlf = 0; crlf < 2; crlf++)
-    (void)valid(a, lines(a, text, crlf));
-}
 static void reject(Arena *a, const char *source, const char *message,
                    const char *site) {
   for (int crlf = 0; crlf < 2; crlf++) {

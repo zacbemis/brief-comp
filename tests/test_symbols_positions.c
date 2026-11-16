@@ -274,11 +274,11 @@ int main(void) {
     f->written_type = sema_symbol_set(p, &variant, 1);
     for (unsigned pass = 0; pass < 3; pass++) {
       Diagnostics errors;
-      recheck(&a, p, &errors);
+      recheck_program(&a, p, &errors);
       if (errors.count)
         diagnostics_print(&errors, stderr);
       ASSERT_EQ_INT(0, errors.count);
-      ASSERT_TRUE(owned_ir(&a, p) != NULL);
+      ASSERT_TRUE(lower(&a, p) != NULL);
       ASSERT_TRUE(row->type == f->written_type);
       ASSERT_TRUE(items[0]->type == types[0] && items[1]->type == types[1]);
       ASSERT_TRUE(items[1]->real == (double)(float)0.1);
@@ -287,7 +287,7 @@ int main(void) {
     types[1] = &p->types[SEMA_BOOL];
     f->written_type = sema_symbol_set(p, &variant, 1);
     Diagnostics errors;
-    recheck(&a, p, &errors);
+    recheck_program(&a, p, &errors);
     ASSERT_EQ_INT(1, errors.count);
     ASSERT_EQ_INT(
         0, strcmp("Function body does not match the written return type.",

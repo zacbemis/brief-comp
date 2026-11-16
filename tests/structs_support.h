@@ -1,49 +1,8 @@
 #ifndef BRIEF_TESTS_STRUCTS_SUPPORT_H
 #define BRIEF_TESTS_STRUCTS_SUPPORT_H
 
-#include "ir/ir.h"
-#include "lexer/lexer.h"
-#include "lexer/newline.h"
-#include "parser/parser.h"
-#include "sema/sema.h"
-#include "test_utils.h"
+#include "compile_support.h"
 
-typedef struct {
-  Diagnostics errors;
-  SemaProgram *program;
-} Result;
-static inline Result check(Arena *a, const char *text) {
-  Result r;
-  diagnostics_init(&r.errors, a);
-  InternTable names;
-  intern_init(&names, a);
-  SourceFile *s = source_create(a, "structs.brf", text, strlen(text));
-  Program *ast = parse_program(
-      a, &names, newline_filter(a, lexer_tokenize(a, s, &r.errors)), &r.errors);
-  r.program = sema_resolve(a, ast, &r.errors);
-  sema_check(r.program, &r.errors);
-  return r;
-}
-static inline void valid(Arena *a, const char *text) {
-  Result r = check(a, text);
-  if (r.errors.count)
-    diagnostics_print(&r.errors, stderr);
-  ASSERT_EQ_INT(0, r.errors.count);
-  ASSERT_TRUE(r.program->checked);
-}
-static inline void invalid(Arena *a, const char *text, const char *message) {
-  Result r = check(a, text);
-  int found = 0;
-  for (size_t i = 0; i < r.errors.count; i++)
-    if (strstr(r.errors.items[i]->message, message))
-      found = 1;
-  if (!found) {
-    fprintf(stderr, "missing '%s' for %s\n", message, text);
-    diagnostics_print(&r.errors, stderr);
-  }
-  ASSERT_TRUE(found);
-  ASSERT_TRUE(!r.program->checked);
-}
 static inline char *apply_call_fixes(Arena *a, const char *text,
                                      const Diagnostic *d) {
   const DiagnosticFix *fixes[16];
