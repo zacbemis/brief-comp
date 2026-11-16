@@ -17,24 +17,14 @@ static void fail(Lower *l, const SemaExpr *e, size_t input,
 }
 
 // Branches to a success label unless the input's tag is a failure.
-static void failure_test(Lower *l, const SemaExpr *e, size_t input,
-                         const SemaVariant *variant) {
+static void failure_test(Lower *l, const SemaExpr *e, size_t input) {
   const SemaType *uint = &l->program->types[SEMA_UINT];
   size_t tag = lower_temporary(l, uint);
   lower_emit(
       l, (IrInstruction){
              .op = IR_SYMBOL_TAG, .span = e->span, .result = tag, .a = input});
-  size_t failed;
-  if (variant && variant->tag == l->program->ok) {
-    // For outcomes, a sole neutral :ok makes all other tags errors.
-    // Preserve the old test, also kept by the legacy no-error branch.
-    size_t ok = lower_constant(l, uint, l->program->ok->id, 0, 0, e->span);
-    failed = lower_binary(l, BINARY_NE, uint, &l->program->types[SEMA_BOOL],
-                          tag, ok, e->span);
-  } else {
-    failed = lower_tag_test(l, tag, e->failures->symbols->variants,
-                            e->failures->symbols->count, e->span);
-  }
+  size_t failed = lower_tag_test(l, tag, e->failures->symbols->variants,
+                                 e->failures->symbols->count, e->span);
   size_t success = l->function->labels++;
   lower_emit(l, (IrInstruction){.op = IR_BRANCH_FALSE,
                                 .span = e->span,
@@ -61,7 +51,7 @@ size_t lower_try(Lower *l, const SemaExpr *e) {
   const SemaVariant *variant =
       sema_has_errors(type) ? sema_single_success(type) : sema_ok(type);
   if (e->failures)
-    failure_test(l, e, input, variant);
+    failure_test(l, e, input);
   if (!variant)
     return lower_convert(l, input, e->type, e->span);
   size_t result = lower_temporary(l, e->type);
