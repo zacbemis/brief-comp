@@ -77,7 +77,11 @@ add_library(brief_core STATIC
     src/sema/match.c
     src/sema/symbols.c
     src/sema/conversions.c
-    src/ir/lower.c
+    src/ir/lower/builder.c
+    src/ir/lower/expr.c
+    src/ir/lower/control.c
+    src/ir/lower/match.c
+    src/ir/lower/program.c
     src/ir/rc.c
     src/codegen/c.c
     src/driver/native.c
