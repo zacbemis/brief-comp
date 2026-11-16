@@ -66,52 +66,42 @@ kind, and escaped source spelling. Lexical errors are collected and printed
 on standard error with their source line and an underline; invalid input exits
 with status 1. Invalid command arguments exit with status 2.
 
-N1's lexer work distinguishes `TOK_UPPER_NAME` and `TOK_LOWER_NAME`, with `_` as
-`TOK_WILDCARD`. Underscore-prefixed names such as `_value` are rejected. Logical
-negation now uses `not`; old prefix `!` is rejected with a fix, while postfix
-`!` and `!=` are unchanged. Double precision uses `dbl` for both types and
-conversion calls; old `dub` uses are rejected with fixes. Function return types
-follow `->`, with a fix for old `:` annotations. Aliases use `Name = type`,
-without `type` or `pub` modifiers; both get removal fixes. `type` is an ordinary
-name. Struct literals use `field = value`, with fixes for old `field: value`;
-field declarations and type annotations keep their colons. Struct types also
-reject `pub`; field/function visibility is retained in the checked tree, with no
-cross-module access enforcement yet. Postfix indexing uses the adjacent `.(`
-token, as in `items.(i)`; old `items[i]` gets delimiter fixes. Index operations
-still report not implemented. Type arguments use `Name[Type]` in types and
-calls, without speculative parsing; old angle arguments have delimiter fixes.
-Array annotations use `Arr[Type]`, not sized postfix `Type[size]`. Generics and
-collections remain unimplemented. Typed `Arr[Type] { ... }` and `Vec[Type] { ...
-}` literals parse, but emission reports that collection literals are not
-implemented. Symbol payloads use `[...]` in types, values and patterns, with
-paired fixes for old parentheses. Native data and failure tags support zero or
-more positional payloads, including unit slots, nested unions and owned values.
-Canonical types, values and bindings retain every position; context, coverage,
-flow and permissions apply independently of physical layout. Native packing,
-projection, casts, equality, formatting and reference traversal visit all
-positions. Existing zero/one layouts and observations are unchanged. Multiple
-`:ok` positions still report not implemented: the first-version implicit
-success ABI has one result slot, and no tuple semantics are invented. Outcomes,
-entry policy and runtime spelling stay first-version until N2. Types now use
+Names are classified as `TOK_UPPER_NAME` or `TOK_LOWER_NAME`, with `_` as
+`TOK_WILDCARD`; underscore-prefixed names such as `_value` are rejected.
+Logical operators are `not`, `and` and `or`; postfix `!` and `!=` are separate
+operators. Double precision is `dbl`. Function return types follow `->`.
+Aliases use `Name = type` and cannot be `pub`. Struct literals use
+`field = value`; field declarations and type annotations use colons. Struct
+types reject `pub`; field/function visibility is retained in the checked tree,
+with no cross-module access enforcement yet. Postfix indexing uses the adjacent
+`.(` token, as in `items.(i)`; index operations still report not implemented.
+Type arguments use `Name[Type]` in types and calls, without speculative
+parsing, and array annotations use `Arr[Type]`. Generics and collections remain
+unimplemented: typed `Arr[Type] { ... }` and `Vec[Type] { ... }` literals parse,
+but emission reports that collection literals are not implemented. Symbol
+payloads use `[...]` in types, values and patterns. Spellings removed after the
+first version get ordinary syntax errors, without special recovery or fixes.
+
+Native data and failure tags support zero or more positional payloads,
+including unit slots, nested unions and owned values. Canonical types, values
+and bindings retain every position; context, coverage, flow and permissions
+apply independently of physical layout. Native packing, projection, casts,
+equality, formatting and reference traversal visit all positions. Multiple
+`:ok` positions still report not implemented: implicit success has one result
+slot, and no tuple semantics are invented. Types use
 `:a | NamedUnion | :!bad[Type]`, including nested payload unions and partial
-return markers. `Sym` is an ordinary name; `Sym<...>` rejects with safe
-unwrap/separator fixes. `Self` is also an ordinary uppercase name, not an
-implicit receiver type. Known-owner uses of the old shorthand get concrete-type
-fixes; real structs and aliases named `Self` keep ordinary lookup.
+return markers.
 
 Aliases transparently reuse any existing native type, including primitives,
 unit and structs. Numeric/string aliases use the existing converters, and
 struct aliases share literals and associated functions with their target type.
 
-Functions now live inside struct bodies, alongside fields; separate `impl`
-blocks reject without a guessed relocation fix. `impl` is an ordinary name.
-Existing explicit typed parameters, associated calls and permissions retain
+Functions live inside struct bodies, alongside fields. Existing explicit typed parameters, associated calls and permissions retain
 their native behavior. Fieldless bodies, including typed required signatures
 and default bodies, parse as traits but remain unsupported by native
 compilation. Unit fields make structs and require explicit initializers.
 
-`self` is a keyword and distinct expression node; `Self` remains an ordinary
-type name. Struct functions using `self` are classified syntactically before
+`self` is a keyword and distinct expression node. Struct functions using `self` are classified syntactically before
 return inference, including unreachable uses. Resolution prepends a receiver
 parameter of the canonical owner type; it is read-only unless `&self` is
 written, which makes a method even when unused. The binding itself cannot be
@@ -306,8 +296,8 @@ Compilation supports:
   must be handled directly with `?`, `!`, or a match, even when discarded or returned.
 - Typed parameters, forward calls, recursion, written or inferred
   return types (including structs and symbols), `ret`, and implicit tail returns. Unanchored recursive return
-  types need annotations; call-graph analysis uses explicit work stacks, not
-  the old 128-function depth limit. Runtime recursion still uses the host C
+  types need annotations; call-graph analysis uses explicit work stacks, with
+  no depth limit. Runtime recursion still uses the host C
   stack and may exhaust it rather than panic; tail-call elimination is not
   guaranteed.
 - Expressions, blocks and types nest at most 128 syntax levels, which keeps the
