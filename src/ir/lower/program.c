@@ -48,12 +48,6 @@ static void used_symbol_sets(Arena *arena, const SemaProgram *program,
 IrProgram *ir_lower(Arena *arena, const SemaProgram *program) {
   if (!program->checked)
     return NULL;
-  // First-version implicit success/extraction still has one result slot.
-  // Data and failure variants have a fully positional native representation.
-  for (const SemaSymSet *s = program->symbol_sets; s; s = s->next)
-    for (size_t i = 0; i < s->count; i++)
-      if (s->variants[i].tag == program->ok && s->variants[i].payload_count > 1)
-        return NULL;
   IrProgram *p = arena_calloc(arena, 1, sizeof(*p));
   p->count = program->count;
   p->entry = program->entry->id;

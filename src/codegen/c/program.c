@@ -4,11 +4,6 @@
 // Validate positional instructions before publishing any C. Canonical
 // schemas define both arity and semantic indices (unit slots included).
 static int valid(const IrProgram *p) {
-  for (size_t i = 0; i < p->symbol_set_count; i++)
-    for (size_t j = 0; j < p->symbol_sets[i]->count; j++)
-      if (p->symbol_sets[i]->variants[j].tag == p->ok &&
-          p->symbol_sets[i]->variants[j].payload_count > 1)
-        return 0;
   for (size_t i = 0; i < p->count; i++) {
     const IrFunction *f = &p->functions[i];
     for (size_t j = 0; j < f->count; j++) {
@@ -61,7 +56,7 @@ static void entry_point(FILE *out, const IrProgram *p) {
     for (size_t i = 0; i < entry->symbols->count; i++)
       has_error |= entry->symbols->variants[i].tag->kind == SEMA_TAG_ERROR;
     if (has_error) {
-      // Classify the actual ABI result, not the legacy outer :ok schema.
+      // Classify the result by its tag kinds.
       // IDs are global and may be sparse: table size follows this set only.
       fputs("  static const struct { uint32_t tag; _Bool error; } "
             "brt_entry_kinds[] = {\n",

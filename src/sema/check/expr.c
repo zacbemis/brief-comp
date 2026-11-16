@@ -126,7 +126,7 @@ static const SemaType *symbol(Checker *c, SemaExpr *e, const SemaType *expected,
     SemaVariant variant = {e->as.symbol.tag, count ? types : NULL, count};
     result = sema_symbol_set(c->p, &variant, 1);
   }
-  // The first-version implicit success ABI still has one result slot.
+  // Implicit success has one result slot.
   // Positional data checking must not invent a tuple or erase extra values.
   if (e->as.symbol.tag == c->p->ok && count > 1) {
     error(c, e->span, "Multiple ':ok' payloads are not implemented yet.");
