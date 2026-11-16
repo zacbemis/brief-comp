@@ -50,9 +50,9 @@ static void binary(FILE *out, const IrFunction *function,
   } else if (op == BINARY_POW)
     fprintf(out, "%s(brt_tmp_%zu, brt_tmp_%zu)",
             kind == SEMA_FLT ? "powf" : "pow", in->a, in->b);
-  else if (op == BINARY_DIV && (kind == SEMA_FLT || kind == SEMA_DUB))
+  else if (op == BINARY_DIV && (kind == SEMA_FLT || kind == SEMA_DBL))
     fprintf(out, "brt_div_%s(brt_tmp_%zu, brt_tmp_%zu)",
-            kind == SEMA_FLT ? "flt" : "dub", in->a, in->b);
+            kind == SEMA_FLT ? "flt" : "dbl", in->a, in->b);
   else
     fprintf(out, "brt_tmp_%zu %s brt_tmp_%zu", in->a, operators[op], in->b);
   fputs(";\n", out);
@@ -71,7 +71,7 @@ static void string(FILE *out, const IrInstruction *in) {
 
 static void constant(FILE *out, const IrInstruction *in) {
   fprintf(out, "  brt_tmp_%zu = ", in->result);
-  if (in->type->kind == SEMA_FLT || in->type->kind == SEMA_DUB) {
+  if (in->type->kind == SEMA_FLT || in->type->kind == SEMA_DBL) {
     if (isinf(in->as.constant.real))
       fputs(signbit(in->as.constant.real) ? "-INFINITY" : "INFINITY", out);
     else
@@ -100,7 +100,7 @@ static void call(FILE *out, const IrProgram *p, const IrInstruction *in) {
     fprintf(out, "brt_str_%s",
             k == SEMA_BOOL        ? "bool"
             : k == SEMA_FLT       ? "flt"
-            : k == SEMA_DUB       ? "dub"
+            : k == SEMA_DBL       ? "dbl"
             : c_signed_integer(k) ? "s"
                                   : "u");
   } else
@@ -128,7 +128,7 @@ static void convert(FILE *out, const IrProgram *p, const IrInstruction *in) {
                        : in->type->is_signed      ? "s"
                                                   : "u";
   const char *kind = target->kind == SEMA_FLT   ? "BRT_FLOAT"
-                     : target->kind == SEMA_DUB ? "BRT_DOUBLE"
+                     : target->kind == SEMA_DBL ? "BRT_DOUBLE"
                      : target->is_signed        ? "BRT_SIGNED"
                                                 : "BRT_UNSIGNED";
   const char *member = !sema_integer(target) ? "f"

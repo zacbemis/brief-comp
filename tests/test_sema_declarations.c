@@ -26,8 +26,8 @@ int main(void) {
     ASSERT_EQ_INT(0, r.errors.count);
     ASSERT_TRUE(r.program->checked);
     ASSERT_TRUE(r.program->functions[0].symbol.return_type ==
-                &r.program->types[SEMA_DUB]);
-    ASSERT_EQ_INT(0, strcmp("dbl", r.program->types[SEMA_DUB].name));
+                &r.program->types[SEMA_DBL]);
+    ASSERT_EQ_INT(0, strcmp("dbl", r.program->types[SEMA_DBL].name));
     invalid(&a, "main() { let dbl = 1 }", "Expected a binding name.");
   }
   TEST("pub on a struct type blocks lowering, not field visibility") {

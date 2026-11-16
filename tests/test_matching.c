@@ -72,7 +72,7 @@ int main(void) {
     valid(&a, "main() { let x: dbl = true |> { true => 1\nfalse => 2.0 } }");
     Result r = valid(
         &a, "f(b: bool) { b |> { true => ret 1\nfalse => 2.0 } }\nmain() {}");
-    ASSERT_EQ_INT(SEMA_DUB, r.program->functions[0].symbol.return_type->kind);
+    ASSERT_EQ_INT(SEMA_DBL, r.program->functions[0].symbol.return_type->kind);
     valid(&a, "main() { let x = 9\nlet y = 2 |> { x => x + 1 }\nx + y }");
     valid(&a, "f(b: bool) { b |> { true => 1\nfalse => true |> f() } }\nmain() "
               "{ f(false) }");

@@ -173,10 +173,10 @@ int main(int argc, char **argv) {
     arena_destroy(&arena);
   }
   TEST("floating zero division preserves signs and produces NaN") {
-    ASSERT_TRUE(isinf(brt_div_dub(1.0, 0.0)) && brt_div_dub(1.0, 0.0) > 0);
+    ASSERT_TRUE(isinf(brt_div_dbl(1.0, 0.0)) && brt_div_dbl(1.0, 0.0) > 0);
     ASSERT_TRUE(isinf(brt_div_flt(1.0f, -0.0f)) &&
                 brt_div_flt(1.0f, -0.0f) < 0);
-    ASSERT_TRUE(isnan(brt_div_dub(0.0, 0.0)));
+    ASSERT_TRUE(isnan(brt_div_dbl(0.0, 0.0)));
     ASSERT_TRUE(isnan(brt_div_flt(NAN, 0.0f)));
   }
   RUN_TESTS();

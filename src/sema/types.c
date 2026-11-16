@@ -6,7 +6,7 @@ int sema_integer(const SemaType *t) {
   return t && t->kind >= SEMA_SHRT && t->kind <= SEMA_ULNG;
 }
 int sema_number(const SemaType *t) {
-  return sema_integer(t) || (t && (t->kind == SEMA_FLT || t->kind == SEMA_DUB));
+  return sema_integer(t) || (t && (t->kind == SEMA_FLT || t->kind == SEMA_DBL));
 }
 int sema_reference(const SemaType *t) {
   return t &&

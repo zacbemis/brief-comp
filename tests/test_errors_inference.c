@@ -126,7 +126,7 @@ int main(void) {
     const SemaType *type = r.program->functions[0].symbol.outcome_type;
     ASSERT_TRUE(type == r.program->functions[1].symbol.outcome_type);
     ASSERT_EQ_INT(3, type->symbols->count);
-    ASSERT_EQ_INT(SEMA_DUB, sema_single_payload(sema_ok(type))->kind);
+    ASSERT_EQ_INT(SEMA_DBL, sema_single_payload(sema_ok(type))->kind);
     valid(&a, "f(b: bool) { if b { ret :!bad }\ng(b)? }\n"
               "g(b: bool) { if b { ret 1 }\nf(b)? }\nmain() {}\n");
     invalid(&a, "f() { g()? }\ng() { f()? }\nmain() {}",

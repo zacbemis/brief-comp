@@ -20,7 +20,7 @@ typedef enum {
   SEMA_LNG,
   SEMA_ULNG,
   SEMA_FLT,
-  SEMA_DUB, // Binary64, written dbl; internal/runtime names stay stable.
+  SEMA_DBL, // Binary64.
   SEMA_STR,
   SEMA_STRUCT,
   SEMA_SYM,
@@ -275,7 +275,7 @@ typedef struct {
   const SourceFile *module; // The single source file resolved by this program.
   SemaType types[SEMA_TYPE_COUNT]; // Primitive singletons; structs and symbol
                                    // sets use their own canonical types.
-  SemaSymbol print, stringify, converters[SEMA_DUB - SEMA_SHRT + 1];
+  SemaSymbol print, stringify, converters[SEMA_DBL - SEMA_SHRT + 1];
   SemaStruct *structs;
   size_t struct_count;
   SemaAlias *aliases;

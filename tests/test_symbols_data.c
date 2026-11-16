@@ -310,7 +310,7 @@ int main(void) {
         {"bool", SEMA_BOOL},   {"chr", SEMA_CHR},   {"shrt", SEMA_SHRT},
         {"ushrt", SEMA_USHRT}, {"int", SEMA_INT},   {"uint", SEMA_UINT},
         {"lng", SEMA_LNG},     {"ulng", SEMA_ULNG}, {"flt", SEMA_FLT},
-        {"dbl", SEMA_DUB},     {"str", SEMA_STR},   {"()", SEMA_UNIT}};
+        {"dbl", SEMA_DBL},     {"str", SEMA_STR},   {"()", SEMA_UNIT}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
       char text[512];
       snprintf(text, sizeof(text),

@@ -152,15 +152,15 @@ int main(int argc, char **argv) {
     text(brt_str_bool(1), "true");
     text(brt_str_bool(0), "false");
     text(brt_str_flt(0.1f), "0.1");
-    text(brt_str_dub(0.1), "0.1");
-    text(brt_str_dub(10), "10");
-    text(brt_str_dub(1000), "1000");
-    text(brt_str_dub(1.2345678901234567e21), "1234567890123456774144");
-    text(brt_str_dub(-0.0), "-0");
+    text(brt_str_dbl(0.1), "0.1");
+    text(brt_str_dbl(10), "10");
+    text(brt_str_dbl(1000), "1000");
+    text(brt_str_dbl(1.2345678901234567e21), "1234567890123456774144");
+    text(brt_str_dbl(-0.0), "-0");
     text(brt_str_flt(-0.0f), "-0");
-    text(brt_str_dub(INFINITY), "inf");
+    text(brt_str_dbl(INFINITY), "inf");
     text(brt_str_flt(-INFINITY), "-inf");
-    text(brt_str_dub(NAN), "nan");
+    text(brt_str_dbl(NAN), "nan");
     text(brt_str_flt(-NAN), "nan");
     ASSERT_EQ_INT(0, brt_live_objects);
   }
@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
     const double edges[] = {DBL_MIN, DBL_MAX, 0x1p-1074, -DBL_MAX,
                             FLT_MIN, FLT_MAX, 0x1p-149};
     for (size_t i = 0; i < sizeof(edges) / sizeof(*edges); i++) {
-      const brt_string *s = brt_str_dub(edges[i]);
+      const brt_string *s = brt_str_dbl(edges[i]);
       ASSERT_TRUE(strtod((const char *)s->bytes, NULL) == edges[i]);
       brt_release(s);
     }
@@ -179,7 +179,7 @@ int main(int argc, char **argv) {
       double d;
       memcpy(&d, &state, sizeof(d));
       if (isfinite(d)) {
-        const brt_string *s = brt_str_dub(d);
+        const brt_string *s = brt_str_dbl(d);
         double parsed = strtod((const char *)s->bytes, NULL);
         ASSERT_TRUE(parsed == d && !!signbit(parsed) == !!signbit(d));
         brt_release(s);

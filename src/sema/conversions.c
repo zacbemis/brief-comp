@@ -23,7 +23,7 @@ const SemaType *sema_conversion(SemaProgram *p, const SemaType *source,
                            source->bits < target->bits;
   else if (sema_integer(source) && !sema_integer(target))
     infallible = 1; // All language integers fit either floating range; round.
-  else if (source->kind == SEMA_FLT && target->kind == SEMA_DUB)
+  else if (source->kind == SEMA_FLT && target->kind == SEMA_DBL)
     infallible = 1;
   if (infallible)
     return sema_success(p, target);

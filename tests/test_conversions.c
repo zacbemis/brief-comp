@@ -400,7 +400,7 @@ int main(void) {
       double original;
       memcpy(&original, &random, sizeof(original));
       brt_number out = {0};
-      const brt_string *s = brt_str_dub(original);
+      const brt_string *s = brt_str_dbl(original);
       ASSERT_TRUE(brt_convert_text(s, BRT_DOUBLE, 64, &out));
       ASSERT_TRUE(isnan(original) ? isnan(out.f) : out.f == original);
       if (original == 0)

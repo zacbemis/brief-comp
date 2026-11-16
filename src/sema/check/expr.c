@@ -22,7 +22,7 @@ static const SemaType *literal(Checker *c, SemaExpr *e,
   if (!kind) {
     if (!c->defaults || (c->defaults == 1 && e->kind == SEMA_EXPR_INT))
       return t(c, SEMA_UNKNOWN);
-    kind = t(c, e->kind == SEMA_EXPR_FLOAT ? SEMA_DUB : SEMA_INT);
+    kind = t(c, e->kind == SEMA_EXPR_FLOAT ? SEMA_DBL : SEMA_INT);
   }
   Token token = e->as.string;
   if (!sema_integer(kind)) {

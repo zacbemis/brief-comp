@@ -235,7 +235,7 @@ static void declare_builtins(SemaProgram *p) {
   p->stringify.params = arena_calloc(a, 1, sizeof(SemaVar *));
   p->stringify.params[0] = arena_calloc(a, 1, sizeof(SemaVar));
   p->stringify.params[0]->type = &p->types[SEMA_UNKNOWN];
-  for (size_t i = SEMA_SHRT; i <= SEMA_DUB; i++) {
+  for (size_t i = SEMA_SHRT; i <= SEMA_DBL; i++) {
     SemaSymbol *s = &p->converters[i - SEMA_SHRT];
     *s = (SemaSymbol){.name = p->types[i].name,
                       .arity = 1,

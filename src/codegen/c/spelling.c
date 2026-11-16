@@ -145,7 +145,7 @@ void c_write_value(FILE *out, const SemaType *t, const char *value) {
   else {
     const char *suffix = t->kind == SEMA_BOOL  ? "bool"
                          : t->kind == SEMA_FLT ? "flt"
-                         : t->kind == SEMA_DUB ? "dub"
+                         : t->kind == SEMA_DBL ? "dbl"
                          : t->is_signed        ? "s"
                                                : "u";
     fprintf(out, "brt_write_number(out, brt_str_%s(%s))", suffix, value);

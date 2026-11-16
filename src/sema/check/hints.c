@@ -166,7 +166,7 @@ const SemaType *check_operand_type(Checker *c, SemaExpr *a, SemaExpr *b,
   // Let the literal on either side establish the fallback; 1 + 2.0 is dbl.
   if (c->defaults) {
     if ((a && a->kind == SEMA_EXPR_FLOAT) || (b && b->kind == SEMA_EXPR_FLOAT))
-      return t(c, SEMA_DUB);
+      return t(c, SEMA_DBL);
     if (c->defaults >= 2)
       return t(c, SEMA_INT);
   }

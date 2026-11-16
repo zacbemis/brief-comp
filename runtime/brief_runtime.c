@@ -218,7 +218,7 @@ const brt_string *brt_str_real(double value, int single) {
 const brt_string *brt_str_flt(float value) {
   return brt_str_real((double)value, 1);
 }
-const brt_string *brt_str_dub(double value) { return brt_str_real(value, 0); }
+const brt_string *brt_str_dbl(double value) { return brt_str_real(value, 0); }
 
 // Diagnostic formatting is binary-safe and does not add owners to user data.
 void brt_write_quoted(FILE *out, const unsigned char *bytes, size_t length,
@@ -383,7 +383,7 @@ uint64_t brt_not_u(uint64_t a, unsigned bits) { return a ^ brt_max_u(bits); }
     return a / b;                                                              \
   }
 BRT_FLOAT_DIV(float, flt)
-BRT_FLOAT_DIV(double, dub)
+BRT_FLOAT_DIV(double, dbl)
 #undef BRT_FLOAT_DIV
 
 /* Integer targets require exact integral values. Floating targets round to

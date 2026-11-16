@@ -6,7 +6,7 @@ typedef struct {
   uint64_t first, last;
 } Interval;
 static int floating(const SemaType *t) {
-  return t->kind == SEMA_FLT || t->kind == SEMA_DUB;
+  return t->kind == SEMA_FLT || t->kind == SEMA_DBL;
 }
 static uint64_t mask(const SemaType *t) { return UINT64_MAX >> (64 - t->bits); }
 // Monotone ranks avoid signed overflow, including the complete ulng domain.
