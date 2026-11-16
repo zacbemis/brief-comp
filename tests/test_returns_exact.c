@@ -1,38 +1,5 @@
-#include "compile_support.h"
+#include "returns_support.h"
 
-static void rejects(Arena *a, const char *text, const char *message,
-                    const char *site) {
-  for (unsigned crlf = 0; crlf < 2; crlf++) {
-    char source[2048];
-    size_t length = 0;
-    for (const char *s = text; *s; s++) {
-      if (crlf && *s == '\n')
-        source[length++] = '\r';
-      source[length++] = *s;
-    }
-    source[length] = 0;
-    const char *at = strstr(source, site);
-    ASSERT_TRUE(at != NULL);
-    Result r = check(a, source);
-    for (unsigned repeat = 0; repeat < 3; repeat++) {
-      if (repeat) {
-        diagnostics_init(&r.errors, a);
-        sema_check(r.program, &r.errors);
-      }
-      if (r.errors.count != 1)
-        diagnostics_print(&r.errors, stderr);
-      ASSERT_EQ_INT(1, r.errors.count);
-      ASSERT_TRUE(!r.program->checked && ir_lower(a, r.program) == NULL);
-      ASSERT_TRUE(!memcmp(source, r.program->module->text, length));
-      if (r.errors.count == 1) {
-        Diagnostic *d = r.errors.items[0];
-        ASSERT_EQ_INT(0, strcmp(message, d->message));
-        ASSERT_EQ_INT((size_t)(at - source), d->span.start);
-        ASSERT_TRUE(!d->fixes && !d->notes);
-      }
-    }
-  }
-}
 int main(void) {
   Arena a;
   arena_init(&a);
