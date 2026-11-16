@@ -11,23 +11,8 @@ typedef struct {
   Diagnostics *diagnostics;
   size_t position;
   Token previous;
-  int split_gt;
   unsigned depth;
-  // Old <...> lists being recovered, and the delimiter fixes of the nested
-  // ones: the outermost list reports them all in one diagnostic.
-  unsigned old_angles;
-  Span *angle_fixes;
-  size_t angle_fix_count, angle_fix_capacity;
-  // Old Sym<...> wrappers being recovered, and the fixes of the nested ones:
-  // the outermost wrapper reports them all in one diagnostic.
-  unsigned old_symbols;
-  struct PendingFix *symbol_fixes;
-  size_t symbol_fix_count, symbol_fix_capacity;
 } Parser;
-typedef struct PendingFix {
-  Span span;
-  const char *replacement;
-} PendingFix;
 
 typedef struct {
   void *data;
@@ -49,23 +34,12 @@ static void push(Parser *p, List *list, const void *item, size_t size) {
 }
 #define PUSH(p, list, item) push(p, &(list), &(item), sizeof(item))
 
-static Token peek(Parser *p) {
-  Token token = p->tokens.items[p->position];
-  if (p->split_gt) {
-    token.type = TOK_GREATER_THAN;
-    token.start++;
-    token.length = 1;
-    token.span.start++;
-  }
-  return token;
-}
+static Token peek(Parser *p) { return p->tokens.items[p->position]; }
 
 static Token take(Parser *p) {
   Token token = peek(p);
-  if (token.type != TOK_EOF) {
+  if (token.type != TOK_EOF)
     p->position++;
-    p->split_gt = 0;
-  }
   p->previous = token;
   return token;
 }
@@ -80,32 +54,6 @@ static int match(Parser *p, TokenType type) {
 // source would count as a space.
 static int blank(char c) {
   return c == ' ' || c == '\t' || c == '\r' || c == '\n';
-}
-// Preserve existing trivia, adding only missing separation around punctuation.
-// A separator replacement, padded so it does not touch its neighbours.
-static const char *separator_text(Parser *p, Token token,
-                                  const char *replacement) {
-  const SourceFile *file = token.span.file;
-  size_t start = token.span.start, end = token.span.end;
-  int before = start && !blank(file->text[start - 1]);
-  int after = end < file->length && !blank(file->text[end]);
-  size_t length = strlen(replacement), at = 0;
-  char *text = arena_alloc(p->arena, length + 3);
-  if (before)
-    text[at++] = ' ';
-  memcpy(text + at, replacement, length);
-  at += length;
-  if (after)
-    text[at++] = ' ';
-  text[at] = 0;
-  return text;
-}
-static void separator_fix(Parser *p, Diagnostic *d, Token token,
-                          const char *replacement) {
-  if (!d || !token.span.file)
-    return;
-  diagnostic_fix(p->diagnostics, d, token.span,
-                 separator_text(p, token, replacement));
 }
 static Diagnostic *error_at(Parser *p, Span span, const char *message) {
   return diagnostics_error(p->diagnostics, span, message);
@@ -130,12 +78,6 @@ static Span through(Span first, Span last) {
   return span_make(first.file, first.start, last.end);
 }
 static const char *name(Parser *p, Token token) {
-  if (token.type == TOK_OLD_DUB) {
-    Diagnostic *d = error_at(p, token.span,
-                             "Double precision is written 'dbl', not 'dub'.");
-    diagnostic_fix(p->diagnostics, d, token.span, "dbl");
-    return intern(p->names, "dbl");
-  }
   return intern_n(p->names, token.start, token.length);
 }
 // Recovery accepts both name classes. Declaration roles validate the consumed
@@ -163,9 +105,7 @@ static int expect_member_name(Parser *p, const char *message) {
 // Checks a declared name or tag once its construct's syntax is complete, so
 // broken syntax keeps its primary error alone. `mark` is the diagnostic count
 // when the name was read: the error is placed there, before any errors from
-// later source. Returns a safe correction, but callers decide whether recovery
-// renames the AST node (legacy aliases do). No use-site lookup or reference
-// rewriting happens here.
+// later source. No use-site lookup or reference rewriting happens here.
 static const char *check_name_case_inner(Parser *p, Token token, size_t mark,
                                          TokenType wanted, const char *message,
                                          int primitive_member) {
@@ -251,8 +191,7 @@ static int symbol_name(Parser *p, Token colon, SymbolKind *kind, Span *span,
   return 1;
 }
 static int type_name_token(TokenType t) {
-  return token_is_identifier(t) || (t >= TOK_BOOL && t <= TOK_STR) ||
-         t == TOK_OLD_DUB;
+  return token_is_identifier(t) || (t >= TOK_BOOL && t <= TOK_STR);
 }
 static Expr *new_expr(Parser *p, ExprKind kind, Span span) {
   Expr *e = arena_calloc(p->arena, 1, sizeof(*e));
@@ -488,162 +427,21 @@ static void check_symbol_module(Parser *p, const char *module, Span span,
     error_at(p, span, "':ok' and ':none' cannot have a module qualifier.");
 }
 
-// Only diagnostic recovery needs angle closers.
-// Split >> virtually, retaining immutable tokens and one-byte source spans.
-static int close_angle(Parser *p) {
-  if (at(p, TOK_RSHIFT)) {
-    Token token = peek(p);
-    token.type = TOK_GREATER_THAN;
-    token.length = 1;
-    token.span.end = token.span.start + 1;
-    p->previous = token;
-    p->split_gt = 1;
-    return 1;
-  }
-  return expect(p, TOK_GREATER_THAN, "Expected '>' after type arguments.");
-}
-static int angle_end(Parser *p) {
-  return at(p, TOK_GREATER_THAN) || at(p, TOK_RSHIFT);
-}
-static void nested_angle_fix(Parser *p, Span span) {
-  if (p->angle_fix_count == p->angle_fix_capacity) {
-    size_t capacity = p->angle_fix_capacity ? p->angle_fix_capacity * 2 : 8;
-    Span *spans = arena_alloc(p->arena, capacity * sizeof(*spans));
-    if (p->angle_fix_count)
-      memcpy(spans, p->angle_fixes, p->angle_fix_count * sizeof(*spans));
-    p->angle_fixes = spans;
-    p->angle_fix_capacity = capacity;
-  }
-  p->angle_fixes[p->angle_fix_count++] = span;
-}
 static int type_arguments(Parser *p, List *args) {
-  Token open = take(p);
-  int old = open.type == TOK_LESS_THAN, parsed = 1;
-  p->old_angles += old;
+  take(p); // [
   do {
     Type *arg = type(p);
-    if (!arg) {
-      parsed = 0;
-      break;
-    }
+    if (!arg)
+      return 0;
     PUSH(p, *args, arg);
     if (!match(p, TOK_COMMA))
       break;
-    if (old ? angle_end(p) : at(p, TOK_RBRACKET))
-      break;
-  } while (!at(p, TOK_EOF));
-  int closed = parsed && (old ? close_angle(p)
-                              : expect(p, TOK_RBRACKET,
-                                       "Expected ']' after type arguments."));
-  p->old_angles -= old;
-  if (!old)
-    return closed;
-  if (closed && p->old_angles) {
-    // Even indices are openers and odd ones closers.
-    nested_angle_fix(p, open.span);
-    nested_angle_fix(p, p->previous.span);
-    return 1;
-  }
-  if (closed) {
-    Diagnostic *d =
-        error_at(p, open.span, "Type arguments use '[...]', not '<...>'.");
-    diagnostic_fix(p->diagnostics, d, open.span, "[");
-    diagnostic_fix(p->diagnostics, d, p->previous.span, "]");
-    for (size_t i = 0; i < p->angle_fix_count; i++)
-      diagnostic_fix(p->diagnostics, d, p->angle_fixes[i], i % 2 ? "]" : "[");
-  }
-  if (!p->old_angles)
-    p->angle_fix_count = 0;
-  return closed;
-}
-// Diagnostic-only recognition of the removed <...>( spelling. No speculative
-// type parse, AST allocation or parser rewind participates in accepted calls.
-// Only tokens that can appear in an old type list, in a type position, are
-// accepted, so value operands keep comparisons ordinary, notably
-// check(a < b, c > (d)), check(a < 10, b > (c)) and check(a < (b), c > (d)).
-static int old_type_list_token(const Token *items, size_t i) {
-  TokenType t = items[i].type, before = items[i - 1].type,
-            after = items[i + 1].type;
-  switch (t) {
-  case TOK_LOWER_NAME:
-    // A module qualifier, a symbol tag, or a named tuple member; a type
-    // name is uppercase or a primitive keyword.
-    return after == TOK_PERIOD || after == TOK_COLON || before == TOK_COLON ||
-           (before == TOK_BANG && i >= 2 && items[i - 2].type == TOK_COLON);
-  case TOK_BANG:
-    return before == TOK_COLON;
-  case TOK_INT_LIT: // A size in old int[4].
-    return before == TOK_LBRACKET;
-  case TOK_LPAREN: // A symbol payload, or a unit/tuple type.
-    return before == TOK_LOWER_NAME || before == TOK_LESS_THAN ||
-           before == TOK_COMMA;
-  case TOK_WILDCARD:
-  case TOK_BIT_OR:
-  case TOK_COMMA:
-  case TOK_PERIOD:
-  case TOK_COLON:
-  case TOK_RPAREN:
-  case TOK_LBRACKET:
-  case TOK_RBRACKET:
-    return 1;
-  default:
-    return t != TOK_LOWER_NAME && type_name_token(t);
-  }
-}
-static int old_call_angles(Parser *p, int collection) {
-  size_t depth = 0;
-  for (size_t i = p->position; i < p->tokens.count; i++) {
-    TokenType t = p->tokens.items[i].type;
-    if (t == TOK_LESS_THAN)
-      depth++;
-    else if (t == TOK_GREATER_THAN || t == TOK_RSHIFT) {
-      size_t n = t == TOK_RSHIFT ? 2 : 1;
-      if (n > depth)
-        return 0;
-      depth -= n;
-      if (!depth)
-        return p->tokens.items[i + 1].type == TOK_LPAREN ||
-               (collection && p->tokens.items[i + 1].type == TOK_LBRACE);
-    } else if (t == TOK_EOF || !old_type_list_token(p->tokens.items, i))
-      return 0;
-  }
-  return 0;
+  } while (!at(p, TOK_RBRACKET) && !at(p, TOK_EOF));
+  return expect(p, TOK_RBRACKET, "Expected ']' after type arguments.");
 }
 static int collection_head(const Expr *e) {
   return e->kind == EXPR_NAME &&
          (!strcmp(e->as.name, "Arr") || !strcmp(e->as.name, "Vec"));
-}
-// After a name, brackets give types for a call or a recognized collection
-// literal. Other invalid forms retain useful recovery for removed indexing.
-static int old_index(Parser *p, Expr *left) {
-  if (!at(p, TOK_LBRACKET))
-    return 0;
-  if (left->kind != EXPR_NAME && left->kind != EXPR_FIELD)
-    return 1;
-  // Literal and prefix-operator tokens cannot start a type; type-only
-  // tokens (and an empty list) keep the type argument list's own errors.
-  TokenType next = p->tokens.items[p->position + 1].type;
-  if ((next >= TOK_INT_LIT && next <= TOK_BOOL_LIT) || next == TOK_IF ||
-      next == TOK_MINUS || next == TOK_NOT || next == TOK_BANG ||
-      next == TOK_TILDE)
-    return 1;
-  if (next == TOK_RBRACKET || next == TOK_COLON || next == TOK_OLD_DUB ||
-      (next >= TOK_BOOL && next <= TOK_STR))
-    return 0;
-  size_t depth = 0;
-  for (size_t i = p->position; i < p->tokens.count; i++) {
-    TokenType t = p->tokens.items[i].type;
-    if (t == TOK_EOF)
-      return 0;
-    if (t == TOK_LBRACKET)
-      depth++;
-    else if (t == TOK_RBRACKET && !--depth) {
-      TokenType following = p->tokens.items[i + 1].type;
-      return following != TOK_LPAREN &&
-             !(following == TOK_LBRACE && collection_head(left));
-    }
-  }
-  return 0;
 }
 
 // `name: Type` binds only in a payload pattern. In a value or type entry, say
@@ -653,26 +451,6 @@ static int typed_binding_elsewhere(Parser *p, int name) {
     return 0;
   error_at(p, peek(p).span,
            "Typed bindings are only allowed in symbol payload patterns.");
-  return 1;
-}
-static int payload_open(Parser *p, Token *open) {
-  if (!at(p, TOK_LBRACKET) && !at(p, TOK_LPAREN))
-    return 0;
-  *open = take(p);
-  return 1;
-}
-static TokenType payload_end(Token open) {
-  return open.type == TOK_LPAREN ? TOK_RPAREN : TOK_RBRACKET;
-}
-static int payload_close(Parser *p, Token open, const char *message) {
-  if (!expect(p, payload_end(open), message))
-    return 0;
-  if (open.type == TOK_LPAREN) {
-    Diagnostic *d =
-        error_at(p, open.span, "Symbol payloads use '[...]', not '(...)'.");
-    diagnostic_fix(p->diagnostics, d, open.span, "[");
-    diagnostic_fix(p->diagnostics, d, p->previous.span, "]");
-  }
   return 1;
 }
 // Accepted unions are flat lists; nested payload types stay separate.
@@ -687,103 +465,6 @@ static void union_entries(Parser *p, List *entries, Type *t) {
     PUSH(p, *entries, entry);
   }
 }
-static void pending_symbol_fix(Parser *p, Span span, const char *replacement) {
-  if (p->symbol_fix_count == p->symbol_fix_capacity) {
-    size_t capacity = p->symbol_fix_capacity ? p->symbol_fix_capacity * 2 : 8;
-    PendingFix *fixes = arena_calloc(p->arena, capacity, sizeof(*fixes));
-    if (p->symbol_fix_count)
-      memcpy(fixes, p->symbol_fixes, p->symbol_fix_count * sizeof(*fixes));
-    p->symbol_fixes = fixes;
-    p->symbol_fix_capacity = capacity;
-  }
-  p->symbol_fixes[p->symbol_fix_count++] = (PendingFix){span, replacement};
-}
-// Removing a wrapper delimiter also removes the spaces/tabs beside it, so
-// `Sym <:a>` does not leave a doubled space. Line breaks are kept.
-static Span blanks_after(Span span) {
-  while (span.end < span.file->length && (span.file->text[span.end] == ' ' ||
-                                          span.file->text[span.end] == '\t'))
-    span.end++;
-  return span;
-}
-static Span blanks_before(Span span) {
-  while (span.start > 0 && (span.file->text[span.start - 1] == ' ' ||
-                            span.file->text[span.start - 1] == '\t'))
-    span.start--;
-  return span;
-}
-static Type *old_symbol_type(Parser *p) {
-  size_t mark = p->diagnostics->count, first_fix = p->symbol_fix_count;
-  p->old_symbols++;
-  Token keyword = take(p), open = take(p);
-  List entries = {0}, commas = {0};
-  int trailing = 0, parsed = 1;
-  do {
-    Type *part = type(p);
-    if (!part) {
-      parsed = 0;
-      break;
-    }
-    union_entries(p, &entries, part);
-    if (!match(p, TOK_COMMA))
-      break;
-    Token comma = p->previous;
-    PUSH(p, commas, comma);
-    if (angle_end(p)) {
-      trailing = 1;
-      break;
-    }
-  } while (!at(p, TOK_EOF));
-  p->old_symbols--;
-  if (!parsed || !close_angle(p)) {
-    p->symbol_fix_count = first_fix;
-    return NULL;
-  }
-  Token close = p->previous;
-  UnionEntry *items = entries.data;
-  // A lone name might be a struct/plain type, not a named union. Unwrapping
-  // it could turn an invalid inclusion into a different, valid type. Explain
-  // without guessing; the source conversion decides such cases by meaning.
-  int fixable = entries.count > 1 || (entries.count == 1 && items[0].tag);
-  if (fixable) {
-    pending_symbol_fix(p, blanks_after(keyword.span), "");
-    pending_symbol_fix(p, blanks_after(open.span), "");
-    Token *separators = commas.data;
-    for (size_t i = 0; i < commas.count; i++)
-      pending_symbol_fix(p, separators[i].span,
-                         trailing && i + 1 == commas.count
-                             ? ""
-                             : separator_text(p, separators[i], "|"));
-    pending_symbol_fix(p, blanks_before(close.span), "");
-  }
-  // A fixable nested wrapper leaves its report to the outermost one, so the
-  // preview shows the whole correction at once.
-  if (!(fixable && p->old_symbols)) {
-    Diagnostic *d =
-        error_at(p, keyword.span, "Symbol unions use '|', without 'Sym<...>'.");
-    if (!p->old_symbols) {
-      // Add in source order, so previews of a multi-line wrapper are too.
-      PendingFix *fixes = p->symbol_fixes + first_fix;
-      size_t count = p->symbol_fix_count - first_fix;
-      for (size_t i = 1; i < count; i++)
-        for (size_t j = i; j && fixes[j].span.start < fixes[j - 1].span.start;
-             j--) {
-          PendingFix swap = fixes[j];
-          fixes[j] = fixes[j - 1];
-          fixes[j - 1] = swap;
-        }
-      for (size_t i = 0; i < count; i++)
-        diagnostic_fix(p->diagnostics, d, fixes[i].span, fixes[i].replacement);
-      p->symbol_fix_count = first_fix;
-    }
-    // Contents are parsed first; report the wrapper at its own position.
-    diagnostics_move_last(p->diagnostics, mark);
-  }
-  Type *t = new_type(p, TYPE_UNION, through(keyword.span, close.span));
-  t->as.union_type.items = entries.data;
-  t->as.union_type.count = entries.count;
-  return t;
-}
 static Type *type_atom(Parser *p) {
   Token start = peek(p);
   Type *t;
@@ -793,12 +474,6 @@ static Type *type_atom(Parser *p) {
                 "first version."))
       return NULL;
     t = new_type(p, TYPE_UNIT, through(start.span, p->previous.span));
-  } else if (start.type == TOK_UPPER_NAME && start.length == 3 &&
-             !memcmp(start.start, "Sym", 3) &&
-             p->tokens.items[p->position + 1].type == TOK_LESS_THAN) {
-    t = old_symbol_type(p);
-    if (!t)
-      return NULL;
   } else if (at(p, TOK_COLON) || qualified_symbol_head(p)) {
     UnionEntry entry = {.span = start.span};
     Token leaf = {0};
@@ -810,23 +485,19 @@ static Type *type_atom(Parser *p) {
     Token tag = p->previous;
     size_t mark = p->diagnostics->count;
     entry.tag = name(p, tag);
-    Token open;
-    if (payload_open(p, &open)) {
+    if (match(p, TOK_LBRACKET)) {
       List payloads = {0};
-      if (open.type == TOK_LPAREN || !at(p, TOK_RBRACKET))
+      if (!at(p, TOK_RBRACKET))
         do {
           Type *payload = type(p);
           if (!payload ||
               typed_binding_elsewhere(p, payload->kind == TYPE_NAME))
             return NULL;
           PUSH(p, payloads, payload);
-          if (!match(p, TOK_COMMA) || at(p, payload_end(open)))
+          if (!match(p, TOK_COMMA) || at(p, TOK_RBRACKET))
             break;
         } while (!at(p, TOK_EOF));
-      if (!payload_close(p, open,
-                         open.type == TOK_LPAREN
-                             ? "Expected ')' after symbol payload type."
-                             : "Expected ']' after symbol payload types."))
+      if (!expect(p, TOK_RBRACKET, "Expected ']' after symbol payload types."))
         return NULL;
       entry.payloads = payloads.data;
       entry.count = payloads.count;
@@ -848,9 +519,7 @@ static Type *type_atom(Parser *p) {
       return NULL;
     t = new_type(p, TYPE_NAME, through(start.span, p->previous.span));
     t->as.name = text;
-    if (at(p, TOK_LESS_THAN) ||
-        (at(p, TOK_LBRACKET) &&
-         p->tokens.items[p->position + 1].type != TOK_INT_LIT)) {
+    if (at(p, TOK_LBRACKET)) {
       List args = {0};
       if (!type_arguments(p, &args))
         return NULL;
@@ -865,32 +534,7 @@ static Type *type_atom(Parser *p) {
     error(p, "Expected a type.");
     return NULL;
   }
-  if (!checked_type(p, t))
-    return NULL;
-  while (at(p, TOK_LBRACKET) &&
-         p->tokens.items[p->position + 1].type == TOK_INT_LIT) {
-    Token open = take(p);
-    Token size = take(p);
-    if (!expect(p, TOK_RBRACKET, "Expected ']' after array size."))
-      return NULL;
-    Span insertion = span_make(t->span.file, t->span.start, t->span.start);
-    Diagnostic *d = error_at(
-        p, open.span, "Array types use 'Arr[Type]'; sizes belong to values.");
-    diagnostic_fix(p->diagnostics, d, insertion, "Arr[");
-    diagnostic_fix(p->diagnostics, d, open.span, "");
-    diagnostic_fix(p->diagnostics, d, size.span, "");
-    Type *base = new_type(p, TYPE_NAME, insertion);
-    base->as.name = intern(p->names, "Arr");
-    Type *array = new_type(p, TYPE_APPLY, through(t->span, p->previous.span));
-    array->as.apply.base = base;
-    array->as.apply.args = arena_alloc(p->arena, sizeof(Type *));
-    array->as.apply.args[0] = t;
-    array->as.apply.count = 1;
-    t = checked_type(p, array);
-    if (!t)
-      return NULL;
-  }
-  return t;
+  return checked_type(p, t);
 }
 static Type *type_inner(Parser *p) {
   Type *left = type_atom(p);
@@ -1116,8 +760,7 @@ static int top_level_statement(Parser *p) {
   TokenType first = peek(p).type;
   if (first >= TOK_INT_LIT && first <= TOK_BOOL_LIT)
     return 1;
-  int type_keyword =
-      (first >= TOK_BOOL && first <= TOK_STR) || first == TOK_OLD_DUB;
+  int type_keyword = first >= TOK_BOOL && first <= TOK_STR;
   switch (first) {
   case TOK_LET:
   case TOK_VAR:
@@ -1130,7 +773,6 @@ static int top_level_statement(Parser *p) {
   case TOK_LPAREN:
   case TOK_COLON:
   case TOK_MINUS:
-  case TOK_BANG:
   case TOK_NOT:
   case TOK_TILDE:
     return 1;
@@ -1144,9 +786,8 @@ static int top_level_statement(Parser *p) {
     break;
   }
   TokenType next = p->tokens.items[p->position + 1].type;
-  // `Name<` starts a (later-version) generic declaration, not a comparison.
   if (next != TOK_LPAREN)
-    return !type_keyword && next != TOK_LESS_THAN &&
+    return !type_keyword &&
            (next == TOK_NEWLINE || next == TOK_EOF || next == TOK_PERIOD ||
             next == TOK_LBRACKET || next == TOK_DOT_LPAREN ||
             next == TOK_QUESTION || next == TOK_PIPE ||
@@ -1169,7 +810,7 @@ static int top_level_statement(Parser *p) {
         do {
           next = p->tokens.items[++i].type;
         } while (next == TOK_NEWLINE);
-        return next != TOK_LBRACE && next != TOK_ARROW && next != TOK_COLON;
+        return next != TOK_LBRACE && next != TOK_ARROW;
       }
     } else if (t == TOK_LBRACE)
       braces++;
@@ -1211,21 +852,7 @@ static void remove_modifier(Parser *p, Diagnostic *d, Token token) {
   }
   diagnostic_fix(p->diagnostics, d, span, "");
 }
-static int old_type_declaration(Parser *p) {
-  Token first = peek(p);
-  if (first.type != TOK_LOWER_NAME || first.length != 4 ||
-      memcmp(first.start, "type", 4))
-    return 0;
-  size_t i = p->position + 1;
-  while (i < p->tokens.count && p->tokens.items[i].type == TOK_NEWLINE)
-    i++;
-  if (i >= p->tokens.count)
-    return 0;
-  TokenType next = p->tokens.items[i].type;
-  return token_is_identifier(next) || (next >= TOK_BOOL && next <= TOK_STR);
-}
 // Members distinguish a field from a function by the token after its name.
-// Removed modifier prefixes still enter declaration recovery for their hints.
 static int member_function_head(Parser *p) {
   size_t i = p->position;
   if (p->tokens.items[i].type == TOK_PUB)
@@ -1233,16 +860,8 @@ static int member_function_head(Parser *p) {
   if (i + 1 >= p->tokens.count)
     return 0;
   Token name = p->tokens.items[i];
-  TokenType next = p->tokens.items[i + 1].type;
-  if ((token_is_identifier(name.type) || primitive_member_name(name.type)) &&
-      next == TOK_LPAREN)
-    return 1;
-  return name.type == TOK_LOWER_NAME &&
-         ((name.length == 3 && !memcmp(name.start, "ovr", 3)) ||
-          (name.length == 4 && !memcmp(name.start, "impl", 4)) ||
-          (name.length == 5 && !memcmp(name.start, "trait", 5))) &&
-         (next == TOK_PUB || token_is_name(next) ||
-          primitive_member_name(next));
+  return (token_is_identifier(name.type) || primitive_member_name(name.type)) &&
+         p->tokens.items[i + 1].type == TOK_LPAREN;
 }
 static Decl *declaration(Parser *p, int in_member) {
   Token start = peek(p);
@@ -1293,84 +912,14 @@ static Decl *declaration(Parser *p, int in_member) {
       d->span = through(start.span, d->span);
     return d;
   }
-  // Retired trait-only words are ordinary names. Only unmistakable removed
-  // prefix forms are diagnosed, with a fix deleting the word, which is the new
-  // spelling; calls/declarations named trait/ovr are not captured.
-  Token prefix = peek(p);
-  TokenType next = p->position + 1 < p->tokens.count
-                       ? p->tokens.items[p->position + 1].type
-                       : TOK_EOF;
-  if (prefix.type == TOK_LOWER_NAME && prefix.length == 5 &&
-      !memcmp(prefix.start, "trait", 5) && next == TOK_UPPER_NAME) {
-    remove_modifier(
-        p,
-        error_at(
-            p, prefix.span,
-            "Traits are declared without 'trait'; trait declarations are not "
-            "implemented yet."),
-        prefix);
-    return NULL;
-  }
-  if (prefix.type == TOK_LOWER_NAME && prefix.length == 3 &&
-      !memcmp(prefix.start, "ovr", 3) &&
-      (next == TOK_PUB || token_is_name(next) ||
-       (in_member && primitive_member_name(next)))) {
-    remove_modifier(
-        p,
-        error_at(
-            p, prefix.span,
-            "The 'ovr' modifier is no longer used; trait conformance is not "
-            "implemented yet."),
-        prefix);
-    return NULL;
-  }
-  if (prefix.type == TOK_LOWER_NAME && prefix.length == 4 &&
-      !memcmp(prefix.start, "impl", 4)) {
-    size_t i = p->position + 1;
-    while (p->tokens.items[i].type == TOK_NEWLINE)
-      i++;
-    if (type_name_token(p->tokens.items[i].type)) {
-      error_at(p, prefix.span,
-               "Declare functions inside the struct, without 'impl'.");
-      return NULL; // Moving members requires an owner and is not a safe edit.
-    }
-  }
-  int old_type = !in_member && old_type_declaration(p);
-  int alias = !in_member && at(p, TOK_UPPER_NAME) &&
-              p->tokens.items[p->position + 1].type == TOK_EQUAL;
-  if (old_type || alias) {
-    Token keyword = {0};
-    if (old_type) {
-      keyword = take(p);
-      newlines(p);
-    }
-    if (!token_is_name(peek(p).type)) {
-      error(p, "Expected a named type's name.");
-      return NULL;
-    }
-    Token declared = take(p);
-    size_t mark = p->diagnostics->count;
+  if (!in_member && at(p, TOK_UPPER_NAME) &&
+      p->tokens.items[p->position + 1].type == TOK_EQUAL) {
     Decl *d = new_decl(p, DECL_TYPE, start.span, VISIBILITY_PRIV);
-    d->name = name(p, declared);
-    if (!expect(p, TOK_EQUAL, "Expected '=' in named type declaration."))
-      return NULL;
+    d->name = name(p, take(p));
+    take(p); // =
     d->as.alias = type(p);
     if (!d->as.alias)
       return NULL;
-    if (old_type) {
-      remove_modifier(
-          p,
-          error_at(p, keyword.span,
-                   "Declare an alias as 'Name = type', without 'type'."),
-          keyword);
-      // The keyword precedes the name and the aliased type in source.
-      diagnostics_move_last(p->diagnostics, mark++);
-    }
-    const char *upper =
-        check_name_case(p, declared, mark, TOK_UPPER_NAME,
-                        "Type names must start with an uppercase letter.");
-    if (upper)
-      d->name = intern(p->names, upper);
     if (visibility == VISIBILITY_PUB)
       remove_modifier(
           p, error_at(p, start.span, "Type aliases cannot be marked 'pub'."),
@@ -1534,15 +1083,10 @@ static Decl *declaration(Parser *p, int in_member) {
   }
   if (!expect(p, TOK_RPAREN, "Expected ')' after parameters."))
     return NULL;
-  if (match(p, TOK_ARROW) || match(p, TOK_COLON)) {
-    Token separator = p->previous;
+  if (match(p, TOK_ARROW)) {
     d->as.function.return_type = type(p);
     if (!d->as.function.return_type)
       return NULL;
-    if (separator.type == TOK_COLON)
-      separator_fix(
-          p, error_at(p, separator.span, "Return types follow '->', not ':'."),
-          separator, "->");
   }
   d->as.function.params = params.data;
   d->as.function.count = params.count;
@@ -1628,18 +1172,11 @@ static Expr *struct_literal(Parser *p, Expr *head) {
     if (!expect_identifier(p, "Expected a struct literal's field name."))
       return NULL;
     field.name = name(p, p->previous);
-    Token delimiter = peek(p);
-    if (!match(p, TOK_COLON) &&
-        !expect(p, TOK_EQUAL, "Expected '=' after field name."))
+    if (!expect(p, TOK_EQUAL, "Expected '=' after field name."))
       return NULL;
     field.value = expression(p, 0, 1);
     if (!field.value)
       return NULL;
-    if (delimiter.type == TOK_COLON)
-      separator_fix(p,
-                    error_at(p, delimiter.span,
-                             "Struct literal fields use '=', not ':'."),
-                    delimiter, "=");
     field.span = through(field.span, field.value->span);
     PUSH(p, fields, field);
     if (match(p, TOK_COMMA)) {
@@ -1770,23 +1307,19 @@ static Expr *primary(Parser *p, int allow_struct) {
     Token tag = p->previous;
     size_t mark = p->diagnostics->count;
     e->as.symbol.tag = name(p, tag);
-    Token open;
-    if (payload_open(p, &open)) {
+    if (match(p, TOK_LBRACKET)) {
       List payloads = {0};
-      if (open.type == TOK_LPAREN || !at(p, TOK_RBRACKET))
+      if (!at(p, TOK_RBRACKET))
         do {
           Expr *payload = expression(p, 0, 1);
           if (!payload ||
               typed_binding_elsewhere(p, payload->kind == EXPR_NAME))
             return NULL;
           PUSH(p, payloads, payload);
-          if (!match(p, TOK_COMMA) || at(p, payload_end(open)))
+          if (!match(p, TOK_COMMA) || at(p, TOK_RBRACKET))
             break;
         } while (!at(p, TOK_EOF));
-      if (!payload_close(p, open,
-                         open.type == TOK_LPAREN
-                             ? "Expected ')' after symbol payload."
-                             : "Expected ']' after symbol payloads."))
+      if (!expect(p, TOK_RBRACKET, "Expected ']' after symbol payloads."))
         return NULL;
       e->as.symbol.payloads = payloads.data;
       e->as.symbol.count = payloads.count;
@@ -1841,28 +1374,11 @@ static Expr *primary(Parser *p, int allow_struct) {
     return e;
   }
   if (token.type == TOK_MINUS || token.type == TOK_NOT ||
-      token.type == TOK_BANG || token.type == TOK_TILDE) {
+      token.type == TOK_TILDE) {
     take(p);
     Expr *value = expression(p, 130, allow_struct);
     if (!value)
       return NULL;
-    if (token.type == TOK_BANG) {
-      Diagnostic *d = error_at(p, token.span, "Logical not is written 'not'.");
-      if (d) {
-        const SourceFile *file = token.span.file;
-        char before = token.span.start ? file->text[token.span.start - 1] : 0;
-        // In if!ready / ret!ready, replacing only '!' must not join keywords.
-        int separate_before = (before >= 'a' && before <= 'z') ||
-                              (before >= 'A' && before <= 'Z') ||
-                              (before >= '0' && before <= '9') || before == '_';
-        int separate_after =
-            token.span.end < file->length && !blank(file->text[token.span.end]);
-        char replacement[8];
-        snprintf(replacement, sizeof(replacement), "%snot%s",
-                 separate_before ? " " : "", separate_after ? " " : "");
-        diagnostic_fix(p->diagnostics, d, token.span, replacement);
-      }
-    }
     Expr *e = new_expr(p, EXPR_UNARY, through(token.span, value->span));
     e->as.unary.op = token.type == TOK_MINUS   ? UNARY_NEG
                      : token.type == TOK_TILDE ? UNARY_BIT_NOT
@@ -1947,22 +1463,18 @@ static Pattern *pattern_inner(Parser *p, int payload_context) {
     Token tag = p->previous;
     size_t mark = p->diagnostics->count;
     v->as.symbol.tag = name(p, tag);
-    Token open;
-    if (payload_open(p, &open)) {
+    if (match(p, TOK_LBRACKET)) {
       List payloads = {0};
-      if (open.type == TOK_LPAREN || !at(p, TOK_RBRACKET))
+      if (!at(p, TOK_RBRACKET))
         do {
           Pattern *payload = pattern(p, 1);
           if (!payload)
             return NULL;
           PUSH(p, payloads, payload);
-          if (!match(p, TOK_COMMA) || at(p, payload_end(open)))
+          if (!match(p, TOK_COMMA) || at(p, TOK_RBRACKET))
             break;
         } while (!at(p, TOK_EOF));
-      if (!payload_close(p, open,
-                         open.type == TOK_LPAREN
-                             ? "Expected ')' after payload pattern."
-                             : "Expected ']' after payload patterns."))
+      if (!expect(p, TOK_RBRACKET, "Expected ']' after payload patterns."))
         return NULL;
       v->as.symbol.payloads = payloads.data;
       v->as.symbol.count = payloads.count;
@@ -2185,20 +1697,16 @@ static int update(TokenType t) {
 }
 static const char update_message[] =
     "Increment and decrement are only allowed as standalone statements.";
-// Colons cannot start block assignments. Equals can: only offer the header
-// hint when a member suffix or second body follows the matching brace. Never
-// reinterpret an ordinary `if flag { field = value }` body as a literal.
+// Only offer the header hint when a member suffix or second body follows the
+// matching brace. Never reinterpret an ordinary `if flag { field = value }`
+// body as a literal.
 static int header_literal(Parser *p) {
   size_t field = p->position + 1;
   while (field < p->tokens.count && p->tokens.items[field].type == TOK_NEWLINE)
     field++;
   if (field + 1 >= p->tokens.count ||
-      !token_is_identifier(p->tokens.items[field].type))
-    return 0;
-  TokenType separator = p->tokens.items[field + 1].type;
-  if (separator == TOK_COLON)
-    return 1; // Primary advice for an unwrapped old-style header literal.
-  if (separator != TOK_EQUAL)
+      !token_is_identifier(p->tokens.items[field].type) ||
+      p->tokens.items[field + 1].type != TOK_EQUAL)
     return 0;
   size_t braces = 1;
   for (size_t i = p->position + 1; i < p->tokens.count; i++) {
@@ -2232,9 +1740,7 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
         continue;
       }
       if ((left->kind == EXPR_NAME || left->kind == EXPR_FIELD) &&
-          ((token.type == TOK_LBRACKET && !old_index(p, left)) ||
-           (token.type == TOK_LESS_THAN &&
-            old_call_angles(p, collection_head(left))))) {
+          token.type == TOK_LBRACKET) {
         List types = {0};
         if (!type_arguments(p, &types))
           return NULL;
@@ -2279,22 +1785,10 @@ static Expr *expression_inner(Parser *p, int minimum, int allow_struct) {
           return NULL;
         }
       }
-      if (token.type == TOK_DOT_LPAREN || old_index(p, left)) {
-        take(p);
-        int old = token.type == TOK_LBRACKET;
+      if (match(p, TOK_DOT_LPAREN)) {
         Expr *index = expression(p, 0, 1);
-        if (!index || !expect(p, old ? TOK_RBRACKET : TOK_RPAREN,
-                              old ? "Expected ']' after index."
-                                  : "Expected ')' after index."))
+        if (!index || !expect(p, TOK_RPAREN, "Expected ')' after index."))
           return NULL;
-        if (old) {
-          Diagnostic *d = error_at(
-              p, token.span, "Indexing is written '.(...)', not '[...]'.");
-          if (d) {
-            diagnostic_fix(p->diagnostics, d, token.span, ".(");
-            diagnostic_fix(p->diagnostics, d, p->previous.span, ")");
-          }
-        }
         Expr *e =
             new_expr(p, EXPR_INDEX, through(left->span, p->previous.span));
         e->as.index.object = left;

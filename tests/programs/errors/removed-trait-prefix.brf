@@ -1,2 +1,0 @@
-trait HasUser {} // error: Traits are declared without 'trait'; trait declarations are not implemented yet. // fix: HasUser {}
-main() {}

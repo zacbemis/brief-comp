@@ -1,62 +1,9 @@
 #include "lexer/newline.h"
 
-static int name_token(TokenType t) {
-  return token_is_identifier(t) || (t >= TOK_BOOL && t <= TOK_FN) ||
-         t == TOK_OLD_DUB;
-}
-
-// Distinguish a type argument's closing > from a comparison/shift. Without
-// this, rejected `field: Sym<:ok[int]>\nnext: int` would lose its separator.
-// This context is diagnostic recovery only. Accepted unions use | and accepted
-// generic calls/types use bracket enclosure, not angle speculation.
-static size_t previous_token(TokenArray raw, size_t before) {
-  while (before && raw.items[before - 1].type == TOK_NEWLINE)
-    before--;
-  return before;
-}
-
-static int type_angle(TokenArray raw, size_t i, int top_level) {
-  size_t before = previous_token(raw, i);
-  if (!before)
-    return 0;
-  TokenType base = raw.items[before - 1].type;
-  if (base == TOK_FN)
-    return 1;
-  if (!name_token(base))
-    return 0;
-  before = previous_token(raw, before - 1);
-  while (before && raw.items[before - 1].type == TOK_PERIOD) {
-    before = previous_token(raw, before - 1);
-    if (!before || !name_token(raw.items[before - 1].type))
-      return 0;
-    before = previous_token(raw, before - 1);
-  }
-  if (before && raw.items[before - 1].type == TOK_BIT_AND)
-    before = previous_token(raw, before - 1);
-  if (!before)
-    return 0;
-  TokenType context = raw.items[before - 1].type;
-  if (context == TOK_ARROW)
-    return 1;
-  if (context == TOK_COLON) {
-    // A symbol's prefix colon is not a type annotation.
-    before = previous_token(raw, before - 1);
-    return before && (token_is_identifier(raw.items[before - 1].type) ||
-                      raw.items[before - 1].type == TOK_RPAREN);
-  }
-  if (context != TOK_EQUAL || !top_level)
-    return 0;
-  before = previous_token(raw, before - 1); // alias name
-  return before && raw.items[before - 1].type == TOK_UPPER_NAME;
-}
-
-static int continues(TokenType t, int type_close, int prefix_bang) {
+static int continues(TokenType t) {
   switch (t) {
   case TOK_GREATER_THAN:
   case TOK_RSHIFT:
-    return !type_close;
-  case TOK_BANG:
-    return prefix_bang; // Recovery for old prefix syntax; parsing rejects it.
   case TOK_COMMA:
   case TOK_COLON:
   case TOK_PERIOD:
@@ -106,19 +53,10 @@ static int continues(TokenType t, int type_close, int prefix_bang) {
   }
 }
 
-static int can_end(TokenType t) {
-  return name_token(t) || t == TOK_SELF ||
-         (t >= TOK_INT_LIT && t <= TOK_BOOL_LIT) || t == TOK_RPAREN ||
-         t == TOK_RBRACKET || t == TOK_RBRACE || t == TOK_QUESTION ||
-         t == TOK_BANG || t == TOK_PLUS_PLUS || t == TOK_MINUS_MINUS;
-}
-
 TokenArray newline_filter(Arena *arena, TokenArray raw) {
   TokenArray out = {.items = arena_calloc(arena, raw.count, sizeof(Token))};
   TokenType *brackets = arena_calloc(arena, raw.count, sizeof(*brackets));
-  int *angles = arena_calloc(arena, raw.count, sizeof(*angles));
-  size_t depth = 0, angle_depth = 0;
-  int closed_type = 0, prefix_bang = 0;
+  size_t depth = 0;
   for (size_t i = 0; i < raw.count;) {
     Token token = raw.items[i];
     TokenType t = token.type;
@@ -129,32 +67,16 @@ TokenArray newline_filter(Arena *arena, TokenArray raw) {
       TokenType previous = out.count ? out.items[out.count - 1].type : TOK_EOF;
       TokenType next = end < raw.count ? raw.items[end].type : TOK_EOF;
       int enclosed = depth && brackets[depth - 1] != TOK_LBRACE;
-      if (!enclosed && !continues(previous, closed_type, prefix_bang) &&
+      // The bang of a :! error-symbol prefix still needs its tag.
+      int symbol_bang = previous == TOK_BANG && out.count >= 2 &&
+                        out.items[out.count - 2].type == TOK_COLON;
+      if (!enclosed && !symbol_bang && !continues(previous) &&
           next != TOK_PIPE && next != TOK_PERIOD && next != TOK_DOT_LPAREN) {
         for (; i < end; i++)
           out.items[out.count++] = raw.items[i];
-        angle_depth = 0;
       }
       i = end;
       continue;
-    }
-    TokenType previous = out.count ? out.items[out.count - 1].type : TOK_EOF;
-    prefix_bang = t == TOK_BANG && (!out.count || !can_end(previous) ||
-                                    (previous == TOK_BANG && prefix_bang));
-    closed_type = 0;
-    // Logical operators cannot occur in a type argument list: a speculative
-    // angle in a struct field's value was a comparison, not a generic type.
-    if (t == TOK_AND || t == TOK_OR || t == TOK_NOT)
-      for (size_t a = 0; a < angle_depth; a++)
-        angles[a] = 0;
-    if (t == TOK_LESS_THAN) {
-      int known = (angle_depth && angles[angle_depth - 1]) ||
-                  type_angle(raw, i, depth == 0);
-      angles[angle_depth++] = known;
-    } else if (t == TOK_GREATER_THAN || t == TOK_RSHIFT) {
-      int n = t == TOK_RSHIFT ? 2 : 1;
-      while (n-- && angle_depth)
-        closed_type |= angles[--angle_depth];
     }
     if (t == TOK_LPAREN || t == TOK_DOT_LPAREN || t == TOK_LBRACKET ||
         t == TOK_LBRACE)

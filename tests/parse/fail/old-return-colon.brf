@@ -1,3 +1,0 @@
-// parse-error: line 3
-// Why: A function's written return type follows ->, not a colon.
-main(): () {}

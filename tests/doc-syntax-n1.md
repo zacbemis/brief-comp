@@ -71,7 +71,7 @@ count, status 1, no emitted C and no unexpected fix or sanitizer report.
 - `prose-binding-rejections`: immutable let/loop bindings, duplicate local
   declarations and visibility only after an initializer.
 - `prose-statement-only`: updates and assignments cannot be nested expressions.
-- `prose-old-spellings`: old logical operators and dub reject with exact fixes.
+- `prose-logical-spellings`: C-style logical operators reject with exact fixes.
 - `prose-missing-else`: a used if value requires else.
 
 These complete authored programs do not complete any listed fence. Local

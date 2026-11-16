@@ -226,12 +226,10 @@ main() {
   print(count = 1) // error: Assignment is only allowed as a standalone, non-chaining statement, with a name, field, or index on the left.
 }
 ]=])
-native_prose(prose-old-spellings [=[
+native_prose(prose-logical-spellings [=[
 main() {
   true && false // error: Use 'and' instead of '&&'. // fix: true and false
   false || true // error: Use 'or' instead of '||'. // fix: false or true
-  !true // error: Logical not is written 'not'. // fix: not true
-  let number: dub = 0.5 // error: Double precision is written 'dbl', not 'dub'. // fix: let number: dbl = 0.5
 }
 ]=])
 native_prose(prose-missing-else [=[

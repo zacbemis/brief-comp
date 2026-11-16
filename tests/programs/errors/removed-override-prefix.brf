@@ -1,5 +1,0 @@
-P { value: int
-
-  ovr pub read(p: P) { p.value } // error: The 'ovr' modifier is no longer used; trait conformance is not implemented yet. // fix: pub read(p: P) { p.value }
-}
-main() {}

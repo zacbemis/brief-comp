@@ -34,11 +34,6 @@ static void check(Arena *arena, const char *raw_text,
 int main(void) {
   Arena arena;
   arena_init(&arena);
-  TEST("ordinary Sym names do not manufacture type-angle context") {
-    check(&arena, "main() { let x = Sym < a >\n b\n}\n",
-          "main() { let x = Sym < a > b\n}\n");
-    check(&arena, "A = Sym<:a>\nB = :b\n", "A = Sym<:a>\nB = :b\n");
-  }
   TEST("ordinary Self names obey ordinary type and expression layout") {
     check(&arena, "Self = int\nf(n: Self) ->\nSelf { n }\n",
           "Self = int\nf(n: Self) -> Self { n }\n");
@@ -100,7 +95,7 @@ int main(void) {
     check(&arena, "x + /* a\n\nb */ y\nz\n", "x + y\nz\n");
     check(&arena, "x /* a\nb */ y", "x\ny");
   }
-  TEST("binary operator continuations, not, and bang recovery") {
+  TEST("binary operator and not continuations") {
     const char *ops[] = {"+",  "-",  "*",  "/",  "%",  "**", "==", "!=", "<",
                          "<=", ">",  ">=", "<<", ">>", "&",  "|",  "^",  "and",
                          "or", "..", "=",  "+=", "-=", "*=", "/=", "%="};
@@ -114,9 +109,6 @@ int main(void) {
           "not flag\nx!\ny?\nz++\na--\n");
     check(&arena, "not\nnot\nflag\nx!\nnot\nflag",
           "not not flag\nx!\nnot flag");
-    // Old prefix '!' still continues only for a useful parser error/fix.
-    check(&arena, "!\nflag\nx!\ny?\nz++\na--\n", "!flag\nx!\ny?\nz++\na--\n");
-    check(&arena, "!\n!\nflag\nx!\n!\nflag", "!!flag\nx!\n!flag");
     check(&arena, "let first = :a < :b\nlet next = x >\n 0\n",
           "let first = :a < :b\nlet next = x > 0\n");
     check(&arena, "User { flag = a < b and c >\n d }\n",
@@ -129,14 +121,6 @@ int main(void) {
           "import std.Json\r\nmain() {}\r\n");
     check(&arena, "import models\n.User\nimport other.User\n",
           "import models.User\nimport other.User\n");
-  }
-  TEST("retired trait-only words have ordinary name boundaries") {
-    check(&arena, "trait\novr\ntrait!\novr?\n", "trait\novr\ntrait!\novr?\n");
-    check(&arena, "let trait =\r\n1\r\nlet ovr =\r\n2\r\n",
-          "let trait = 1\r\nlet ovr = 2\r\n");
-    check(&arena, "pub\ntrait(\novr: int\n) ->\nint { ovr }\n",
-          "pub trait(ovr: int) -> int { ovr }\n");
-    check(&arena, "trait\n.ovr()\nnext()\n", "trait.ovr()\nnext()\n");
   }
   TEST("error-symbol prefixes continue, while postfix panic still ends lines") {
     check(&arena, "let value = :!\nbad\nnext()\n",
@@ -164,7 +148,6 @@ int main(void) {
           "f() -> :ok[int] | :none { 1 }\n");
     check(&arena, "Users =\nVec[int]\nmain() {}\n",
           "Users = Vec[int]\nmain() {}\n");
-    check(&arena, "type\nUsers =\nVec[int]\n", "type\nUsers = Vec[int]\n");
     check(&arena, "A = Vec[Vec[int]]\nB = Mod.Box[int]\n",
           "A = Vec[Vec[int]]\nB = Mod.Box[int]\n");
     check(&arena, "main() { Upper = foo < value >\n next }",
@@ -172,13 +155,10 @@ int main(void) {
     check(&arena, "User {\nusers:\nMod.\nVec[User]\ncount: int\n}\n",
           "User {\nusers: Mod.Vec[User]\ncount: int\n}\n");
   }
-  TEST("dbl and recovery-only dub preserve type and expression separators") {
+  TEST("dbl preserves type and expression separators") {
     check(&arena, "Box {\nx: Vec[dbl]\ny: dbl\n}\n",
           "Box {\nx: Vec[dbl]\ny: dbl\n}\n");
-    check(&arena, "Box {\nx: Vec[dub]\ny: dub\n}\n",
-          "Box {\nx: Vec[dub]\ny: dub\n}\n");
     check(&arena, "f() ->\n dbl\n{ 1 }\n", "f() -> dbl\n{ 1 }\n");
-    check(&arena, "f() ->\n dub\n{ 1 }\n", "f() -> dub\n{ 1 }\n");
     check(&arena, "dbl(\n1\n)\nnext()\n", "dbl(1)\nnext()\n");
   }
   TEST("return arrows continue, while generic type closers retain newlines") {
@@ -186,12 +166,9 @@ int main(void) {
     check(&arena, "f() ->\r\n\r\nMod.Box[Vec[int]]\r\n{}\r\n",
           "f() -> Mod.Box[Vec[int]]\r\n{}\r\n");
     check(&arena, "f()\n-> int {}\n", "f()\n-> int {}\n");
-    check(&arena, "f():\nint { 1 }\n", "f():int { 1 }\n");
   }
   TEST("both name classes and wildcards retain statement boundaries") {
     check(&arena, "lower\nUpper\n_\n", "lower\nUpper\n_\n");
-    check(&arena, "!\nUpper\nlower!\n_\n!\nlower\n",
-          "!Upper\nlower!\n_\n!lower\n");
     check(&arena, "value |> {\n_ =>\n Upper\n}\nNext\n",
           "value |> {\n_ => Upper\n}\nNext\n");
     check(&arena, "Choice = :ok[int] | _\nmain() {}\n",

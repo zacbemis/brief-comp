@@ -282,83 +282,6 @@ int main(void) {
     expression_dump(&arena, "0.25 + e2", "(+ (float 0.25) (name e2))");
     expression_dump(&arena, "1 // gap\n", "(int 1)");
   }
-  TEST("old dub types/converters have exact fixes, including bracketed types") {
-    const char *cases[] = {
-        "Box { value: dub }\nmain() {}\n",
-        "Answer = :ok[dub] | :none\nmain() {}\n",
-        "f(x: dub) -> dub { x }\nmain() {}\n",
-        "main() { let n: dub = 1.5\nn }\n",
-        "main() { dub(1) }\n",
-        "main() { ( /* before */ dub /* after */ )(\"1e2\")! }\n",
-        "main() { 1 |> dub() }\n",
-        "main() { let n: Vec[dub] = value }\n",
-        "main() { f[dub]() }\n",
-        "main() { obj.f[Vec[dub]]() }\n",
-        "main() { f[:ok[dub] | :none]() }\n",
-        "main() { f[dub]()\nf[dub]() }\n",
-        "main() { dub(dub(1)) }\n",
-        "main() { a < dub(1) }\n"};
-    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
-      for (unsigned ending = 0; ending < 2; ending++) {
-        char text[1024];
-        size_t length = 0;
-        for (size_t j = 0; cases[i][j]; j++) {
-          if (ending && cases[i][j] == '\n')
-            text[length++] = '\r';
-          text[length++] = cases[i][j];
-        }
-        text[length] = 0;
-        Parsed *v = parse(&arena, text);
-        size_t old_count = 0;
-        for (size_t j = 0; j < v->raw.count; j++) {
-          const Token *token = &v->raw.items[j];
-          if (token->type == TOK_OLD_DUB) {
-            old_count++;
-            ASSERT_EQ_INT(3, token->length);
-            ASSERT_TRUE(token->start == v->source->text + token->span.start);
-            ASSERT_EQ_STRN("dub", token->start, 3);
-          }
-        }
-        ASSERT_TRUE(old_count > 0);
-        if (v->diagnostics.count != old_count)
-          diagnostics_print(&v->diagnostics, stderr);
-        ASSERT_EQ_INT(old_count, v->diagnostics.count);
-        char rewritten[1024];
-        memcpy(rewritten, text, length + 1);
-        for (size_t j = 0; j < v->diagnostics.count; j++) {
-          const Diagnostic *d = v->diagnostics.items[j];
-          ASSERT_EQ_STRN("Double precision is written 'dbl', not 'dub'.",
-                         d->message, strlen(d->message));
-          ASSERT_EQ_INT(3, d->span.end - d->span.start);
-          ASSERT_EQ_STRN("dub", text + d->span.start, 3);
-          ASSERT_TRUE(d->span.file == v->source);
-          ASSERT_TRUE(d->fixes && d->fixes == d->last_fix);
-          if (d->fixes) {
-            const DiagnosticFix *fix = d->fixes;
-            ASSERT_TRUE(fix->next == NULL && fix->span.file == v->source);
-            ASSERT_EQ_INT(d->span.start, fix->span.start);
-            ASSERT_EQ_INT(d->span.end, fix->span.end);
-            ASSERT_EQ_INT(0, strcmp("dbl", fix->replacement));
-            memcpy(rewritten + fix->span.start, fix->replacement, 3);
-          }
-        }
-        Parsed *fixed = parse(&arena, rewritten);
-        ASSERT_EQ_INT(0, fixed->diagnostics.count);
-        char *before = dump(&arena, v->program);
-        char *after = dump(&arena, fixed->program);
-        ASSERT_TRUE(before && after);
-        if (before && after)
-          ASSERT_EQ_STRN(before, after, strlen(after));
-      }
-    }
-    // Names with either prefix, and literal/comment text, are not rewrites.
-    program_dump(&arena,
-                 "main() { let dubx: dbl = 1\nlet dblx = dubx\n"
-                 "print(\"dub dbl\") /* dub */ }\n",
-                 "(program (fn main (params) _ (block (let dubx dbl (int 1)) "
-                 "(let dblx _ (name dubx)) (call (name print) "
-                 "(str \"dub dbl\")))))\n");
-  }
   TEST(
       "type members retain functions, fields and trait signatures separately") {
     program_dump(
@@ -431,18 +354,6 @@ int main(void) {
     program_dump(
         &arena, "impl(impl: int) { impl }\n",
         "(program (fn impl (params (impl int)) _ (block (name impl))))\n");
-    const char *old[] = {"impl P { f() {} }", "impl\nP { f() {} }",
-                         "pub impl P {}"};
-    for (size_t i = 0; i < sizeof(old) / sizeof(*old); i++) {
-      Parsed *v = parse(&arena, old[i]);
-      ASSERT_TRUE(v->diagnostics.count > 0);
-      if (v->diagnostics.count) {
-        ASSERT_EQ_INT(
-            0, strcmp("Declare functions inside the struct, without 'impl'.",
-                      v->diagnostics.items[0]->message));
-        ASSERT_TRUE(!v->diagnostics.items[0]->fixes);
-      }
-    }
   }
   TEST("primitive keywords name only function members and expression members") {
     const char *names[] = {"bool", "int", "uint", "shrt", "ushrt", "lng",
@@ -488,8 +399,7 @@ int main(void) {
                  "(program (trait T (fn str (params (n int)) str none) (fn int "
                  "(params (n int)) int (block (name n)))))\n");
     const char *rejected[] = {"P { ret() {} }",     "P { Fn() {} }",
-                              "P { dub() {} }",     "main() { x.ret() }",
-                              "main() { x.dub() }", "A = P.int",
+                              "main() { x.ret() }", "A = P.int",
                               "import P.int",       "E = P.int.:tag",
                               "main() { :int }",    "f(int: int) {}"};
     for (size_t i = 0; i < sizeof(rejected) / sizeof(*rejected); i++) {
@@ -506,10 +416,10 @@ int main(void) {
       const char *eol = crlf ? "\r\n" : "\n";
       char text[512];
       snprintf(text, sizeof(text),
-               "P {%sunit: ()%spub INT/* keep */(n: int): int { n }%s}%s", eol,
-               eol, eol, eol);
+               "P {%sunit: ()%spub INT/* keep */(n: int) -> int { n }%s}%s",
+               eol, eol, eol, eol);
       Parsed *v = parse(&arena, text);
-      ASSERT_EQ_INT(2, v->diagnostics.count);
+      ASSERT_EQ_INT(1, v->diagnostics.count);
       char *fixed = apply_fixes(&arena, v);
       ASSERT_TRUE(strstr(fixed, "pub int/* keep */(n: int) -> int") != NULL);
       ASSERT_TRUE(strstr(fixed, crlf ? "{\r\nunit" : "{\nunit") != NULL);
@@ -523,17 +433,6 @@ int main(void) {
         Parsed *b = parse(&arena, bad[i]);
         ASSERT_EQ_INT(1, b->diagnostics.count);
         ASSERT_TRUE(!b->diagnostics.items[0]->fixes);
-      }
-      const char *prefix[] = {"ovr /* keep */", "ovr /* keep */ pub",
-                              "pub ovr /* keep */"};
-      for (size_t i = 0; i < sizeof(prefix) / sizeof(*prefix); i++) {
-        snprintf(text, sizeof(text),
-                 "P { unit: ()%s%s str(n: int) -> str { str(n) }%s}%s", eol,
-                 prefix[i], eol, eol);
-        Parsed *old = parse(&arena, text);
-        ASSERT_EQ_INT(1, old->diagnostics.count);
-        Parsed *new = parse(&arena, apply_fixes(&arena, old));
-        ASSERT_EQ_INT(0, new->diagnostics.count);
       }
     }
   }
@@ -589,18 +488,6 @@ int main(void) {
       ASSERT_EQ_INT(0, again.count);
       ASSERT_TRUE(!memcmp(saved, filtered.items, bytes));
       ASSERT_EQ_INT(0, strcmp(dump(&arena, next), dump(&arena, v->program)));
-      const char *eol = crlf ? "\r\n" : "\n";
-      snprintf(text, sizeof(text),
-               "pub /* keep */ P: Query<Vec<int>> and Printable {%sn: int%s}%s",
-               eol, eol, eol);
-      Parsed *old = parse(&arena, text);
-      ASSERT_EQ_INT(2, old->diagnostics.count);
-      char *fixed = apply_fixes(&arena, old);
-      ASSERT_TRUE(
-          strstr(fixed, "/* keep */ P: Query[Vec[int]] and Printable") != NULL);
-      ASSERT_TRUE(strstr(fixed, crlf ? "{\r\nn" : "{\nn") != NULL);
-      Parsed *new = parse(&arena, fixed);
-      ASSERT_EQ_INT(0, new->diagnostics.count);
     }
     char wide[32768];
     size_t n = (size_t)sprintf(wide, "P: ");
@@ -863,14 +750,11 @@ int main(void) {
     invalid(&arena, "main() { P { pub value = 1 } }",
             "Expected a struct literal's field name.");
   }
-  TEST("keyword-free aliases reject legacy modifiers and preserve recovery") {
+  TEST("keyword-free aliases reject pub and preserve recovery") {
     const struct {
       const char *code;
       size_t errors;
-    } cases[] = {{"type A = :a\n", 1},          {"type\t A = :a\n", 1},
-                 {"type/* keep */A = :a\n", 1}, {"type\nA = :a\n", 1},
-                 {"pub A = :a\n", 1},           {"pub/* keep */A = :a\n", 1},
-                 {"type lower = :a\n", 2},      {"pub type lower = :a\n", 3}};
+    } cases[] = {{"pub A = :a\n", 1}, {"pub/* keep */A = :a\n", 1}};
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
       for (unsigned crlf = 0; crlf < 2; crlf++) {
         char text[512];
@@ -915,21 +799,6 @@ int main(void) {
           ASSERT_EQ_INT(0, strcmp(before, after));
       }
     }
-    const char *reserved[] = {"fn"};
-    for (size_t i = 0; i < sizeof(reserved) / sizeof(*reserved); i++) {
-      char text[128];
-      snprintf(text, sizeof(text), "type %s = :a\nmain() {}\n", reserved[i]);
-      Parsed *v = parse(&arena, text);
-      ASSERT_EQ_INT(2, v->diagnostics.count);
-      if (v->diagnostics.count == 2) {
-        ASSERT_TRUE(v->diagnostics.items[0]->fixes != NULL);
-        ASSERT_TRUE(v->diagnostics.items[1]->fixes == NULL);
-      }
-    }
-    Parsed *bad = parse(&arena, "type Broken = {}\nmain() {}\n");
-    ASSERT_EQ_INT(1, bad->diagnostics.count);
-    if (bad->diagnostics.count)
-      ASSERT_TRUE(!bad->diagnostics.items[0]->fixes);
     invalid(&arena, "A\n= int", "Statements are only allowed");
     program_dump(
         &arena, "A =\nVec[Vec[int]]\nB = ()\n",
@@ -939,191 +808,6 @@ int main(void) {
         "(program (fn type (params) _ (block)) (fn main (params) _ (block "
         "(let type _ (int 1)) (name type))))\n");
   }
-  TEST("struct literal colons have exact fixes without touching annotations") {
-    const struct {
-      const char *body;
-      size_t count;
-    } cases[] = {{"P { x:1 }", 1},
-                 {"P { x: 1 }", 1},
-                 {"P { x :1 }", 1},
-                 {"P { x : 1 }", 1},
-                 {"P { x/* before */:/* after */1 }", 1},
-                 {"P { x:\n// value\n1 }", 1},
-                 {"P { x::none }", 1},
-                 {"P { x: Q { value: 1 }, y: 2 }", 3},
-                 {":outer[P { x: 1 }]", 1},
-                 {"let x: P = P { x: 1 }", 1}};
-    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
-      for (unsigned ending = 0; ending < 2; ending++) {
-        char lf[1024], text[2048];
-        snprintf(lf, sizeof(lf),
-                 "P { x: int }\nmain() {\n%s\nlet kept = 1\n}\nafter() {}\n",
-                 cases[i].body);
-        size_t length = 0;
-        for (size_t j = 0; lf[j]; j++) {
-          if (ending && lf[j] == '\n')
-            text[length++] = '\r';
-          text[length++] = lf[j];
-        }
-        text[length] = 0;
-        Parsed *v = parse(&arena, text);
-        if (v->diagnostics.count != cases[i].count)
-          diagnostics_print(&v->diagnostics, stderr);
-        ASSERT_EQ_INT(cases[i].count, v->diagnostics.count);
-        ASSERT_EQ_INT(3, v->program->count);
-        char rewritten[4096];
-        size_t out = 0;
-        for (size_t at = 0; text[at];) {
-          const DiagnosticFix *found = NULL;
-          for (size_t j = 0; j < v->diagnostics.count; j++) {
-            const Diagnostic *d = v->diagnostics.items[j];
-            ASSERT_EQ_INT(0, strcmp("Struct literal fields use '=', not ':'.",
-                                    d->message));
-            ASSERT_EQ_INT(1, d->span.end - d->span.start);
-            ASSERT_TRUE(d->fixes && d->fixes == d->last_fix);
-            if (d->fixes && d->fixes->span.start == at) {
-              found = d->fixes;
-              ASSERT_TRUE(found->span.file == v->source && !found->next);
-              ASSERT_EQ_INT(d->span.start, found->span.start);
-              ASSERT_EQ_INT(d->span.end, found->span.end);
-              ASSERT_EQ_INT(':', text[at]);
-              size_t expected_length = 1;
-              int before = text[at - 1] != ' ' && text[at - 1] != '\t' &&
-                           text[at - 1] != '\n' && text[at - 1] != '\r';
-              int after = text[at + 1] != ' ' && text[at + 1] != '\t' &&
-                          text[at + 1] != '\n' && text[at + 1] != '\r';
-              expected_length += before + after;
-              ASSERT_EQ_INT(expected_length, strlen(found->replacement));
-              ASSERT_EQ_INT('=', found->replacement[before]);
-            }
-          }
-          if (found) {
-            size_t size = strlen(found->replacement);
-            memcpy(rewritten + out, found->replacement, size);
-            out += size;
-            at = found->span.end;
-          } else
-            rewritten[out++] = text[at++];
-        }
-        rewritten[out] = 0;
-        Parsed *fixed = parse(&arena, rewritten);
-        ASSERT_EQ_INT(0, fixed->diagnostics.count);
-        char *before = dump(&arena, v->program),
-             *after = dump(&arena, fixed->program);
-        ASSERT_TRUE(before && after);
-        if (before && after)
-          ASSERT_EQ_INT(0, strcmp(before, after));
-        TokenArray filtered = newline_filter(&arena, v->raw);
-        size_t bytes = filtered.count * sizeof(Token);
-        Token *saved = arena_alloc(&arena, bytes);
-        memcpy(saved, filtered.items, bytes);
-        Diagnostics again;
-        diagnostics_init(&again, &arena);
-        parse_program(&arena, &v->names, filtered, &again);
-        ASSERT_EQ_INT(cases[i].count, again.count);
-        ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
-      }
-    }
-    Parsed *missing = parse(&arena, "main() { P { x: } }\nafter() {}\n");
-    ASSERT_EQ_INT(1, missing->diagnostics.count);
-    if (missing->diagnostics.count) {
-      ASSERT_EQ_INT(0, strcmp("Expected an expression.",
-                              missing->diagnostics.items[0]->message));
-      ASSERT_TRUE(!missing->diagnostics.items[0]->fixes);
-    }
-    ASSERT_EQ_INT(2, missing->program->count);
-    invalid(&arena, "main() { P { x 1 } }", "Expected '=' after field name.");
-    const char *bodies[] = {
-        "if ready { field = value }", "while ready { field = value }",
-        "for i in 0..2 { field = value }",
-        "if ready { field = P { x = 1 } } else { field = P { x = 2 } }",
-        ("let p = if ready { field = 1\nP { x = 1 } } else { P { x = 2 } "
-         "}\np.x")};
-    for (size_t i = 0; i < sizeof(bodies) / sizeof(*bodies); i++) {
-      char text[512];
-      snprintf(text, sizeof(text), "main() { %s }", bodies[i]);
-      Parsed *v = parse(&arena, text);
-      ASSERT_EQ_INT(0, v->diagnostics.count);
-    }
-    // Old unwrapped headers retain their primary parentheses advice.
-    invalid(&arena, "main() { if P { x: 1 }.ok {} }", "Wrap struct literals");
-  }
-  TEST("return arrows reject old colons with local, layout-preserving fixes") {
-    const struct {
-      const char *code, *replacement;
-    } cases[] = {{"f():int { 1 }\n", " -> "},
-                 {"f(): int { 1 }\n", " ->"},
-                 {"f() :int { 1 }\n", "-> "},
-                 {"f() : int { 1 }\n", "->"},
-                 {"f()/* before */:/* after */int { 1 }\n", " -> "},
-                 {"f():\n// continuation\nint { 1 }\n", " ->"},
-                 {"pub f(x: Vec[Vec[int]]): Vec[Vec[int]] { x }\n", " ->"},
-                 {"f(): :ok[int] | _ { 1 }\n", " ->"},
-                 {"P { x: int\n f(p: P): int { p.x } }\n", " ->"}};
-    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
-      for (unsigned ending = 0; ending < 2; ending++) {
-        char text[1024];
-        size_t length = 0;
-        for (size_t j = 0; cases[i].code[j]; j++) {
-          if (ending && cases[i].code[j] == '\n')
-            text[length++] = '\r';
-          text[length++] = cases[i].code[j];
-        }
-        strcpy(text + length, "after() {}\n");
-        Parsed *v = parse(&arena, text);
-        if (v->diagnostics.count != 1)
-          diagnostics_print(&v->diagnostics, stderr);
-        ASSERT_EQ_INT(1, v->diagnostics.count);
-        if (v->diagnostics.count != 1)
-          continue;
-        const Diagnostic *d = v->diagnostics.items[0];
-        ASSERT_EQ_INT(0,
-                      strcmp("Return types follow '->', not ':'.", d->message));
-        ASSERT_TRUE(d->span.file == v->source);
-        ASSERT_EQ_INT(1, d->span.end - d->span.start);
-        ASSERT_EQ_INT(':', text[d->span.start]);
-        ASSERT_TRUE(d->fixes && d->fixes == d->last_fix);
-        if (d->fixes) {
-          const DiagnosticFix *fix = d->fixes;
-          ASSERT_TRUE(!fix->next && fix->span.file == v->source);
-          ASSERT_EQ_INT(d->span.start, fix->span.start);
-          ASSERT_EQ_INT(d->span.end, fix->span.end);
-          ASSERT_EQ_INT(0, strcmp(cases[i].replacement, fix->replacement));
-          char rewritten[1200];
-          snprintf(rewritten, sizeof(rewritten), "%.*s%s%s",
-                   (int)fix->span.start, text, fix->replacement,
-                   text + fix->span.end);
-          Parsed *fixed = parse(&arena, rewritten);
-          ASSERT_EQ_INT(0, fixed->diagnostics.count);
-          char *before = dump(&arena, v->program),
-               *after = dump(&arena, fixed->program);
-          ASSERT_TRUE(before && after);
-          if (before && after)
-            ASSERT_EQ_INT(0, strcmp(before, after));
-        }
-      }
-    }
-    Parsed *multiple =
-        parse(&arena, "f(): int { 1 }\ng(): () {}\nafter() {}\n");
-    ASSERT_EQ_INT(2, multiple->diagnostics.count);
-    ASSERT_EQ_INT(3, multiple->program->count);
-    const char *missing[] = {"f(): {}\nafter() {}\n",
-                             "f() -> {}\nafter() {}\n"};
-    for (size_t i = 0; i < sizeof(missing) / sizeof(*missing); i++) {
-      Parsed *v = parse(&arena, missing[i]);
-      ASSERT_EQ_INT(1, v->diagnostics.count);
-      if (v->diagnostics.count) {
-        ASSERT_EQ_INT(
-            0, strcmp("Expected a type.", v->diagnostics.items[0]->message));
-        ASSERT_TRUE(!v->diagnostics.items[0]->fixes);
-      }
-      ASSERT_EQ_INT(1, v->program->count);
-    }
-    program_dump(&arena, "f()->\nint { 1 }\n",
-                 "(program (fn f (params) int (block (int 1))))\n");
-    invalid(&arena, "f() -> Vec[int]\n{}", "Expected '{' to start a block.");
-    invalid(&arena, "f()\n-> int {}", "Expected '{' to start a block.");
-  }
   TEST("not has prefix precedence below power and postfix, above comparisons") {
     expression_dump(&arena, "not not flag", "(not (not (name flag)))");
     expression_dump(&arena, "not (a and b)", "(not (and (name a) (name b)))");
@@ -1132,81 +816,6 @@ int main(void) {
     expression_dump(&arena, "not f()!", "(not (panic (call (name f))))");
     expression_dump(&arena, "not(a)", "(not (name a))");
     expression_dump(&arena, "not\n// continued\nflag", "(not (name flag))");
-  }
-  TEST("old prefix bang gets a precise fix and reparses without changing its "
-       "AST") {
-    const struct {
-      const char *code, *replacement;
-    } cases[] = {{"!flag", "not "},         {"! flag", "not"},
-                 {"!\tflag", "not"},        {"!\nflag", "not"},
-                 {"!(a and b)", "not "},    {"!f()!", "not "},
-                 {"if!flag {}", " not "},   {"ret!flag", " not "},
-                 {"not!flag", " not "},     {"(true and!flag)", " not "},
-                 {"!/* gap */flag", "not "}};
-    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
-      for (unsigned ending = 0; ending < 2; ending++) {
-        char lf[512], crlf[1024];
-        snprintf(lf, sizeof(lf), "main() {\n%s\nlet kept = 1\n}\nafter() {}\n",
-                 cases[i].code);
-        size_t count = 0;
-        for (size_t j = 0; lf[j]; j++) {
-          if (lf[j] == '\n')
-            crlf[count++] = '\r';
-          crlf[count++] = lf[j];
-        }
-        crlf[count] = 0;
-        const char *text = ending ? crlf : lf;
-        Parsed *v = parse(&arena, text);
-        if (v->diagnostics.count != 1)
-          diagnostics_print(&v->diagnostics, stderr);
-        ASSERT_EQ_INT(1, v->diagnostics.count);
-        ASSERT_EQ_INT(2, v->program->count);
-        if (v->diagnostics.count == 1) {
-          const Diagnostic *d = v->diagnostics.items[0];
-          size_t start = (size_t)(strchr(text, '!') - text);
-          ASSERT_EQ_STRN("Logical not is written 'not'.", d->message,
-                         strlen(d->message));
-          ASSERT_EQ_INT(start, d->span.start);
-          ASSERT_EQ_INT(start + 1, d->span.end);
-          ASSERT_TRUE(d->fixes != NULL && d->fixes == d->last_fix);
-          if (d->fixes) {
-            const DiagnosticFix *fix = d->fixes;
-            ASSERT_EQ_INT(start, fix->span.start);
-            ASSERT_EQ_INT(start + 1, fix->span.end);
-            ASSERT_TRUE(fix->span.file == v->source && fix->next == NULL);
-            ASSERT_EQ_STRN(cases[i].replacement, fix->replacement,
-                           strlen(fix->replacement));
-            char rewritten[1200];
-            snprintf(rewritten, sizeof(rewritten), "%.*s%s%s", (int)start, text,
-                     fix->replacement, text + start + 1);
-            Parsed *fixed = parse(&arena, rewritten);
-            ASSERT_EQ_INT(0, fixed->diagnostics.count);
-            char *before = dump(&arena, v->program);
-            char *after = dump(&arena, fixed->program);
-            ASSERT_TRUE(before != NULL && after != NULL);
-            if (before && after)
-              ASSERT_EQ_STRN(before, after, strlen(after));
-          }
-        }
-      }
-    }
-    Parsed *nested = parse(&arena, "main() { !!flag\nlet kept = 1 }\n");
-    ASSERT_EQ_INT(2, nested->diagnostics.count);
-    if (nested->diagnostics.count == 2) {
-      const Diagnostic *a = nested->diagnostics.items[0];
-      const Diagnostic *b = nested->diagnostics.items[1];
-      ASSERT_TRUE(a->fixes && b->fixes);
-      ASSERT_TRUE(a->span.start != b->span.start);
-    }
-    // A missing operand has its own primary error, not a guessed spelling fix.
-    Parsed *missing = parse(&arena, "main() { ! }\n");
-    ASSERT_EQ_INT(1, missing->diagnostics.count);
-    if (missing->diagnostics.count) {
-      ASSERT_EQ_STRN("Expected an expression.",
-                     missing->diagnostics.items[0]->message,
-                     strlen(missing->diagnostics.items[0]->message));
-      ASSERT_TRUE(missing->diagnostics.items[0]->fixes == NULL);
-    }
   }
   TEST("arithmetic grouping, right-associative power, and prefix binding") {
     expression_dump(&arena, "a + b * c", "(+ (name a) (* (name b) (name c)))");
@@ -1299,92 +908,6 @@ int main(void) {
                     "(for x (index (name rows) (int 0)) (block (name x)))");
     invalid(&arena, "main() { if P { x = 1 }.(0) {} }", "Wrap struct literals");
   }
-  TEST(
-      "old index delimiters carry composable one-byte fixes and stable trees") {
-    struct {
-      const char *body;
-      size_t count;
-    } cases[] = {{"items[0]", 1},
-                 {"rows()[cols()[0]][next()[1]]", 4},
-                 {"f()[i].items[1].name", 2},
-                 {"items /* before */ [ /* inside */ 1 +\ni /* tail */ ]", 1},
-                 {"items()[\nP { x = 0\ny = 1 }.x\n]", 1},
-                 {"items[if flag { 0 } else { 1 }]", 1},
-                 {"a()[values |> { :a => 0\n_ => 1 }]", 1},
-                 {"not rows[0] != other[1]", 2}};
-    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
-      for (unsigned crlf = 0; crlf < 2; crlf++) {
-        char lf[2048], text[4096], rewritten[8192];
-        snprintf(lf, sizeof(lf), "main() {\n%s\nlet kept = 1\n}\nafter() {}\n",
-                 cases[i].body);
-        size_t length = 0;
-        for (size_t j = 0; lf[j]; j++) {
-          if (crlf && lf[j] == '\n')
-            text[length++] = '\r';
-          text[length++] = lf[j];
-        }
-        text[length] = 0;
-        Parsed *v = parse(&arena, text);
-        ASSERT_EQ_INT(cases[i].count, v->diagnostics.count);
-        ASSERT_EQ_INT(2, v->program->count);
-        const char *edits[4096] = {0};
-        for (size_t j = 0; j < v->diagnostics.count; j++) {
-          const Diagnostic *d = v->diagnostics.items[j];
-          ASSERT_EQ_INT(0, strcmp("Indexing is written '.(...)', not '[...]'.",
-                                  d->message));
-          ASSERT_TRUE(d->span.file == v->source);
-          ASSERT_EQ_INT(d->span.start + 1, d->span.end);
-          ASSERT_TRUE(d->fixes && d->fixes->next && !d->fixes->next->next);
-          size_t k = 0;
-          for (const DiagnosticFix *fix = d->fixes; fix; fix = fix->next, k++) {
-            ASSERT_TRUE(fix->span.file == v->source);
-            ASSERT_TRUE(fix->span.start < length);
-            ASSERT_EQ_INT(fix->span.start + 1, fix->span.end);
-            if (fix->span.start >= length)
-              continue;
-            ASSERT_EQ_INT(k ? ']' : '[', text[fix->span.start]);
-            ASSERT_EQ_INT(0, strcmp(k ? ")" : ".(", fix->replacement));
-            if (!k)
-              ASSERT_EQ_INT(d->span.start, fix->span.start);
-            else
-              ASSERT_TRUE(fix->span.start > d->span.start);
-            ASSERT_TRUE(edits[fix->span.start] == NULL);
-            edits[fix->span.start] = fix->replacement;
-          }
-        }
-        size_t count = 0;
-        for (size_t j = 0; j < length; j++) {
-          if (edits[j]) {
-            size_t n = strlen(edits[j]);
-            memcpy(rewritten + count, edits[j], n);
-            count += n;
-          } else
-            rewritten[count++] = text[j];
-        }
-        rewritten[count] = 0;
-        Parsed *fixed = parse(&arena, rewritten);
-        ASSERT_EQ_INT(0, fixed->diagnostics.count);
-        char *before = dump(&arena, v->program),
-             *after = dump(&arena, fixed->program);
-        ASSERT_TRUE(before && after);
-        if (before && after)
-          ASSERT_EQ_INT(0, strcmp(before, after));
-        TokenArray filtered = newline_filter(&arena, v->raw);
-        Token *raw = arena_alloc(&arena, v->raw.count * sizeof(*raw));
-        Token *saved = arena_alloc(&arena, filtered.count * sizeof(*saved));
-        memcpy(raw, v->raw.items, v->raw.count * sizeof(*raw));
-        memcpy(saved, filtered.items, filtered.count * sizeof(*saved));
-        Diagnostics again;
-        diagnostics_init(&again, &arena);
-        parse_program(&arena, &v->names, filtered, &again);
-        ASSERT_EQ_INT(cases[i].count, again.count);
-        ASSERT_TRUE(memcmp(raw, v->raw.items, v->raw.count * sizeof(*raw)) ==
-                    0);
-        ASSERT_TRUE(memcmp(saved, filtered.items,
-                           filtered.count * sizeof(*saved)) == 0);
-      }
-    }
-  }
   TEST("malformed indices preserve the primary error and later declarations") {
     struct {
       const char *body, *message;
@@ -1395,7 +918,7 @@ int main(void) {
         {"a.(0, 1)", "Expected ')' after index."},
         {"a.(@)", "Unexpected character."},
         {"a[]", "Expected a type."},
-        {"a[0", "Expected ']' after index."},
+        {"a[0", "Expected a type."},
         {"a. (0)", "Expected a field or method name after '.'."},
         {"a. /* gap */ (0)", "Expected a field or method name after '.'."},
         {"a.\n(0)", "Expected a field or method name after '.'."}};
@@ -1630,75 +1153,6 @@ int main(void) {
                     "(|> (|> (name json) (? (call (name parse)))) (panic (call "
                     "(name validate))))");
   }
-  TEST("removed angle arguments and sized types have composable exact fixes") {
-    struct {
-      const char *text;
-      size_t count;
-      size_t fixes; // Of the one angle-list diagnostic, if any.
-    } cases[] = {{"A = Vec<Map<int, str>>\n", 1, 4},
-                 {"main() { f<int>() }\n", 1, 2},
-                 {"main() { obj.read<Vec<int>>() }\n", 1, 4},
-                 {"main() { f<:a>() }\n", 1, 2},
-                 {"main() { f<:!bad>() }\n", 1, 2},
-                 {"main() { f<Vec<dub>>() }\n", 2, 4},
-                 {"A = Map<str, Vec[Vec<int>]>\n", 1, 4},
-                 {"main() { f<models.Box<int>, Self>() }\n", 1, 4},
-                 {"A = int[10][20]\n", 2, 0},
-                 {"A = Vec<int>[2]\n", 2, 2},
-                 {"A = int[ /* before */ 3 /* after */ ]\n", 1, 0},
-                 {"A = int[\n// keep\n3\n]\n", 1, 0}};
-    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
-      for (unsigned crlf = 0; crlf < 2; crlf++) {
-        char text[1024];
-        size_t n = 0;
-        for (size_t j = 0; cases[i].text[j]; j++) {
-          if (crlf && cases[i].text[j] == '\n')
-            text[n++] = '\r';
-          text[n++] = cases[i].text[j];
-        }
-        strcpy(text + n, "after() {}\n");
-        Parsed *v = parse(&arena, text);
-        ASSERT_EQ_INT(cases[i].count, v->diagnostics.count);
-        ASSERT_EQ_INT(2, v->program->count);
-        for (size_t j = 0; j < v->diagnostics.count; j++) {
-          const Diagnostic *d = v->diagnostics.items[j];
-          ASSERT_TRUE(d->fixes != NULL && d->span.file == v->source);
-          if (strcmp(d->message, "Type arguments use '[...]', not '<...>'.") ==
-              0) {
-            ASSERT_EQ_INT(d->span.start + 1, d->span.end);
-            ASSERT_EQ_INT('<', text[d->span.start]);
-            // The outermost list carries its nested lists' fixes too.
-            ASSERT_TRUE(d->fixes == NULL ||
-                        d->fixes->span.start == d->span.start);
-            size_t fixes = 0;
-            for (const DiagnosticFix *f = d->fixes; f; f = f->next, fixes++) {
-              ASSERT_EQ_INT(f->span.start + 1, f->span.end);
-              int opener = text[f->span.start] == '<';
-              ASSERT_TRUE(opener || text[f->span.start] == '>');
-              ASSERT_EQ_INT(0, strcmp(opener ? "[" : "]", f->replacement));
-            }
-            ASSERT_EQ_INT(cases[i].fixes, fixes);
-          }
-        }
-        Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
-        ASSERT_EQ_INT(0, fixed->diagnostics.count);
-        char *before = dump(&arena, v->program),
-             *after = dump(&arena, fixed->program);
-        ASSERT_TRUE(before && after);
-        if (before && after)
-          ASSERT_EQ_INT(0, strcmp(before, after));
-        TokenArray filtered = newline_filter(&arena, v->raw);
-        size_t bytes = filtered.count * sizeof(Token);
-        Token *saved = arena_alloc(&arena, bytes);
-        memcpy(saved, filtered.items, bytes);
-        Diagnostics again;
-        diagnostics_init(&again, &arena);
-        parse_program(&arena, &v->names, filtered, &again);
-        ASSERT_EQ_INT(cases[i].count, again.count);
-        ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
-      }
-    }
-  }
   TEST("type brackets retain primary errors without inventing missing "
        "arguments") {
     const char *bad[] = {"A = Vec[]\n",      "A = Vec[int\n",
@@ -1736,7 +1190,6 @@ int main(void) {
         "(call (name check) (< (name a) (name b)) (> (name c) (name d)))");
     expression_dump(&arena, "a < b >> c",
                     "(< (name a) (>> (name b) (name c)))");
-    // Value operands never look like a removed <...>( type list.
     expression_dump(&arena, "check(a < 10, b > (a + 1))",
                     "(call (name check) (< (name a) (int 10)) (> (name b) (+ "
                     "(name a) (int 1))))");
@@ -1804,7 +1257,7 @@ int main(void) {
       ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
     }
   }
-  TEST("collection literal errors recover and old angle fixes reparse") {
+  TEST("collection literal errors recover") {
     const char *bad[] = {"Arr[int] { 1 2 }", "Vec[str] {,}",
                          "Arr[int] { 1,,2 }", "Map[str, int] { 1, 2 }",
                          "[1, 2]"};
@@ -1837,14 +1290,6 @@ int main(void) {
                               missing->diagnostics.items[0]->message));
       ASSERT_TRUE(missing->diagnostics.items[0]->fixes == NULL);
     }
-    Parsed *v = parse(&arena, "main() { Vec<Vec<int>> { Vec[int] {} } }\n");
-    ASSERT_EQ_INT(1, v->diagnostics.count);
-    Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
-    ASSERT_EQ_INT(0, fixed->diagnostics.count);
-    char *a = dump(&arena, v->program), *b = dump(&arena, fixed->program);
-    ASSERT_TRUE(a && b);
-    if (a && b)
-      ASSERT_EQ_INT(0, strcmp(a, b));
   }
   TEST("imports retain complete interned paths and precise declaration spans") {
     const char *text = "import\nmodels.\nUser\nimport std.Json\nimport "
@@ -1991,56 +1436,6 @@ int main(void) {
         ASSERT_TRUE(v->diagnostics.items[0]->fixes != NULL);
       Parsed *again = parse(&arena, apply_fixes(&arena, v));
       ASSERT_EQ_INT(0, again->diagnostics.count);
-    }
-  }
-  TEST("removed trait/override prefixes reject without losing later "
-       "declarations") {
-    const char *cases[] = {"trait HasUser {}", "pub trait HasUser {}",
-                           "ovr read() {}", "P { ovr pub read(p: P) {} }",
-                           "P { pub ovr read(p: P) {} }"};
-    const char *trait_message = "Traits are declared without 'trait'; trait "
-                                "declarations are not implemented yet.";
-    const char *override_message = "The 'ovr' modifier is no longer used; "
-                                   "trait conformance is not implemented yet.";
-    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
-      for (unsigned crlf = 0; crlf < 2; crlf++) {
-        char text[512];
-        snprintf(text, sizeof(text), "%s%safter() {}%s", cases[i],
-                 crlf ? "\r\n" : "\n", crlf ? "\r\n" : "\n");
-        Parsed *v = parse(&arena, text);
-        ASSERT_EQ_INT(1, v->diagnostics.count);
-        ASSERT_EQ_INT(i >= 3 ? 2 : 1, v->program->count);
-        if (v->diagnostics.count) {
-          Diagnostic *d = v->diagnostics.items[0];
-          const char *word = i < 2 ? "trait" : "ovr";
-          size_t at = (size_t)(strstr(text, word) - text);
-          ASSERT_EQ_INT(
-              0, strcmp(i < 2 ? trait_message : override_message, d->message));
-          ASSERT_TRUE(d->span.file == v->source);
-          ASSERT_EQ_INT(at, d->span.start);
-          ASSERT_EQ_INT(at + strlen(word), d->span.end);
-          // The fix deletes the word and the space after it.
-          ASSERT_TRUE(d->fixes && !d->fixes->next);
-          if (d->fixes) {
-            ASSERT_EQ_INT(at, d->fixes->span.start);
-            ASSERT_EQ_INT(at + strlen(word) + 1, d->fixes->span.end);
-            ASSERT_EQ_INT(0, strcmp("", d->fixes->replacement));
-          }
-        }
-        TokenArray filtered = newline_filter(&arena, v->raw);
-        size_t bytes = filtered.count * sizeof(Token);
-        Token *saved = arena_alloc(&arena, bytes);
-        memcpy(saved, filtered.items, bytes);
-        Diagnostics again;
-        diagnostics_init(&again, &arena);
-        parse_program(&arena, &v->names, filtered, &again);
-        ASSERT_EQ_INT(1, again.count);
-        ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
-        if (v->program->count)
-          ASSERT_EQ_INT(
-              0,
-              strcmp("after", v->program->items[v->program->count - 1]->name));
-      }
     }
   }
   TEST("declaration roles diagnose exact name spans and safe case fixes") {
@@ -2249,186 +1644,6 @@ int main(void) {
                   v->program->items[0]->as.function.return_type->kind);
     ASSERT_EQ_INT(TYPE_INFER, v->program->items[1]->as.alias->kind);
   }
-  TEST("old symbol wrappers reject with composable trivia-preserving fixes") {
-    const char *cases[] = {
-        "E = Sym<:a,:b>\nmain() {}", "E = Sym<Sym<:a,:b>,:c>\nmain() {}",
-        "E = Sym /* keep */ <\n:a,\n:b,>\nmain() {}",
-        "main() { f<Vec<Sym<:a,:b>>>() }",
-        "E = Sym<:outer[Sym<:inner[int],:none>]>\nmain() {}"};
-    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
-      for (unsigned crlf = 0; crlf < 2; crlf++) {
-        char text[1024];
-        size_t n = 0;
-        for (size_t j = 0; cases[i][j]; j++) {
-          if (crlf && cases[i][j] == '\n')
-            text[n++] = '\r';
-          text[n++] = cases[i][j];
-        }
-        text[n] = 0;
-        Parsed *v = parse(&arena, text);
-        ASSERT_TRUE(v->diagnostics.count > 0);
-        size_t wrappers = 0;
-        for (size_t j = 0; j < v->diagnostics.count; j++) {
-          Diagnostic *d = v->diagnostics.items[j];
-          if (!strcmp(d->message,
-                      "Symbol unions use '|', without 'Sym<...>'.")) {
-            wrappers++;
-            ASSERT_TRUE(d->fixes != NULL);
-            ASSERT_EQ_INT(3, d->span.end - d->span.start);
-          }
-        }
-        ASSERT_TRUE(wrappers > 0);
-        Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
-        ASSERT_EQ_INT(0, fixed->diagnostics.count);
-        ASSERT_EQ_INT(
-            0, strcmp(dump(&arena, v->program), dump(&arena, fixed->program)));
-        if (strstr(text, "/* keep */"))
-          ASSERT_TRUE(strstr(fixed->source->text, "/* keep */") != NULL);
-        ASSERT_EQ_INT(v->source->line_count, fixed->source->line_count);
-        TokenArray filtered = newline_filter(&arena, v->raw);
-        size_t bytes = filtered.count * sizeof(Token);
-        Token *saved = arena_alloc(&arena, bytes);
-        memcpy(saved, filtered.items, bytes);
-        Diagnostics again;
-        diagnostics_init(&again, &arena);
-        parse_program(&arena, &v->names, filtered, &again);
-        ASSERT_EQ_INT(v->diagnostics.count, again.count);
-        ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
-      }
-    }
-    const char *unsafe[] = {"A = Sym<User>\n", "A = Sym<int>\n",
-                            "A = Sym<_>\n"};
-    for (size_t i = 0; i < sizeof(unsafe) / sizeof(*unsafe); i++) {
-      Parsed *v = parse(&arena, unsafe[i]);
-      ASSERT_EQ_INT(1, v->diagnostics.count);
-      if (v->diagnostics.count)
-        ASSERT_TRUE(v->diagnostics.items[0]->fixes == NULL);
-    }
-    const char *bad[] = {"A = :a |", "A = :a | | :b", "A = :a, :b",
-                         "A = Sym<:a", "A = :outer[:a |]"};
-    for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
-      Parsed *v = parse(&arena, bad[i]);
-      ASSERT_TRUE(v->diagnostics.count > 0);
-      for (size_t j = 0; j < v->diagnostics.count; j++)
-        ASSERT_TRUE(v->diagnostics.items[j]->fixes == NULL);
-    }
-    char *text = arena_alloc(&arena, 20000);
-    size_t n = (size_t)sprintf(text, "A = ");
-    for (size_t i = 0; i < 512; i++)
-      n += (size_t)sprintf(text + n, "%s:tag%zu", i ? " | " : "", i);
-    strcpy(text + n, "\nmain() {}");
-    Parsed *wide = parse(&arena, text);
-    ASSERT_EQ_INT(0, wide->diagnostics.count);
-    ASSERT_EQ_INT(512, wide->program->items[0]->as.alias->as.union_type.count);
-  }
-  TEST("nested old symbol wrappers report once, first, in source order") {
-    struct {
-      const char *code, *fixed;
-      size_t count;
-    } cases[] = {
-        {"E = Sym<Sym<:a>, :b>\n", "E = :a | :b\n", 1},
-        {"E = Sym<:a[Sym<:x, :y>], :b>\n", "E = :a[:x | :y] | :b\n", 1},
-        {"E = Sym <:a,:b,>\n", "E = :a | :b\n", 1},
-        {"E = Sym< :a , :b >\n", "E = :a | :b\n", 1},
-        {"E = Sym<\n  :a,\n  :b>\n", "E = \n  :a |\n  :b\n", 1},
-        // Other rules keep their own reports, after the wrapper's.
-        {"E = Sym<:a(int), :B>\n", "E = :a[int] | :b\n", 3}};
-    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
-      Parsed *v = parse(&arena, cases[i].code);
-      ASSERT_EQ_INT(cases[i].count, v->diagnostics.count);
-      if (!v->diagnostics.count)
-        continue;
-      const Diagnostic *d = v->diagnostics.items[0];
-      ASSERT_EQ_INT(
-          0, strcmp("Symbol unions use '|', without 'Sym<...>'.", d->message));
-      ASSERT_EQ_INT(4, d->span.start);
-      for (const DiagnosticFix *fix = d->fixes; fix && fix->next;
-           fix = fix->next)
-        ASSERT_TRUE(fix->span.start <= fix->next->span.start);
-      ASSERT_EQ_INT(0, strcmp(cases[i].fixed, apply_fixes(&arena, v)));
-    }
-    // An unfixable inner wrapper reports separately, after the outer one.
-    Parsed *v = parse(&arena, "E = Sym<:a[Sym<F>], Sym<:b, :c>>\n");
-    ASSERT_EQ_INT(2, v->diagnostics.count);
-    if (v->diagnostics.count == 2) {
-      ASSERT_EQ_INT(4, v->diagnostics.items[0]->span.start);
-      ASSERT_TRUE(v->diagnostics.items[0]->fixes != NULL);
-      ASSERT_EQ_INT(11, v->diagnostics.items[1]->span.start);
-      ASSERT_TRUE(v->diagnostics.items[1]->fixes == NULL);
-    }
-  }
-  TEST("legacy payload delimiter fixes compose without dropping trivia") {
-    struct {
-      const char *code;
-      size_t count;
-    } cases[] = {
-        {"E = :ok(int)\nmain() { :ok(1) |> { :ok(x) => x } }\n", 3},
-        {"E = :outer(:inner(int))\nmain() { :outer(:inner(1)) }", 4},
-        {"main() { : /* keep */ !bad(/* before */ 1 /* after */) }", 2},
-        {"main() { :Bad(1) }", 2},
-        {"main() { :!many(1, 2,) |> { :!many(a, b) => a } }", 2},
-        {"main() { make<Vec<:ok(int)>>() }", 2}};
-    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
-      for (unsigned crlf = 0; crlf < 2; crlf++) {
-        char text[2048];
-        size_t n = 0;
-        for (size_t j = 0; cases[i].code[j]; j++) {
-          if (crlf && cases[i].code[j] == '\n')
-            text[n++] = '\r';
-          text[n++] = cases[i].code[j];
-        }
-        text[n] = 0;
-        Parsed *v = parse(&arena, text);
-        ASSERT_EQ_INT(cases[i].count, v->diagnostics.count);
-        size_t payloads = 0;
-        for (size_t j = 0; j < v->diagnostics.count; j++) {
-          Diagnostic *d = v->diagnostics.items[j];
-          if (strcmp(d->message, "Symbol payloads use '[...]', not '(...)'.") ==
-              0) {
-            payloads++;
-            ASSERT_TRUE(d->span.file == v->source);
-            ASSERT_TRUE(d->fixes && d->fixes->next && !d->fixes->next->next);
-            ASSERT_EQ_INT(0, strcmp("[", d->fixes->replacement));
-            ASSERT_EQ_INT(0, strcmp("]", d->fixes->next->replacement));
-            ASSERT_EQ_INT(1, d->fixes->span.end - d->fixes->span.start);
-            ASSERT_EQ_INT(1, d->fixes->next->span.end -
-                                 d->fixes->next->span.start);
-          }
-        }
-        ASSERT_TRUE(payloads > 0);
-        Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
-        ASSERT_EQ_INT(0, fixed->diagnostics.count);
-        if (i !=
-            3) // Casing recovery retains the written name; its fix renames it.
-          ASSERT_EQ_INT(0, strcmp(dump(&arena, v->program),
-                                  dump(&arena, fixed->program)));
-        if (strstr(cases[i].code, "/* before */"))
-          ASSERT_TRUE(strstr(fixed->source->text,
-                             "/* before */ 1 /* after */") != NULL);
-        TokenArray filtered = newline_filter(&arena, v->raw);
-        size_t bytes = filtered.count * sizeof(Token);
-        Token *saved = arena_alloc(&arena, bytes);
-        memcpy(saved, filtered.items, bytes);
-        Diagnostics again;
-        diagnostics_init(&again, &arena);
-        parse_program(&arena, &v->names, filtered, &again);
-        ASSERT_EQ_INT(v->diagnostics.count, again.count);
-        ASSERT_TRUE(memcmp(saved, filtered.items, bytes) == 0);
-      }
-    }
-    const char *bad[] = {"main() { :tag( }",
-                         "E = :tag(]\n",
-                         "main() { 1 |> { :tag( => () } }",
-                         "main() { :tag[1 2] }",
-                         "E = :tag[int str]\n",
-                         "main() { 1 |> { :tag[a b] => () } }"};
-    for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
-      Parsed *v = parse(&arena, bad[i]);
-      ASSERT_TRUE(v->diagnostics.count > 0);
-      for (size_t j = 0; j < v->diagnostics.count; j++)
-        ASSERT_TRUE(v->diagnostics.items[j]->fixes == NULL);
-    }
-  }
   TEST("payload list width and nesting limits are independent") {
     char *text = arena_alloc(&arena, 20000);
     size_t n = 0;
@@ -2535,7 +1750,7 @@ int main(void) {
       }
     }
   }
-  TEST("typed binder casing and legacy delimiter/type fixes compose safely") {
+  TEST("typed binder casing fixes compose safely") {
     struct {
       const char *name, *fixed;
     } cases[] = {{"Value", "value"}, {"HTTP_CODE", "httpCode"}, {"Not", NULL}};
@@ -2565,7 +1780,7 @@ int main(void) {
       }
     }
     const char *code =
-        "main() { value |> {\n:item(Value: Vec<str>) => ()\n} }\nafter() {}\n";
+        "main() { value |> {\n:item[Value: Vec[str]] => ()\n} }\nafter() {}\n";
     for (unsigned crlf = 0; crlf < 2; crlf++) {
       char text[512];
       size_t n = 0;
@@ -2576,7 +1791,7 @@ int main(void) {
       }
       text[n] = 0;
       Parsed *v = parse(&arena, text);
-      ASSERT_EQ_INT(3, v->diagnostics.count);
+      ASSERT_EQ_INT(1, v->diagnostics.count);
       Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
       ASSERT_EQ_INT(0, fixed->diagnostics.count);
       ASSERT_EQ_INT(2, fixed->program->count);
@@ -2667,9 +1882,8 @@ int main(void) {
         ASSERT_TRUE(!v->diagnostics.items[j]->fixes);
     }
   }
-  TEST("qualified symbol name and legacy fixes preserve comments and line "
-       "breaks") {
-    const char *lf = "A = db . :/* keep */ !Bad(Vec<str>)\nmain() {}\n";
+  TEST("qualified symbol name fixes preserve comments and line breaks") {
+    const char *lf = "A = db . :/* keep */ !Bad[Vec[str]]\nmain() {}\n";
     for (unsigned crlf = 0; crlf < 2; crlf++) {
       char text[512];
       size_t n = 0;
@@ -2680,7 +1894,7 @@ int main(void) {
       }
       text[n] = 0;
       Parsed *v = parse(&arena, text);
-      ASSERT_EQ_INT(5, v->diagnostics.count);
+      ASSERT_EQ_INT(3, v->diagnostics.count);
       Parsed *fixed = parse(&arena, apply_fixes(&arena, v));
       ASSERT_EQ_INT(0, fixed->diagnostics.count);
       ASSERT_TRUE(strstr(fixed->source->text,
@@ -3182,16 +2396,7 @@ int main(void) {
         ASSERT_TRUE(strstr(v->diagnostics.items[j]->message,
                            "Wrap struct literals") == NULL);
     }
-    Parsed *v = parse(&arena, "main() { if Guest { name:");
-    ASSERT_EQ_INT(2, v->diagnostics.count);
-    if (v->diagnostics.count == 2) {
-      ASSERT_TRUE(strstr(v->diagnostics.items[0]->message,
-                         "Wrap struct literals") != NULL);
-      ASSERT_EQ_STRN("Expected '}' to close block.",
-                     v->diagnostics.items[1]->message,
-                     strlen(v->diagnostics.items[1]->message));
-    }
-    v = parse(&arena, "main() { if @ {} }");
+    Parsed *v = parse(&arena, "main() { if @ {} }");
     ASSERT_EQ_INT(1, v->diagnostics.count);
   }
   TEST("match patterns include literals, ranges, symbols, sets, and "
@@ -3406,9 +2611,6 @@ int main(void) {
     invalid(&arena, "f()\n-> int {}", "Expected '{' to start a block.");
     invalid(&arena, "pub f(1)", "Expected a parameter name.");
     invalid(&arena, "f(", "Expected a parameter name.");
-    invalid(&arena, "Box<T> { value: T }", "Expected '(' after function name");
-    invalid(&arena, "first<T>(x: T) -> T { x }",
-            "Expected '(' after function name");
     invalid(&arena, "User { name: }", "Expected a type.");
     program_dump(&arena, "import User", "(program (import User))\n");
     invalid(&arena, "int() {}",

@@ -1,5 +1,0 @@
-type A = :a // error: Declare an alias as 'Name = type', without 'type'. // fix: A = :a
-type/* keep */B = :b // error: Declare an alias as 'Name = type', without 'type'. // fix: /* keep */B = :b
-pub C = :c // error: Type aliases cannot be marked 'pub'. // fix: C = :c
-pub/* keep */D = :d // error: Type aliases cannot be marked 'pub'. // fix: /* keep */D = :d
-main() {}

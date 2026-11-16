@@ -142,8 +142,6 @@ static TokenType identifier_type(Lexer *lexer) {
     return TOK_CHR;
   if (len == 3 && memcmp(lexer->start, "dbl", 3) == 0)
     return TOK_DBL;
-  if (len == 3 && memcmp(lexer->start, "dub", 3) == 0)
-    return TOK_OLD_DUB;
   if (len == 3 && memcmp(lexer->start, "flt", 3) == 0)
     return TOK_FLT;
   if (len == 3 && memcmp(lexer->start, "for", 3) == 0)

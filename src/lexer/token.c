@@ -56,8 +56,6 @@ const char *token_type_name(TokenType type) {
     return "TOK_FLT";
   case TOK_DBL:
     return "TOK_DBL";
-  case TOK_OLD_DUB:
-    return "TOK_OLD_DUB";
   case TOK_CHR:
     return "TOK_CHR";
   case TOK_STR:

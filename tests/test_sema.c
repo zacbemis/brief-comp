@@ -127,7 +127,7 @@ int main(void) {
     valid(&a,
           "main() { \"a normal result is discarded by the entry wrapper\" }");
   }
-  TEST("dbl is the canonical binary64 type and converter, not a dub alias") {
+  TEST("dbl is the canonical binary64 type and converter") {
     Result r =
         check(&a, "f(x: dbl) -> dbl { x }\nmain() { let x: dbl = dbl(1)\n"
                   "f(x)\n0.5 |> dbl() }");
@@ -136,14 +136,6 @@ int main(void) {
     ASSERT_TRUE(r.program->functions[0].symbol.return_type ==
                 &r.program->types[SEMA_DUB]);
     ASSERT_EQ_INT(0, strcmp("dbl", r.program->types[SEMA_DUB].name));
-    const char *old[] = {"f(x: dub) {}\nmain() {}", "main() { dub(1) }",
-                         "main() { 1 |> dub() }"};
-    for (size_t i = 0; i < sizeof(old) / sizeof(*old); i++) {
-      r = check(&a, old[i]);
-      ASSERT_EQ_INT(1, r.errors.count);
-      ASSERT_TRUE(!r.program->checked);
-      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
-    }
     invalid(&a, "main() { let dbl = 1 }", "Expected a binding name.");
   }
   TEST("pub on a struct type blocks lowering, not field visibility") {
@@ -153,20 +145,7 @@ int main(void) {
     ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
     valid(&a, "P { pub x: int }\nmain() { P { x = 1 } }");
   }
-  TEST("index spelling errors block lowering; new indices remain unsupported") {
-    Result old = check(&a, "main() { 0[0] }");
-    // This helper intentionally resolves even after a parse error. The index's
-    // ordinary scope rejection may be collected too, but cannot enable
-    // lowering.
-    ASSERT_EQ_INT(2, old.errors.count);
-    ASSERT_TRUE(!old.program->resolved && !old.program->checked);
-    ASSERT_TRUE(ir_lower(&a, old.program) == NULL);
-    if (old.errors.count) {
-      Diagnostic *d = old.errors.items[0];
-      ASSERT_EQ_INT(
-          0, strcmp("Indexing is written '.(...)', not '[...]'.", d->message));
-      ASSERT_TRUE(d->fixes && d->fixes->next && !d->fixes->next->next);
-    }
+  TEST("indices remain unsupported") {
     invalid(&a, "main() { 0.(0) }", "This expression is not implemented yet.");
     invalid(&a, "main() { 0.(0) = 1 }",
             "Index assignments are not implemented yet.");
@@ -206,22 +185,6 @@ int main(void) {
     valid(&a, "A = :value_HTTP[int]\nmain() { :value_HTTP[1] |> { "
               ":value_HTTP[_] => () } }");
   }
-  TEST(
-      "trait-only word retirement does not enable trait or override lowering") {
-    const char *sources[] = {
-        "trait HasUser {}\nmain() {}",
-        "P { x: int\n ovr pub read(p: P) { p.x } }\nmain() {}"};
-    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
-      Result r = check(&a, sources[i]);
-      ASSERT_TRUE(r.errors.count > 0);
-      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
-      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
-      if (r.errors.count)
-        ASSERT_TRUE(r.errors.items[0]->fixes != NULL);
-    }
-    valid(&a, "trait(ovr: int) -> int { ovr }\novr(trait: int) -> int { trait "
-              "}\nmain() { ovr(trait(1)) }");
-  }
   TEST("imports are a scope barrier, not a module loader or name binding") {
     const char *sources[] = {"import doesNotExist.User\nmain() {}",
                              ("import models.User\nf(x: User) -> User { "
@@ -258,13 +221,6 @@ int main(void) {
                                 r.errors.items[0]->message));
     }
   }
-  TEST("old literal field colons cannot reach lowering") {
-    Result r = check(&a, "P { x: int }\nmain() { let p = P { x: 1 } }");
-    ASSERT_EQ_INT(1, r.errors.count);
-    ASSERT_TRUE(!r.program->resolved && !r.program->checked);
-    ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
-    valid(&a, "P { x: int }\nmain() { let p = P { x = 1 } }");
-  }
   TEST("legacy alias modifiers cannot reach lowering") {
     const char *sources[] = {"type A = :a\nmain() {}", "pub A = :a\nmain() {}"};
     for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
@@ -274,13 +230,6 @@ int main(void) {
       ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
     }
     valid(&a, "A = :a\nmain() { :a |> { A => () } }");
-  }
-  TEST("old return colons cannot reach lowering") {
-    Result r = check(&a, "main(): () { let value: int = 1 }\n");
-    ASSERT_EQ_INT(1, r.errors.count);
-    ASSERT_TRUE(!r.program->resolved && !r.program->checked);
-    ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
-    valid(&a, "main() -> () { let value: int = 1 }\n");
   }
   TEST("bindings are lexical, checked in declaration order, and mutable only "
        "with var") {
@@ -308,19 +257,6 @@ int main(void) {
                   updates.program->functions[0].body->as.block.items[1]->kind);
     ASSERT_TRUE(updates.program->functions[0].body->as.block.items[1]->type ==
                 &updates.program->types[SEMA_UNIT]);
-  }
-  TEST("removed type argument spellings never enable lowering") {
-    const char *sources[] = {"A = Vec<int>\nmain() {}", "main() { f<int>() }",
-                             "A = int[4]\nmain() {}"};
-    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); i++) {
-      Result r = check(&a, sources[i]);
-      ASSERT_TRUE(r.errors.count > 0);
-      ASSERT_TRUE(!r.program->resolved && !r.program->checked);
-      ASSERT_TRUE(ir_lower(&a, r.program) == NULL);
-      ASSERT_TRUE(r.errors.items[0]->fixes != NULL);
-    }
-    invalid(&a, "A = Arr[int]\nmain() {}",
-            "This type is unknown or not implemented yet.");
   }
   TEST("unsupported generic headers do not resolve as ordinary callees") {
     const char *prefix =

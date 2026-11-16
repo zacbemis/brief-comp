@@ -1673,7 +1673,6 @@ int main(void) {
     invalid(&a, "A = :next[A]\nmain() {}", "Recursive named types");
     invalid(&a, "A = :a\nA() {}\nmain() {}", "cannot share a name");
     invalid(&a, "A { unit: () }\nA = :a\nmain() {}", "reserved named type");
-    invalid(&a, "type int = :a\nmain() {}", "Expected a named type");
     // Lowercase builtin names cannot form an uppercase alias declaration.
     invalid(&a, "print = :a\nmain() {}", "Statements are only allowed");
     size_t capacity = 160000;

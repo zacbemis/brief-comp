@@ -357,11 +357,11 @@ int main(void) {
     expect(&lx, TOK_EOF, NULL);
   }
 
-  TEST("dbl is a keyword; dub is recognized only for parser recovery") {
+  TEST("dbl is a keyword; dub is an ordinary name") {
     Lexer lx;
     init_lexer(&lx, "dbl dub dblx dubx Dbl Dub dbl_1 dub_1 \"dub\"");
     expect(&lx, TOK_DBL, "dbl");
-    expect(&lx, TOK_OLD_DUB, "dub");
+    expect(&lx, TOK_LOWER_NAME, "dub");
     expect(&lx, TOK_LOWER_NAME, "dblx");
     expect(&lx, TOK_LOWER_NAME, "dubx");
     expect(&lx, TOK_UPPER_NAME, "Dbl");
@@ -1040,48 +1040,6 @@ int main(void) {
     expect(&lx, TOK_NEWLINE, "\n");
     expect(&lx, TOK_RBRACE, "}");
     expect(&lx, TOK_NEWLINE, "\n");
-    expect(&lx, TOK_RBRACE, "}");
-    expect(&lx, TOK_EOF, NULL);
-  }
-
-  TEST("removed trait declaration spelling lexes trait as a name") {
-    Lexer lx;
-    init_lexer(&lx, "pub trait HasUser { getUser(value: Self) -> User }");
-    expect(&lx, TOK_PUB, "pub");
-    expect(&lx, TOK_LOWER_NAME, "trait");
-    expect(&lx, TOK_UPPER_NAME, "HasUser");
-    expect(&lx, TOK_LBRACE, "{");
-    expect(&lx, TOK_LOWER_NAME, "getUser");
-    expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_LOWER_NAME, "value");
-    expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_UPPER_NAME, "Self");
-    expect(&lx, TOK_RPAREN, ")");
-    expect(&lx, TOK_ARROW, "->");
-    expect(&lx, TOK_UPPER_NAME, "User");
-    expect(&lx, TOK_RBRACE, "}");
-    expect(&lx, TOK_EOF, NULL);
-  }
-
-  TEST("removed override spelling lexes ovr as a name") {
-    Lexer lx;
-    init_lexer(&lx, "impl Admin: HasUser { ovr pub getName(admin: Admin) -> "
-                    "str }");
-    expect(&lx, TOK_LOWER_NAME, "impl");
-    expect(&lx, TOK_UPPER_NAME, "Admin");
-    expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_UPPER_NAME, "HasUser");
-    expect(&lx, TOK_LBRACE, "{");
-    expect(&lx, TOK_LOWER_NAME, "ovr");
-    expect(&lx, TOK_PUB, "pub");
-    expect(&lx, TOK_LOWER_NAME, "getName");
-    expect(&lx, TOK_LPAREN, "(");
-    expect(&lx, TOK_LOWER_NAME, "admin");
-    expect(&lx, TOK_COLON, ":");
-    expect(&lx, TOK_UPPER_NAME, "Admin");
-    expect(&lx, TOK_RPAREN, ")");
-    expect(&lx, TOK_ARROW, "->");
-    expect(&lx, TOK_STR, "str");
     expect(&lx, TOK_RBRACE, "}");
     expect(&lx, TOK_EOF, NULL);
   }

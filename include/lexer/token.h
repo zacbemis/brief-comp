@@ -44,9 +44,6 @@ typedef enum {
   TOK_PUB,    // pub
   TOK_SELF,   // self (instance expression or explicit receiver)
 
-  // Recovery only: never accepted as a type/converter without a diagnostic.
-  TOK_OLD_DUB, // dub (write dbl)
-
   // Keywords Control Flow
   TOK_IF,       // if
   TOK_ELSE,     // else

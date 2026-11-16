@@ -52,23 +52,6 @@ SemaSymbol *sema_method(SemaProgram *p, const SemaType *t, const char *name) {
 static SemaAlias *alias(SemaProgram *p, const char *name) {
   return name_map_get(&p->alias_names, NULL, name);
 }
-// Ordinary declarations named Self win. Only an otherwise unknown name in a
-// known owner can be the retired shorthand; recovery must still block emission.
-static SemaStruct *old_self(Resolver *r, const char *name, Span span) {
-  if (strcmp(name, "Self") || !r->owner || structure(r->program, name) ||
-      alias(r->program, name))
-    return NULL;
-  Diagnostic *d = diagnostics_error(
-      r->errors, span,
-      "There is no implicit 'Self' type; name the enclosing type.");
-  // Parser names retain token spans even when the expression is grouped.
-  // A caller-built AST without one still gets advice, never a trivia edit.
-  if (span.file && span.start <= span.end && span.end <= span.file->length &&
-      span.end - span.start == 4 &&
-      !memcmp(span.file->text + span.start, "Self", 4))
-    diagnostic_fix(r->errors, d, span, r->owner->type.name);
-  return r->owner;
-}
 static SemaStruct *named_structure(Resolver *r, const Expr *name) {
   SemaStruct *s = structure(r->program, name->as.name);
   if (!s) {
@@ -76,8 +59,7 @@ static SemaStruct *named_structure(Resolver *r, const Expr *name) {
     if (a && a->type && a->type->kind == SEMA_STRUCT)
       s = a->type->structure;
   }
-  Span span = name->name_span.file ? name->name_span : name->span;
-  return s ? s : old_self(r, name->as.name, span);
+  return s;
 }
 static SemaTag *tag(Resolver *r, const char *name, SymbolKind kind, Span span) {
   return sema_declare_tag(r->program, r->program->module, name,
@@ -113,9 +95,6 @@ static const SemaType *resolve_type(Resolver *r, const Type *syntax,
     SemaAlias *a = alias(r->program, syntax->as.name);
     if (a)
       return a->type ? a->type : &r->program->types[SEMA_ERROR];
-    s = old_self(r, syntax->as.name, syntax->span);
-    if (s)
-      return &s->type;
   }
   if (syntax->kind == TYPE_INFER) {
     diagnostics_error(

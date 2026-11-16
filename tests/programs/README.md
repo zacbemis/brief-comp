@@ -1,8 +1,13 @@
 # Program tests
 
-Current inventory: **220 fixtures**. N1 retired the v0 generated document tests;
+Current inventory: **207 fixtures**. N1 retired the v0 generated document tests;
 references to those audits in the milestone history below are historical. See
 [document status](../doc-acceptance.md) for parser coverage and gaps.
+
+Removed v0 spellings have no special recovery. The `errors/old-*.brf` and
+`errors/removed-*.brf` fixtures, and the prefix-`!` cases in
+`errors/update-values.brf`, were deleted with that recovery; the history below
+still mentions them.
 
 N2's first slice adds `none-payload-shape.brf` and `errors/none-payloads.brf`.
 The reserved neutral `:none` accepts no payload positions: `:none` and `:none[]`

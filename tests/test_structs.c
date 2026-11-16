@@ -533,64 +533,6 @@ int main(void) {
     if (unknown.errors.count)
       ASSERT_TRUE(unknown.errors.items[0]->fixes == NULL);
   }
-  TEST("retired Self shorthand has exact owner-aware fixes with no cascades") {
-    const char *cases[] = {"f(b: &/* keep */ Self) -> int { b.n }",
-                           "f() -> Self { Box { n = 1 } }",
-                           "f() -> :value[Self] { :value[Box { n = 1 }] }",
-                           "f() { let b: Self = Box { n = 1 }\nb }",
-                           "f() -> Box { Self { n = 1 } }",
-                           "f() -> Box { Self.make() }",
-                           "f() -> Box { (/* keep */ Self).make() }",
-                           "f() -> Box { (/* keep */\nSelf\n) { n = 1 } }"};
-    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
-      for (unsigned crlf = 0; crlf < 2; crlf++) {
-        char lf[512], text[1024];
-        snprintf(lf, sizeof(lf),
-                 "Box { n: int\n\nmake() -> Box { Box { n = 1 } "
-                 "}\n%s\n}\nmain() {}\n",
-                 cases[i]);
-        size_t n = 0;
-        for (size_t j = 0; lf[j]; j++) {
-          if (crlf && lf[j] == '\n')
-            text[n++] = '\r';
-          text[n++] = lf[j];
-        }
-        text[n] = 0;
-        Result r = check(&a, text);
-        ASSERT_EQ_INT(1, r.errors.count);
-        ASSERT_TRUE(!r.program->resolved && !r.program->checked);
-        if (r.errors.count != 1) {
-          diagnostics_print(&r.errors, stderr);
-          continue;
-        }
-        Diagnostic *d = r.errors.items[0];
-        ASSERT_EQ_INT(
-            0,
-            strcmp("There is no implicit 'Self' type; name the enclosing type.",
-                   d->message));
-        ASSERT_TRUE(d->span.file == r.program->module);
-        ASSERT_EQ_INT((size_t)(strstr(text, "Self") - text), d->span.start);
-        ASSERT_EQ_INT(4, d->span.end - d->span.start);
-        ASSERT_TRUE(d->fixes && !d->fixes->next && !d->notes);
-        if (d->fixes) {
-          ASSERT_EQ_INT(d->span.start, d->fixes->span.start);
-          ASSERT_EQ_INT(d->span.end, d->fixes->span.end);
-          ASSERT_EQ_INT(0, strcmp("Box", d->fixes->replacement));
-          char fixed[1024];
-          snprintf(fixed, sizeof(fixed), "%.*s%s%s", (int)d->span.start, text,
-                   d->fixes->replacement, text + d->span.end);
-          valid(&a, fixed);
-          ASSERT_EQ_INT(0, strcmp(text, d->span.file->text));
-        }
-      }
-    }
-    Result fields = check(&a, "A { a: Self }\nB { b: Self }\nmain() {}");
-    ASSERT_EQ_INT(2, fields.errors.count);
-    if (fields.errors.count == 2) {
-      ASSERT_EQ_INT(0, strcmp("A", fields.errors.items[0]->fixes->replacement));
-      ASSERT_EQ_INT(0, strcmp("B", fields.errors.items[1]->fixes->replacement));
-    }
-  }
   TEST("wrong-way calls carry source-preserving fixes, not guessed receivers") {
     const char *prefix =
         "Date { day: int\nlabel() -> int { self.day }\ncombine(n: int) -> int "
@@ -716,7 +658,6 @@ int main(void) {
             "Duplicate function");
     invalid(&a, "A { unit: ()\nf() {}\nf() {} }\nmain() {}",
             "Duplicate function");
-    invalid(&a, "impl int {}\nmain() {}", "without 'impl'");
     invalid(&a, "main() {}\nf(a: Self) {}", "type is unknown");
     invalid(&a, "A { unit: () }\nmain() { A.nope() }", "Unknown associated");
     invalid(&a, "A { unit: () }\nf(a: A) {}\nmain() { A { unit = () }.f() }",

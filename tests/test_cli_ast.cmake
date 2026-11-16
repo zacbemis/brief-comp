@@ -333,24 +333,6 @@ foreach(mode IN ITEMS emit-c run build)
     endif()
 endforeach()
 
-set(old_impl "${TEST_DIR}/old-impl.brf")
-file(WRITE "${old_impl}" "User { n: int }\r\nimpl User { read(u: User) { u.n } }\r\nmain() {}\r\n")
-execute_process(COMMAND "${BRIEF}" dump-tokens "${old_impl}"
-    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
-if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
-   NOT output MATCHES "TOK_LOWER_NAME \"impl\"" OR output MATCHES "TOK_IMPL")
-    message(FATAL_ERROR "impl remains a keyword (${status}):\n${errors}\n${output}")
-endif()
-foreach(mode IN ITEMS dump-ast emit-c)
-    execute_process(COMMAND "${BRIEF}" ${mode} "${old_impl}"
-        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
-    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
-       NOT errors MATCHES "^error: Declare functions inside the struct, without 'impl'" OR
-       errors MATCHES "help:")
-        message(FATAL_ERROR "old impl escaped rejection (${status}):\n${errors}")
-    endif()
-endforeach()
-
 set(qualified "${TEST_DIR}/qualified-symbol.brf")
 file(WRITE "${qualified}" "A = models.Db.:!bad[Missing]\r\nmain() {}\r\n")
 execute_process(COMMAND "${BRIEF}" dump-ast "${qualified}"
@@ -414,31 +396,6 @@ execute_process(COMMAND "${BRIEF}" emit-c "${native_alias}"
 if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR
    NOT errors MATCHES "^error: Recursive named types require a struct indirection")
     message(FATAL_ERROR "cyclic alias escaped checking (${status}):\n${errors}")
-endif()
-
-set(self_type "${TEST_DIR}/self-type.brf")
-file(WRITE "${self_type}" "Box { n: int\r\nread(b: Self) -> int { b.n } }\r\nmain() {}\r\n")
-execute_process(COMMAND "${BRIEF}" dump-tokens "${self_type}"
-    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
-if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR
-   NOT output MATCHES "TOK_UPPER_NAME \"Self\"" OR output MATCHES "TOK_SELF")
-    message(FATAL_ERROR "Self is still a keyword (${status}):\n${errors}\n${output}")
-endif()
-execute_process(COMMAND "${BRIEF}" dump-ast "${self_type}"
-    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
-if(NOT status EQUAL 0 OR NOT errors STREQUAL "")
-    message(FATAL_ERROR "ordinary Self name rejected by parser (${status}):\n${errors}")
-endif()
-execute_process(COMMAND "${BRIEF}" emit-c "${self_type}"
-    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
-string(REGEX MATCHALL "(^|\n)error:" self_errors "${errors}")
-list(LENGTH self_errors self_errors)
-string(FIND "${errors}" "help: write `read(b: Box)" self_fix)
-if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT self_errors EQUAL 1 OR
-   NOT errors MATCHES "^error: There is no implicit 'Self' type" OR
-   self_fix LESS 0 OR
-   errors MATCHES "Unknown|not exhaustive")
-    message(FATAL_ERROR "old Self escaped its diagnostic (${status}):\n${errors}")
 endif()
 
 set(typed_pattern "${TEST_DIR}/typed-payload-pattern.brf")
@@ -505,19 +462,6 @@ execute_process(COMMAND "${BRIEF}" run --debug "${payloads}"
 if(NOT status EQUAL 0 OR NOT output STREQUAL "x42\n" OR NOT errors STREQUAL "")
     message(FATAL_ERROR "positional native payload failed (${status}):\n${errors}")
 endif()
-file(WRITE "${payloads}" "E = :typed(int)\r\nmain() { :value(1)\r\n  1 |> { :some(x) => x }\r\n}\r\n")
-foreach(command dump-ast emit-c)
-    execute_process(COMMAND "${BRIEF}" "${command}" "${payloads}"
-        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
-    string(REGEX MATCHALL "(^|\n)error:" payload_errors "${errors}")
-    list(LENGTH payload_errors payload_errors)
-    string(FIND "${errors}" "help: write `E = :typed[int]`" type_fix)
-    string(FIND "${errors}" ":some[x] => x" pattern_fix)
-    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR NOT payload_errors EQUAL 3 OR
-       type_fix LESS 0 OR pattern_fix LESS 0)
-        message(FATAL_ERROR "old payloads accepted or lost fixes (${command}, ${status}):\n${errors}")
-    endif()
-endforeach()
 
 # :none keeps its zero-position syntax. Payload rejection is semantic, and
 # must precede unavailable payload names/bodies without a destructive fix.
@@ -598,23 +542,6 @@ foreach(command IN ITEMS emit-c build run)
         message(FATAL_ERROR "error-only call escaped rejection (${command}, ${status}):\n${errors}\n${output}")
     endif()
 endforeach()
-
-set(old_union "${TEST_DIR}/old-union.brf")
-file(WRITE "${old_union}" "E = Sym<:a,:b>\r\nmain() {}\r\n")
-foreach(command dump-ast emit-c)
-    execute_process(COMMAND "${BRIEF}" "${command}" "${old_union}"
-        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
-    string(FIND "${errors}" "help: write `E = :a | :b`" fix_at)
-    if(NOT status EQUAL 1 OR NOT output STREQUAL "" OR fix_at LESS 0 OR
-       NOT errors MATCHES "^error: Symbol unions use")
-        message(FATAL_ERROR "old Sym syntax accepted or lost fixes (${command}, ${status}):\n${errors}")
-    endif()
-endforeach()
-execute_process(COMMAND "${BRIEF}" dump-tokens "${old_union}"
-    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
-if(NOT status EQUAL 0 OR NOT errors STREQUAL "" OR NOT output MATCHES "TOK_UPPER_NAME.*Sym" OR output MATCHES "TOK_SYM")
-    message(FATAL_ERROR "Sym is still reserved (${status}):\n${errors}\n${output}")
-endif()
 
 set(generic "${TEST_DIR}/generic-invalid.brf")
 file(WRITE "${generic}" "check(value: int) {}\r\nmain() { let a = 1\r\n  let d = 2\r\n  check(a[b, c](d))\r\n}\r\n")

@@ -126,29 +126,23 @@ Rejection fixtures below keep their original rule, source and diagnostic line.
 
 ## `fail/`
 
-There are 114 rejection fixtures, including `receiver-position.brf`,
+There are 103 rejection fixtures, including `receiver-position.brf`,
 `struct-plain-self.brf`, `receiver-written-type.brf`,
 `conformance-missing-name.brf`,
-`conformance-non-name.brf`, `primitive-field-name.brf`, `old-impl-block.brf`,
+`conformance-non-name.brf`, `primitive-field-name.brf`,
 `struct-signature-without-body.brf`, `trait-signature-without-return.brf`,
 `qualified-shared-symbol.brf`, `qualified-symbol-missing-name.brf` and
 `pub-trait.brf`, `typed-pattern-outside-payload.brf`,
 `typed-payload-missing-name.brf`, `typed-payload-missing-type.brf`,
-`old-symbol-union.brf`, `union-missing-member.brf`,
-`union-missing-separator.brf`, `old-payload-parentheses.brf`,
+`union-missing-member.brf`, `union-missing-separator.brf`,
 `payload-missing-close.brf`, `payload-missing-comma.brf`,
 `error-tag-spacing.brf`, `collection-header.brf`,
 `collection-missing-comma.brf`, `bare-collection-literal.brf`,
 `import-missing-name.brf`, `import-in-body.brf`, `tag-casing.brf`,
 `tag-wildcard.brf`, `declaration-casing.brf`, `declaration-wildcard.brf`,
-`old-type-arguments.brf`, `old-array-type.brf`, `old-index.brf`,
-`index-missing-close.brf`, `pub-struct.brf`, `old-return-colon.brf`,
-`old-alias-keyword.brf`, `pub-alias.brf` and `struct-literal-old-colon.brf`.
-`struct-literal-missing-equals.brf` retains the old missing-delimiter rule under
-its new spelling/name. The converted function headers retain each existing
-fixture's original error rule and line. The two old `sym-*` delimiter files now
-check missing union members/separators on their original error lines: the old
-angle-closing/newline rule no longer exists.
+`index-missing-close.brf`, `pub-struct.brf` and `pub-alias.brf`.
+Removed v0 spellings have no special recovery and no fixtures; they fail as
+ordinary syntax errors.
 
 Every file must be rejected: `brief dump-ast` exits with status 1 and prints no
 tree. Each file starts with a header:
@@ -167,11 +161,7 @@ tree. Each file starts with a header:
 - Files named `recovery-*` list every expected diagnostic in order. The parser
   must report exactly those lines, which checks that one error does not hide
   later ones or cause a cascade.
-- `old-trait-keyword.brf` and `old-override-modifier.brf` (formerly `later-*`)
-  test removed prefixes, not syntax that should eventually become valid. Their
-  error lines are preserved. Modern fieldless bodies parse as traits; native
-  trait support remains unavailable.
-- Other files named `later-*` use syntax from later versions (lambdas, traits,
+- Files named `later-*` use syntax from later versions (lambdas, traits,
   tuples). Move them to `pass/` as each feature's syntax is added.
 - Files named `limit-*` exceed the parser's 128-level nesting limit
   (`docs/plans/first-version.txt`, "Implementation limits").
