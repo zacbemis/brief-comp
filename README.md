@@ -403,6 +403,9 @@ Panics terminate the process without unwinding owners.
 - `include/ast/`, `src/ast/`: syntax-tree nodes with spans and a tree printer.
 - `include/parser/`, `src/parser/`: recursive-descent declarations, statements,
   and patterns, Pratt expressions, generic-call disambiguation, and recovery.
+  Each grammar area has its own file (`types.c`, `primary.c`, `expressions.c`,
+  `match.c`, `statements.c`, `declarations.c`); `internal.h` holds the shared
+  parser state, token cursor and recovery helpers.
 - `src/lexer/newline.c`: continuation and nested-delimiter newline filtering.
 - `include/sema/`, `src/sema/`: separate name resolution and type checking,
   with canonical primitive/nominal types, lexical scopes, flow checks, read-only
@@ -411,13 +414,19 @@ Panics terminate the process without unwinding owners.
   return inference. Tags carry neutral kind and source-module identity metadata;
   this does not implement modules or change the current outcome rules. The walker
   provides branch joins and whole-function loop fixed points for later
-  definite-assignment and outcome checks.
+  definite-assignment and outcome checks. `src/sema/resolve/` builds the
+  checked tree, `src/sema/check/` types it and infers returns, and
+  `src/sema/flow/` holds the walker and its assignment, outcome and permission
+  passes. `src/sema/internal.h` declares the pass hooks shared inside sema.
 - `include/ir/`, `src/ir/`: typed temporaries, sequenced calls, explicit control
   flow/returns, loop targets, value-producing branches, field operations, and a
-  separately testable reference-count insertion pass.
+  separately testable reference-count insertion pass. Lowering lives in
+  `src/ir/lower/`, split into the instruction builder, expressions, control
+  flow and match.
 - `include/codegen/`, `src/codegen/`, `runtime/`: self-contained C emission,
   source mapping, heap strings/structs, automatic ownership, printing/conversions,
-  and checked numeric operations.
+  and checked numeric operations. `src/codegen/c/` separates C spellings, type
+  declarations, function bodies and program assembly.
 - `include/driver/`, `src/driver/`: shell-free native compiler invocation.
 - `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
   native driver tests; program tests in normal and sanitizer configurations;
