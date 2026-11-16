@@ -993,8 +993,11 @@ static SemaExpr *resolve_expr(Resolver *r, const Expr *s) {
     e->as.for_loop.inclusive = range->as.binary.inclusive;
     Local *saved = r->locals;
     r->depth++;
-    e->as.for_loop.variable = variable(r, s->as.for_loop.name, s->span,
-                                       &r->program->types[SEMA_UNKNOWN], 0);
+    const Type *annotation = s->as.for_loop.annotation;
+    if (annotation)
+      e->as.for_loop.annotation_span = annotation->span;
+    e->as.for_loop.variable =
+        variable(r, s->as.for_loop.name, s->span, type(r, annotation), 0);
     r->loops++;
     e->as.for_loop.body = resolve_expr(r, s->as.for_loop.body);
     r->loops--;

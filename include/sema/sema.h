@@ -234,6 +234,7 @@ struct SemaExpr {
       SemaVar *variable;
       SemaExpr *lower, *upper, *body;
       int inclusive;
+      Span annotation_span; // Present only for a written iteration type.
     } for_loop;
     struct {
       SemaExpr *input;

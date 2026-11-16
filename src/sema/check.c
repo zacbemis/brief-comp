@@ -1226,17 +1226,38 @@ static const SemaType *check(Checker *c, SemaExpr *e, const SemaType *expected,
   case SEMA_EXPR_FOR: {
     SemaExpr *a = e->as.for_loop.lower, *b = e->as.for_loop.upper,
              *body = e->as.for_loop.body;
-    const SemaType *context = operand_type(c, a, b, NULL);
+    SemaVar *v = e->as.for_loop.variable;
+    const SemaType *annotation =
+        e->as.for_loop.annotation_span.file ? v->annotation : NULL;
+    int typed = sema_integer(annotation);
+    if (annotation && !special(annotation) && !typed)
+      error(c, e->as.for_loop.annotation_span,
+            "A loop variable must have an integer type.");
+    const SemaType *context = annotation
+                                  ? (typed ? annotation : t(c, SEMA_ERROR))
+                                  : operand_type(c, a, b, NULL);
     const SemaType *at = check(c, a, context, VALUE);
     c->reachable = reachable && (a->flow & SEMA_NEXT);
-    const SemaType *bt = check(c, b, special(at) ? context : at, VALUE);
-    if (!special(at) && !sema_integer(at))
-      error(c, a->span, "Range bounds must be integers.");
-    if (!special(bt) && !sema_integer(bt))
-      error(c, b->span, "Range bounds must be integers.");
-    if (!special(at) && !special(bt) && at != bt)
-      error(c, e->span, "Range bounds must have the same type.");
-    e->as.for_loop.variable->type = special(at) ? bt : at;
+    // A mismatching lower bound must not change the upper bound's context.
+    const SemaType *bt =
+        check(c, b, annotation ? context : (special(at) ? context : at), VALUE);
+    if (annotation) {
+      if (typed) {
+        expect(c, a, annotation,
+               "Range bound does not match the loop variable type.");
+        expect(c, b, annotation,
+               "Range bound does not match the loop variable type.");
+      }
+      v->type = typed ? annotation : t(c, SEMA_ERROR);
+    } else {
+      if (!special(at) && !sema_integer(at))
+        error(c, a->span, "Range bounds must be integers.");
+      if (!special(bt) && !sema_integer(bt))
+        error(c, b->span, "Range bounds must be integers.");
+      if (!special(at) && !special(bt) && at != bt)
+        error(c, e->span, "Range bounds must have the same type.");
+      v->type = special(at) ? bt : at;
+    }
     c->reachable = reachable && (a->flow & b->flow & SEMA_NEXT);
     check(c, body, NULL, DISCARD);
     flow = sequence(sequence(a->flow, b->flow),

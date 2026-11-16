@@ -318,6 +318,10 @@ static void expr(FILE *out, const Expr *e) {
     break;
   case EXPR_FOR:
     fprintf(out, "(for %s ", e->as.for_loop.name);
+    if (e->as.for_loop.annotation) {
+      type(out, e->as.for_loop.annotation);
+      fputc(' ', out);
+    }
     expr(out, e->as.for_loop.iterable);
     fputc(' ', out);
     expr(out, e->as.for_loop.body);

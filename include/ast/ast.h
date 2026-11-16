@@ -148,6 +148,7 @@ struct Expr {
     } conditional;
     struct {
       const char *name;
+      Type *annotation; // Optional written iteration type.
       Expr *iterable;
       Expr *body;
     } for_loop;

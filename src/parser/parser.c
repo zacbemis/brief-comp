@@ -1822,6 +1822,11 @@ static Expr *primary(Parser *p, int allow_struct) {
     Token declared = p->previous;
     size_t mark = p->diagnostics->count;
     e->as.for_loop.name = name(p, declared);
+    if (match(p, TOK_COLON)) {
+      e->as.for_loop.annotation = type(p);
+      if (!e->as.for_loop.annotation)
+        return NULL;
+    }
     if (!expect(p, TOK_IN, "Expected 'in' after loop variable."))
       return NULL;
     e->as.for_loop.iterable = expression(p, 0, 0);
