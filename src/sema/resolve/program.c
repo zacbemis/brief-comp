@@ -2,101 +2,22 @@
 
 #include <string.h>
 
+static int find_self(const Expr *e, void *context) {
+  if (e->kind != EXPR_SELF)
+    return ast_expr_children(e, find_self, context);
+  *(const Expr **)context = e;
+  return 1;
+}
+
 // A syntax-only body walk, independent of return inference and its probes.
 // Patterns cannot contain a self expression in the accepted parser grammar.
 static const Expr *first_self(const Expr *e) {
-  if (!e)
-    return NULL;
-#define SELF(child)                                                            \
-  do {                                                                         \
-    const Expr *found = first_self(child);                                     \
-    if (found)                                                                 \
-      return found;                                                            \
-  } while (0)
-  switch (e->kind) {
-  case EXPR_SELF:
-    return e;
-  case EXPR_SYMBOL:
-    for (size_t i = 0; i < e->as.symbol.count; i++)
-      SELF(e->as.symbol.payloads[i]);
-    break;
-  case EXPR_COLLECTION:
-    SELF(e->as.collection.constructor);
-    for (size_t i = 0; i < e->as.collection.count; i++)
-      SELF(e->as.collection.items[i]);
-    break;
-  case EXPR_STRUCT_LIT:
-    SELF(e->as.structure.type);
-    for (size_t i = 0; i < e->as.structure.count; i++)
-      SELF(e->as.structure.fields[i].value);
-    break;
-  case EXPR_UNARY:
-    SELF(e->as.unary.value);
-    break;
-  case EXPR_BINARY:
-    SELF(e->as.binary.left);
-    SELF(e->as.binary.right);
-    break;
-  case EXPR_CALL:
-    SELF(e->as.call.callee);
-    for (size_t i = 0; i < e->as.call.count; i++)
-      SELF(e->as.call.args[i]);
-    break;
-  case EXPR_FIELD:
-    SELF(e->as.field.object);
-    break;
-  case EXPR_INDEX:
-    SELF(e->as.index.object);
-    SELF(e->as.index.index);
-    break;
-  case EXPR_BLOCK:
-    for (size_t i = 0; i < e->as.block.count; i++) {
-      BlockItem item = e->as.block.items[i];
-      if (item.kind == BLOCK_ITEM_EXPR) {
-        SELF(item.as.expr);
-      } else if (item.kind == BLOCK_ITEM_DECL) {
-        SELF(item.as.decl->as.binding.value);
-        SELF(item.as.decl->as.binding.else_body);
-      } else if (item.as.stmt->kind == STMT_ASSIGN) {
-        SELF(item.as.stmt->as.assign.target);
-        SELF(item.as.stmt->as.assign.value);
-      } else if (item.as.stmt->kind != STMT_BREAK &&
-                 item.as.stmt->kind != STMT_CONTINUE) {
-        SELF(item.as.stmt->as.value);
-      }
-    }
-    break;
-  case EXPR_IF:
-    SELF(e->as.conditional.condition);
-    SELF(e->as.conditional.then_branch);
-    SELF(e->as.conditional.else_branch);
-    break;
-  case EXPR_FOR:
-    SELF(e->as.for_loop.iterable);
-    SELF(e->as.for_loop.body);
-    break;
-  case EXPR_WHILE:
-    SELF(e->as.while_loop.condition);
-    SELF(e->as.while_loop.body);
-    break;
-  case EXPR_MATCH:
-    for (size_t i = 0; i < e->as.match.count; i++)
-      SELF(e->as.match.arms[i].value);
-    break;
-  case EXPR_TRY:
-  case EXPR_PANIC:
-    SELF(e->as.postfix);
-    break;
-  case EXPR_PIPE:
-    SELF(e->as.pipe.value);
-    SELF(e->as.pipe.stage);
-    break;
-  default:
-    break;
-  }
-#undef SELF
-  return NULL;
+  const Expr *found = NULL;
+  if (e)
+    find_self(e, &found);
+  return found;
 }
+
 static int outside_self(Diagnostics *errors, const Decl *d) {
   const Expr *use = first_self(d->as.function.body);
   if (!use && d->as.function.receiver == RECEIVER_NONE)

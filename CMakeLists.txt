@@ -53,6 +53,7 @@ add_library(brief_core STATIC
     src/parser/statements.c
     src/parser/declarations.c
     src/ast/print.c
+    src/ast/walk.c
     src/sema/types.c
     src/sema/resolve/scope.c
     src/sema/resolve/types.c

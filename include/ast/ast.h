@@ -257,5 +257,11 @@ typedef struct {
 // Stable, single-line S-expressions followed by one newline. No addresses or
 // arena-dependent details appear in the dump.
 void ast_print(FILE *output, const Program *program);
+// Calls visit on each present direct child expression of e, in evaluation
+// order; patterns and types are not visited. Stops and returns 1 as soon as
+// visit returns nonzero, otherwise returns 0.
+int ast_expr_children(const Expr *e,
+                      int (*visit)(const Expr *child, void *context),
+                      void *context);
 
 #endif
