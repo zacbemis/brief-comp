@@ -2,6 +2,7 @@
 #include "lexer/lexer.h"
 #include "lexer/newline.h"
 #include "parser/parser.h"
+#include "sema/internal.h"
 #include "test_utils.h"
 #include <math.h>
 

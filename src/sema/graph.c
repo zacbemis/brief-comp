@@ -1,4 +1,4 @@
-#include "sema/sema.h"
+#include "sema/internal.h"
 
 typedef struct {
   size_t function;

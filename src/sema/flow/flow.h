@@ -1,7 +1,7 @@
 #ifndef BRIEF_SEMA_FLOW_H
 #define BRIEF_SEMA_FLOW_H
 
-#include "sema/sema.h"
+#include "sema/internal.h"
 
 // Forward data flow over the checked tree. State is a fixed-size, trivially
 // copyable byte buffer supplied by the analysis. Expression values are opaque

@@ -1,4 +1,4 @@
-#include "sema/flow.h"
+#include "sema/flow/flow.h"
 #include <string.h>
 
 typedef struct Loop Loop;

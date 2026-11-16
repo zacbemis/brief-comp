@@ -1,4 +1,4 @@
-#include "sema/flow.h"
+#include "sema/flow/flow.h"
 
 // May-states join by union. Each successful assignment creates a new pending
 // value; it does not discharge an older one. Poison is reporting-only, never

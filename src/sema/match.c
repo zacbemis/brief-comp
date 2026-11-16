@@ -1,4 +1,4 @@
-#include "sema/sema.h"
+#include "sema/internal.h"
 #include <math.h>
 #include <string.h>
 

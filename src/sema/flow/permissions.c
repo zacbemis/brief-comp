@@ -1,4 +1,4 @@
-#include "sema/flow.h"
+#include "sema/flow/flow.h"
 #include <string.h>
 
 // Access permission is separate from ownership: retaining a reference does not

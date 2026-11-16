@@ -4,7 +4,9 @@
 function(add_brief_test name)
     add_executable(${name} ${name}.c)
     target_link_libraries(${name} PRIVATE brief_core)
-    target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    # White-box tests may include pass-private src/<pass>/internal.h headers.
+    target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+        ${PROJECT_SOURCE_DIR}/src)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 

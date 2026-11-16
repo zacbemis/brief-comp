@@ -53,13 +53,27 @@ add_library(brief_core STATIC
     src/parser/statements.c
     src/parser/declarations.c
     src/ast/print.c
-    src/sema/sema.c
-    src/sema/check.c
+    src/sema/types.c
+    src/sema/resolve/scope.c
+    src/sema/resolve/types.c
+    src/sema/resolve/expr.c
+    src/sema/resolve/call.c
+    src/sema/resolve/match.c
+    src/sema/resolve/statements.c
+    src/sema/resolve/program.c
+    src/sema/check/returns.c
+    src/sema/check/hints.c
+    src/sema/check/expr.c
+    src/sema/check/bindings.c
+    src/sema/check/calls.c
+    src/sema/check/operators.c
+    src/sema/check/control.c
+    src/sema/check/inference.c
     src/sema/graph.c
-    src/sema/flow.c
-    src/sema/assignment.c
-    src/sema/permissions.c
-    src/sema/outcomes.c
+    src/sema/flow/flow.c
+    src/sema/flow/assignment.c
+    src/sema/flow/permissions.c
+    src/sema/flow/outcomes.c
     src/sema/match.c
     src/sema/symbols.c
     src/sema/conversions.c

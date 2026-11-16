@@ -1,4 +1,4 @@
-#include "sema/flow.h"
+#include "sema/flow/flow.h"
 
 // Must-facts: both properties intersect at joins. Neither means that paths
 // disagree. Declarations reset the facts for each lexical/loop generation;
