@@ -1,19 +1,10 @@
 #include "parser/internal.h"
 
-#include <stdint.h>
 #include <string.h>
 
 void parser_push(Parser *p, List *list, const void *item, size_t size) {
-  if (list->count == list->capacity) {
-    size_t capacity = list->capacity ? list->capacity * 2 : 4;
-    if (capacity < list->capacity)
-      capacity = SIZE_MAX;
-    void *data = arena_calloc(p->arena, capacity, size);
-    if (list->count)
-      memcpy(data, list->data, list->count * size);
-    list->data = data;
-    list->capacity = capacity;
-  }
+  list->data =
+      arena_grow(p->arena, list->data, list->count, &list->capacity, size, 4);
   memcpy((char *)list->data + list->count++ * size, item, size);
 }
 

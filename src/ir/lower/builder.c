@@ -4,14 +4,7 @@
 
 void lower_emit(Lower *l, IrInstruction instruction) {
   IrFunction *f = l->function;
-  if (f->count == f->capacity) {
-    size_t capacity = f->capacity ? f->capacity * 2 : 16;
-    IrInstruction *items = arena_calloc(l->arena, capacity, sizeof(*items));
-    if (f->count)
-      memcpy(items, f->instructions, f->count * sizeof(*items));
-    f->instructions = items;
-    f->capacity = capacity;
-  }
+  ARENA_GROW(l->arena, f->instructions, f->count, f->capacity, 16);
   f->instructions[f->count++] = instruction;
 }
 
@@ -34,14 +27,8 @@ size_t lower_temporary(Lower *l, const SemaType *type) {
   if (type->kind == SEMA_UNIT || type->kind == SEMA_NEVER)
     return IR_NO_VALUE;
   IrFunction *f = l->function;
-  if (f->temporaries == f->temporary_capacity) {
-    size_t capacity = f->temporary_capacity ? f->temporary_capacity * 2 : 16;
-    const SemaType **items = arena_calloc(l->arena, capacity, sizeof(*items));
-    if (f->temporaries)
-      memcpy(items, f->temporary_types, f->temporaries * sizeof(*items));
-    f->temporary_types = items;
-    f->temporary_capacity = capacity;
-  }
+  ARENA_GROW(l->arena, f->temporary_types, f->temporaries,
+             f->temporary_capacity, 16);
   size_t id = f->temporaries++;
   f->temporary_types[id] = type;
   if (sema_reference(type))

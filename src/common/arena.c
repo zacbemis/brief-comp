@@ -77,3 +77,18 @@ char *arena_strndup(Arena *arena, const char *text, size_t length) {
 char *arena_strdup(Arena *arena, const char *text) {
   return arena_strndup(arena, text, strlen(text));
 }
+
+void *arena_grow(Arena *arena, void *items, size_t count, size_t *capacity,
+                 size_t size, size_t initial) {
+  if (count < *capacity)
+    return items;
+  size_t grown = *capacity ? *capacity * 2 : initial;
+  // arena_calloc rejects a byte size that overflows.
+  if (grown < *capacity)
+    grown = SIZE_MAX;
+  void *next = arena_calloc(arena, grown, size);
+  if (count)
+    memcpy(next, items, count * size);
+  *capacity = grown;
+  return next;
+}

@@ -73,14 +73,8 @@ SemaVar *resolve_variable(Resolver *r, const char *name, Span span,
                  .data_mutable = 1,
                  .annotation = annotation,
                  .type = annotation};
-  if (f->variable_count == f->variable_capacity) {
-    size_t capacity = f->variable_capacity ? f->variable_capacity * 2 : 16;
-    SemaVar **items = arena_calloc(r->arena, capacity, sizeof(*items));
-    if (f->variable_count)
-      memcpy(items, f->variables, f->variable_count * sizeof(*items));
-    f->variables = items;
-    f->variable_capacity = capacity;
-  }
+  ARENA_GROW(r->arena, f->variables, f->variable_count, f->variable_capacity,
+             16);
   f->variables[f->variable_count++] = v;
   resolve_push_local(r, v);
   return v;

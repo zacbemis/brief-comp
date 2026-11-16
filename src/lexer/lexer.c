@@ -1,6 +1,5 @@
 #include "lexer/lexer.h"
 
-#include <stdint.h>
 #include <string.h>
 
 void lexer_init(Lexer *lexer, const SourceFile *source,
@@ -412,16 +411,7 @@ TokenArray lexer_tokenize(Arena *arena, const SourceFile *source,
   TokenArray tokens = {0};
   size_t capacity = 0;
   for (;;) {
-    if (tokens.count == capacity) {
-      size_t grown_capacity = capacity ? capacity * 2 : 64;
-      if (grown_capacity < capacity)
-        grown_capacity = SIZE_MAX;
-      Token *items = arena_calloc(arena, grown_capacity, sizeof(*items));
-      if (tokens.count)
-        memcpy(items, tokens.items, tokens.count * sizeof(*items));
-      tokens.items = items;
-      capacity = grown_capacity;
-    }
+    ARENA_GROW(arena, tokens.items, tokens.count, capacity, 64);
     Token token = lexer_next_token(&lexer);
     tokens.items[tokens.count++] = token;
     if (token.type == TOK_EOF)

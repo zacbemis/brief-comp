@@ -8,19 +8,8 @@ void diagnostics_init(Diagnostics *diagnostics, Arena *arena) {
 
 Diagnostic *diagnostics_error(Diagnostics *diagnostics, Span span,
                               const char *message) {
-  if (diagnostics->count == diagnostics->capacity) {
-    size_t capacity = diagnostics->capacity ? diagnostics->capacity * 2 : 16;
-    // Source-sized lists cannot normally reach this limit; arena_calloc also
-    // checks multiplication overflow before allocating the array.
-    if (capacity < diagnostics->capacity)
-      capacity = (size_t)-1;
-    Diagnostic **items =
-        arena_calloc(diagnostics->arena, capacity, sizeof(*items));
-    if (diagnostics->count)
-      memcpy(items, diagnostics->items, diagnostics->count * sizeof(*items));
-    diagnostics->items = items;
-    diagnostics->capacity = capacity;
-  }
+  ARENA_GROW(diagnostics->arena, diagnostics->items, diagnostics->count,
+             diagnostics->capacity, 16);
   Diagnostic *error = arena_calloc(diagnostics->arena, 1, sizeof(*error));
   error->span = span_make(span.file, span.start, span.end);
   error->message = arena_strdup(diagnostics->arena, message);
