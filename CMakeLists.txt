@@ -83,7 +83,10 @@ add_library(brief_core STATIC
     src/ir/lower/match.c
     src/ir/lower/program.c
     src/ir/rc.c
-    src/codegen/c.c
+    src/codegen/c/spelling.c
+    src/codegen/c/types.c
+    src/codegen/c/function.c
+    src/codegen/c/program.c
     src/driver/native.c
     "${runtime_header}"
 )
