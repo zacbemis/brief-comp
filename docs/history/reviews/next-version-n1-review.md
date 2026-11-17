@@ -2,7 +2,7 @@
 
 **N1 is complete for its milestone scope. N2 has not started.** This review is
 against the three N1 “Done when” criteria in
-[`next-version.txt`](../../plans/next-version.txt), not the full next-version
+[`next-version.txt`](../plans/next-version.txt), not the full next-version
 language, full chapter/API acceptance or production readiness. Reviewed base:
 `ca94731` (raw-base audit and example CI, committed unchanged).
 

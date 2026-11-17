@@ -1,37 +1,19 @@
 # Examples
 
-Small programs show the first-version feature scope in N1 syntax: `not`, `dbl`,
-`->` returns, keyword-free aliases, `=` literal fields and functions inside
-struct bodies. Methods infer readonly receivers from `self`, or write `&self`
-for mutation. Associated functions stay type-qualified; ordinary owner-typed
-parameters are not implicit receivers. Unambiguous failures use `:!name` in
-types, values and patterns. Shared `:ok` and optional `:none` stay neutral. N2
-now uses kinds for entry status and mandatory call handling, and prints
-diagnostic symbols with `:!` and bracketed payloads. Postfixes remove only error
-tags from checked outcomes, extracting a sole payload or retaining a narrower
-success union. No-error postfix rejection and exact returns still await N2. Each
-program runs on its own:
+Complete programs in the current language. Each runs on its own:
 
 ```sh
 ./build/brief run examples/calendar.brf
 ./build/brief run --debug examples/calendar.brf   # with sanitizers and leak checks
 ```
 
-All six complete sources now run in normal and sanitized CI. Their original
-bytes are preserved in generated copies, with committed output/status markers
-from `tests/examples/*.expect` appended. Source hashes and exact inventory
-checks require review when an example changes; tests never regenerate goldens
-from the compiler under test. stderr must be empty and exit status zero.
+CI runs every program in normal and sanitized builds and compares its output
+and exit status with `tests/examples/*.expect`; source hashes and an exact
+inventory make any change to an example a reviewed change:
 
 ```sh
 ctest --test-dir build -L native-examples --output-on-failure
 ```
-
-This independent example coverage does not accept the raw reference sheet in
-`docs/lang-ex-base.txt`. The [N1 review](../docs/history/reviews/next-version-n1-review.md) is
-complete. N2's payload, intrinsic conversion-kind, entry-kind, formatter,
-call-kind and postfix slices change none of these sources or their observations
-or emitted C. No-error postfix rejection and exact returns remain pending.
 
 | Program | What it does | Language features it shows |
 |---|---|---|

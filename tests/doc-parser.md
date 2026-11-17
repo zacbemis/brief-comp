@@ -188,5 +188,5 @@ registrations, support guards and spelling bridges. No active CMake test reads
 `docs/history/v0/`. The old chapter Markdown records are historical; their commands no
 longer select registered tests. Existing checked-in native fixtures and C tests
 remain active. New native chapter audits return in the milestones specified in
-`docs/plans/next-version.txt`; none is claimed complete by this parser inventory.
+`docs/history/plans/next-version.txt`; none is claimed complete by this parser inventory.
 This intentional gap is not equivalent coverage of the retired generated cases.

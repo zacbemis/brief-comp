@@ -1,6 +1,6 @@
 # Plan: Moving the Compiler to the Next-Version Language
 
-> **Status: N0–N3 complete; N4 in progress; N5–N6 remain.** This plan moves the C compiler and its tests from the first version's language (`docs/history/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/plans/bootstrap-readiness.txt`), which is rewritten after this one.
+> **Status: N0–N3 complete; N4 in progress; N5–N6 remain.** This plan moves the C compiler and its tests from the first version's language (`docs/history/v0/`) to the next version's (`docs/lang-*.txt`), for the first version's scope plus the small additions listed below. The decisions behind the new language are in `docs/lang-post-0-notes.txt`. New capabilities such as vectors, maps and modules across files are left to the bootstrap plan (`docs/history/plans/bootstrap-readiness.txt`), which is rewritten after this one.
 
 ## Goal
 

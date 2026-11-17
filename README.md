@@ -1,514 +1,75 @@
 # Brief
 
-Brief is an experimental statically typed language. The first compiler is
-written in C and emits readable C, then invokes an existing C compiler to
-produce a native program.
+Brief is an experimental statically typed language. Its compiler is written in
+C11, emits readable C and invokes an existing C compiler to build a native
+program.
 
-**The first-version compiler is complete (milestones 0–6)** for the scope in
-[`docs/history/v0/lang-desc.txt`](docs/history/v0/lang-desc.txt): native compilation, numbers,
-control flow, heap strings, structs, methods, reference counting, pipelines,
-scalar/symbol/string matching, named symbol sets, success/error inference,
-`?`/`!` handling and numeric/string conversions.
-Compilation supports the subset below; the parser accepts much more syntax.
-The design docs also include deferred features and fragments needing context.
-The [document status](tests/doc-acceptance.md) distinguishes retired v0 evidence
-from the current parser inventory and scoped N1–N3 chapter native audits,
-plus the whole raw-base inventory and six independent examples.
-Listed fragments and unavailable APIs are not passing native coverage.
+The compiler implements the language in [`docs/lang-*.txt`](docs/lang-desc.txt)
+for the first version's scope: numbers, strings, structs with methods, symbols
+and unions, outcomes with `?` and `!`, pattern matching, pipelines, loops,
+`let ... else` and automatic reference counting. The language is moving to a
+next design (sketched in [`docs/next/`](docs/next/)); the compiler's structure
+is being prepared for it by the [architecture plan](docs/plans/architecture.txt).
 
 ## Build and test
 
-Requires a POSIX host, a C11 compiler (GCC or Clang), CMake 3.16 or newer,
-and Ninja for the helper scripts. The test tools are also written in C;
-CTest has no additional interpreter dependency.
+Requires a POSIX host, a C11 compiler (GCC or Clang), CMake 3.16 or newer and
+Ninja.
 
 ```sh
-./build.sh
-./test.sh
+./build.sh   # Debug build in build/, with AddressSanitizer and UBSan
+./test.sh    # ctest
 ```
 
-The scripts build in `build/` using the Debug configuration. GCC and Clang
-builds enable `-Wall -Wextra -Wpedantic`; Debug builds also enable AddressSanitizer
-and UndefinedBehaviorSanitizer by default. To disable sanitizers explicitly:
-
-```sh
-cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBRIEF_ENABLE_SANITIZERS=OFF
-cmake --build build
-ctest --test-dir build --output-on-failure
-```
-
-For an optimized build without sanitizers:
-
-```sh
-cmake -G Ninja -S . -B build-release -DCMAKE_BUILD_TYPE=Release
-cmake --build build-release
-ctest --test-dir build-release --output-on-failure
-```
-
-CI (`.github/workflows/ci.yml`) runs the tests on every push and pull request
-in GCC and Clang Debug builds with sanitizers, a GCC Release build and a GCC
-Debug build without sanitizers, all with warnings treated as errors. It also
-checks that every C source matches `.clang-format`, using clang-format 23.1.3:
+CI runs GCC and Clang Debug builds with sanitizers, a GCC Release build and a
+GCC Debug build without sanitizers, all with warnings as errors, and checks
+formatting with clang-format 23.1.3:
 
 ```sh
 git ls-files -z '*.c' '*.h' | xargs -0 clang-format --dry-run --Werror
 ```
 
-## Inspect source
+## Use
 
 ```sh
-./build/brief dump-tokens hello.brf
-./build/brief dump-ast hello.brf
+./build/brief dump-tokens file.brf
+./build/brief dump-ast file.brf
+./build/brief emit-c file.brf > file.c
+./build/brief build [--debug] file.brf [-o executable]
+./build/brief run [--debug] file.brf
 ```
 
-The command loads the whole file and prints each token's line, byte column,
-kind, and escaped source spelling. Lexical errors are collected and printed
-on standard error with their source line and an underline; invalid input exits
-with status 1. Invalid command arguments exit with status 2.
+`--debug` builds with sanitizers and leak checks. Compile errors exit with
+status 1, usage errors with status 2.
 
-Names are classified as `TOK_UPPER_NAME` or `TOK_LOWER_NAME`, with `_` as
-`TOK_WILDCARD`; underscore-prefixed names such as `_value` are rejected.
-Logical operators are `not`, `and` and `or`; postfix `!` and `!=` are separate
-operators. Double precision is `dbl`. Function return types follow `->`.
-Aliases use `Name = type` and cannot be `pub`. Struct literals use
-`field = value`; field declarations and type annotations use colons. Struct
-types reject `pub`; field/function visibility is retained in the checked tree,
-with no cross-module access enforcement yet. Postfix indexing uses the adjacent
-`.(` token, as in `items.(i)`; index operations still report not implemented.
-Type arguments use `Name[Type]` in types and calls, without speculative
-parsing, and array annotations use `Arr[Type]`. Generics and collections remain
-unimplemented: typed `Arr[Type] { ... }` and `Vec[Type] { ... }` literals parse,
-but emission reports that collection literals are not implemented. Symbol
-payloads use `[...]` in types, values and patterns. Spellings removed after the
-first version get ordinary syntax errors, without special recovery or fixes.
+## Layout
 
-Native data and failure tags support zero or more positional payloads,
-including unit slots, nested unions and owned values. Canonical types, values
-and bindings retain every position; context, coverage, flow and permissions
-apply independently of physical layout. Native packing, projection, casts,
-equality, formatting and reference traversal visit all positions. Multiple
-`:ok` positions still report not implemented: implicit success has one result
-slot, and no tuple semantics are invented. Types use
-`:a | NamedUnion | :!bad[Type]`, including nested payload unions and partial
-return markers.
+| Path | Contents |
+|---|---|
+| `src/common/` | Arena, source files, diagnostics with fixes, interning, name maps |
+| `src/lexer/` | Lexer and newline filter |
+| `src/parser/` | Recursive-descent parser, one file per grammar area |
+| `src/ast/` | Syntax tree printer and child traversal |
+| `src/sema/resolve/` | Name resolution into the checked tree |
+| `src/sema/check/` | Type checking and return inference |
+| `src/sema/flow/` | Flow framework; definite assignment, outcomes, permissions |
+| `src/ir/lower/`, `src/ir/rc.c` | Lowering to a linear IR; ownership insertion |
+| `src/codegen/c/` | C emission |
+| `src/driver/` | Staged `Compilation` API and the native build driver |
+| `runtime/` | The C runtime embedded in every program |
+| `tests/` | Unit suites, program fixtures (`tests/programs`), parser fixtures (`tests/parse`) and document audits |
+| `examples/` | Complete programs, run in CI |
 
-Aliases transparently reuse any existing native type, including primitives,
-unit and structs. Numeric/string aliases use the existing converters, and
-struct aliases share literals and associated functions with their target type.
+Each pass keeps its private declarations in `src/<pass>/internal.h`.
 
-Functions live inside struct bodies, alongside fields. Existing explicit typed parameters, associated calls and permissions retain
-their native behavior. Fieldless bodies, including typed required signatures
-and default bodies, parse as traits but remain unsupported by native
-compilation. Unit fields make structs and require explicit initializers.
+## Documents
 
-`self` is a keyword and distinct expression node. Struct functions using `self` are classified syntactically before
-return inference, including unreachable uses. Resolution prepends a receiver
-parameter of the canonical owner type; it is read-only unless `&self` is
-written, which makes a method even when unused. The binding itself cannot be
-reassigned. Existing parameter permissions, ownership, aliases and recursive
-inference apply. Traits can parse plain `self` or `&self` but remain
-unsupported; `self` outside an owner is invalid. Import/trait/conformance
-barriers remain.
-
-Methods are called on values; associated functions are called on their type.
-Wrong-way calls reject with source-preserving fixes when their meaning is
-certain: `Date.label(d)` becomes `d.label()`, and `d.new(...)` becomes
-`Date.new(...)`. A supplied ordinary owner argument stays explicit, so
-`d.copy()` can become `Date.copy(d)`. Missing receivers are not invented and
-potentially effectful receiver evaluation is never discarded by a fix.
-Pipelines prefer actual self methods, then visible module functions; an
-associated function does not masquerade as a method. Fixtures, examples and
-embedded native sources use the new forms. N1 is complete for its milestone
-scope; see [the final review](docs/history/reviews/next-version-n1-review.md).
-
-N2 reserves neutral `:none` for absence: `:none` and `:none[]` stay valid, but
-any payload, including `()`, is rejected without a guessed fix. Fallible
-converters declare local error-kind `:!invalid[str]`/`:!overflow` tags. Explicit
-neutral declarations of those names conflict at a fallible call, with a note and
-no guessed fix; ordinary data and infallible casts remain valid. Entry status
-follows the actual top-level returned tag's kind: errors print/release and exit
-1; neutral tags (including `:none`) exit 0. Nested errors do not fail an
-enclosing neutral value or struct. Entry/panic diagnostics now print error tags
-as `:!name` and nonempty payloads in `[...]`, including nested neutral/error
-tags. Escaping, limits, statuses and cleanup are unchanged by this spelling
-switch. Calls now require handling if their actual ABI result contains a
-top-level error tag, even without `:ok`; neutral-only optional/data calls are
-ordinary values. For checked operands containing error tags, postfixes remove
-only those tags. A sole remaining tag yields its payload or unit; several tags
-remain a narrower union, including `:none`. No success edge remains for an
-error-only operand. Extracting several positions from one surviving tag still
-requires a match; no tuple result is invented. No-error postfixes now reject
-because the value has no top-level error tags, including optional, plain and
-only-`:ok` values. Singleton `:ok[T]` now normalizes to `T`, and `:ok` to `()`
-in every type position. Calls return their canonical type, without wrappers
-invented for matches or annotations. Return unions containing `:ok` still wrap
-plain success values. A result containing `:none` uses it for valueless endings;
-a union containing both payload-less `:ok` and `:none` is rejected. See the
-[N2 closure review](docs/history/reviews/next-version-n2-review.md) for its bounded scope.
-
-N3 now accepts complete outcomes returned in tail and `ret` positions, including
-value-producing branches and final pipeline calls. Written results must include
-the returned errors; an outcome is not implicitly wrapped as nested success.
-Written `let`/`var` bindings may hold a complete outcome for later handling by
-one match, postfix or return. A handled `var` may be assigned a new outcome,
-which must be handled again; pending or mixed writes still reject. Shared-flow
-checks reject second handling, non-handler transfers and pending scope exits.
-Inconsistent paths report once at their join with an unhandled-path note.
-Neutral-only data remains freely reusable. Loop checks cover repeated outer
-consumption, rearmed values, nesting and recovery. Jumps evaluated in an inner
-condition or range bound discharge the enclosing loop body's obligations.
-N3 is complete for its milestone scope, including the section-6 errors
-extension and scoped pipelines/memory native audits. The full four-configuration
-`-Werror` matrix passes; unavailable APIs/fragments remain explicit listings.
-See the [N3 closure review](docs/history/reviews/next-version-n3-review.md).
-
-N4 has started with shift counts of any integer type. The result keeps the
-left operand's type; the count retains its own type and is checked before
-conversion, including negative and oversized counts. Other numeric operators
-still require matching operand types; see the
-[shift notes](docs/history/reviews/next-version-n4-shifts.md).
-
-Typed `let`/`var` bindings may now omit the initializer and be assigned later.
-Reads require whole-value assignment on every live path; a deferred `let` can
-be assigned only while definitely unassigned. Owned slots clean up safely even
-before their first store, and assigned outcomes still require handling once.
-The checks hold across joins, exits, loop back edges and nesting; see the
-[deferred-binding](docs/history/reviews/next-version-n4-definite-assignment.md) and
-[assignment-path](docs/history/reviews/next-version-n4-assignment-paths.md) notes.
-
-Initialized named `let` bindings now support `else { ... }` on values containing
-`:none` or errors. The else must diverge; success binds the remaining payload,
-unit or tagged union using checked matching and normal ownership/permissions.
-See the [let-else notes](docs/history/reviews/next-version-n4-let-else.md).
-
-Inclusive `..=` patterns and integer loops now include their upper endpoint.
-Loops evaluate bounds once, left to right, and check exhaustion before any
-increment, including on `continue` at an integer maximum. Pattern coverage
-retains inclusive scalar ranks; named runtime pattern bounds explicitly reject.
-Typed loop variables and audit updates remain; see the
-[inclusive-range notes](docs/history/reviews/next-version-n4-inclusive-ranges.md).
-
-Primitive keywords can name function members and dotted expression members,
-as in `Values.int(...)` and `Json.str(...)`. They stay keywords in types and
-remain reserved in ordinary name positions, including fields and bindings.
-Casing fixes can produce a primitive spelling only for a function member.
-This does not install JSON APIs or change builtin conversions or call rules.
-
-Uppercase type headers can list named traits after `:`, joined by `and`, with
-qualified names and bracketed type arguments. The AST retains that list, but
-native compilation stops with `Trait conformance is not implemented yet.` No
-trait/module lookup, layout or default dispatch is guessed. Native traits and
-module loading remain outside the current implementation.
-
-Struct names start uppercase; functions, fields, parameters, bindings and loops
-require lowercase names, with safe casing fixes. Symbol tags also require
-lowercase names in types, values and patterns. `:!name` records an error tag; a
-name cannot have both neutral and error kinds in one module. `:!` must be
-adjacent. Kinds now control entry status, diagnostic spelling and mandatory call
-handling and postfix extraction/rejection. Function results use canonical types.
-
-Unambiguous failure tags in five examples and fourteen native program fixtures
-now use `:!` throughout their annotations, values and patterns. Optional
-`:none` stays neutral. `outcomes.brf`'s `append` now fails with its own
-`:!blank`, so `:empty` stays data. Unambiguous checker/compiler C-test failures
-now use `:!` too, including assembled prefixes and generated recursive cases.
-Four parser fixtures and the remaining unambiguous lexer/newline/parser
-examples now use `:!` as well. Full-source spelling checks cover 24 sources.
-Intentional neutral data/kind, casing and rejected-grammar cases stay unchanged;
-the CMake-generated sources need no further failure-tag conversion. This is
-source-kind coverage, not native API acceptance. Expected runtime text is not
-changed.
-
-`trait` and `ovr` are ordinary names, not declaration/modifier keywords. Native
-conformance remains pending. In patterns, lowercase names bind and uppercase
-names denote symbol sets, without lookup-based reclassification. Typed symbol
-payload bindings such as `:!notFound[path: str]` retain annotations in the AST.
-Native compilation explicitly rejects them until merged-symbol matching exists.
-Whole-value typed arms are not added. Module-selection declarations such as
-`import models.User` parse, but compilation stops with `Imports are not
-implemented yet.` No module loading or cross-file lookup is added; broader
-module casing remains pending.
-
-Qualified symbols such as `models.Db.:!notFound[str]` now parse in types, values
-and patterns. Their paths and kinds are retained, but native compilation reports
-that module-qualified symbols are not implemented; no module loading or remote
-tag identity is guessed. Shared `:ok` and `:none` cannot have module qualifiers.
-
-Diagnostics can carry machine-applicable fixes as byte spans and replacement
-text. These print as `help:` previews below the error and its notes. Previews
-escape control bytes and line breaks, while structured edits preserve exact
-replacement bytes. The `&&` and `||` errors show the corrected `and`/`or` source.
-
-`dump-ast` filters continuation newlines and parses the currently implemented
-syntax into an arena-owned tree, printed as a stable S-expression (`not` is
-printed as `(not ...)`). Syntax errors are collected with source locations;
-malformed items are skipped so later errors can still be reported, even when
-the file also contains lexer errors. Assignment
-is parsed only as a standalone, non-chaining statement, and pipeline calls must
-have a name or dotted-path callee. Bare block expressions and standalone block
-statements are rejected; blocks remain valid in documented body and match
-positions. Parsing does not resolve names, check types,
-enforce error handling, or check match exhaustiveness.
-
-## Compile and run
-
-```sh
-./build/brief run tests/programs/hello.brf
-./build/brief build tests/programs/hello.brf -o hello
-./hello
-./build/brief emit-c tests/programs/hello.brf > hello.c
-cc -std=c11 hello.c -lm -o hello
-./build/brief run --debug tests/programs/hello.brf
-```
-
-Compilation supports:
-
-- Every integer and floating-point type, contextual decimal literals, `bool`,
-  `chr`, strings, and `()`; no implicit numeric conversions.
-- Arithmetic, numeric/character comparisons, bool/unit equality, bitwise
-  operations, and short-circuit logic. Integer
-  overflow, integer division/remainder by zero, invalid shifts, and negative
-  integer exponents panic in every build, with the Brief file and line.
-- Lexical `let`/`var` bindings, optional annotations, assignments, compound
-  assignments, and standalone `x++`/`x--` statements (no update expressions).
-- Value-producing `if`/`else`, `while`, half-open ascending range `for` loops,
-  and innermost-loop `break`/`continue`.
-- Pipeline calls with method-first lookup and left-to-right evaluation; contextual
-  numeric literals receive the same parameter type as in ordinary calls.
-- Exhaustive match blocks over numeric, bool and character values, with ordered
-  literal/range/comparison arms. `_` and whole-value binding arms work for all
-  current types; bindings are immutable and scoped to their arm. Floating matches
-  require a catch-all for NaN, and `-0` and `0` match the same values.
-  String literal patterns compare complete decoded bytes, including embedded NULs;
-  string matches require a wildcard or binding catch-all. Duplicate literals and
-  arms after a catch-all are rejected.
-  Match results can be values, and arms support `ret`, `break`, and `continue`.
-- Data symbols such as `:missing` and `:found[user]`, canonical `|` union types,
-  forward named-set aliases and composition, and subset assignment/arguments/returns.
-  Symbol matches support tags, payload bindings/wildcards and named groups;
-  catch-all bindings receive only the remaining variants. Data-symbol return sets
-  grow across recursive function groups. Finite symbol shapes have payload-aware
-  equality; payload-free symbol ordering is not implemented yet.
-- Implicit `:ok` success returns, explicit outcomes, `?` propagation and `!` panics.
-  Error sets accumulate through recursive calls; partial return annotations such as
-  `:ok[User] | _` fix the success type and infer additional errors. Success-only
-  functions retain plain-value C ABIs. Calls with both success and error variants
-  must be handled directly with `?`, `!`, or a match, even when discarded or returned.
-- Typed parameters, forward calls, recursion, written or inferred
-  return types (including structs and symbols), `ret`, and implicit tail returns. Unanchored recursive return
-  types need annotations; call-graph analysis uses explicit work stacks, with
-  no depth limit. Runtime recursion still uses the host C
-  stack and may exhaust it rather than panic; tail-call elimination is not
-  guaranteed.
-- Expressions, blocks and types nest at most 128 syntax levels, which keeps the
-  compiler's recursive passes within its C stack. Each operator in a chain is a
-  level, so one expression can chain at most 126 binary operators (for example
-  `+` concatenations); longer chains report `Syntax nesting limit exceeded.` and
-  can be split across bindings.
-- Numeric-target converters accept numbers, `chr` or strings; a `chr` always
-  converts to its byte value. Integer targets require exact integral values in
-  range; floating targets round, with every integer-to-float conversion
-  succeeding. `dbl` to `flt` fails only on finite overflow. Numeric
-  literals take the converter's target type, so `shrt(1)` succeeds directly and
-  `shrt(70000)` is a compile error. Other numeric failures return `:overflow`.
-  Parsing text returns `:invalid[original]` on bad syntax or range, with binary-safe
-  full-input validation. Floating decimal text rounds directly to its destination
-  width. Conversions work with pipelines, matching,
-  `?` and `!`; see `docs/history/v0/lang-types.txt` for the exact rules.
-- Immutable heap strings, `+`/`+=`, bytewise comparisons, and `str(number)` /
-  `str(bool)` conversions. See `docs/history/v0/lang-types.txt` for formatting choices.
-- Transparent aliases of native types, with canonical identity, forward chains
-  and recursion only through structs. Aliases add no runtime representation.
-- Field-bearing nominal structs, complete named field initialization, field
-  reads/writes and numeric field updates, member functions, associated/receiver
-  calls, and explicit owner type names. Ordinary parameters and their direct
-  local/field aliases are read-only; `&` struct or symbol parameters permit
-  mutation of reachable objects. Permissions propagate through symbol payloads,
-  rebinding and control flow. Struct/symbol call results are conservatively
-  read-only when their types can reach a read-only argument's objects;
-  struct/symbol literals built from such values retain the restriction.
-  Read-only object-bearing values cannot be stored in fields, so retaining
-  functions take source parameters as `&`. Copied scalars, immutable strings and
-  immutable-only symbols remain unrestricted.
-  References share objects rather than copying them (this is not `const` or purity).
-- Fieldwise equality for nonrecursive structs. Reference counting owns locals,
-  temporaries, fields and returns; parameters borrow. Every scope exit and early
-  return releases owners, and loop temporary slots release previous values.
-
-`main()` is required and cannot have parameters. Its successful result is discarded;
-success exits 0, including data-only symbol results without `:ok`. Only a fallible
-result type (both `:ok` and other variants) produces an entry error: an active
-non-`:ok` variant prints `error: :tag(payload)` to stderr, releases its payload and
-exits 1. Prior stdout is flushed before error/panic output. String/character payloads are quoted and
-escaped; structs and nested symbols have bounded diagnostic representations. An explicit `: ()` discards a function's tail value, but not an
-explicit non-unit `ret`. `print` remains a reserved top-level builtin taking exactly one
-`str`; it writes bytes plus a newline, including embedded zero bytes. `str` is
-also reserved as a top-level builtin and accepts exactly one number or `bool`.
-
-Partial `:ok[T] | _` annotations are return-only and must declare `:ok`; they
-are not general open symbol-set types. Native symbol payload patterns currently
-require an unannotated binding or `_`; typed matching, refutable/nested patterns
-and symbol ordering remain deferred
-features outside M5's acceptance scope. `const`,
-character/object/string-to-string conversions, indexing, function values,
-cloning, identity comparison, and other later features also remain unsupported.
-Recursive struct/symbol shapes do not have equality. `dump-ast` remains
-syntax-only.
-
-`CC` names a **single executable** (default `cc`), not a shell command with
-flags. Paths containing spaces work; use an executable wrapper for extra flags
-or compiler launchers such as `ccache gcc`.
-Native compilation uses `-std=c11 -O2` and links `-lm`; `--debug` instead selects `-O0 -g`, ASan,
-and UBSan, with a debug report for any heap objects still alive at normal exit. `build` defaults to `a.out` and atomically replaces the requested
-output only after successful C compilation. `run` uses `TMPDIR` (default `/tmp`),
-removes its temporary files (including after Ctrl-C), and propagates the program's
-exit status. While waiting, the driver ignores SIGINT but the child retains its
-original disposition, so terminal Ctrl-C stops the child and cleanup still runs. Use `--`
-before an input filename starting with `-` for `build` or `run`.
-
-The generated C uses readable `brf_main`/`brf_greet` function names, a distinct
-`brm_` namespace for length-qualified methods, `brs_` for struct types, `bry_`
-for value-represented symbol sets, and `brt_` for runtime helpers and generated
-locals. Strings have explicit byte lengths. It includes its runtime and needs no
-project headers or libraries; link with system `libm` (`-lm`) for floating-point
-power. Generated C checks that the host provides binary32 `float` and binary64
-`double`. String literals remain permanent; computed strings and structs use
-single-threaded reference counting. The initial ownership pass conservatively
-pins all reference reads, including argument snapshots, before later evaluation
-can invalidate them. Count elimination and cycle collection are not implemented.
-Release queues objects whose counts reach zero during another object's
-destruction instead of recursing, so long acyclic chains are freed with bounded
-C stack. Generated equality recurses only through non-recursive field types.
-Panics terminate the process without unwinding owners.
-
-## Compiler components
-
-- `include/common/`, `src/common/`: arena allocation, source loading and line
-  indexing, byte-offset spans, diagnostics with notes and fix-its, string
-  interning, and hashed name maps for semantic lookups.
-- `include/lexer/`, `src/lexer/`: streaming and whole-file lexing, validated
-  escapes, single-line strings, and single-byte character literals. Unterminated
-  literals report errors without consuming the next line; unclosed block
-  comments are also errors.
-- `include/ast/`, `src/ast/`: syntax-tree nodes with spans and a tree printer.
-- `include/parser/`, `src/parser/`: recursive-descent declarations, statements,
-  and patterns, Pratt expressions, generic-call disambiguation, and recovery.
-  Each grammar area has its own file (`types.c`, `primary.c`, `expressions.c`,
-  `match.c`, `statements.c`, `declarations.c`); `internal.h` holds the shared
-  parser state, token cursor and recovery helpers.
-- `src/lexer/newline.c`: continuation and nested-delimiter newline filtering.
-- `include/sema/`, `src/sema/`: separate name resolution and type checking,
-  with canonical primitive/nominal types, lexical scopes, flow checks, read-only
-  alias analysis on a shared structured data-flow walker, scalar pattern
-  normalization/coverage/usefulness checks, and iterative SCC-based recursive
-  return inference. Tags carry neutral kind and source-module identity metadata;
-  this does not implement modules or change the current outcome rules. The walker
-  provides branch joins and whole-function loop fixed points for later
-  definite-assignment and outcome checks. `src/sema/resolve/` builds the
-  checked tree, `src/sema/check/` types it and infers returns, and
-  `src/sema/flow/` holds the walker and its assignment, outcome and permission
-  passes. `src/sema/internal.h` declares the pass hooks shared inside sema.
-- `include/ir/`, `src/ir/`: typed temporaries, sequenced calls, explicit control
-  flow/returns, loop targets, value-producing branches, field operations, and a
-  separately testable reference-count insertion pass. Lowering lives in
-  `src/ir/lower/`, split into the instruction builder, expressions, control
-  flow and match.
-- `include/codegen/`, `src/codegen/`, `runtime/`: self-contained C emission,
-  source mapping, heap strings/structs, automatic ownership, printing/conversions,
-  and checked numeric operations. `src/codegen/c/` separates C spellings, type
-  declarations, function bodies and program assembly.
-- `include/driver/`, `src/driver/`: shell-free native compiler invocation.
-- `tests/`: common, lexer, newline-filter, parser, and compilation unit tests;
-  native driver tests; program tests in normal and sanitizer configurations;
-  and the [current-document parser inventory](tests/doc-parser.md): 239 fences
-  across 13 chapters, with 162 parser checks and 77 explicit fence listings,
-  plus two unfenced-chapter listings. Listed examples are not passing coverage.
-  N1 retired all v0 native chapter scripts and bridges. The first scoped
-  [current functions native audit](tests/doc-functions-n1.md) now checks six
-  complete fences and eight independent prose cases, with 21 explicit listings.
-  The [types native audit](tests/doc-types-n1.md) adds eight unchanged fences,
-  twelve independent prose cases and 20 listings. The
-  [syntax native audit](tests/doc-syntax-n1.md) checks seven unchanged fences,
-  thirteen prose programs and 28 listings. The
-  [modules native audit](tests/doc-modules-n1.md) checks five unchanged fences,
-  fifteen prose programs and 14 listings, without cross-file API stand-ins.
-  The [raw-base inventory](tests/doc-base-n1.md) preserves the whole mixed sheet
-  as one unaccepted listing and runs six complete examples independently with
-  pinned output/status expectations. Run those with `-L native-examples`.
-  N2 adds scoped [symbols](tests/doc-symbols-n2.md) and
-  [errors](tests/doc-errors-n2.md) audits: all 53 fences are classified, two
-  execute unchanged, 51 remain listings and 32 independent prose programs
-  exercise available rules. Errors section 6 stays with N3; no missing APIs or
-  extracted fragments are supplied. Run all with
-  `ctest --test-dir build -L doc-native --output-on-failure`, or select
-  `-L doc-functions`, `-L doc-types`, `-L doc-syntax`, `-L doc-modules`,
-  `-L doc-base`, `-L doc-symbols` or `-L doc-errors`. Parser checks use
-  `-L doc-parser`.
-- `tests/parse/`: 155 parser example files that must parse or be rejected
-  on a stated line, run by `test_parse_examples` (CTest label
-  `parse-examples`).
-
-Source text, token arrays, interned names, and diagnostics live in the
-compilation arena. Tokens retain source slices even on errors; error messages
-are separate. Raw newlines, including those in block comments, are preserved
-until the newline filter runs. Source columns count bytes; diagnostic excerpts
-expand tabs to four-column stops and count UTF-8 code points rather than bytes.
-Wide and combining characters do not yet have special display-width handling.
-
-## Design and implementation plan
-
-- [First-version language overview and scope](docs/history/v0/lang-desc.txt), with the
-  rest of the first version's documents in [`docs/history/v0/`](docs/history/v0/)
-- [Next-version language overview](docs/lang-desc.txt), with the decisions
-  behind it in [`docs/lang-post-0-notes.txt`](docs/lang-post-0-notes.txt)
-- [Syntax](docs/lang-syntax.txt)
-- [Types](docs/lang-types.txt)
-- [Functions](docs/lang-functions.txt)
-- [Symbols](docs/lang-symbols.txt)
-- [Errors and outcomes](docs/lang-errors.txt)
-- [First compiler plan](docs/history/plans/first-version.txt)
-- [Next-version compiler plan](docs/plans/next-version.txt) (N0–N2 complete for
-  their milestone scope; N3 handling, N4 bindings/loops, N5 interpolation and
-  N6 remaining inventories are pending; listed APIs are not native acceptance)
-- [Bootstrap readiness plan](docs/plans/bootstrap-readiness.txt) (proposed)
-
-The overview links the remaining topic documents. Milestone 5 is complete for
-the first-version scope: pipelines, scalar/symbol matching, named sets,
-success/error handling, numeric/string conversions and string literal patterns
-are implemented. The retired [error-example audit](docs/history/audits/doc-errors.md)
-checked the in-scope v0 examples, including compile errors. **Milestone 6
-completed that scope:** all thirteen chapters had guarded acceptance/scope
-audits and the tracked diagnostic gaps were addressed. N1 has now retired those
-executables; the
-[final implementation/status review](docs/history/reviews/first-version-review.md) is complete.
-Those historical audits distinguished extracted examples, prose scenarios,
-partial adaptations and deferred features; local library/module/collection/trait
-stand-ins are not implementations of those deferred features. Fresh GCC/Clang
-sanitized Debug, GCC Release and unsanitized Debug suites passed, alongside
-strict GCC/Clang compilation of 333 native/generated programs. This is a scoped
-experimental compiler, not a claim of production readiness or bug freedom. The
-review fixed lost member-lookup and contextual numeric diagnostics in recursive
-inference groups; those invalid programs now retain their errors and cannot
-lower or build. File-level statement-shaped input now gets a direct
-inside-a-function hint instead of misleading declaration or parameter advice;
-specific malformed-declaration errors are preserved. Permission errors now
-identify a read-only argument passed to an `&` parameter and use type-neutral
-wording for read-only field stores, without changing the rules. Invalid
-`&&`/`||` now suggest `and`/`or`, and prefix `++`/`--` errors explain postfix
-standalone updates; valid operators and their tokenization are unchanged. Source
-exponent notation now gets a specific lexical error, while exponents in numeric
-text conversions remain supported. Modules, cross-file privacy and
-collection/lambda/trait behavior remain deferred. Function-contract mismatches
-no longer cause a misleading partial-set payload-collision diagnostic. Unhandled
-fallible results no longer cause dependent argument-type cascades; direct
-handling is still mandatory and independent errors remain checked. Named-field
-struct literals in conditions or iterables now get a parentheses hint;
-ordinary/empty block ambiguity and valid grouped/call/index forms are unchanged.
-Unknown dotted methods can now point to a compatible visible top-level function
-and suggest direct/pipeline forms, without accepting dotted fallback.
-Unsupported generic calls no longer produce ordinary-callee cascades; their
-value expressions and surrounding calls remain checked, and generics remain
-deferred. The [document acceptance tracker](tests/doc-acceptance.md) records
-the retired evidence, current parser coverage, the scoped native audits and
-the remaining native-audit gap. Symbol ordering and refutable/nested
-payload patterns remain deferred, not M5 blockers.
+- [`docs/lang-desc.txt`](docs/lang-desc.txt) and the other `docs/lang-*.txt`:
+  the current language. [`docs/lang-post-0-notes.txt`](docs/lang-post-0-notes.txt)
+  records the decisions behind it.
+- [`docs/plans/architecture.txt`](docs/plans/architecture.txt): the active plan.
+- [`docs/next/`](docs/next/): sketches of the next language; not compiled.
+- [`tests/doc-acceptance.md`](tests/doc-acceptance.md): which document examples
+  the compiler accepts.
+- [`docs/history/`](docs/history/): earlier versions, plans, reviews and the
+  previous detailed status of this README. Not maintained.

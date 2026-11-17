@@ -7,7 +7,7 @@ outcomes. The [N3 closure review](../docs/history/reviews/next-version-n3-review
 bound outcomes, flow checks and its scoped native audits.
 
 First-version native document audits and all spelling bridges have been retired
-as required by `docs/plans/next-version.txt`. Executable scripts and CTest
+as required by `docs/history/plans/next-version.txt`. Executable scripts and CTest
 registrations are deleted; they are not maintained as a second syntax or
 extended into a migration system. `docs/history/v0/` is untouched.
 

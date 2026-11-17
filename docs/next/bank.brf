@@ -1,0 +1,612 @@
+
+type Kind = #checking | #savings
+
+type Shortfall {
+    id: int
+    needed: lng
+}
+
+type BankError =
+    #!noAccount[int] |
+    #!badAmount[lng] |
+    #!frozen[int] |
+    #!insufficient[Shortfall] |
+    #!sameAccount
+
+type Entry {
+    label: str
+    amount: lng
+    balance: lng
+    older: #none | #more[Entry]
+}
+
+
+// ============================================================
+// Balance contract
+// ============================================================
+
+// A module can consist entirely of a signature.
+//
+// Any module implementing Balance must provide type t
+// and a getBalance function.
+//
+// type t is opaque. Its fields are not exposed.
+
+mod Balance: {
+    type t
+
+    getBalance(t): lng
+}
+
+
+// ============================================================
+// Generic collection contract
+// ============================================================
+
+// The signature describes required capabilities.
+//
+// The implementation provides reusable defaults.
+//
+// The use declaration requires a Vec[B.t] field.
+// Its actual field name is determined structurally.
+//
+// The internal alias balanceVec is available to default
+// implementations but isn't publicly exposed.
+
+mod BalanceCollection[B: Balance]: {
+    type t {
+        use Vec[B.t] as balanceVec
+    }
+
+    new() -> t
+    add(t, B.t) -> ()
+    items(t) -> Vec[B.t]
+    count(t) -> int
+    total(t) -> lng
+
+} = {
+    add(self, balance) {
+        self.balanceVec.add(balance)
+    }
+
+    // The compiler infers whether the caller requires
+    // read-only or mutable access to the collection.
+    items(self) {
+        self.balanceVec
+    }
+
+    count(self) {
+        self.balanceVec.len()
+    }
+
+    total(self) {
+        var sum: lng = 0
+
+        for balance in self.balanceVec {
+            sum += B.getBalance(balance)
+        }
+
+        sum
+    }
+}
+
+
+// ============================================================
+// Account module
+// ============================================================
+
+// Account satisfies Balance and the inline signature.
+//
+// Fields of Account.t are exposed because they are
+// explicitly included in the public signature.
+//
+// getBalance is required by Balance, so its signature
+// does not need to be repeated.
+//
+// Parameter names and borrowing are inferred from
+// the implementation.
+//
+// Only successful return types are declared.
+// Possible errors are inferred by the compiler.
+
+mod Account: Balance & {
+    type t {
+        id: int
+        owner: str
+        kind: Kind
+        balance: lng
+        frozen: bool
+        history: #none | #more[Entry]
+    }
+
+    new(int, str, Kind) -> t
+    record(t, str, lng) -> ()
+    deposit(t, lng, str) -> #ok
+    withdraw(t, lng, str) -> #ok
+
+} = {
+    type t {
+        id: int
+        owner: str
+        kind: Kind
+        balance: lng
+        frozen: bool
+        history: #none | #more[Entry]
+    }
+
+    new(id, owner, kind) {
+        t {
+            id = id
+            owner = owner
+            kind = kind
+            balance = 0
+            frozen = false
+            history = #none
+        }
+    }
+
+    // Required by Balance.
+    getBalance(self) {
+        self.balance
+    }
+
+    // Record a transaction and update the balance.
+    record(self, label, amount) {
+        self.balance += amount
+
+        self.history = #more(Entry {
+            label = label
+            amount = amount
+            balance = self.balance
+            older = self.history
+        })
+    }
+
+    deposit(self, amount, label) {
+        if amount <= 0 {
+            ret #!badAmount(amount)
+        }
+
+        if self.frozen {
+            ret #!frozen(self.id)
+        }
+
+        self.record(label, amount)
+
+        #ok
+    }
+
+    withdraw(self, amount, label) {
+        if amount <= 0 {
+            ret #!badAmount(amount)
+        }
+
+        if self.frozen {
+            ret #!frozen(self.id)
+        }
+
+        if amount > self.balance {
+            ret #!insufficient(Shortfall {
+                id = self.id
+                needed = amount - self.balance
+            })
+        }
+
+        self.record(label, -amount)
+
+        #ok
+    }
+}
+
+
+// ============================================================
+// Account collection module
+// ============================================================
+
+// Account satisfies Balance.
+//
+// AccountCollection satisfies BalanceCollection[Account].
+//
+// The accounts field satisfies the generic requirement
+// for a Vec[Account.t].
+//
+// The compiler maps accounts to balanceVec.
+//
+// The actual accounts field remains private.
+//
+// add(), items(), count(), and total() are provided
+// by BalanceCollection's default implementations.
+
+mod AccountCollection: BalanceCollection[Account] = {
+    type t {
+        accounts: Vec[Account.t]
+    }
+
+    new() {
+        t {
+            accounts = Vec[Account.t].new()
+        }
+    }
+}
+
+
+// ============================================================
+// Bank module
+// ============================================================
+
+// The inline signature defines the public API.
+//
+// type t is opaque, hiding the Bank's internal fields.
+//
+// Functions not included in the signature are private.
+//
+// Return types specify successful results only.
+// The compiler automatically infers possible errors.
+//
+// Borrowing and mutation are also compiler-inferred.
+
+mod Bank: {
+    type t
+
+    new(str) -> t
+    open(t, str, Kind) -> Account.t
+    transfer(t, int, int, lng) -> #ok
+    interest(t, int) -> ()
+    report(t) -> ()
+
+} = {
+    type t {
+        name: str
+        accounts: AccountCollection.t
+        nextId: int
+    }
+
+    new(name) {
+        t {
+            name = name
+            accounts = AccountCollection.new()
+            nextId = 100
+        }
+    }
+
+    // Create an account and insert it into the collection.
+    open(self, owner, kind) {
+        let account = Account.new(
+            self.nextId,
+            owner,
+            kind
+        )
+
+        self.nextId++
+        self.accounts.add(account)
+
+        account
+    }
+
+    // Private helper.
+    // Its complete return type is inferred.
+    find(self, id) {
+        for account in self.accounts.items() {
+            if account.id == id {
+                ret #ok(account)
+            }
+        }
+
+        #!noAccount(id)
+    }
+
+    // Transfer between two accounts.
+    //
+    // Declared successful return: #ok
+    //
+    // Potential errors are inferred from this function
+    // and the functions it calls.
+    transfer(self, from, to, amount) {
+        if from == to {
+            ret #!sameAccount
+        }
+
+        var source = self.find(from)?
+        var target = self.find(to)?
+
+        if target.frozen {
+            ret #!frozen(to)
+        }
+
+        source.withdraw(
+            amount,
+            "transfer to #" + str(to)
+        )?
+
+        target.deposit(
+            amount,
+            "transfer from #" + str(from)
+        )?
+
+        #ok
+    }
+
+    // Apply monthly interest to savings accounts.
+    interest(self, yearlyBps) {
+        for account in self.accounts.items() {
+            account.kind |> {
+                #savings -> {
+                    let earned =
+                        (account.balance * lng(yearlyBps) + 60000)
+                        / 120000
+
+                    if earned > 0 {
+                        account.record("interest", earned)
+                    }
+                }
+
+                #checking -> ()
+            }
+        }
+    }
+
+    // Generate a report using the collection.
+    report(self) {
+        print("== " + self.name)
+
+        var checking: lng = 0
+        var savings: lng = 0
+
+        for account in self.accounts.items() {
+            print(
+                "  # {str(account.id)} {account.owner} " +
+                "{kindName(account.kind)} " +
+                "{if account.frozen then "[frozen]" else ""} " +
+                ": {money(account.balance)}"
+            )
+
+            account.kind |> {
+                #checking -> checking += account.balance
+                #savings -> savings += account.balance
+            }
+        }
+
+        let held = self.accounts.total()
+
+        print(
+            "  total checking {money(checking)}, " +
+            "savings {money(savings)}, " +
+            "held {money(held)}"
+        )
+    }
+}
+
+
+// ============================================================
+// Formatting helpers
+// ============================================================
+
+money(cents: lng) -> str {
+    let sign = if cents < 0 then "-" else ""
+    let whole = if cents < 0 then -cents else cents
+    let fraction = whole % 100
+
+    sign + "$" +
+        str(whole / 100) + "." +
+        (if fraction < 10 then "0" else "") +
+        str(fraction)
+}
+
+kindName(kind: Kind) -> str {
+    kind |> {
+        #checking -> "checking"
+        #savings -> "savings"
+    }
+}
+
+
+// ============================================================
+// Transaction history
+// ============================================================
+
+printHistory(history: #none | #more[Entry]) {
+    history |> {
+        #none -> ()
+
+        #more(entry) -> {
+            printHistory(entry.older)
+
+            let sign = if entry.amount > 0 then "+" else ""
+
+            print(
+                "    {entry.label}: " +
+                "{sign + money(entry.amount)} " +
+                "-> {money(entry.balance)}"
+            )
+        }
+    }
+}
+
+statement(account: Account.t) {
+    print(
+        "  statement for # {str(account.id)} {account.owner}"
+    )
+
+    printHistory(account.history)
+}
+
+
+// ============================================================
+// Error handling
+// ============================================================
+
+// Errors are inferred by the compiler.
+//
+// BankError is an explicit union used when the application
+// wants to handle the known banking error variants.
+
+explain(e: BankError) -> str {
+    e |> {
+        #!noAccount(id) ->
+            "there is no account #" + str(id)
+
+        #!badAmount(a) ->
+            money(a) + " is not a positive amount"
+
+        #!frozen(id) ->
+            "account #" + str(id) + " is frozen"
+
+        #!insufficient(s) ->
+            "account #" + str(s.id) +
+            " is short by " + money(s.needed)
+
+        #!sameAccount ->
+            "an account cannot transfer to itself"
+    }
+}
+
+attempt(
+    bank: Bank.t,
+    from: int,
+    to: int,
+    amount: lng
+) {
+    let label =
+        "transfer " + money(amount) +
+        " #" + str(from) +
+        " -> #" + str(to)
+
+    bank.transfer(from, to, amount) |> {
+        #ok ->
+            print("  ok: " + label)
+
+        problem ->
+            print(
+                "  refused: " + label +
+                ": " + explain(problem)
+            )
+    }
+}
+
+
+// ============================================================
+// Main
+// ============================================================
+
+// Only the successful result is declared.
+//
+// Any errors propagated with ? are included in the
+// compiler-inferred error set.
+
+main() -> #ok {
+    var bank = Bank.new("Brief Savings & Loan")
+
+    var ada = bank.open("Ada", #checking)
+    var ada2 = bank.open("Ada", #savings)
+    var grace = bank.open("Grace", #checking)
+
+    let alan = bank.open("Alan", #savings)
+
+    ada.deposit(250000, "opening deposit")?
+    ada2.deposit(1000000, "opening deposit")?
+    grace.deposit(5000, "opening deposit")?
+    alan.deposit(42000, "opening deposit")?
+
+    print("== Transfers")
+
+    attempt(bank, ada.id, grace.id, 75050)
+    attempt(bank, grace.id, alan.id, 100000)
+    attempt(bank, ada.id, 999, 100)
+    attempt(bank, ada.id, ada.id, 100)
+    attempt(bank, ada2.id, ada.id, -5)
+
+    alan.frozen = true
+    attempt(bank, grace.id, alan.id, 1000)
+
+    alan.frozen = false
+    attempt(bank, ada2.id, alan.id, 12345)
+
+    ada.withdraw(20000, "rent") |> {
+        #ok ->
+            print("  ok: rent paid")
+
+        problem ->
+            print(
+                "  refused: rent: " + explain(problem)
+            )
+    }
+
+    grace.withdraw(1000000, "car") |> {
+        #ok ->
+            print("  ok: car bought")
+
+        problem ->
+            print(
+                "  refused: car: " + explain(problem)
+            )
+    }
+
+    for month in 1..4 {
+        bank.interest(425)
+    }
+
+    print("")
+    bank.report()
+
+    print("")
+    statement(ada2)
+    statement(grace)
+
+    #ok
+}
+
+
+
+/*
+  There are a lot of changes to the language I will point out all of the ones I can think of:
+
+  **Types:
+  int
+  uint
+  shrt
+  ushrt
+  lng
+  ulng
+  flt
+  dbl
+  chr // utf-8 ''
+  str // immutable utf-8 ""
+  bln
+  () // unit
+
+  StrBuf // mutable utf-8
+  Arr[] // fixed length array
+  Vec[] // variable length array
+  HashMap[] // hash table
+  HashSet[] // hash set
+
+
+  **Mutability:
+    - Previously we used & to denote mutable vs immutable varaibles and this would allow the compiler to optimize ARC but really whether a variable is mutated or not can be inferred by the compiler so we will just have the compiler infer mutability and temporarry borrow semantics to optimize arc both of which can be inferred at compile time
+    - For an example like this there is a possiblity that a and b can be the same so the compiler requires the distint()
+    let a = bank.find(100)?
+    let b = bank.findByOwner("Ada")?
+    if distinct(a, b) {
+      a.balance += 100
+      b.balance += 100
+    } else return #!err
+    - let and var are slightly changed they both are immutable references but let does not allow mutability through that binding and var does allow mutability through the binding. let does allow deep mutability though so it is similar to rusts let mut vs a standard let
+    - Using these new mutability rules you can see that we basically lose nothing at runtime and the code is still just as readable. The tradeoff is more compiler complexity
+    - At some point we can also either introduce const which would be a deep freeze of the object or just a function like freeze() that would freeze the object
+
+  **Symbols:
+    - Symbols are now denoted with # instead of : this makes them stand out from standard types
+    - Now the symbol types behave similar to generics so the type is declared like this #ok[int] and then used like this #ok(7)
+
+  **Modules:
+    - Modules are by far the largest change since the last version. modules work similarly to ocaml except the signature is most often tied to the module unless the module signature is going to be reused for other modules in which case it is still declared as a module but it is used as a contract.
+    - Without a signature everything in the module is public which makes toy programs very clean.
+    - Now for most programs signatures will be used for modules which documents and seperates the public api from the implementation. This has multiple benefits, the types can be declared in the signature which makes the implementation more clean since they do not need to declare the types in the actual function declaration, it allows free documentation and AI models and users using AI to code will have an easier time seeing what the code changes and updates to the api was.
+    - I contemplated parameterizing modules as well but it is less readable so I decided against it. (ie mod UserCollection(B: BaseUser) -> Collection is the same as mod UserCollection[B: BaseUser]: Collection except this version is more clear and leads to much cleaner generic functions ie function[U: User](id, email) vs function(U: User)(id, email) I am still kind of torn on this though so I would like your input on what you think)
+
+  **Functions
+    - Function arguments no longer must be typed since we can use HM to infer the arguments.
+    - All lambda and similar functions use -> instead of =>
+    - We should allow one line if statements like this if <boolean> <do this> we can also have if <boolean> <do this> else <do that>
+*/
+

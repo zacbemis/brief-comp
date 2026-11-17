@@ -612,7 +612,7 @@ them.
 
 ### Related
 
-- The bootstrap plan (`docs/plans/bootstrap-readiness.txt`) has its own open
+- The bootstrap plan (`docs/history/plans/bootstrap-readiness.txt`) has its own open
   questions, Q1–Q16, about strings, `Vec` and `Map` operations, program input
   and output, and scope. Q1 records the preference for `size()` for a byte
   count and `len()` for a length. Its examples still use the current syntax.
@@ -620,7 +620,7 @@ them.
   by "Handling outcomes", Q10 by string interpolation and D12 by "Modules".
 - Order of work: settle these notes; apply them to the `lang-*.txt` documents
   (done, with the first version's documents kept in `docs/history/v0/`); plan the
-  changes to the C compiler and its tests (`docs/plans/next-version.txt`,
+  changes to the C compiler and its tests (`docs/history/plans/next-version.txt`,
   proposed); rewrite the bootstrap plan for the
   new syntax; then start the bootstrap. The Brief-written compiler should not
   be started in syntax that is about to change.
