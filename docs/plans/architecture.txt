@@ -1,0 +1,109 @@
+# Plan: Compiler Architecture for the Next Language
+
+> **Status: Proposed, not started.** This plan changes the compiler's structure so it can carry the next language: `#` symbols, modules with signatures, opaque and generic modules, inferred parameter types and error sets, inferred mutability and new collection types. A0–A3 suit both languages and start now. A4–A6 are built for the next language after its decisions below are recorded in the language docs and its syntax switch (a separate plan) is done.
+>
+> **Keep this plan minimal.** Add to it only what an implementer needs to do the next milestone correctly. Detailed designs belong in the design note written at the start of a milestone, not here. Remove what is done or no longer true.
+
+## First principles
+
+1. **Each stage records the facts the next one needs.** A stage that rediscovers a fact means the representation is wrong.
+2. **Every decision is made once.** Names by resolution; types and conversions by checking; mutability and aliasing by their analysis; ownership by the ownership pass; layout by emission. Later stages execute decisions.
+3. **Compared things have canonical identity.** Every type comes from one interner, with an identity key per kind, so type equality is pointer equality ([rustc](https://rustc-dev-guide.rust-lang.org/ty.html)).
+4. **Names live in nested scopes,** rooted in a prelude that holds builtins and standard-library modules ([Go's universe block](https://go.dev/ref/spec#Blocks)).
+5. **Types are solved by constraints within dependency groups,** one call-graph component at a time ([Hindley–Milner](https://en.wikipedia.org/wiki/Hindley%E2%80%93Milner_type_system)), checking against expected types where they exist. Untyped literals default at the end ([Go](https://go.dev/blog/constants)).
+6. **A fixed point needs a specified domain:** which facts are unknown, provisional or final, and why the iteration ends.
+7. **Control flow is structured,** so flow analyses run over the typed tree, with summaries for calls.
+8. **Modules form an acyclic graph; signatures are contracts.** Generic modules are instantiated per argument and monomorphized ([OCaml functors](https://ocaml.org/manual/5.2/moduleexamples.html#s%3Afunctors)).
+9. **Output is deterministic C,** independent of addresses, hash seeds, timing or how a path was spelled.
+10. **Every refactor is checked by its output,** with readable differences.
+
+Kept as they are: the parser's structure, diagnostics, the arena, the flow framework, the linear IR, the ownership pass, C emission and the `Compilation` API.
+
+## Language decisions
+
+**Decided** (to be written into `docs/lang-*.txt` with the syntax switch):
+
+- A function without a signature gets one inferred type, not a generic one. Programs that matter use signatures, which give parameter and return types.
+- In a function without a signature, a field or method access on a value whose type is never known is an error asking for a type. No struct is guessed from a field name.
+- Mutation is inferred and not written in signatures, including module signatures; tooling shows it.
+- `distinct(a, b, ...)` takes any number of values and returns an error that must be handled when two are the same object. Details wait for A6.
+- A `use` requirement matching more than one field is an error; the field is then named explicitly (`accounts: Vec[Account.t] as balanceVec`, syntax not final).
+- An implementation may leave out a type that its signature shows in full; the type is then public with all its fields.
+- Each file is a module named after the file; inline `mod` declarations are modules inside it.
+- Error tags written in a signature add to the inferred error set, and the implementation must be able to return each of them.
+- Module parameters use brackets: `mod M[B: Sig]`.
+- Structs stay shared references (the bank example and `distinct` rely on it). `let` can be neither rebound nor used to change its object; `var` can do both. `let` therefore means "not changed through this name", not "never changes". Whether an object lives on the stack or the heap is an optimization chosen by escape analysis.
+
+## Milestones
+
+| # | Milestone | Done when |
+|---|---|---|
+| A0 | **Output snapshots** | Relative and absolute invocations agree; a one-character change fails with a readable diff. |
+| A1 | **Type interner** | Symbol sets and structs use it; no snapshot changes. |
+| A2 | **Explicit conversions** | Lowering only applies recorded steps; no snapshot changes. |
+| A3 | **Builtins and scopes** | Builtins are table rows; no snapshot changes. |
+| — | **Language docs and syntax switch** (separate plan) | The language docs and parser describe the next language. |
+| A4 | **Modules with signatures** | Multi-module fixtures with signatures, defaults and instances compile. |
+| A5 | **Constraint inference** (design note first) | Unannotated functions infer; the probe machinery is gone. |
+| A6 | **Mutability and aliasing** (design note first) | `&` is gone; aliasing errors and `distinct` work. |
+
+Each milestone ends with all tests passing in the full CI matrix and clang-format clean. A1–A3 change no snapshot; later milestones list and explain each snapshot they change.
+
+Feature order after this plan: collections and string builtins after A3; file and process I/O after A4 (they are module-qualified); user generics and lambdas after A5.
+
+## A0. Output snapshots
+
+- A C tool, `tests/snapshot.c`, runs the compiler from the repository root with relative source paths.
+- Per program it keeps the generated C, standard error and exit status under `tests/snapshots/`, mirroring the source path, with the embedded runtime replaced by a marker line.
+- Sources: every committed `.brf` and the programs the document tests extract from `docs/lang-*.txt`.
+- On a difference it prints the differing lines and keeps the actual output. `--update` rewrites snapshots for review.
+
+## A1. Type interner
+
+- `sema_type_intern(program, key)` with an identity key per kind: primitives are singletons; a struct is its declaration; a symbol set is its sorted variants (tag identity, payload count and payload types); `ARR`, `VEC`, `HASH_MAP` and `HASH_SET` are their element types; `FN` is its parameter and result types.
+- `SemaType` gains `id` (creation order) and `args`. C names keep a per-kind number (`bry_<n>` stays the symbol-set number), so output does not change.
+- The collection and function kinds exist with interner tests; resolution still reports them as not implemented.
+- Lowering lists used compound types (not only symbol sets) in creation order; emission dispatches on the kind.
+
+## A2. Explicit conversions
+
+- A conversion is an ordered list of steps: widen or narrow a symbol set, wrap as success, or turn a unit ending into `#none`. Steps compose (convert a payload, then wrap it), as rustc's adjustment lists do ([reference](https://doc.rust-lang.org/reference/type-coercions.html)).
+- Each expression records the conversion for its consumer. Operations that create control-flow edges record one per edge: `?` its success projection and its failure conversion to the function's return type; `!` and `let ... else` their success projection.
+- The checker rewrites all conversions on every run. `adapt`, `none_ending` and `raw_type` go away, and lowering's type comparisons in `lower_convert` are replaced by applying recorded steps. A mismatch with no recorded steps is a lowering error.
+
+## A3. Builtins and scopes
+
+- Scopes: prelude, module, then resolution's lexical chain.
+- One table in `src/sema/builtins.c` (check functions in `src/sema/check/builtins.c`): module (none, or a synthetic standard-library module such as `File`), name, id and check function. Builtins with an ordinary signature share one check function.
+- `print`, `str` and the converters become rows. Standard-library modules exist in the table but are reachable from source only after A4.
+- Emission names each builtin's runtime function in one table in `src/codegen/c/`.
+
+## A4. Modules with signatures
+
+- A module has a name, an optional signature, parameters, its scope and its dependencies. A signature lists required items, included signatures (`Balance & { ... }`) and default implementations.
+- An implementation is checked against its signature; missing items come from defaults; opaque types are distinct nominal types outside their module.
+- Generic module instances are interned by module and arguments, and monomorphized with module-qualified C names.
+- Resolution runs in phases over all modules in dependency order.
+- A method call on a receiver of unknown type adds call-graph edges only to methods in the caller's module and its dependencies (today `src/sema/resolve/call.c` adds them across the whole program), so no component spans two modules. Tests use unrelated same-named methods in different modules.
+
+## A5. Constraint inference
+
+The design note comes first and is approved before code. It catalogs current inference behavior from the tests (`test_returns_*`, `test_errors_inference`, `test_sema_inference`) and specifies:
+
+- type variables as an interner kind with union-find;
+- constraints: equality, numeric literal, field and method access on unknown types, slot conversion, error-set inclusion; waiting constraints and where unsolved ones are reported;
+- error sets as a union-joined part of each function type, including written tags (see decisions);
+- the fixed point: unknown, provisional and final facts (unit endings that may become `#none`, success paths that become unreachable), payload limits, defaulting order and termination;
+- diagnostics reported once, after convergence.
+
+Removed: `check/hints.c`, the probe flag and counters, and the literal-default levels.
+
+## A6. Mutability and aliasing
+
+The design note comes first. It specifies per-function summaries (what each function may change, return or store) computed per component with the flow framework; when two values may be the same object; `distinct` and its handling; and how the ownership pass uses summaries to borrow instead of retain and, for objects that do not escape, to allocate on the stack.
+
+## Risks
+
+- **Hidden rules in the current checker.** A5's design note catalogs them first; if one does not fit the specified domain, A5 stops and reports it.
+- **Inference error quality.** The design note says where each unsolved or conflicting constraint is reported.
+- **Alias precision.** Too coarse demands `distinct` everywhere; unsound misses mutation through aliases. A6's tests cover both directions.
