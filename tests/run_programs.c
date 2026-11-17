@@ -115,6 +115,9 @@ static int check(const char *brief, const char *cc, const char *path,
 int main(int argc, char **argv) {
   const char *brief = NULL, *cc = NULL, *programs = NULL;
   int debug = 0;
+  // --shard i/n checks every nth sorted program starting at i, so CTest can
+  // run shards in parallel.
+  unsigned long shard = 0, shards = 1;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--debug"))
       debug = 1;
@@ -124,6 +127,10 @@ int main(int argc, char **argv) {
       cc = argv[++i];
     else if (i + 1 < argc && !strcmp(argv[i], "--programs"))
       programs = argv[++i];
+    else if (i + 1 < argc && !strcmp(argv[i], "--shard") &&
+             sscanf(argv[i + 1], "%lu/%lu", &shard, &shards) == 2 && shards &&
+             shard < shards)
+      i++;
     else {
       fputs("invalid program-runner arguments\n", stderr);
       return 2;
@@ -131,7 +138,7 @@ int main(int argc, char **argv) {
   }
   if (!brief || !cc || !programs) {
     fputs("usage: run_programs --brief executable --cc compiler --programs "
-          "directory [--debug]\n",
+          "directory [--debug] [--shard i/n]\n",
           stderr);
     return 2;
   }
@@ -144,11 +151,13 @@ int main(int argc, char **argv) {
     return 1;
   }
   qsort(paths.items, paths.count, sizeof(*paths.items), compare_paths);
-  size_t failures = 0;
-  for (size_t i = 0; i < paths.count; i++)
+  size_t failures = 0, checked = 0;
+  for (size_t i = shard; i < paths.count; i += shards) {
+    checked++;
     if (!check(brief, cc, paths.items[i], debug))
       failures++;
-  printf("%zu program tests, %zu failures%s\n", paths.count, failures,
+  }
+  printf("%zu program tests, %zu failures%s\n", checked, failures,
          debug ? " (sanitized)" : "");
   arena_destroy(&a);
   return failures != 0;

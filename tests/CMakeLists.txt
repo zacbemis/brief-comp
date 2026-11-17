@@ -92,14 +92,22 @@ endif()
 add_test(NAME test_cli_native
     COMMAND test_cli_native $<TARGET_FILE:brief> ${CMAKE_C_COMPILER}
         $<TARGET_FILE:fake_cc> ${native_test_options})
-add_test(NAME test_programs
-    COMMAND run_programs --brief $<TARGET_FILE:brief> --cc ${CMAKE_C_COMPILER}
-        --programs ${CMAKE_CURRENT_SOURCE_DIR}/programs)
-if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
-    add_test(NAME test_programs_sanitized
+# Program fixtures run in shards so CTest can check them in parallel.
+set(BRIEF_PROGRAM_SHARDS 8)
+math(EXPR last_program_shard "${BRIEF_PROGRAM_SHARDS} - 1")
+foreach(shard RANGE ${last_program_shard})
+    add_test(NAME test_programs_${shard}
         COMMAND run_programs --brief $<TARGET_FILE:brief> --cc ${CMAKE_C_COMPILER}
-            --programs ${CMAKE_CURRENT_SOURCE_DIR}/programs --debug)
-endif()
+            --programs ${CMAKE_CURRENT_SOURCE_DIR}/programs
+            --shard ${shard}/${BRIEF_PROGRAM_SHARDS})
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND BRIEF_ENABLE_SANITIZERS)
+        add_test(NAME test_programs_sanitized_${shard}
+            COMMAND run_programs --brief $<TARGET_FILE:brief>
+                --cc ${CMAKE_C_COMPILER}
+                --programs ${CMAKE_CURRENT_SOURCE_DIR}/programs --debug
+                --shard ${shard}/${BRIEF_PROGRAM_SHARDS})
+    endif()
+endforeach()
 
 add_test(NAME test_doc_parser
     COMMAND ${CMAKE_COMMAND}
