@@ -500,7 +500,7 @@ main() -> #ok {
     var ada2 = bank.open("Ada", #savings)
     var grace = bank.open("Grace", #checking)
 
-    let alan = bank.open("Alan", #savings)
+    var alan = bank.open("Alan", #savings)
 
     ada.deposit(250000, "opening deposit")?
     ada2.deposit(1000000, "opening deposit")?

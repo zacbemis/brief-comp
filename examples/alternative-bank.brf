@@ -1,0 +1,713 @@
+type Kind: #checking | #savings
+
+type Shortfall: [
+    id: int
+    needed: lng
+]
+
+type BankError:
+    #!noAccount(int) |
+    #!badAmount(lng) |
+    #!frozen(int) |
+    #!insufficient(Shortfall) |
+    #!sameAccount
+
+type Entry: [
+    label: str
+    amount: lng
+    balance: lng
+    older: #none | #more(Entry)
+]
+
+// Reusable module contract.
+mod Balance: [
+    type t
+    fn getBalance(t): lng
+]
+
+// Parameterized module contract with default implementations.
+// A concrete module supplies its own t and new().
+mod BalanceCollection(B: Balance): [
+    type t: [
+        balanceVec: Vec(B.t)
+    ]
+
+    fn new(): t
+    fn add(t, B.t): []
+    fn items(t): Vec(B.t)
+    fn count(t): int
+    fn total(t): lng
+] -> {
+    fn add(self, balance) -> {
+        self.balanceVec.add(balance)
+    }
+
+    fn items(self) -> self.balanceVec
+
+    fn count(self) -> self.balanceVec.len()
+
+    fn total(self) -> {
+        var sum: lng = 0
+
+        for balance in self.balanceVec {
+            sum += B.getBalance(balance)
+        }
+
+        sum
+    }
+}
+
+mod Account: Balance & [
+    type t: [
+        id: int
+        owner: str
+        kind: Kind
+        balance: lng
+        frozen: bln
+        history: #none | #more(Entry)
+    ]
+
+    fn new(int, str, Kind): t
+    fn record(t, str, lng): []
+    fn deposit(t, lng, str): #ok
+    fn withdraw(t, lng, str): #ok
+] -> {
+    fn new(id, owner, kind) -> t := [
+        id = id
+        owner = owner
+        kind = kind
+        balance = 0
+        frozen = false
+        history = #none
+    ]
+
+    fn getBalance(self) -> self.balance
+
+    fn record(self, label, amount) -> {
+        self.balance += amount
+
+        self.history = #more(Entry := [
+            label = label
+            amount = amount
+            balance = self.balance
+            older = self.history
+        ])
+    }
+
+    fn deposit(self, amount, label) -> {
+        if amount <= 0 {
+            ret #!badAmount(amount)
+        }
+
+        if self.frozen {
+            ret #!frozen(self.id)
+        }
+
+        self.record(label, amount)
+        #ok
+    }
+
+    fn withdraw(self, amount, label) -> {
+        if amount <= 0 {
+            ret #!badAmount(amount)
+        }
+
+        if self.frozen {
+            ret #!frozen(self.id)
+        }
+
+        if amount > self.balance {
+            ret #!insufficient(Shortfall := [
+                id = self.id
+                needed = amount - self.balance
+            ])
+        }
+
+        self.record(label, -amount)
+        #ok
+    }
+}
+
+// Specialization of the parameterized collection contract.
+mod AccountCollection: BalanceCollection(Account) -> {
+    type t: [
+        accounts as balanceVec: Vec(Account.t)
+    ]
+
+    fn new() -> t := [
+        accounts = Vec(Account.t).new()
+    ]
+}
+
+mod Bank: [
+    type t
+
+    fn new(str): t
+    fn open(t, str, Kind): Account.t
+    fn transfer(t, int, int, lng): #ok
+    fn interest(t, int): []
+    fn report(t): []
+] -> {
+    type t: [
+        name: str
+        accounts: AccountCollection.t
+        nextId: int
+    ]
+
+    fn new(name) -> t := [
+        name = name
+        accounts = AccountCollection.new()
+        nextId = 100
+    ]
+
+    fn open(self, owner, kind) -> {
+        let account = Account.new(self.nextId, owner, kind)
+
+        self.nextId++
+        self.accounts.add(account)
+        account
+    }
+
+    // Private: not listed in the Bank signature.
+    fn find(self, id) -> {
+        for account in self.accounts.items() {
+            if account.id == id {
+                ret #ok(account)
+            }
+        }
+
+        #!noAccount(id)
+    }
+
+    fn transfer(self, from, to, amount) -> {
+        if from == to {
+            ret #!sameAccount
+        }
+
+        var source = self.find(from)?
+        var target = self.find(to)?
+
+        // The successful guard refines the aliases for subsequent mutation.
+        if distinct(source, target) == false {
+            ret #!sameAccount
+        }
+
+        // Validate first so the following demo operations should succeed.
+        if amount <= 0 {
+            ret #!badAmount(amount)
+        }
+        if source.frozen {
+            ret #!frozen(from)
+        }
+        if target.frozen {
+            ret #!frozen(to)
+        }
+        if amount > source.balance {
+            ret #!insufficient(Shortfall := [
+                id = from
+                needed = amount - source.balance
+            ])
+        }
+
+        source.withdraw(amount, "transfer to #" + str(to))?
+        target.deposit(amount, "transfer from #" + str(from))?
+        #ok
+    }
+
+    fn interest(self, yearlyBps) -> {
+        for var account in self.accounts.items() {
+            account.kind |> {
+                #savings -> {
+                    let earned =
+                        (account.balance * lng(yearlyBps) + 60000)
+                        / 120000
+
+                    if earned > 0 {
+                        account.record("interest", earned)
+                    }
+                }
+                #checking -> []
+            }
+        }
+    }
+
+    fn report(self) -> {
+        print("== " + self.name)
+
+        var checking: lng = 0
+        var savings: lng = 0
+
+        for account in self.accounts.items() {
+            let status = if account.frozen then "[frozen] " else ""
+
+            print(
+                "  #" + str(account.id) + " " + account.owner + " " +
+                kindName(account.kind) + " " + status +
+                ": " + money(account.balance)
+            )
+
+            account.kind |> {
+                #checking -> checking += account.balance
+                #savings -> savings += account.balance
+            }
+        }
+
+        let held = self.accounts.total()
+        print(
+            "  total checking " + money(checking) +
+            ", savings " + money(savings) +
+            ", held " + money(held)
+        )
+    }
+}
+
+fn money(cents: lng): str -> {
+    let sign = if cents < 0 then "-" else ""
+    let whole = if cents < 0 then -cents else cents
+    let fraction = whole % 100
+
+    sign + "$" + str(whole / 100) + "." +
+        (if fraction < 10 then "0" else "") + str(fraction)
+}
+
+fn kindName(kind: Kind): str -> {
+    kind |> {
+        #checking -> "checking"
+        #savings -> "savings"
+    }
+}
+
+fn printHistory(history: #none | #more(Entry)): [] -> {
+    history |> {
+        #none -> []
+        #more(entry) -> {
+            printHistory(entry.older)
+            let sign = if entry.amount > 0 then "+" else ""
+
+            print(
+                "    " + entry.label + ": " +
+                sign + money(entry.amount) +
+                " -> " + money(entry.balance)
+            )
+        }
+    }
+}
+
+fn statement(account: Account.t): [] -> {
+    print("  statement for #" + str(account.id) + " " + account.owner)
+    printHistory(account.history)
+}
+
+fn explain(e: BankError): str -> {
+    e |> {
+        #!noAccount(id) -> "there is no account #" + str(id)
+        #!badAmount(a) -> money(a) + " is not a positive amount"
+        #!frozen(id) -> "account #" + str(id) + " is frozen"
+        #!insufficient(s) ->
+            "account #" + str(s.id) +
+            " is short by " + money(s.needed)
+        #!sameAccount -> "an account cannot transfer to itself"
+    }
+}
+
+fn attempt(bank: Bank.t, from: int, to: int, amount: lng): [] -> {
+    let label =
+        "transfer " + money(amount) +
+        " #" + str(from) + " -> #" + str(to)
+
+    bank.transfer(from, to, amount) |> {
+        #ok -> print("  ok: " + label)
+        problem ->
+            print("  refused: " + label + ": " + explain(problem))
+    }
+}
+
+fn main(): #ok -> {
+    var bank = Bank.new("Brief Savings & Loan")
+
+    var ada = bank.open("Ada", #checking)
+    var ada2 = bank.open("Ada", #savings)
+    var grace = bank.open("Grace", #checking)
+    var alan = bank.open("Alan", #savings)
+
+    ada.deposit(250000, "opening deposit")?
+    ada2.deposit(1000000, "opening deposit")?
+    grace.deposit(5000, "opening deposit")?
+    alan.deposit(42000, "opening deposit")?
+
+    print("== Transfers")
+
+    attempt(bank, ada.id, grace.id, 75050)
+    attempt(bank, grace.id, alan.id, 100000)
+    attempt(bank, ada.id, 999, 100)
+    attempt(bank, ada.id, ada.id, 100)
+    attempt(bank, ada2.id, ada.id, -5)
+
+    alan.frozen = true
+    attempt(bank, grace.id, alan.id, 1000)
+
+    alan.frozen = false
+    attempt(bank, ada2.id, alan.id, 12345)
+
+    ada.withdraw(20000, "rent") |> {
+        #ok -> print("  ok: rent paid")
+        problem -> print("  refused: rent: " + explain(problem))
+    }
+
+    grace.withdraw(1000000, "car") |> {
+        #ok -> print("  ok: car bought")
+        problem -> print("  refused: car: " + explain(problem))
+    }
+
+    // Assumes ranges are half-open: 0..4 has four iterations.
+    for _ in 0..4 {
+        bank.interest(425)
+    }
+
+    print("")
+    bank.report()
+
+    print("")
+    statement(ada2)
+    statement(grace)
+    #ok
+}
+
+// Sequence / loop expressions
+fn isEven(x: int): bln -> x % 2 == 0
+
+fn sequenceExample(): [] -> {
+    let numbers = Arr(int) := [1, 2, 3, 4, 5]
+
+    var squaresLoop = Vec(int).new()
+    for x in numbers {
+        if isEven(x) then squaresLoop.add(x * x)
+    }
+
+    // Assumes yield produces an iterator consumed by Vec.new().
+    let squaresYield = Vec(int).new(
+        for x in numbers {
+            if isEven(x) then yield x * x
+        }
+    )
+
+    print(squaresLoop)
+    print(squaresYield)
+}
+
+
+/*
+# Brief language design notes — consolidated revision
+
+Status: working design. Examples describe the intended syntax and semantics; this is **not** a claim that the existing compiler implements every feature. Sections marked **Open decision** are not frozen specifications.
+
+## 1. Design goals
+
+Brief is a readable, statically typed systems language with module-based abstractions, contracts instead of inheritance, immutable-by-default bindings, ARC-managed shared objects, and compiler-assisted borrow/alias analysis. Favor a small, composable syntax. Public interfaces should be easy to read, stable for tooling, and separable from implementations. Long term: compiled standalone native executables, bootstrapped initially through a C backend.
+
+Core conceptual layers:
+
+- **Type**: describes the shape or identity of data. A record type has fields but no embedded methods.
+- **Function**: executable behavior taking arguments and returning an expression value; functions are first-class values, even though named declarations use `fn`.
+- **Module**: compile-time namespace and contract/implementation grouping containing types and functions, optionally parameterized by other modules. Modules do not need to be runtime objects.
+- **Binding**: `let`/`var` names a value. Construction is a separate expression.
+
+## 2. Operator and delimiter meanings
+
+| Syntax | Meaning | Example |
+| --- | --- | --- |
+| `:` | Type, contract, or definition | `type Point: [x: int]`; `fn f(x): int` |
+| `->` | Implementation expression/body or pattern-match arm | `fn f(x) -> x + 1`; `#ok -> ...` |
+| `=` | Bind a value or assign to an assignable destination | `let x = 1`; `x = 2` |
+| `:=` | Explicit checked construction of a named/target type | `Point := [x = 1]` |
+| `[]` | Structural sequence syntax (data, type fields, or module signature as context dictates) | `[1, 2]`; `[x = 1]`; `[x: int]` |
+| `{}` | Block of declarations/statements/implementations; block can return its last expression | `fn f() -> { 42 }` |
+| `()` | Apply functions, instantiate generic/module types, supply symbol payloads | `f(1)`; `Vec(int)`; `#ok(1)` |
+| `&` | Compose module contracts / compatible type constraints | `Balance & [ ... ]` |
+| `|` | Union/variant alternatives | `#checking | #savings` |
+| `|>` | Pipe/match dispatch | `kind |> { #checking -> ... }` |
+| `?` | Propagate inferred error variants | `bank.find(id)?` |
+| `ret` | Explicit early return; otherwise last expression is returned | `ret #!badAmount(a)` |
+
+`:=` produces a value; it does **not** modify or bind the type itself. Conceptually `T := initializer` is a named-type construction expression, comparable to using a temporary `let temp: T = initializer` and then taking its value, but without introducing a variable. It is **not** an unchecked cast.
+
+Do **not** use `->` to construct typed values; `->` remains the implementation operator. Do **not** introduce `<-` as an alternative mutation assignment: `=` and `+=` already handle mutation. Iteration currently uses `in`.
+
+### Example
+
+```brief
+ type Point: [x: int, y: int]
+ fn origin(): Point -> Point := [x = 0, y = 0]
+ let p = origin()
+```
+
+## 3. Base types and collections
+
+Primitives: `int`, `uint`, `shrt`, `ushrt`, `lng`, `ulng`, `flt`, `dbl`, `chr` (UTF-8 character semantics to specify precisely), `str` (immutable UTF-8 string), `bln`, and `[]` (unit type/value).
+
+Collections / library types: `StrBuf` (mutable UTF-8 string), `Arr(T)` (fixed-length array), `Vec(T)` (growable vector), `Tuple(...)`, `Record(...)`, `HashMap(K, V)`, `HashSet(T)`.
+
+The forms `Vec(T)` and `HashMap(K,V)` use `()` for type parameters; obsolete `Vec[T]` / `Arr[int]` notation is removed from the new proposal. `[]` is reserved for sequences and signatures, not for generic argument lists.
+
+`[]` has a *single syntactic role* as a structural sequence, interpreted in context:
+
+```brief
+[1, 2, 3]                         // positional sequence literal
+[1, "name", true]                  // heterogeneous positional sequence
+[x = 5, y = 5]                    // named sequence / record literal
+[x: int, y: int]                  // structural field shape in type context
+[]                                // empty sequence; unit type/value in unit context
+Arr(int) := [1, 2, 3]            // explicitly constructs a fixed array
+Vec(int) := [1, 2, 3]            // explicitly constructs a vector
+```
+
+A type declaration can use a field sequence:
+
+```brief
+type Point: [x: int, y: int]
+let p = Point := [x = 10, y = 20]
+```
+
+This preserves the symmetry `:` for field types and `=` for field values.
+
+**Nominal construction rule:** no automatic conversion of an anonymous record literal into a nominal type based only on a distant function return signature. Prefer `fn new(...) -> t := [...]`. A direct local typed binding `let p: Point = [...]` can be supported as syntactic sugar because the target type is written at the construction site; alternatively require `Point := [...]` universally if the grammar is tightened later.
+
+**Open decision:** what precise type should an unannotated positional sequence like `[1,2,3]` have? Recommended default: tuple/positional structural sequence, with `Arr(T) := [...]` and `Vec(T) := [...]` for collections. Also decide whether `Arr` encodes its size in the static type and whether `Tuple`/`Record` are distinct constructors or names for structural sequences.
+
+## 4. Declarations, functions, and control flow
+
+Canonical named declarations:
+
+```brief
+type Point: [x: int, y: int]
+
+fn add(a: int, b: int): int -> a + b
+fn addVerbose(a: int, b: int): int -> {
+    let sum = a + b
+    sum
+}
+
+let x = 1
+var y = 2
+y += 1
+```
+
+`fn` is present on top-level functions, methods exported by module signatures, and their implementations. A module signature normally supplies the parameter and return types, so its implementation can omit repeated annotations:
+
+```brief
+mod Counter: [
+    type t: [value: int]
+    fn new(int): t
+    fn get(t): int
+] -> {
+    fn new(value) -> t := [value = value]
+    fn get(self) -> self.value
+}
+```
+
+Outside such a contract, argument and return annotations can be given explicitly or inferred where local inference is unambiguous. The aim is HM-inspired inference, not a promise of unrestricted Hindley–Milner inference in the presence of mutability, effects and module contracts.
+
+Control flow:
+
+```brief
+if valid then doWork()
+if valid then a else b
+
+kind |> {
+    #checking -> "checking"
+    #savings -> "savings"
+}
+
+for x in numbers {
+    print(x)
+}
+```
+
+The last expression in a block is its value. `ret expr` performs an early return. `[]` can represent a unit result. `for var x in items` is proposed for iteration bindings that permit mutation through the binding, subject to safe alias/iterator rules.
+
+### `yield` and expression-producing loops
+
+```brief
+let numbers = Arr(int) := [1, 2, 3, 4, 5]
+
+var squares = Vec(int).new()
+for x in numbers {
+    if isEven(x) then squares.add(x * x)
+}
+
+let squares2 = Vec(int).new(
+    for x in numbers {
+        if isEven(x) then yield x * x
+    }
+)
+```
+
+**Proposed semantics:** `yield` produces elements of a generator/iterator, which `Vec.new` consumes. Filters are normal `if` statements. A loop iteration may yield zero or more items (unless a stricter one-yield-per-iteration rule is chosen). Distinguish the generator expression's return type from a statement `for` loop's `[]` result.
+
+**Open decision:** lazy versus eager evaluation, multiple yields per iteration, nested `yield`, behavior of `break`, and the precise iterator type.
+
+## 5. Symbols, variants, and errors
+
+Symbols/atoms use `#`. Error variants use the distinct `#!` prefix.
+
+```brief
+type Kind: #checking | #savings
+
+type Error: #!missing(int) | #!invalid(str)
+
+let a = #checking
+let success = #ok(7)
+let failure = #!missing(42)
+```
+
+**Important update:** because type application now uses `()`, parameterized symbol types also use `()` in **type context**:
+
+```brief
+type Result: #ok(int) | #!missing(int)
+type History: #none | #more(Entry)
+```
+
+At a value site, `#ok(7)` carries a value; at a type site, `#ok(int)` denotes a variant with an `int` payload. Context distinguishes them. There is no remaining `#ok[int]` syntax in this draft.
+
+Module signatures may state **only their success return**, for example `fn withdraw(t, lng, str): #ok`. The compiler infers the error variants introduced by the implementation and callees, and `?` propagates them. The resulting error set is part of the callable API metadata, even if omitted from the surface signature. Pattern matching must account for the inferred errors; a wildcard/catch-all is an explicit separate design choice.
+
+Recursive variant payloads such as `#more(Entry)` must have an indirect runtime representation in any value layout that would otherwise have infinite size. ARC is a possible implementation mechanism.
+
+## 6. Modules, contracts, and API visibility
+
+A module's bracketed signature is its explicit public API. Its braced body is its implementation. A signature-only module is a reusable contract. Without an explicit signature, all members are public (current proposed rule).
+
+```brief
+mod Balance: [
+    type t
+    fn getBalance(t): lng
+]
+
+mod Account: Balance & [
+    type t: [id: int, balance: lng]
+    fn new(int): t
+] -> {
+    fn new(id) -> t := [id = id, balance = 0]
+    fn getBalance(self) -> self.balance
+}
+```
+
+`type t` declares an opaque exported type; `type t: [...]` exposes the listed fields. Members omitted from a module's signature are private. Contracts compose with `&`.
+
+Parameterized modules use `()` and take typed module arguments, in the spirit of OCaml functors:
+
+```brief
+mod BalanceCollection(B: Balance): [
+    type t: [balanceVec: Vec(B.t)]
+    fn new(): t
+    fn add(t, B.t): []
+] -> {
+    fn add(self, item) -> self.balanceVec.add(item)
+}
+
+mod AccountCollection: BalanceCollection(Account) -> {
+    type t: [accounts as balanceVec: Vec(Account.t)]
+    fn new() -> t := [accounts = Vec(Account.t).new()]
+}
+```
+
+A contract may supply default implementations while leaving required members abstract; a concrete module completes them. `accounts as balanceVec` means the same underlying field is exposed under the contract's expected name; it does not duplicate stored data.
+
+**Open decision:** a public syntax distinction between value generic parameters, type parameters, and module parameters, if compiler phase/type context alone cannot resolve them. Current preference is consistent `()` for application, rather than reviving `[]` for generics.
+
+**Open decision:** specify which contract compositions are legal when members clash, how implementations override defaults, and whether aliases in public signatures affect layout, naming, or both.
+
+## 7. Mutability, identity, and ARC
+
+- `let` introduces a read-only binding: no rebinding or mutation through that binding. Other mutable aliases may still change the shared object (not deep immutability).
+- `var` introduces a mutable binding: rebinding and permitted mutation through it.
+- Shared object references are ARC-managed; primitives are value-like. ARC ownership optimizations, temporary borrows and escape analysis are inferred by the compiler rather than written with Rust-style `&` markers.
+- The compiler must enforce safe aliases: a temporary exclusive mutation cannot overlap a conflicting access to the same object unless the ownership/alias model explicitly permits it.
+- `distinct(a,b)` is a proposed identity guard recognized by flow-sensitive alias analysis. A successful check can refine the two references as distinct on the proven control-flow path; a simple ordinary boolean function is insufficient unless the compiler recognizes an intrinsic contract.
+- An eventual `const` or `freeze()` could introduce *deep* immutability. This is not the same as `let`.
+
+Example:
+
+```brief
+var a = bank.find(100)?
+var b = bank.findByOwner("Ada")?
+
+if distinct(a, b) {
+    a.balance += 100
+    b.balance += 100
+} else {
+    ret #!sameAccount
+}
+```
+
+**Open decision:** the exact lifetime/borrow refinement around `distinct`, safety of shared mutable aliases with ARC, iterator element mutability, and whether `items()` returns a view, a borrow, or a copied vector handle. Compiler inference does not eliminate the need for explicit operational semantics.
+
+## 8. Compiler architecture and incremental compilation
+
+Planned pipeline: lexer -> parser/AST -> semantic analysis -> IR -> C backend for bootstrap -> native machine-code backend later. Type-checking and borrow analysis sit in semantic analysis; inferred errors/effects feed interface signatures and incremental invalidation.
+
+Use stable symbol identities so compiler/editor tooling can track declarations across edits and incrementally rebuild affected nodes. Stable SymbolIds, content fingerprints, dependency graphs, and separately tracked type/effect/error metadata should complement one another; a symbol ID alone does not prove that its implementation or signature is unchanged.
+
+Proposed C-side metadata sketch:
+
+```c
+typedef struct {
+    SymbolId id;
+    const char *name;
+    SymbolId module_id;
+
+    ParamSig *params;
+    size_t param_count;
+
+    TypeId return_type;
+    ErrorSetId errors;
+    EffectSetId effects;
+} FunctionSig;
+
+typedef struct {
+    SymbolId id;
+    const char *name;
+    SymbolId parent_id;
+
+    SymbolId *exports;
+    size_t export_count;
+
+    SymbolId *dependencies;
+    size_t dependency_count;
+
+    SymbolId *type_params;
+    size_t type_param_count;
+
+    SymbolId *contracts;
+    size_t contract_count;
+
+    EffectSetId init_effects;
+    ErrorSetId init_errors;
+} ModuleSig;
+```
+
+Candidate effects:
+
+| Effect | Meaning |
+| --- | --- |
+| `io` | Filesystem or external I/O |
+| `net` | Network operations |
+| `mut` | Mutation of externally observable state |
+| `async` | Asynchronous operations |
+| `unsafe` | Operations requiring unsafe privileges |
+| `nondet` | Randomness or other nondeterminism |
+
+**Open decisions:** whether `net` subsumes `io`, whether `mut` includes local-only mutation, what `async` means in an effect system, and what effect information is publicly observable or ABI-significant.
+
+## 9. Additional correctness requirements
+
+- **Alias safety:** two account lookups may return references to the same object. `distinct` refinement must be strong enough for mutations after the check.
+- **Transfers:** pre-validation reduces risk but does not guarantee atomicity under concurrent mutation, overflow, or unexpected failures. Production banking logic needs rollback/transactions or a proof of infallible commit.
+- **Fixed arrays:** `Arr(T)` initialization should have a clear rule about size inference and bounds.
+- **Nominal vs structural:** two named types with identical field sequences should remain distinct if the language chooses nominal identity. A transparent `type` alias should have separate explicit semantics.
+- **String/character details:** `chr` as "UTF-8 character" needs a precise definition (Unicode scalar value vs UTF-8 code unit or grapheme cluster). A Unicode scalar can encode to up to four UTF-8 bytes, while a grapheme cluster may contain multiple scalars.
+- **Range endpoints:** examples assume `0..4` is half-open and iterates four times. Freeze whether `..` is inclusive or exclusive.
+- **Numerical edge cases:** money formatting of the most negative signed integer, interest arithmetic, and balance overflow are unresolved in this illustrative program.
+- **Surface syntax vs implementation:** all examples are aspirational until corresponding parser/type checker/runtime rules exist.
+
+*/

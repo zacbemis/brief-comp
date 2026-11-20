@@ -8,13 +8,13 @@
 
 1. **Each stage records the facts the next one needs.** A stage that rediscovers a fact means the representation is wrong.
 2. **Every decision is made once.** Names by resolution; types and conversions by checking; mutability and aliasing by their analysis; ownership by the ownership pass; layout by emission. Later stages execute decisions.
-3. **Compared things have canonical identity.** Every type comes from one interner, with an identity key per kind, so type equality is pointer equality ([rustc](https://rustc-dev-guide.rust-lang.org/ty.html)).
+3. **Compared things have canonical identity.** Every type comes from one interner, with an identity key per kind, so equality of resolved types is pointer equality ([rustc](https://rustc-dev-guide.rust-lang.org/ty.html)). Inference variables compare through their union-find roots (A5).
 4. **Names live in nested scopes,** rooted in a prelude that holds builtins and standard-library modules ([Go's universe block](https://go.dev/ref/spec#Blocks)).
 5. **Types are solved by constraints within dependency groups,** one call-graph component at a time ([Hindley–Milner](https://en.wikipedia.org/wiki/Hindley%E2%80%93Milner_type_system)), checking against expected types where they exist. Untyped literals default at the end ([Go](https://go.dev/blog/constants)).
 6. **A fixed point needs a specified domain:** which facts are unknown, provisional or final, and why the iteration ends.
 7. **Control flow is structured,** so flow analyses run over the typed tree, with summaries for calls.
 8. **Modules form an acyclic graph; signatures are contracts.** Generic modules are instantiated per argument and monomorphized ([OCaml functors](https://ocaml.org/manual/5.2/moduleexamples.html#s%3Afunctors)).
-9. **Output is deterministic C,** independent of addresses, hash seeds, timing or how a path was spelled.
+9. **Output is deterministic C,** independent of addresses, hash seeds or timing. Source paths appear as given, in `#line` and diagnostics, as gcc's `__FILE__` does.
 10. **Every refactor is checked by its output,** with readable differences.
 
 Kept as they are: the parser's structure, diagnostics, the arena, the flow framework, the linear IR, the ownership pass, C emission and the `Compilation` API.
@@ -38,7 +38,7 @@ Kept as they are: the parser's structure, diagnostics, the arena, the flow frame
 
 | # | Milestone | Done when |
 |---|---|---|
-| A0 | **Output snapshots** | Relative and absolute invocations agree; a one-character change fails with a readable diff. |
+| A0 | **Output snapshots** | Relative and absolute invocations agree after root normalization; a one-character change fails with a readable diff. |
 | A1 | **Type interner** | Symbol sets and structs use it; no snapshot changes. |
 | A2 | **Explicit conversions** | Lowering only applies recorded steps; no snapshot changes. |
 | A3 | **Builtins and scopes** | Builtins are table rows; no snapshot changes. |
@@ -55,7 +55,8 @@ Feature order after this plan: collections and string builtins after A3; file an
 
 - A C tool, `tests/snapshot.c`, runs the compiler from the repository root with relative source paths.
 - Per program it keeps the generated C, standard error and exit status under `tests/snapshots/`, mirroring the source path, with the embedded runtime replaced by a marker line.
-- Sources: every committed `.brf` and the programs the document tests extract from `docs/lang-*.txt`.
+- Sources: the directories the tests already enumerate (`examples/`, `tests/programs/`, `tests/parse/`) and the programs the document tests extract from `docs/lang-*.txt`. Not `docs/next/`, which is the next language.
+- Before comparing, the repository root in `#line` paths and diagnostics is replaced by a marker.
 - On a difference it prints the differing lines and keeps the actual output. `--update` rewrites snapshots for review.
 
 ## A1. Type interner
@@ -84,7 +85,9 @@ Feature order after this plan: collections and string builtins after A3; file an
 - An implementation is checked against its signature; missing items come from defaults; opaque types are distinct nominal types outside their module.
 - Generic module instances are interned by module and arguments, and monomorphized with module-qualified C names.
 - Resolution runs in phases over all modules in dependency order.
-- A method call on a receiver of unknown type adds call-graph edges only to methods in the caller's module and its dependencies (today `src/sema/resolve/call.c` adds them across the whole program), so no component spans two modules. Tests use unrelated same-named methods in different modules.
+- The module graph includes generic instances: an instance depends on its generic module and its arguments, and the module that names it depends on the instance. The graph must stay acyclic, so a module cannot instantiate a generic with itself as an argument.
+- Every call edge follows the module graph: explicit calls, calls from defaults and instances, and method calls on receivers of unknown type (today `src/sema/resolve/call.c` adds those across the whole program; they become limited to the caller's module and its dependencies). So no call-graph component spans two modules.
+- Tests: unrelated same-named methods in different modules; a cycle created only through an instance or a default is a module-cycle error.
 
 ## A5. Constraint inference
 
@@ -101,6 +104,8 @@ Removed: `check/hints.c`, the probe flag and counters, and the literal-default l
 ## A6. Mutability and aliasing
 
 The design note comes first. It specifies per-function summaries (what each function may change, return or store) computed per component with the flow framework; when two values may be the same object; `distinct` and its handling; and how the ownership pass uses summaries to borrow instead of retain and, for objects that do not escape, to allocate on the stack.
+
+Acceptance: `docs/next/bank.brf`. `Bank.transfer` mutates `source` and `target`, two lookups the compiler cannot prove different (`from != to` says nothing about `find`), so it is rejected until it calls `distinct(source, target)`.
 
 ## Risks
 
