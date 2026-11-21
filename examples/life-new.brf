@@ -1,0 +1,53 @@
+let Board = Arr(Arr(int))
+/*
+[[1,2,3,4],
+[1,2,3,4],
+[1,2,3,4]]
+*/
+
+fn getNewBoard(board: Board): Board -> {
+    for i, row in board.enum() {
+        for j, num in row.enum() {
+            var total = 0
+            let oneLeft = (i - 1) % board.(i).len()
+            let oneRight = (i + 1) % board.(i).len()
+            let oneUp = (j + 1) % board.len()
+            let oneDown = (j - 1) % board.len()
+            if board.(oneLeft).(oneUp) == 1 {
+                total++
+            } 
+            if board.(i).(oneUp) == 1 {
+                total++
+            } 
+            if board.(oneRight).(oneUp) == 1 {
+                total++
+            } 
+            if board.(oneLeft).(j) == 1 {
+                total++
+            } 
+            if board.(oneRight).(j) == 1 {
+                total++
+            } 
+            if board.(oneLeft).(oneDown) == 1 {
+                total++
+            } 
+            if board.(i).(oneDown) == 1 {
+                total++
+            }
+            if board.(oneRight).(oneDown) == 1 {
+                total++
+            }
+
+            true |> {
+                num == 1 && total == (2 | 3) -> num = 1
+                total == 3 -> num = 1
+            }
+        }
+    }
+    ret board
+}
+
+fn main(in: stdIn) -> {
+
+    
+}
